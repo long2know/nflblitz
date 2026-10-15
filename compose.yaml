@@ -1,0 +1,17 @@
+name: nflblitz
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nflblitz-webgl:local
+    user: "101:101"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /var/cache/nginx:rw,nosuid,nodev,noexec,uid=101,gid=101,mode=0700
+    ports:
+      - "${WEBGL_BIND_ADDRESS:-127.0.0.1}:${WEBGL_PORT:-8080}:8080"
