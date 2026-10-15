@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <DefineConstants>$(DefineConstants);BLITZ_TESTS</DefineConstants>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs"
+             Link="Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs"
+             Link="Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/GameplayContracts.cs')"
+           Text="Actual GameplayContracts.cs is required; tests never substitute contract definitions." />
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.cs')"
+           Text="Actual gameplay kernel is not ready. Tests must compile GameSimulation.cs, not a replacement." />
+  </Target>
+</Project>
