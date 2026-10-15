@@ -1,0 +1,62 @@
+# Squad: ignore runtime state (logs, inbox, sessions)
+# Note: .squad/casting/* is identity and MUST be committed to main, not ignored
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+.squad/.scratch/
+.squad/.cache/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream
+
+# Local Squad state (keep static memory policy and casting identity in source)
+.squad/.first-run
+.squad/identity/
+.squad/memory/*
+!.squad/memory/config.json
+.squad/casting/registry.lock*/
+.squad/casting/registry-history.transaction*
+triage-results.json
+
+# Unity generated output; retain Assets/**/*.meta and Packages manifests/lockfiles
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]in/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Bb]uild/
+[Bb]uilds/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+.vs/
+*.csproj
+*.sln
+*.slnx
+*.user
+*.pidb
+*.booproj
+*.opendb
+*.VC.db
+
+# Credentials and Unity activation artifacts (inject via external secret storage)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.ulf
+*.alf
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Machine/session output
+.DS_Store
+Thumbs.db
+*.log
+.copilot/session-state/
+.copilot/logs/
+.copilot/locals/
+.vscode/*.log
