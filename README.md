@@ -18,14 +18,21 @@ dotnet test tests/Blitz.Core.Tests/Blitz.Core.Tests.csproj --configuration Relea
 All **156 core cases passed, zero skipped**, on October 15, 2026. The test project
 links the actual production sources and compiles them as C# 7.3; this does not
 certify Unity's scripting profile. Results/caches stay ignored. Browser harness
-files are preparatory, require the later build/hosting increment and a real Unity
-artifact, and are not evidence of a running game.
+files are preparatory, require build/hosting tooling and a real Unity artifact,
+and are not evidence of a running game.
 
 The library entry point is `Blitz.Gameplay.GameSimulation(int seed = 1)`, exposing
 read-only state/events, per-tick commands and restart. There is no player executable
 in the core increment. See [the API/integration contract](docs/architecture.md),
 [source evidence and explicit nonparity](docs/source-parity.md),
 [test commands/coverage](tests/README.md) and [pending browser smoke](tests/browser/README.md).
+
+## Build and hosting foundation
+
+See [pinned WebGL build/serve commands and activation prerequisites](docs/build.md).
+The scripts and static host are tested tooling; the twelve hosting/tooling tests
+use a clearly synthetic player, not Unity gameplay. Building still requires the
+separate Unity project/build-method increment and supported external activation.
 
 ## Goals and constraints
 
