@@ -1,8 +1,31 @@
 # nflblitz
 
-A planned Unity-based C# reimplementation of NFL Blitz, targeting browser play and
-container hosting. This repository currently contains the approved Squad team
-configuration and project context, not a playable game or a working build pipeline.
+A Unity-oriented C# reimplementation of a bounded NFL Blitz rules slice, targeting
+browser play and container hosting. The engine-independent kernel, contracts and
+headless tests are implemented; a real Unity/WebGL/browser result is still pending.
+This is **not yet a verified browser-playable game or a full-fidelity recreation**.
+
+## Run the headless tests
+
+Prerequisites: Python 3 and .NET SDK 10.0.100. From the repository root:
+
+```sh
+python3 tests/run-core.py
+# Conventional runner, without the extra inventory/source-hash guard:
+dotnet test tests/Blitz.Core.Tests/Blitz.Core.Tests.csproj --configuration Release
+```
+
+All **156 core cases passed, zero skipped**, on October 15, 2026. The test project
+links the actual production sources and compiles them as C# 7.3; this does not
+certify Unity's scripting profile. Results/caches stay ignored. Browser harness
+files are preparatory, require the later build/hosting increment and a real Unity
+artifact, and are not evidence of a running game.
+
+The library entry point is `Blitz.Gameplay.GameSimulation(int seed = 1)`, exposing
+read-only state/events, per-tick commands and restart. There is no player executable
+in the core increment. See [the API/integration contract](docs/architecture.md),
+[source evidence and explicit nonparity](docs/source-parity.md),
+[test commands/coverage](tests/README.md) and [pending browser smoke](tests/browser/README.md).
 
 ## Goals and constraints
 
@@ -11,12 +34,12 @@ configuration and project context, not a playable game or a working build pipeli
 - User-provided source reference: https://github.com/historicalsource/nflblitz2000.
   Archive completeness, dependencies, source/asset licensing and redistribution
   permissions are **unverified**. Public availability does not establish rights.
-- Build/hosting reference for later study: https://github.com/long2know/mahjong-unity.
-  Its configuration has not been validated or imported into this project.
-- Select a supported Unity version and its compatible C# scripting profile before
-  implementation. Modern standalone .NET services and persistence are conditional
-  on actual requirements; no React, backend API or database is assumed.
-- Unity browser builds and container serving are targets, not current capabilities.
+- Build/hosting reference: https://github.com/long2know/mahjong-unity.
+  Studying its toolchain does not establish a successful build of this project.
+- Unity profile/build validation is separate from the C# 7.3 headless suite.
+  Modern standalone .NET services and persistence are conditional on actual
+  requirements; no React, backend API or database is assumed.
+- Unity browser builds and container gameplay remain unverified.
   Any build-license reuse requires supported entitlement/activation; inject secrets
   outside Git and never copy actual license/key files.
 
@@ -28,8 +51,10 @@ Unity owns gameplay; Unity Systems owns presentation/runtime and shared Unity
 assets/settings; Frontend owns browser/CI/container integration; Quality owns
 parity evidence and browser performance. Backend work starts only when justified.
 
-Setup preparation does not implement gameplay, import/convert assets, scaffold
-Docker game builds or create services. Ralph is inactive; heartbeat is manual-only.
+The current authorization permits focused completed-increment PRs, not one giant
+game release. Unity presentation/project changes remain a separate increment
+gated on actual build and browser proof. No original assets or services are added.
+Ralph is inactive; heartbeat is manual-only.
 The installed label workflows may update labels/comments after publication when
 their documented events occur; they are not proof of game/build CI.
 
