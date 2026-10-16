@@ -9,6 +9,7 @@ on:
       - 'tools/assets/**'
       - 'tools/animation/**'
       - 'tools/rosters/**'
+      - 'tools/playbooks/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -24,6 +25,7 @@ on:
       - 'tools/assets/**'
       - 'tools/animation/**'
       - 'tools/rosters/**'
+      - 'tools/playbooks/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -75,6 +77,14 @@ jobs:
         run: |
           python3 -B tools/rosters/tests/fixtures.py
           dotnet run --project tools/rosters/checks/SourceRoster.Checks.csproj --configuration Release -p:NuGetAudit=false -- tools/rosters/SourceData/synthetic-rosters.json
+      - name: Test original playbook runner failure gates
+        run: python3 -B -m unittest discover -s tests/playbooks -p 'test_*.py' -q
+      - name: Fetch verified original playbook and AI inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tests/playbooks/fetch_inputs.py
+      - name: Compare original playbooks and AI decisions
+        run: python3 tests/playbooks/run.py
       - name: Fetch verified original C oracle inputs
         env:
           GH_TOKEN: ${{ github.token }}
