@@ -19,14 +19,17 @@ report.unlink(missing_ok=True)
 project = suite / "CameraChecks.csproj"
 expected_assertions = 3568
 model = root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
-production = [model, root / "Assets/Scripts/Editor/NormalCameraChecks.cs",
-              root / "Assets/Scripts/Presentation/PlayCamera.cs"]
-production += sorted((root / "Assets/Scripts/Contracts").glob("*.cs"))
-production += sorted((root / "Assets/Scripts/Gameplay").glob("*.cs"))
+def production_files():
+    paths = [model, root / "Assets/Scripts/Editor/NormalCameraChecks.cs",
+             root / "Assets/Scripts/Presentation/PlayCamera.cs"]
+    paths += sorted((root / "Assets/Scripts/Contracts").rglob("*.cs"))
+    paths += sorted((root / "Assets/Scripts/Gameplay").rglob("*.cs"))
+    paths += sorted((root / "Assets/Scripts/AssetImport").glob("*.cs"))
+    return paths
 
 def hashes():
     return {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in production}
+            for path in production_files()}
 
 before = hashes()
 env = dict(os.environ)
@@ -65,7 +68,7 @@ try:
     baseline_assertions = check_success(run())
     for name, original, replacement, expected in mutations:
         source_root = workspace / ("source-" + name)
-        for path in production:
+        for path in production_files():
             copied = source_root / path.relative_to(root)
             copied.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, copied)

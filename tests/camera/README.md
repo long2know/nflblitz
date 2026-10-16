@@ -9,7 +9,9 @@ python3 tests/camera/run.py
 
 This **C# 7.3 / .NET 10**, dependency-free console project links the exact
 production `NormalCameraModel.cs`, contracts, gameplay kernel, and existing
-`Assets/Scripts/Editor/NormalCameraChecks.cs` suite. No camera implementation or
+`Assets/Scripts/Editor/NormalCameraChecks.cs` suite. It also links the actual pure
+`AssetImport/*.cs` dependencies, with the recursive `Contracts/**/*.cs`
+include preserved. No camera implementation or
 synthetic tests are duplicated. The small entry point calls that original suite
 and checks its actual counter is exactly **3,568 behavioral assertions**, not
 zero or an unchecked success message.
@@ -24,7 +26,8 @@ The Python command reuses the six original mutations: focal length, QB lead,
 dead-ball orientation, silhouette fitting, archive units, and frame-time response.
 Each modifies only its own copied source tree under `.artifacts/`, must fail the
 intended assertion, and is followed by a clean production baseline. Production
-SHA-256 hashes are guarded. The script removes its copied sources and leaves only
+SHA-256 hashes **and inventories**, including the real AssetImport dependency,
+are guarded. The mutation copies include that dependency too. The script removes its copied sources and leaves only
 ignored SDK/build outputs and `.artifacts/result.json`. Paths have no editor/home
 dependency and are portable across Windows/Linux.
 

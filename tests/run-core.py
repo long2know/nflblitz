@@ -20,7 +20,7 @@ NAMESPACE = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 
 def source_hashes(source_root):
     result = {}
-    for folder in ("Contracts", "Gameplay"):
+    for folder in ("Contracts", "Gameplay", "AssetImport"):
         for path in sorted((source_root / "Assets/Scripts" / folder).rglob("*.cs")):
             result[str(path.relative_to(source_root))] = hashlib.sha256(path.read_bytes()).hexdigest()
     if not any("/Gameplay/" in name for name in result):
@@ -71,7 +71,7 @@ def main():
     evidence = {
         "timestampUtc": stamp,
         "command": command,
-        "scope": "Exact Contracts and Gameplay sources, not Unity/WebGL certification.",
+        "scope": "Exact Contracts, Gameplay and pure AssetImport sources, not Unity/WebGL certification.",
         "status": "failed",
     }
     exit_code = 1

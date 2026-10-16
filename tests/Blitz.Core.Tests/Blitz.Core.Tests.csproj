@@ -22,6 +22,8 @@
              Link="Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs"
              Link="Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs"
+             Link="AssetImport/%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/GameplayContracts.cs')"

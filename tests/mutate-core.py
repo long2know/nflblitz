@@ -32,7 +32,7 @@ def main():
     original_copy = None
     exit_code = 1
     try:
-        for folder in ("Contracts", "Gameplay"):
+        for folder in ("Contracts", "Gameplay", "AssetImport"):
             source = ROOT / "Assets/Scripts" / folder
             for path in source.rglob("*.cs"):
                 destination = copy_root / path.relative_to(ROOT)

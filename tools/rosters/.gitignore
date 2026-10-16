@@ -1,0 +1,8 @@
+/SourceData/
+/checks/bin/
+/checks/obj/
+/checks/Library/bin/
+/checks/Library/obj/
+!/checks/SourceRoster.Checks.csproj
+!/checks/Library/
+!/checks/Library/SourceRoster.Library.csproj

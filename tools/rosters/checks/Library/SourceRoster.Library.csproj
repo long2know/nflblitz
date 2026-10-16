@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs" Link="SourceTeamRosterLibrary.cs" />
+    <Compile Include="../../../../Assets/Scripts/Contracts/*.cs" Link="Contracts/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

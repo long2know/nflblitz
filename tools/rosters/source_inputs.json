@@ -1,0 +1,31 @@
+{
+  "schema": "original-roster-source-inputs/v1",
+  "repository": "historicalsource/nflblitz2000",
+  "commit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "tree_metadata_path": "tree.json",
+  "inputs": [
+    {"path":"teamdata.c","bytes":119063,"git_blob_sha1":"e5340046b33e1d2addc702feb7a94d1a0f69afdb","sha256":"62c6d07230185ed57dc8ecbe36214dfd7dce2b93a8b2e4a13c626ec25b9bb0e0"},
+    {"path":"include/player.h","bytes":20167,"git_blob_sha1":"a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8","sha256":"9f280ff09cf13720501528126792d816ad7862bdf74a6b21b7e8bf5320b44d80"},
+    {"path":"include/GAME.H","bytes":21878,"git_blob_sha1":"09d65c92971c32c44b1dc49fb4e4e98b371b1cd3","sha256":"17f70ebdef3d903b7369050f434b948c11329f6bbda881a950e098f59e5eead3"},
+    {"path":"data.c","bytes":1207,"git_blob_sha1":"da5e46ace4bae7c4118c67b149e0221c937ee1e3","sha256":"f1e6a6ae15bd545d53fb67d76af89d52aea666bd914438976ec12c6617e91f27"},
+    {"path":"data2.c","bytes":1543,"git_blob_sha1":"ff86ddb4995e40974ec08470a44eb65a2dac17f3","sha256":"65b3d2a3b3c41c8a61c07e1e487eeaaf8862dac3336dbc6fec9037e2f355f385"},
+    {"path":"player.c","bytes":328886,"git_blob_sha1":"5744c51f30b625b9f80b92388ab49ff0ebc5bb2c","sha256":"61fb1be76029663294630e8633574ed065496da1ef6329071817e80622870b52"},
+    {"path":"nfl.c","bytes":107299,"git_blob_sha1":"15b49474fb55e8bac280b6515fcf7bf59cdf8664","sha256":"97013eed27a110e11f7180954ed7b7977ee7dc113c372d426392a686948ab434"},
+    {"path":"pmisc.c","bytes":30468,"git_blob_sha1":"50426d40ecd03515cecd295fb80a63ffa0cb0683","sha256":"ee258f18668df9b9ede76e0a9d2876cc3b58f31fef987a9d465897b6afa0dc1f"},
+    {"path":"cap.c","bytes":140753,"git_blob_sha1":"42605264092a30f861f5390535bbe217aac13b66","sha256":"4053bb2c8dea8fc31f9550e0e27e25faa885dfeea69e5703a5d875c8175cf66b"},
+    {"path":"include/cap.h","bytes":8939,"git_blob_sha1":"79e6a1f726f7e55ee35d7de9b1a58cf21027ba18","sha256":"5e2cd20c955e789f7620ad3e10e2dde2bfcba87c444583004a9f41b5650ada6a"},
+    {"path":"include/nflcmos.h","bytes":6916,"git_blob_sha1":"5b7e01c42ba321bdc7073f2954f6489216767cdf","sha256":"cb619ab20727d73508535aedafccf0a506ad41560ad3091960421a5a4be73d6e"},
+    {"path":"lib/select/select.c","bytes":246095,"git_blob_sha1":"26c3955a4081aff73d6e4f1f7633ae86f24e2c4a","sha256":"7e66183b17ee889ab78605ee09a84ef06598c4c3a3bd39166e81a1bd6eeae863"},
+    {"path":"models/skeleton.h","bytes":11858,"git_blob_sha1":"11250fd1509f09bc5ef7df62bbff6b332f2afc87","sha256":"a957d80a322948d7a41667cf80ab621a2ff7b5e74eee6d4da8fba31f216c0a93"},
+    {"path":"models/jerseys.h","bytes":8310,"git_blob_sha1":"be252f3b9da5d8a0ef6b24ee8a2193f94cc7c250","sha256":"98810b49545b1d7acdcb173b4825b1ee50d9fdd4ad6c7e9c442bce412a3f6ba7"},
+    {"path":"models/plyr266.h","bytes":30261,"git_blob_sha1":"a6f301c3926b12ac20f17c776f5c31a26f22a6e7","sha256":"9d91e22e0f80dc369a52c8956c6fb3f7b37504a3b266a8cba4f5125d93741149"},
+    {"path":"models/plyr266f.h","bytes":30058,"git_blob_sha1":"ef1666378ceb3d834cda1364ee76fca7ad983f47","sha256":"8b4b698cd95c2ae2ffdddbc9d7b6ef153356744a05133a5cb5135de2d2c2b041"},
+    {"path":"models/plyr498.h","bytes":47319,"git_blob_sha1":"bcbc13013ac31b0d60cc42e966a598286b80d95f","sha256":"2f170cd7d052d541c2ee3259252b0c8653e161195c38bc85d95ec63a7c422621"},
+    {"path":"models/plyr498f.h","bytes":47440,"git_blob_sha1":"a2f8bac0cc7890efd885614b5a9b8dea4302ca85","sha256":"75f6c175bf441c1d9f0ccf5b09f6c1c326bb60ba615618a436574648a5501215"},
+    {"path":"models/plyr001b.h","bytes":12074,"git_blob_sha1":"2117e607d123061d54e880b0824ccd05546a03ed","sha256":"11ee9a0091bf04dd9a754c319457b7bce8957b7a7cd04ba61007f79d04ea39ec"},
+    {"path":"models/plyr002b.h","bytes":12037,"git_blob_sha1":"38e330509c0dad90caa7f9d4a3d9738499242792","sha256":"60f26c731e8e9f46b4ddbb486ce96ef05564bbe4ccce2197055f52129bced7c0"},
+    {"path":"models/xheads.h","bytes":224111,"git_blob_sha1":"17f1daf3f59b7a9a70bb976aeb39f63f4d71b9e4","sha256":"0d3fbbf5341b18071d88e4988a9c8d5d4b2dedd593861f3cc986c0496486171b"},
+    {"path":"models/xheads3.h","bytes":24579,"git_blob_sha1":"c60fb663788f1cd1bff4ae827b6db966f3c46a8c","sha256":"dfe0e7854d1f7fcbc877ec012d505135457cf18a1cbf1b58219be57b30c890b4"}
+  ]
+}

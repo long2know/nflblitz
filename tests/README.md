@@ -1,7 +1,9 @@
 # First-playable regression evidence
 
 These tests compile the **actual** `Assets/Scripts/Contracts/**/*.cs` and
-`Assets/Scripts/Gameplay/**/*.cs`. There is no replacement simulation, Unity
+`Assets/Scripts/Gameplay/**/*.cs`, including the actual pure
+`Assets/Scripts/AssetImport/*.cs` dependencies used by the source runtime.
+There is no replacement simulation, Unity
 assembly, public debug command, reflection-based field editing, or historical
 source/asset import. Assertions target the bounded slice in
 `docs/architecture.md` and `docs/source-parity.md`, **not whole-game parity**.
@@ -11,7 +13,10 @@ source/asset import. Assertions target the bounded slice in
 Prerequisite: .NET SDK 10.0.100 (the installed SDK). The test assembly targets
 `net10.0`, compiles linked production sources as C# 7.3, and declares xUnit/Test
 SDK versions in `Blitz.Core.Tests/Blitz.Core.Tests.csproj`. This does not certify
-Unity's .NET Standard 2.1 API profile.
+Unity's .NET Standard 2.1 API profile. The independent
+[`contracts/`](contracts/README.md) suite additionally compiles its actual
+Contracts/pure-match sources as C# 7.3 against .NET Standard 2.1; that is not a
+whole-kernel or Unity build certification.
 
 From the repository root:
 
@@ -23,7 +28,8 @@ python3 tests/mutate-core.py
 
 `run-core.py` runs real `dotnet test`, checks the exact method/theory-case
 inventory in `Blitz.Core.Tests/cases.json`, rejects missing/extra/skipped cases,
-and records all source SHA-256 hashes before/after execution. Source changes
+and records Contracts, Gameplay **and AssetImport** source SHA-256 hashes and
+inventories before/after execution. Source changes
 during a run invalidate the result. A missing kernel, build failure, zero-test
 run or missing TRX is a failure, never an apparent pass.
 
@@ -83,7 +89,7 @@ Black-box interaction/full-match tests exercise the ordinary public loop.
 
 ### Real-source mutation
 
-`mutate-core.py` copies the actual contract/gameplay sources and test project into
+`mutate-core.py` copies the actual Contracts/Gameplay/AssetImport sources and test project into
 a unique ignored `tests/.artifacts/mutations/` subtree. It changes the real
 `FirstDownYards` declaration from 30 to 10 **only in that isolated copy**, builds
 and runs actual rule assertions, and requires a behavioral failure (a
@@ -92,6 +98,14 @@ copied bytes in `finally`, verifies shared production hashes are unchanged,
 writes evidence/TRX, and deletes only its own isolated copy. The expected
 mutation test exit is nonzero; the proof command exits zero only if the mutation
 was caught and the shared sources were unchanged.
+
+## Actual source-match contracts
+
+See [`contracts/README.md`](contracts/README.md): 177 promoted DTO assertions /
+65 enum mappings, 23 supplemental guards, 122 source-backed synthetic pure
+rules/flow assertions, and five isolated actual-source offending-field mutants.
+This independent project excludes the actively integrated full simulation;
+interface/DTO green is not behavior, original-C corpus, or full-game parity.
 
 ## Unity metadata
 

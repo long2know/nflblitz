@@ -100,6 +100,7 @@ namespace Blitz.Contracts
         string DecodedSha256 { get; }
         uint SourceFlags { get; }
         int SourceFrameCount { get; }
+        // Script frame ordinals index this map; its values are WAN authoring indices.
         IReadOnlyList<int> SelectedSourceFrames { get; }
         SourceAnimationFrame GetFrame(int sourceFrame);
     }
@@ -112,6 +113,7 @@ namespace Blitz.Contracts
     public readonly struct SourceAnimationSample
     {
         public string SequenceName { get; }
+        // Published frame indices are authoring indices, not selected-array ordinals.
         public int SourceFrame { get; }
         public int NextSourceFrame { get; }
         public float Interpolation01 { get; }
@@ -124,6 +126,26 @@ namespace Blitz.Contracts
             SourceFrame = sourceFrame;
             NextSourceFrame = nextSourceFrame;
             Interpolation01 = interpolation01;
+        }
+
+        public static SourceAnimationSample FromSelectedOrdinals(ISourceAnimationClip clip,
+            int frameOrdinal, int nextFrameOrdinal, float interpolation01 = 0f)
+        {
+            if (clip == null)
+                throw new ArgumentNullException(nameof(clip));
+            if (string.IsNullOrWhiteSpace(clip.SequenceName) || clip.SelectedSourceFrames == null
+                || clip.SelectedSourceFrames.Count == 0 || clip.SourceFrameCount <= 0)
+                throw new ArgumentException("A named clip with its selected-to-authoring frame map is required.", nameof(clip));
+            SourceContractGuard.Range(frameOrdinal, 0, clip.SelectedSourceFrames.Count - 1, nameof(frameOrdinal));
+            SourceContractGuard.Range(nextFrameOrdinal, 0, clip.SelectedSourceFrames.Count - 1, nameof(nextFrameOrdinal));
+            SourceContractGuard.Finite(interpolation01, nameof(interpolation01));
+            if (interpolation01 < 0f || interpolation01 > 1f)
+                throw new ArgumentOutOfRangeException(nameof(interpolation01));
+            int frame = clip.SelectedSourceFrames[frameOrdinal];
+            int nextFrame = clip.SelectedSourceFrames[nextFrameOrdinal];
+            SourceContractGuard.Range(frame, 0, clip.SourceFrameCount - 1, nameof(clip));
+            SourceContractGuard.Range(nextFrame, 0, clip.SourceFrameCount - 1, nameof(clip));
+            return new SourceAnimationSample(clip.SequenceName, frame, nextFrame, interpolation01);
         }
     }
 
@@ -179,6 +201,12 @@ namespace Blitz.Contracts
             Secondary = secondary;
             RootOffsetSourceUnits = rootOffsetSourceUnits;
         }
+    }
+
+    // Pure snapshot geometry: original centered source-world units, joints 0..14.
+    public interface ISourceActorGeometry
+    {
+        SourceVector3 WorldJoint(PlayerView actor, int sourceJointIndex);
     }
 
     // Optional detached snapshot extension; existing IGameState/Step callers remain valid.
