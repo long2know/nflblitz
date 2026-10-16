@@ -1,30 +1,12 @@
 import { spawn } from 'node:child_process';
-import { chmod, mkdir, rm, stat } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Cdp } from './lib.mjs';
+import { createChromeRuntime } from './runtime.mjs';
 
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function launchChrome(directory) {
-  const profile = path.join(directory, 'profile');
-  const cache = path.join(directory, 'cache');
-  const config = path.join(directory, 'config');
-  // Chrome's process-singleton Unix socket has a 108-byte address limit.
-  const socketRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.artifacts/chrome', String(process.pid));
-  if (Buffer.byteLength(socketRoot) > 62) throw new Error('Repository path is too long for Chrome process-singleton sockets.');
-  await mkdir(profile, { recursive: true });
-  await mkdir(cache, { recursive: true });
-  await mkdir(config, { recursive: true });
-  await mkdir(socketRoot, { recursive: true });
-  await chmod(socketRoot, 0o700);
-  if (((await stat(socketRoot)).mode & 0o777) !== 0o700) {
-    await rm(socketRoot, { recursive: true, force: true });
-    await rm(profile, { recursive: true, force: true });
-    await rm(cache, { recursive: true, force: true });
-    await rm(config, { recursive: true, force: true });
-    throw new Error('Repository filesystem does not preserve private 0700 directories (Chrome process-singleton requires them). Run from a POSIX-permission worktree. External temporary directories are not used.');
-  }
+  const runtime = await createChromeRuntime();
+  const { profile, cache, config } = runtime;
   const args = [
     '--headless=new', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
     `--user-data-dir=${profile}`, `--disk-cache-dir=${cache}`,
@@ -33,13 +15,25 @@ export async function launchChrome(directory) {
     '--autoplay-policy=no-user-gesture-required', '--window-size=1280,800', 'about:blank',
   ];
   if (process.getuid?.() === 0) args.unshift('--no-sandbox');
-  const child = spawn(process.env.CHROME_BIN || 'google-chrome', args, {
-    env: { ...process.env, TMPDIR: socketRoot, XDG_CACHE_HOME: cache, XDG_CONFIG_HOME: config },
+  const executable = process.env.CHROME_BIN || 'google-chrome';
+  const child = spawn(executable, args, {
+    env: { ...process.env, HOME: runtime.directory, TMPDIR: runtime.tmp, XDG_RUNTIME_DIR: runtime.tmp,
+      XDG_CACHE_HOME: cache, XDG_CONFIG_HOME: config, XDG_DATA_HOME: config },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   let stderr = '';
   let cdp;
-  const closed = new Promise(resolve => child.once('exit', resolve));
+  let exited = false;
+  const closed = new Promise(resolve => child.once('close', () => { exited = true; resolve(); }));
+  const stop = async () => {
+    cdp?.close();
+    if (!exited) child.kill('SIGTERM');
+    let stopTimer;
+    await Promise.race([closed, new Promise(resolve => { stopTimer = setTimeout(resolve, 5000); })]);
+    clearTimeout(stopTimer);
+    if (!exited) { child.kill('SIGKILL'); await closed; }
+    await runtime.cleanup();
+  };
   try {
     const endpoint = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error(`Chrome did not become ready. ${stderr}`)), 30000);
@@ -52,7 +46,7 @@ export async function launchChrome(directory) {
       });
     });
     const port = new URL(endpoint).port;
-    const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+    const response = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(5000) });
     if (!response.ok) throw new Error(`Chrome DevTools HTTP status ${response.status}`);
     const pages = await response.json();
     const page = pages.find(item => item.type === 'page');
@@ -65,21 +59,9 @@ export async function launchChrome(directory) {
       cdp.send('Log.enable'),
     ]);
     const version = await cdp.send('Browser.getVersion');
-    return { cdp, version, close: async () => {
-      cdp.close();
-      if (child.exitCode === null) child.kill('SIGTERM');
-      await Promise.race([closed, sleep(5000)]);
-      if (child.exitCode === null) { child.kill('SIGKILL'); await closed; }
-      await rm(socketRoot, { recursive: true, force: true });
-      await rm(config, { recursive: true, force: true });
-    } };
+    return { cdp, version, launch: { executable, args, runtime: runtime.directory, evidenceDirectory: directory }, close: stop };
   } catch (error) {
-    cdp?.close();
-    if (child.exitCode === null) child.kill('SIGTERM');
-    await Promise.race([closed, sleep(5000)]);
-    if (child.exitCode === null) { child.kill('SIGKILL'); await closed; }
-    await rm(socketRoot, { recursive: true, force: true });
-    await rm(config, { recursive: true, force: true });
+    await stop();
     throw error;
   }
 }
@@ -88,6 +70,12 @@ export async function value(cdp, expression) {
   const result = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
   if (result.exceptionDetails) throw new Error(`Browser evaluation failed: ${JSON.stringify(result.exceptionDetails)}`);
   return result.result.value;
+}
+
+export async function targetSession(cdp, targetId) {
+  const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+  if (!sessionId) throw new Error(`Chrome did not attach to its owned target ${targetId}`);
+  return { send: (method, params) => cdp.send(method, params, sessionId) };
 }
 
 const KEYS = {

@@ -5,3 +5,7 @@
 .squad/orchestration-log/** merge=union
 .squad/rai/audit-trail.md merge=union
 .squad/fact-checker/audit-trail.md merge=union
+
+# Unity's serializer retains a trailing space on empty YAML values.
+ProjectSettings/*.asset whitespace=-blank-at-eol
+Assets/Scenes/*.unity whitespace=-blank-at-eol

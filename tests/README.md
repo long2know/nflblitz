@@ -93,6 +93,59 @@ writes evidence/TRX, and deletes only its own isolated copy. The expected
 mutation test exit is nonzero; the proof command exits zero only if the mutation
 was caught and the shared sources were unchanged.
 
+## Unity metadata
+
+No editor or third-party Python package is needed:
+
+```sh
+python3 tests/test-unity-metadata.py
+```
+
+This runs stdlib guard tests, then checks the **actual** Assets tree, including
+file/folder metadata and `Assets.meta`. Every asset needs metadata, every metadata
+file needs an asset, nonempty metadata must end in a final **LF byte** (CRLF is
+accepted), and each GUID must be a unique nonzero 32-hex value. The LF regression
+preserves a valid GUID and removes only the terminator after an empty importer
+field, matching the owner-confirmed native EOF rejection/retry. Scene
+and prefab `m_Script` GUIDs must resolve to existing local `.cs` assets; malformed,
+null and unresolved references fail. This is a local text-serialization guard,
+not Unity importer/compilation or package-script resolution certification.
+
+The same command also copies the actual `NormalCameraChecks.cs.meta` into a
+small isolated metadata fixture under ignored `tests/.artifacts/`, appends the
+regressing 33rd hex digit, and requires rejection for that precise reason.
+The shared metadata is never edited; its bytes must remain unchanged, and only
+the checker’s own isolated fixture is deleted.
+
+Coordinate an owner-complete snapshot when importers/builds are writing Assets.
+Inventory changes during checking fail rather than silently omitting new files.
+`python3 tests/test-unity-metadata.py --unit-only` is available while awaiting
+that handoff; it explicitly reports the live inventory/mutation **NOT RUN** and
+does not constitute a passing live gate. CI should use the default command.
+
+The earlier October 15, 2026 GUID-only owner-paused snapshot passed **11 guard tests**;
+the actual inventory contained **34 assets, 34 metadata files, 34 unique GUIDs**
+and one resolving scene script reference. The actual camera metadata's isolated
+33-hex mutation was rejected for the expected rule, shared source bytes stayed
+unchanged, and isolated fixtures were removed. These counts describe that
+snapshot, not a hard-coded allowlist, final-LF check or Unity compile/import
+certification.
+
+The **LF-extended default command subsequently passed** on the coordinated
+post-import/post-repeat snapshot: **12 guard tests**, **68 assets / 68 metadata
+files / 68 unique GUIDs**, and **two resolving scene/prefab script references**.
+The valid-GUID/no-final-LF regression rejects the native EOF failure; LF and
+CRLF are accepted. The actual 33-hex camera mutation was killed again, shared
+bytes stayed unchanged, and all fixtures were deleted. Counts remain dynamic
+snapshot evidence; ignored local imported assets need not exist in a clean CI
+checkout.
+
+The later owner-released QBSTANCE/posed snapshot also passed the default command:
+**12 guards**, **73 assets / 73 metadata files / 73 unique GUIDs**, three resolving
+scene/prefab script references, and the actual 33-hex mutation killed again with
+unchanged shared source. This metadata-only result does not authorize deployment
+or certify the posed browser output.
+
 ## Browser
 
 See [`browser/README.md`](browser/README.md). Passing headless core tests or

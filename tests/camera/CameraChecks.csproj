@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/GameplayContracts.cs" Link="Production/GameplayContracts.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" Link="Production/Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/NormalCameraModel.cs" Link="Production/NormalCameraModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Editor/NormalCameraChecks.cs" Link="Production/NormalCameraChecks.cs" />
+  </ItemGroup>
+  <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.cs')"
+           Text="The actual gameplay kernel is required for camera integration checks." />
+  </Target>
+</Project>

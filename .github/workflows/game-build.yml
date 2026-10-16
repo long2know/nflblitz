@@ -3,8 +3,8 @@ name: Game source checks
 on:
   pull_request:
     paths:
-      - 'Assets/Scripts/Contracts/**'
-      - 'Assets/Scripts/Gameplay/**'
+      - 'Assets/**'
+      - 'Assets.meta'
       - 'tests/**'
       - 'tools/assets/**'
       - 'tools/animation/**'
@@ -17,8 +17,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Assets/Scripts/Contracts/**'
-      - 'Assets/Scripts/Gameplay/**'
+      - 'Assets/**'
+      - 'Assets.meta'
       - 'tests/**'
       - 'tools/assets/**'
       - 'tools/animation/**'
@@ -50,6 +50,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.11.1'
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: '10.0.100'
@@ -64,6 +67,14 @@ jobs:
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
         run: python3 -B -m unittest discover -s tools/animation/tests
+      - name: Test generated-player parsing and geometry
+        run: python3 tests/assets/run.py
+      - name: Test source-camera behavior
+        run: python3 tests/camera/run.py
+      - name: Test browser assertions and isolated runtime
+        run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs
+      - name: Validate Unity metadata and script references
+        run: python3 tests/test-unity-metadata.py
       - name: Build-tool unit checks
         run: python3 scripts/test-webgl-tooling.py
       - name: Build and hosting shell syntax

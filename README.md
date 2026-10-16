@@ -1,87 +1,110 @@
 # nflblitz
 
-A Unity-oriented C# reimplementation of a bounded NFL Blitz rules slice, targeting
-browser play and container hosting. The engine-independent kernel, contracts and
-headless tests are implemented; a real Unity/WebGL/browser result is still pending.
-This is **not yet a verified browser-playable game or a full-fidelity recreation**.
+A Unity/C# source-based port targeting the **original NFL Blitz 2000 look and
+game logic**, running client-side in a browser. The procedural graybox
+is a diagnostic baseline, **not the visual target**. This is an incomplete port,
+not a finished or whole-game-parity recreation.
 
-## Run the headless tests
+**Verified October 15, 2026 (PDT):** original player mesh, skeleton and textures,
+with authentic static `QBSTANCE` frame 0, passed native apply/reload and a
+bounded Docker-served desktop/portrait standing-player visual-controls check.
+The source-derived normal camera and Unity **6000.3.24f1** host WebGL builds also
+passed. The subsequent `NFL BLITZ 2000` / `UNITY SOURCE PORT / IN PROGRESS`
+identity and field-axis legend correction has passed a host build and matching
+Docker promotion; fresh final-title browser evidence remains pending. The earlier
+standing proof is valid with its previous label, not proof of that later UI
+generation.
 
-Prerequisites: Python 3 and .NET SDK 10.0.100. From the repository root:
+## Import, build and run
+
+Run commands from the **repository root**, which is the Unity project.
+
+1. Install Unity **6000.3.24f1** with WebGL Build Support and provide an existing
+   externally activated editor environment. Docker with Compose serves the result.
+2. Follow [offline source preparation and native import](docs/build.md#prepare-and-import-a-local-source-player)
+   with your supplied pinned original source tree. Python 3.9+ prepares the
+   ignored local player; a clean checkout contains **no original art or player
+   build**. Complete the **required**
+   [QBSTANCE frame-0 apply/verify step](docs/build.md#apply-qbstance-frame-0)
+   before building to reproduce the correct standing preview. The identity/
+   authoring bind pose is debug-only, not acceptable game posture.
+3. Build and serve:
+
+   ```sh
+   export UNITY_EDITOR="/absolute/path/to/6000.3.24f1/Editor/Unity"
+   bash scripts/build-webgl.sh --host
+   bash scripts/serve-webgl.sh
+   ```
+
+   Host mode preserves the caller's `HOME`/`XDG_*` activation environment.
+   Serving builds the static runtime image locally and runs in the foreground;
+   Ctrl-C stops it. See [build, activation and generation proof](docs/build.md).
+4. Open `http://127.0.0.1:8080/?actors=source` to **require** the local source
+   prefab. Missing/invalid source assets fail explicitly; there is no fake
+   primitive fallback. `http://127.0.0.1:8080/?actors=graybox` selects the baseline.
+   Without a parameter, an installed source prefab takes precedence; otherwise
+   the baseline runs. Import/pose changes require a new build before serving.
+
+For interactive editing, open `Assets/Scenes/Boot.unity`. Never run concurrent
+editors/imports/builds against the same project and `Library/`.
+
+### Controls
+
+Focus the game canvas for keyboard input. The bounded source-player smoke covers
+selection, snap, pass/catch, dead ball/next play and restart; it is not
+complete defensive, focus-release or full-match qualification.
+
+| Input | Action |
+| --- | --- |
+| 1 / 2 during selection | Run / Quick Pass on offense; Cover / Blitz on defense |
+| Space | Snap Home offense or continue after a dead ball; Away offense auto-snaps |
+| WASD / arrows | Move; W / Up = +X, D / Right = +Z |
+| Hold Shift | Turbo |
+| 1 / 2 / 3 during live Home offense | Pass to eligible receiver 4 / 5 / 6 |
+| Q / F on defense | Switch Home defender / tackle |
+| R | Restart with seed 1 from any phase |
+
+Contextual in-player buttons use the same commands; there is no full mobile
+touch-movement controller.
+
+## Run the tests
+
+Headless prerequisites: Python 3.9+ and .NET SDK **10.0.100**. From the repository
+root, with no importer/editor writing assets:
 
 ```sh
 python3 tests/run-core.py
-# Conventional runner, without the extra inventory/source-hash guard:
-dotnet test tests/Blitz.Core.Tests/Blitz.Core.Tests.csproj --configuration Release
+python3 tests/assets/run.py
+python3 tests/camera/run.py
+python3 tests/test-unity-metadata.py
+python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
+python3 -B -m unittest discover -s tools/animation/tests
 ```
 
-All **156 core cases passed, zero skipped**, on October 15, 2026. The test project
-links the actual production sources and compiles them as C# 7.3; this does not
-certify Unity's scripting profile. Results/caches stay ignored. Browser harness
-files are preparatory, require build/hosting tooling and a real Unity artifact,
-and are not evidence of a running game.
+See [core/metadata coverage](tests/README.md), [asset regressions](tests/assets/README.md),
+[camera regressions](tests/camera/README.md), and the
+[browser harness and recorded evidence](tests/browser/README.md). Browser tests
+need Node 24, Chrome and Tesseract; use the documented perspective/source-player
+subset rather than treating the older orthographic smoke as current acceptance.
 
-The library entry point is `Blitz.Gameplay.GameSimulation(int seed = 1)`, exposing
-read-only state/events, per-tick commands and restart. There is no player executable
-in the core increment. See [the API/integration contract](docs/architecture.md),
-[source evidence and explicit nonparity](docs/source-parity.md),
-[test commands/coverage](tests/README.md) and [pending browser smoke](tests/browser/README.md).
+## What remains
 
-## Build and hosting foundation
+- All fourteen source-mode actors reuse **one normal-body Chicago home /
+  `PC_WHITE` variant**. Jersey-number overlays, other rosters/skins and continuous
+  source animation are not ported. One QB pose is not universal pre-snap behavior.
+- The field/stadium, lighting and HUD remain approximations, not original assets
+  or N64 pixel fidelity. The source reference is arcade code; edition equivalence
+  with the supplied N64 screenshot is unverified.
+- Thirty yards in four downs, six-point touchdowns and two-point safeties have
+  source-traced tests. AI, physics, two plays per role, fixed live-time quarters
+  and own-20 post-score restarts remain simplified.
+- Full browser match/final restart, perspective focus-release geometry and
+  representative hardware performance remain unqualified.
 
-See [pinned WebGL build/serve commands and activation prerequisites](docs/build.md).
-The scripts and static host are tested tooling; the twelve hosting/tooling tests
-use a clearly synthetic player, not Unity gameplay. Building still requires the
-separate Unity project/build-method increment and supported external activation.
-
-## Goals and constraints
-
-- Full behavioral fidelity is the goal, not a guarantee. Progress must be supported
-  by source-backed scenarios, reproducible regression tests and observed results.
-- User-provided source reference: https://github.com/historicalsource/nflblitz2000.
-  Archive completeness, dependencies, source/asset licensing and redistribution
-  permissions are **unverified**. Public availability does not establish rights.
-- Build/hosting reference: https://github.com/long2know/mahjong-unity.
-  Studying its toolchain does not establish a successful build of this project.
-- Unity profile/build validation is separate from the C# 7.3 headless suite.
-  Modern standalone .NET services and persistence are conditional on actual
-  requirements; no React, backend API or database is assumed.
-- Unity browser builds and container gameplay remain unverified.
-  Any build-license reuse requires supported entitlement/activation; inject secrets
-  outside Git and never copy actual license/key files.
-
-## Team
-
-See [the roster](.squad/team.md), [ownership and handoffs](.squad/routing.md),
-[governance](.squad/governance.md) and [accepted decisions](.squad/decisions.md).
-Unity owns gameplay; Unity Systems owns presentation/runtime and shared Unity
-assets/settings; Frontend owns browser/CI/container integration; Quality owns
-parity evidence and browser performance. Backend work starts only when justified.
-
-The current authorization permits focused completed-increment PRs, not one giant
-game release. Unity presentation/project changes remain a separate increment
-gated on actual build and browser proof. No original assets or services are added.
-Ralph is inactive; heartbeat is manual-only.
-The installed label workflows may update labels/comments after publication when
-their documented events occur; they are not proof of game/build CI.
-
-Runtime Squad sessions, mutable memory, local identity state and editor/session
-dumps are ignored. Installer templates, skills, nonsecret configuration and
-transaction-backed casting identity are intended source files. Review the exact
-publish set before staging; future branches must start with `stlong/`.
-
-## Configuration checks
-
-With the installed Squad CLI available, run:
-
-```sh
-node .squad/scripts/validate-team.mjs
-```
-
-After an authorized roster/charter/routing change, regenerate only the capability
-block with `node .squad/scripts/validate-team.mjs --write-capabilities`. This uses
-the installed SDK renderer with a registry-backed specialist view: CLI 1.0.0's
-default roster parser otherwise advertises Rai and Fact Checker as specialists.
-It retains all ten roster entries and both coordinator canaries. Restart the
-Copilot session after generated instructions change. Do not run broad upgrades
-to regenerate this block without reviewing their effects.
+The [source-parity ledger](docs/source-parity.md) records the pinned references,
+provenance boundary and exact evidence limits. Original inputs, converted art,
+pose data, builds and captures stay local and ignored, but persist on disk.
+The [architecture contract](docs/architecture.md) documents the Unity runtime and
+single-writer boundaries. Docker serves static files; no React, API or backend is
+required. Team ownership is in the [roster](.squad/team.md) and
+[routing rules](.squad/routing.md).

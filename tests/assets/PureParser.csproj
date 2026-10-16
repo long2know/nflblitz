@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <IsPackable>false</IsPackable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/GeneratedCInitializer.cs" Link="Production/GeneratedCInitializer.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/PlayerImportPlan.cs" Link="Production/PlayerImportPlan.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/GeneratedPlayerReader.cs" Link="Production/GeneratedPlayerReader.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/BindPoseMeshBuilder.cs" Link="Production/BindPoseMeshBuilder.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/GeneratedPlayerData.cs" Link="Production/GeneratedPlayerData.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs" Link="Production/AuthorizedAssetFiles.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourcePlayerPose.cs" Link="Production/SourcePlayerPose.cs" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-import { inflateSync } from 'node:zlib';
+import { crc32, deflateSync, inflateSync } from 'node:zlib';
 
 export function safeUrl(value) {
   try {
@@ -7,6 +7,52 @@ export function safeUrl(value) {
   } catch {
     return String(value).slice(0, 300);
   }
+}
+
+export function actorModeFromUrl(value) {
+  const modes = new URL(value).searchParams.getAll('actors');
+  if (modes.length > 1 || modes.some(mode => !['source', 'graybox'].includes(mode))) {
+    throw new Error('Actor selection must be one explicit actors=source or actors=graybox.');
+  }
+  return modes[0] ?? null;
+}
+
+export function requireActorMarker(mode, messages, pose = 'bind-pose') {
+  const sourceMarkers = {
+    'bind-pose': 'Actor mode: local source mesh/textures, bind-pose-only.',
+    'qbstance-frame0': 'Actor mode: local source mesh/textures, QBSTANCE frame0 source pose (static; no original continuous animation; not verified pre-snap).',
+  };
+  if (mode === 'source' && !sourceMarkers[pose]) throw new Error(`Unsupported expected source pose ${pose}`);
+  const marker = mode === 'source' ? sourceMarkers[pose]
+    : mode === 'graybox' ? 'Actor mode: explicitly selected procedural graybox.' : null;
+  if (!marker) throw new Error('Explicit actor mode is required for actor identity evidence.');
+  if (!messages.some(message => message.includes(marker))) {
+    throw new Error(`Actual Unity console actor marker missing: ${marker}`);
+  }
+  return marker;
+}
+
+export function parseGenerationProof(receipt, text) {
+  if (receipt.schemaVersion !== 2 || receipt.generationProof !== 'build-generation.txt' ||
+      !/^[0-9a-f]{32}$/.test(receipt.buildId ?? '')) throw new Error('Expected a schema2 generation receipt.');
+  const lines = text.trimEnd().split(/\r?\n/);
+  if (lines.length !== 12) throw new Error('Generation proof must have its exact twelve fields.');
+  for (const field of ['format=blitz-webgl-build-v1', `build-id=${receipt.buildId}`,
+    'unity-version=6000.3.24f1', 'build-target=WebGL', 'build-result=Succeeded', 'total-errors=0']) {
+    if (lines.filter(line => line === field).length !== 1) throw new Error(`Invalid generation proof field ${field}`);
+  }
+  const artifacts = new Map();
+  for (const line of lines.filter(line => line.startsWith('sha256='))) {
+    const match = line.match(/^sha256=([0-9a-f]{64}) (index\.html|Build\/[A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:loader\.js|framework\.js|wasm|data))$/);
+    if (!match || artifacts.has(match[2])) throw new Error('Unsafe, duplicate or malformed generation artifact.');
+    artifacts.set(match[2], match[1]);
+  }
+  if (artifacts.size !== 5 || !artifacts.has('index.html') ||
+      ['loader.js', 'framework.js', 'wasm', 'data'].some(suffix =>
+        [...artifacts.keys()].filter(file => file.endsWith(`.${suffix}`)).length !== 1)) {
+    throw new Error('Generation proof must identify index and all four unique real player payloads.');
+  }
+  return artifacts;
 }
 
 export function parseHud(text) {
@@ -24,6 +70,7 @@ export function parseHud(text) {
   const home = normalized.match(/\bHOME\s*[:|-]?\s*(\d{1,3})\b/);
   const away = normalized.match(/\bAWAY\s*[:|-]?\s*(\d{1,3})\b/);
   const quarter = normalized.match(/\b(?:QUARTER|Q)\s*[:#|-]?\s*([1-4])\b/);
+  const clock = normalized.match(/\b([0-9]{1,2}):([0-5][0-9])\b/);
   const down = normalized.match(/\bDOWN\s*[:#|-]?\s*([1-4])\b/)
     ?? normalized.match(/\b([1-4])(?:ST|ND|RD|TH)\s*&/);
   const playNumber = normalized.match(/\bPLAY\s*#\s*(\d+)\b/);
@@ -36,6 +83,7 @@ export function parseHud(text) {
     homeScore: home ? Number(home[1]) : null,
     awayScore: away ? Number(away[1]) : null,
     quarter: quarter ? Number(quarter[1]) : null,
+    clockSeconds: clock ? Number(clock[1]) * 60 + Number(clock[2]) : null,
     down: down ? Number(down[1]) : null,
     playNumber: playNumber ? Number(playNumber[1]) : null,
     passCaught: /\b(CAUGHT|PASS\s+COMPLETE)\b/.test(normalized),
@@ -53,9 +101,104 @@ export function requireHud(state) {
   return state;
 }
 
-export function readVisibleHud(fullText, headerText) {
+export function requireFreshMatchHud(state, screenshot) {
+  requireHud(state);
+  if (state.phase !== 'PlaySelect' || state.possession !== 'Home' || state.homeScore !== 0 ||
+      state.awayScore !== 0 || state.quarter !== 1 || state.clockSeconds !== 120) {
+    throw new Error(`Fresh-match HUD changed or was misread in ${screenshot}: ${JSON.stringify(state)}`);
+  }
+}
+
+export function requireFinalPresentation(headerText, legendText, documentTitle, narrow, screenshot) {
+  const compact = text => text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!compact(headerText).includes('NFLBLITZ2000') || !compact(documentTitle).includes('NFLBLITZ2000') ||
+      compact(headerText + documentTitle).includes('YARDRUSH')) {
+    throw new Error(`Final NFL BLITZ 2000 HUD/document title missing or stale in ${screenshot}`);
+  }
+  if (!narrow && !compact(headerText).includes('UNITYSOURCEPORTINPROGRESS')) {
+    throw new Error(`Final desktop in-progress subtitle unreadable in ${screenshot}`);
+  }
+  const legend = legendText.toUpperCase();
+  if (!/\bW\s*=\s*\+\s*X\s+FIELD\b/.test(legend) || !/\bD\s*=\s*\+\s*Z\s+FIELD\b/.test(legend) ||
+      /\bRIGHT\b|\bFAR\s+SIDE\b/.test(legend)) {
+    throw new Error(`Explicit world-field W=+X / D=+Z legend missing or stale in ${screenshot}`);
+  }
+}
+
+export function requireNarrowControls(text, screenshot) {
+  const normalized = text.toUpperCase();
+  for (const [label, pattern] of [
+    ['movement', /\bWASD\b|\bARROWS\b/], ['turbo', /\bSHIFT\b/],
+    ['tackle', /\bF\s+TACKLE\b/], ['defender switch', /\bQ\s+SWITCH\b/],
+    ['run play', /\b1\s+RUN\b/], ['pass play', /\b2\s+QUICK\s+PASS\b/],
+  ]) {
+    if (!pattern.test(normalized)) throw new Error(`Narrow ${label} control is not readable in ${screenshot}`);
+  }
+}
+
+export function readTeamScore(text, team) {
+  if (!['Home', 'Away'].includes(team)) throw new Error(`Unknown score team ${team}`);
+  const normalized = String(text ?? '').trim().toUpperCase();
+  const match = normalized.match(/^(\d{1,3})$/) ??
+    normalized.match(new RegExp(`^${team.toUpperCase()}[,.:|]?\\s+(\\d{1,3})$`));
+  return match ? Number(match[1]) : null;
+}
+
+export function scoreRects(canvas) {
+  const scale = canvas.width < 650 ? Math.max(0.5, canvas.width / 480) : Math.min(1.4, Math.max(0.82, canvas.width / 1280));
+  const narrow = canvas.width / scale < 650;
+  const boxes = narrow
+    ? { home: { x: 16 * scale, y: 39 * scale, width: 145 * scale, height: 52 * scale },
+      away: { x: canvas.width - 161 * scale, y: 39 * scale, width: 145 * scale, height: 52 * scale } }
+    : { home: { x: canvas.width / 2 - 268 * scale, y: 9 * scale, width: 168 * scale, height: 58 * scale },
+      away: { x: canvas.width / 2 + 100 * scale, y: 9 * scale, width: 168 * scale, height: 58 * scale } };
+  return Object.fromEntries(Object.entries(boxes).map(([team, box]) => [team, {
+    x: canvas.x + box.x + 12 * scale, y: canvas.y + box.y + 18 * scale,
+    width: box.width - 20 * scale, height: box.height - 18 * scale,
+  }]));
+}
+
+export function phaseRect(canvas) {
+  if (canvas.width < 1000 || canvas.height < 520) throw new Error('Fast phase capture requires the actual desktop sidebar.');
+  const scale = Math.min(1.4, Math.max(0.82, canvas.width / 1280));
+  return { x: canvas.x + canvas.width - 272 * scale, y: canvas.y + 130 * scale,
+    width: 244 * scale, height: 20 * scale, scale: 3 };
+}
+
+export function readVisibleHud(fullText, headerText, scoreText = {}) {
   const header = parseHud(headerText);
-  return { ...parseHud(fullText), homeScore: header.homeScore, awayScore: header.awayScore };
+  return { ...parseHud(fullText), homeScore: readTeamScore(scoreText.home, 'Home'), awayScore: readTeamScore(scoreText.away, 'Away'),
+    possession: header.possession, quarter: header.quarter, clockSeconds: header.clockSeconds };
+}
+
+export function parseOcrTsv(tsv) {
+  const words = [];
+  const lines = new Map();
+  for (const row of tsv.trim().split('\n').slice(1)) {
+    const fields = row.split('\t');
+    if (fields[0] !== '5' || fields.length < 12 || !fields[11].trim()) continue;
+    const [left, top, width, height, confidence] = fields.slice(6, 11).map(Number);
+    if (![left, top, width, height, confidence].every(Number.isFinite)) throw new Error('Invalid OCR word coordinates.');
+    const line = fields.slice(1, 5).join(':');
+    const word = { line, left, top, width, height, confidence, text: fields.slice(11).join('\t').trim() };
+    words.push(word);
+    if (!lines.has(line)) lines.set(line, []);
+    lines.get(line).push(word);
+  }
+  return { words, text: [...lines.values()].map(items => items.map(word => word.text).join(' ')).join('\n') };
+}
+
+export function fieldPlayerOffset(observation, canvas) {
+  const fieldWords = observation.landmarks.filter(word => word.left < canvas.x + canvas.width - 300 &&
+    word.top > canvas.y + 104 && word.top < canvas.y + canvas.height - 88);
+  const player = fieldWords.find(word => /^YOU[/:]?$/i.test(word.text));
+  const anchor = fieldWords.find(word => /^SCRIMMAGE$/i.test(word.text)) ??
+    fieldWords.find(word => /^FIRST$/i.test(word.text));
+  if (!player || !anchor) {
+    throw new Error(`Cannot prove released movement without actual player/field OCR landmarks: ${observation.screenshot}`);
+  }
+  return { x: player.left + player.width / 2 - anchor.left,
+    y: player.top + player.height / 2 - anchor.top, anchor: anchor.text };
 }
 
 export function assertNoRuntimeErrors(errors) {
@@ -70,7 +213,7 @@ function paeth(a, b, c) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
-export function pngStats(png) {
+export function decodePng(png) {
   if (!png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
     throw new Error('Screenshot is not a PNG.');
   }
@@ -100,9 +243,7 @@ export function pngStats(png) {
   const stride = width * channels;
   if (raw.length !== height * (stride + 1)) throw new Error('Screenshot scanline size mismatch.');
   let previous = Buffer.alloc(stride);
-  let green = 0;
-  let bright = 0;
-  const colors = new Set();
+  const pixels = Buffer.alloc(width * height * channels);
   for (let y = 0; y < height; y++) {
     const filter = raw[y * (stride + 1)];
     const row = Buffer.from(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1)));
@@ -111,18 +252,102 @@ export function pngStats(png) {
       const left = x >= channels ? row[x - channels] : 0;
       const up = previous[x];
       const upperLeft = x >= channels ? previous[x - channels] : 0;
-      const predictor = [0, left, up, Math.floor((left + up) / 2), paeth(left, up, upperLeft)][filter];
+      let predictor = 0;
+      if (filter === 1) predictor = left;
+      else if (filter === 2) predictor = up;
+      else if (filter === 3) predictor = Math.floor((left + up) / 2);
+      else if (filter === 4) predictor = paeth(left, up, upperLeft);
       row[x] = (row[x] + predictor) & 255;
     }
-    for (let x = 0; x < stride; x += channels) {
-      const [r, g, b] = row.subarray(x, x + 3);
-      if (g > 35 && g > r * 1.2 && g > b * 1.05) green++;
-      if (r > 180 && g > 180 && b > 180) bright++;
-      colors.add((r >> 4) * 256 + (g >> 4) * 16 + (b >> 4));
-    }
+    row.copy(pixels, y * stride);
     previous = row;
   }
+  return { width, height, channels, pixels };
+}
+
+export function cropPng(image, rectangle) {
+  if (Buffer.isBuffer(image)) image = decodePng(image);
+  const x = Math.floor(rectangle.x), y = Math.floor(rectangle.y);
+  const width = Math.ceil(rectangle.width), height = Math.ceil(rectangle.height);
+  const scale = rectangle.scale ?? 1;
+  if (![x, y, width, height, scale].every(Number.isFinite) || x < 0 || y < 0 || width < 1 || height < 1 ||
+      x + width > image.width || y + height > image.height || !Number.isInteger(scale) || scale < 1 || scale > 4) {
+    throw new Error(`Invalid screenshot crop: ${JSON.stringify(rectangle)} in ${image.width}x${image.height}`);
+  }
+  const outputWidth = width * scale, outputHeight = height * scale;
+  const raw = Buffer.alloc((outputWidth * image.channels + 1) * outputHeight);
+  for (let outputY = 0; outputY < outputHeight; outputY++) {
+    for (let outputX = 0; outputX < outputWidth; outputX++) {
+      const source = ((y + Math.floor(outputY / scale)) * image.width + x + Math.floor(outputX / scale)) * image.channels;
+      const destination = outputY * (outputWidth * image.channels + 1) + 1 + outputX * image.channels;
+      image.pixels.copy(raw, destination, source, source + image.channels);
+    }
+  }
+  const chunk = (type, data) => {
+    const bytes = Buffer.alloc(data.length + 12);
+    bytes.writeUInt32BE(data.length, 0);
+    bytes.write(type, 4);
+    data.copy(bytes, 8);
+    bytes.writeUInt32BE(crc32(bytes.subarray(4, -4)), bytes.length - 4);
+    return bytes;
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(outputWidth, 0);
+  header.writeUInt32BE(outputHeight, 4);
+  header[8] = 8;
+  header[9] = image.channels === 4 ? 6 : 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header),
+    chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+export function tightScorePng(png) {
+  const image = decodePng(png);
+  let left = image.width, top = image.height, right = -1, bottom = -1;
+  for (let y = 0; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++) {
+      const offset = (y * image.width + x) * image.channels;
+      if (image.pixels[offset] > 160 && image.pixels[offset + 1] > 160 && image.pixels[offset + 2] > 160) {
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+    }
+  }
+  if (right < 0) return png;
+  left = Math.max(0, left - 6); top = Math.max(0, top - 6);
+  right = Math.min(image.width - 1, right + 6); bottom = Math.min(image.height - 1, bottom + 6);
+  return cropPng(image, { x: left, y: top, width: right - left + 1, height: bottom - top + 1 });
+}
+
+export function pngStats(png) {
+  const { width, height, channels, pixels } = Buffer.isBuffer(png) ? decodePng(png) : png;
+  let green = 0, bright = 0;
+  const colors = new Set();
+  for (let x = 0; x < pixels.length; x += channels) {
+    const r = pixels[x], g = pixels[x + 1], b = pixels[x + 2];
+    if (g > 35 && g > r * 1.2 && g > b * 1.05) green++;
+    if (r > 180 && g > 180 && b > 180) bright++;
+    colors.add((r >> 4) * 256 + (g >> 4) * 16 + (b >> 4));
+  }
   return { width, height, greenFraction: green / (width * height), brightFraction: bright / (width * height), colors: colors.size };
+}
+
+export function turboBarFraction(image, canvas) {
+  phaseRect(canvas);
+  if (Buffer.isBuffer(image)) image = decodePng(image);
+  const scale = Math.min(1.4, Math.max(0.82, canvas.width / 1280));
+  const x = Math.round(canvas.x + canvas.width - 272 * scale);
+  const y = Math.round(canvas.y + (Math.max(430, canvas.height / scale - 256) + 25) * scale);
+  const width = Math.round(244 * scale), height = Math.round(9 * scale);
+  if (x < 0 || y < 0 || x + width > image.width || y + height > image.height) throw new Error('Turbo bar is outside the actual screenshot.');
+  let filled = 0;
+  for (let row = y; row < y + height; row++) {
+    for (let column = x; column < x + width; column++) {
+      const offset = (row * image.width + column) * image.channels;
+      const r = image.pixels[offset], g = image.pixels[offset + 1], b = image.pixels[offset + 2];
+      if ((r < 120 && g > 120 && b > 120) || (r > 180 && g > 120 && b < 180)) filled++;
+    }
+  }
+  return filled / (width * height);
 }
 
 export function requireRenderedField(stats) {
@@ -175,7 +400,7 @@ export class Cdp {
     this.listeners.get(method).push(callback);
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, sessionId) {
     const id = ++this.nextId;
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -183,7 +408,7 @@ export class Cdp {
         reject(new Error(`Chrome command timed out: ${method}`));
       }, 30000);
       this.pending.set(id, { resolve, reject, timeout });
-      this.socket.send(JSON.stringify({ id, method, params }));
+      this.socket.send(JSON.stringify({ id, method, params, sessionId }));
     });
   }
 

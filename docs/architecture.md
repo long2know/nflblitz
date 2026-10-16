@@ -1,32 +1,49 @@
-# First playable: integration contract v1
+# Unity source-port integration contract v1
 
-**Owner:** Lead. **Decision date:** October 15, 2026. **Status:** implemented,
-headless-tested gameplay boundary; Unity/WebGL/browser integration remains unverified.
-The current request authorizes focused commits, pushes and PRs for completed
-increments, superseding earlier setup-only/local-only publication restrictions in
-squad records. Unity presentation/project publication still requires an actual
-build and browser proof. Source/asset redistribution and monitoring loops are
-not authorized.
+**Owner:** Lead. **Decision date / status checked:** October 15, 2026 (PDT).
+**Status:** actual Unity 6000.3.24f1 host import/build verified for the original
+player mesh/rig/textures, authentic static `QBSTANCE` frame 0 and source-derived
+normal camera. Native pose apply/reload and the matching Docker-served standing
+WebGL desktop/portrait visual-controls subset passed. The later minimal
+`NFL BLITZ 2000` identity/field-axis legend correction has passed a host build
+and matching Docker promotion; fresh final-title browser evidence remains
+pending, not pose integration.
+The kernel is headless-tested, but this is not complete original-game parity.
 
 ## Bounded outcome
 
-Use the repository root as the Unity project: `Assets/`, `Packages/`, and
-`ProjectSettings/`; **do not create a nested `Unity/` project**. Build a single
-browser-playable scene: original procedural 3D field, fourteen original primitive
-players, one human-controlled Home team versus deterministic Away AI. Deliver a
-continuous loop of play selection, snap, running/turbo, targeted pass and automatic
-catch, tackle/out-of-bounds, down/possession resolution, scoring, and restart.
+The repository root is the Unity project: `Assets/`, `Packages/`, and
+`ProjectSettings/`; **do not create a nested `Unity/` project**.
+`Assets/Scenes/Boot.unity` is the built scene. Its presentation combines a
+procedural field/HUD with fourteen actors and one human-controlled Home team
+versus deterministic Away AI. Source mode uses the locally generated original
+player prefab; explicit graybox mode retains procedural actors. The implemented loop
+covers play selection, snap, running/turbo, targeted pass and automatic catch,
+tackle/out-of-bounds, down/possession resolution, scoring, and restart. The current
+source browser proof covers only the subset recorded in the
+[evidence ledger](source-parity.md#current-implementation-evidence).
+
+**Visual target correction, October 15, 2026:** this procedural Yard Rush graybox
+does **not** meet the requested original-game appearance. Narrowing the full-fidelity
+request to this presentation was a scope error, not a visual-fidelity milestone.
+The supplied NFL Blitz 2000 screenshot is the camera/player/stadium/HUD target;
+the [source-data ledger](source-parity.md#visual-target-correction-and-asset-audit)
+separates imported mesh/textures and recovered first-pose data from remaining
+field/stadium, HUD, roster, animation, lighting and edition-equivalence gaps.
 
 Two original offensive patterns (`Run`, `QuickPass`) and two defensive choices
 (`Cover`, `Blitz`) suffice. They are not copied archive formations. Home remains
 playable on defense after possession changes. Four quarters and a final score
-make a complete, deliberately simplified match; a tie is a valid final result.
-Do not block this slice on rosters, licensed presentation, kick plays, services,
-full playbooks, animation fidelity, or historical hardware emulation.
+make a complete, deliberately simplified kernel match; a tie is a valid final
+result. That is not a complete original game or a browser full-match result.
+Those behavioral approximations remain explicit rather than redefining the
+original-game target.
 
 Source evidence and deviations are in [source-parity.md](source-parity.md).
-That ledger distinguishes implemented/headless-tested rules from the still-unverified
-Unity presentation and browser outcome. Neither is whole-game parity certification.
+That ledger distinguishes source-traced rules, pure tests, native checks,
+successful Unity builds, and bounded browser observations. None is whole-game
+parity certification. See [build/run instructions](build.md) and
+[controls](../README.md#controls).
 
 ## Single-writer map and bounded acceptance
 
@@ -35,22 +52,28 @@ files**, including metadata for Lead's contracts and Unity's gameplay scripts.
 
 | Accountable owner | Exclusive writes for this slice | Acceptance / handoff |
 | --- | --- | --- |
-| Lead | `docs/**`, `Assets/Scripts/Contracts/**`; root `README.md` at later integration | Publish stable contracts and source evidence now; integrate the actual run instructions later. |
-| Unity | `Assets/Scripts/Gameplay/**`, excluding `.meta` | Implement `Blitz.Gameplay.GameSimulation`, the rules loop, simple AI and geometric interactions. No Unity references, scene changes, generated `.csproj`, or package changes. |
-| Unity Systems | `Assets/Scripts/Presentation/**`, `Assets/Scripts/Runtime/**`, `Assets/Scripts/Editor/**`, all `.meta`, `Packages/**`, `ProjectSettings/**`, scene/prefab/material assets | One bootable scene, primitive field/players/ball, visible HUD and controls, fixed-step bridge, camera and WebGL-compatible rendering. Own all shared Unity project configuration. |
+| Lead | `docs/**`, `Assets/Scripts/Contracts/**`, root `README.md` | Maintain stable contracts, source evidence and current build/run status. |
+| Unity | `Assets/Scripts/Gameplay/**`, excluding `.meta`; bounded `tools/assets/**` and `tools/animation/**` recipes/readers | Own `Blitz.Gameplay.GameSimulation`, rules, AI and interactions; offline original-data preparation/first-pose decoding. No gameplay Unity references, scene changes, generated `.csproj`, or package changes. |
+| Unity Systems | `Assets/Scripts/AssetImport/**`, `Assets/Scripts/Presentation/**`, `Assets/Scripts/Runtime/**`, `Assets/Scripts/Editor/**`, all `.meta`, `Packages/**`, `ProjectSettings/**`, scene/prefab/material assets | Own source parser/native importer, rig/static-pose adapter, field/actors/ball/HUD, fixed-step bridge and camera. Single writer for shared Unity configuration and local imported assets. |
 | Frontend | Dockerfiles, compose/nginx configuration, root build/serve scripts, outer browser files and `.github/workflows/**` CI only | Reproducible build/serve entry points, Unity version/toolchain evidence, correct WebGL HTTP delivery and a documented container launch. Do not write Unity configuration or scripts under `Assets/`. |
 | Quality | `tests/**`, including all validation tooling and `tests/Blitz.Core.Tests/**` | Compile the exact core/contract files, test rules and replay determinism, and provide bounded browser smoke evidence when an artifact exists. No root project, gameplay, scene, or package edits. |
 | Backend | None | Dormant: no persistence, API, accounts or database is needed. |
 
-Gameplay, presentation and hosting can proceed concurrently against this contract.
-Quality can prepare its harness immediately; behavioral evidence requires the
-actual kernel, browser evidence requires a built artifact. Request narrow handoffs
-for out-of-scope edits rather than silently changing a neighbor's files.
+Source/documentation work can proceed in parallel only outside another owner's
+write set. Import, native checks and builds require an explicit **exclusive
+Editor execution slot** on the root project. The source owner releases a stable
+snapshot before build/metadata/browser acceptance; no concurrent scene, prefab,
+metadata or `Library/` writers. Browser evidence must identify the served
+generation, not assume the latest disk source is running.
 
-Frontend supplies the selected Unity editor version to Unity Systems, who alone
-records it in project settings. Until then, use ordinary C# 7.3-compatible syntax
-and APIs available to Unity's .NET Standard 2.1 profile. No records, `init`,
-Unity-dependent core types, NuGet core packages, DI container or event framework.
+The selected editor is **Unity 6000.3.24f1**, recorded in project settings by
+Unity Systems, with the **.NET Standard 2.1** API profile. The real host builds
+compiled the source-player/camera/static-pose layer in that environment, with
+native pose apply/reload and standing-browser evidence recorded separately.
+Keep ordinary C# 7.3-compatible syntax
+and profile-compatible APIs.
+No records, `init`, Unity-dependent core types, NuGet core packages, DI container
+or event framework.
 
 ## Executable boundary
 
@@ -209,7 +232,57 @@ appropriate offensive/defensive play, Space snap/continue by phase, 1/2/3 pass
 to Home IDs 4/5/6 during live offense, F tackle, Q switch defender, R restart.
 Show contextual controls, possession/attack direction, scores, quarter/clock,
 down/distance, selection/pre-snap/dead-ball/final state and controlled-player/
-pass-target markers. No external art, audio, league logos or real roster needed.
+pass-target markers. The current field and HUD are functional approximations,
+not original stadium/HUD presentation.
+
+### Source-player import and runtime boundary
+
+The permanent Python preparation tool consumes explicitly supplied pinned inputs
+offline. `GeneratedPlayerReader` accepts a bounded generated-C initializer
+grammar, not arbitrary C execution. `BindPoseMeshBuilder` preserves limb/pivot
+mapping and packed material/UV state, explicitly converts axes/winding, and splits
+seam vertices. `PlayerImportPlan` captures/hash-pins bytes from a trusted physical
+root; missing/invalid data fails rather than becoming gray fallback material.
+
+`PlayerAssetImporter.ImportAuthorizedBindPoseFromCommandLine` creates a new
+ignored `Assets/Imported/<stable-id>/` only. It never overwrites an existing
+import or deletes failed partial output. The local recipe uses stable ID
+`local-plyr266`; its prefab resource key is
+`BlitzSourcePlayers/local-plyr266/player`. See the
+[exact import commands](build.md#prepare-and-import-a-local-source-player).
+
+`SourcePlayerProvider` chooses the mode once at presentation initialization:
+`?actors=source` requires a valid prefab and errors without one;
+`?actors=graybox` deliberately selects primitives. With no parameter an installed
+source prefab takes precedence, otherwise the baseline runs. All fourteen source
+actors reuse one Chicago home / `PC_WHITE` normal-body variant. Source geometry
+and pivots stay in archive units; only the presentation root converts by 1/7.8
+to gameplay yards. Source actors are not driven by the graybox sine-leg motion.
+
+`SourcePlayerPoseReader` validates one content-pinned decoded pose.
+`ApplyAuthorizedStaticPoseFromCommandLine` is a narrow update of the matching
+generated prefab: preserve the debug bind prefab, protect geometry/material/
+texture provenance, apply parent-composed source rotations and anchored root
+offset, then verify the saved data. `VerifyAuthorizedStaticPoseFromCommandLine`
+is the corresponding read/verification entry point. Actual native apply and
+independent saved reload passed against original matrices at all **343 split
+vertices**, within **2.79×10⁻⁶ source units**, followed by a matching standing
+WebGL/browser result. The [frame-0 apply/verify step](build.md#apply-qbstance-frame-0)
+is required to reproduce that preview; the preserved identity bind is debug-only,
+not acceptable game posture. This is one authentic stationary QB ball-holding
+frame applied to all fourteen actors, not a continuous animation controller or
+verified universal original pre-snap selection.
+
+### Camera and simulation isolation
+
+`PlayCamera.Render(IGameState, bool)` reads detached snapshots only.
+`NormalCameraModel` ports normal tracking/projection in yard space; no camera
+time, Unity physics or imported-pose transform writes gameplay state. Real-time
+follow smoothing adapts the archive 57 Hz response while simulation stays 60 Hz.
+QB-mode inference, current-receiver pass span, remembered dead-ball orientation,
+HUD/aspect-aware fitting and focus/rewind recovery are explicit adaptations,
+not identical original engine timing. See
+[source camera evidence and limits](source-parity.md#source-derived-normal-camera).
 
 Frontend owns only the outer page/host/build tooling; the in-player HUD is Unity
 Systems' responsibility. Unity executes client-side WebGL; Docker builds/serves
@@ -245,12 +318,32 @@ control/tackle; finite turbo; retained snapshots; same-seed command replay compa
 state **and events each tick**. Test internal pure rule helpers when necessary;
 do not add public state mutation or debug-win inputs just to make tests pass.
 
-The integrated smoke must demonstrate selection → snap → a pass/catch or run →
+The full integrated smoke must demonstrate selection → snap → a pass/catch or run →
 dead ball → another play, a real possession change with Home defensive controls,
-score/restart and final-match restart. Measure actual browser/build results later;
-neither this document nor a passing headless core test proves a working WebGL build.
+score/restart and final-match restart. The [browser harness](../tests/browser/README.md)
+records a passed **standing-source visual-controls subset**, not this whole contract.
+Current perspective focus-release geometry, complete defense/scoring coverage,
+four-quarter final/restart and representative hardware performance remain
+unqualified. Prior graybox observations do not certify the newer posed snapshot.
 
-Enabling-task checks: the exact contract file compiles as C# 7.3 with the installed
-.NET 10 SDK reference assemblies; source link ranges and handoff JSON were checked.
-The machine lacks the .NET Standard 2.1 reference pack, so this is **not** a Unity
-profile certification. No dependencies were installed and no game/Unity tests ran.
+Permanent `tests/assets/run.py` now preserves **2,751 assertions**: the original
+**419** parser/mesh checks plus **2,332** original synthetic pose checks. Eight
+source mutations are rejected and seven actual pure-production inputs, including
+`SourcePlayerPose.cs`, are hash-guarded. Clean-source and missing/zero/stale-count
+gates pass without ignored helpers or original pose data. Native Editor/runtime
+adapters and the actual 343-vertex source comparison remain separate evidence.
+`tests/camera/run.py` retains **3,568 assertions / six rejected mutations**.
+Metadata's **12 guard tests** and current **73-entry** audit require unique
+32-hex GUIDs, final LF and resolving script references; run the live inventory
+only on an owner-stable snapshot.
+
+Two historical bind host generations establish repeat-build proof; the later
+standing host generation passed matching Docker/browser checks. The subsequent
+identity/legend-only host build and matching Docker promotion are verified, with
+fresh final-title browser evidence still pending. Freshness is current
+BuildReport/run-ID/hash proof, **not payload mtime**; caches can be reused.
+Browser acceptance belongs to the
+exact served receipt/proof/payload hashes, not whichever generation is newest
+on disk. Docker-editor acquisition remains unqualified and is distinct from
+the verified host-build/static-runtime path. Exact commands and evidence
+boundaries are in [build.md](build.md).

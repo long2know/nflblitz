@@ -18,6 +18,9 @@ Builds the root Unity 6000.3.24f1 project using Blitz.Editor.WebGlBuild.Build.
 The editor method must check BuildReport success and emit an uncompressed,
 non-development, single-threaded player to Build/WebGL. No fallback player exists.
 Logs remain private in ignored Logs/; a version probe does not test activation.
+Each build archives the previous exact Build/WebGL directory, exports into an
+empty directory at the same path, and requires current BuildReport/run-ID/hash
+proof. Cached payload/template mtimes may be old; Library/Bee caches are retained.
 
 Default Docker mode:
   Provision ONE external, already-valid UNITY_LICENSE_FILE=/private/Unity_lic.ulf
@@ -124,7 +127,7 @@ if [[ "$MODE" == docker ]]; then
         --env XDG_DATA_HOME=/workspace/Build/tool-work/home/.local/share
         --env XDG_CACHE_HOME=/workspace/Build/tool-work/home/.cache
         --env TMPDIR=/workspace/Build/tool-work --env TMP=/workspace/Build/tool-work
-        --env TEMP=/workspace/Build/tool-work)
+        --env TEMP=/workspace/Build/tool-work --env BLITZ_WEBGL_BUILD_ID)
     # Only Unity project inputs and disposable outputs enter the editor container.
     for directory in Assets Packages ProjectSettings Library Temp UserSettings Build Logs; do
         COMMAND+=(--mount "type=bind,src=$ROOT/$directory,dst=/workspace/$directory")
@@ -135,8 +138,23 @@ if [[ "$MODE" == docker ]]; then
         -buildTarget WebGL -logFile /workspace/Logs/webgl-build.log)
 fi
 
-rm -f -- "$ROOT/Build/WebGL/build-receipt.json"
-touch -- "$ROOT/Build/webgl-build-started"
+export BLITZ_WEBGL_BUILD_ID="$(printf '%08x%08x%08x%08x' "$RANDOM" "$RANDOM" "$RANDOM" "$RANDOM")"
+OUTPUT="$ROOT/Build/WebGL"
+ARCHIVE="$ROOT/Build/.webgl-previous-$BLITZ_WEBGL_BUILD_ID"
+[[ ! -e "$ARCHIVE" && ! -L "$ARCHIVE" ]] || fail "generation archive already exists"
+if [[ -e "$OUTPUT" ]]; then
+    [[ -d "$OUTPUT" ]] || fail "Build/WebGL must be a directory"
+    mv -T -- "$OUTPUT" "$ARCHIVE"
+fi
+mkdir -- "$OUTPUT"
+invalidate_failed_generation() {
+    local result=$?
+    if ((result != 0)) && [[ ! -L "$ROOT/Build" && ! -L "$OUTPUT" && -d "$OUTPUT" ]]; then
+        rm -f -- "$OUTPUT/build-generation.txt" "$OUTPUT/build-receipt.json" || true
+    fi
+    return "$result"
+}
+trap invalidate_failed_generation EXIT
 : > "$ROOT/Logs/webgl-build.log"
 printf 'Building %s to Build/WebGL. Private diagnostics: Logs/webgl-build.log and Logs/webgl-console.log\n' "$METHOD"
 if "${COMMAND[@]}" "${ARGS[@]}" >"$ROOT/Logs/webgl-console.log" 2>&1 </dev/null; then
@@ -146,8 +164,8 @@ else
     printf 'Unity exited with code %s. Inspect private Logs/webgl-build.log / Logs/webgl-console.log locally. If entitlement failed, provision supported activation externally; no license files were copied.\n' "$code" >&2
     exit "$code"
 fi
-WEBGL_ALLOW_TEST_STUB=0 sh "$ROOT/scripts/verify-webgl.sh" "$ROOT/Build/WebGL" "$ROOT/Build/webgl-build-started"
+WEBGL_ALLOW_TEST_STUB=0 sh "$ROOT/scripts/verify-webgl.sh" "$OUTPUT" "$BLITZ_WEBGL_BUILD_ID"
 BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-printf '{\n  "schemaVersion": 1,\n  "unityVersion": "%s",\n  "editorMode": "%s",\n  "buildMethod": "%s",\n  "target": "WebGL",\n  "compression": "disabled",\n  "validatedAtUtc": "%s"\n}\n' \
-    "$PIN" "$MODE" "$METHOD" "$BUILT_AT" >"$ROOT/Build/WebGL/build-receipt.json"
+printf '{\n  "schemaVersion": 2,\n  "buildId": "%s",\n  "unityVersion": "%s",\n  "editorMode": "%s",\n  "buildMethod": "%s",\n  "target": "WebGL",\n  "compression": "disabled",\n  "generationProof": "build-generation.txt",\n  "validatedAtUtc": "%s"\n}\n' \
+    "$BLITZ_WEBGL_BUILD_ID" "$PIN" "$MODE" "$METHOD" "$BUILT_AT" >"$OUTPUT/build-receipt.json"
 printf '%s\n' 'WebGL build artifacts verified. Start static hosting with: bash scripts/serve-webgl.sh'
