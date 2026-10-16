@@ -12,11 +12,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="FriendAccess.cs" />
-    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/GameplayContracts.cs;$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceAnimationContracts.cs;$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceConfigurationContracts.cs;$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceInputContracts.cs;$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceMatchContracts.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" Link="Production/Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchRules.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePlaybook.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceDroneAI.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceRandom.cs" Link="Production/Gameplay/%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
-    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceInputContracts.cs') Or !Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceMatchContracts.cs')"
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceInputContracts.cs') Or !Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/SourceMatchContracts.cs') Or !Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/SourcePresentationContracts.cs')"
            Text="Actual final source contracts are required; substitute DTOs are forbidden." />
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePlaybook.cs') Or !Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceDroneAI.cs') Or !Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceRandom.cs')"
            Text="Actual final pure P1 sources are required; full kernel/M1 substitutions are forbidden." />

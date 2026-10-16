@@ -57,6 +57,12 @@ internal static class Program
             SourceContractChecks.RunAdditionalGuards();
             result["additional_dto_assertions"] = Checks.Count - start;
             start = Checks.Count;
+            SourcePresentationChecks.Run();
+            int presentation = Checks.Count - start;
+            result["presentation_dto_assertions"] = presentation;
+            if (presentation != 189)
+                throw new InvalidOperationException("Expected the exact 189 presentation/flip DTO checks.");
+            start = Checks.Count;
             RulesFlowChecks.Run();
             int rules = Checks.Count - start;
             if (rules != 122)

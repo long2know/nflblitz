@@ -92,7 +92,7 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(14, len(support.PINS["blobs"]))
         self.assertEqual(226, sum(item["count"] for item in recipe["weighted_pools"].values()))
 
-    def test_actual_source_snapshot_is_bounded_to_five_contracts_six_pure_helpers_and_producer(self):
+    def test_actual_source_snapshot_is_bounded_to_complete_contracts_six_pure_helpers_and_producer(self):
         contents, hashes = support.snapshot()
         expected = {"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}
         expected.update("Assets/Scripts/Gameplay/" + name for name in support.GAMEPLAY)
@@ -100,7 +100,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, support.live_hashes())
-        self.assertEqual(11, sum(name.endswith(".cs") for name in contents))
+        self.assertEqual(6, len(support.CONTRACTS))
+        self.assertEqual(12, sum(name.endswith(".cs") for name in contents))
         self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in contents))
         for name in ("model/PurePlaybooks.csproj", "PlaybookChecks.csproj"):
             project = (support.SUITE / name).read_text()
@@ -112,6 +113,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
                 cwd=support.ROOT, capture_output=True, text=True, check=False)
             self.assertEqual(1, ignored.returncode, "Permanent project must be publishable, not Unity-generated/ignored: " + name)
         self.assertIn("<TargetFramework>netstandard2.1</TargetFramework>",
+                      (support.SUITE / "model/PurePlaybooks.csproj").read_text())
+        self.assertIn('Assets/Scripts/Contracts/**/*.cs',
                       (support.SUITE / "model/PurePlaybooks.csproj").read_text())
 
     def test_live_source_hash_guard_rejects_changed_actual_copied_source(self):

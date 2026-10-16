@@ -14,6 +14,7 @@
     <ProjectReference Include="model/PureContracts.csproj" />
     <Compile Include="Program.cs" />
     <Compile Include="SourceContractChecks.cs" />
+    <Compile Include="SourcePresentationChecks.cs" />
     <Compile Include="RulesFlowChecks.cs" />
   </ItemGroup>
 </Project>

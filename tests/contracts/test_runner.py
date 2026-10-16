@@ -59,8 +59,8 @@ class ContractRunnerGuards(unittest.TestCase):
             with self.subTest(exit_code=exit_code, summary=summary), self.assertRaises(RuntimeError):
                 RUNNER.require_mutation(exit_code, summary, assertion)
 
-    def test_all_five_anchors_name_unique_actual_source_fields(self):
-        self.assertEqual(5, len(RUNNER.MUTATIONS))
+    def test_all_twenty_one_anchors_name_unique_actual_source_fields(self):
+        self.assertEqual(21, len(RUNNER.MUTATIONS))
         for name, filename, anchor, replacement, _ in RUNNER.MUTATIONS:
             with self.subTest(name=name):
                 path = RUNNER.ROOT / "Assets/Scripts/Contracts" / filename
@@ -75,6 +75,18 @@ class ContractRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, RUNNER.hashes())
+
+    def test_presentation_inventory_and_pure_model_include_are_required(self):
+        self.assertEqual(189, RUNNER.EXPECTED["presentation_dto_assertions"])
+        self.assertEqual(511, RUNNER.EXPECTED["assertions"])
+        self.assertEqual(65, RUNNER.EXPECTED["enum_mappings"])
+        path = RUNNER.ROOT / "Assets/Scripts/Contracts/SourcePresentationContracts.cs"
+        self.assertIn(path, RUNNER.source_files())
+        project = (RUNNER.SUITE / "model/PureContracts.csproj").read_text(encoding="utf-8")
+        self.assertIn("Assets/Scripts/Contracts/**/*.cs", project)
+        self.assertNotIn("Gameplay/**/*.cs", project)
+        self.assertNotIn("SourceRandom.cs", project)
+        self.assertNotIn("Presentation/*.cs", project)
 
 
 if __name__ == "__main__":
