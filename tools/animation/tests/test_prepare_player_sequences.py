@@ -18,6 +18,7 @@ import uuid
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "prepare_player_sequences.py"
+BALL_CATALOG = MODULE_PATH.with_name("ball_sequences.json")
 SPEC = importlib.util.spec_from_file_location("tools.animation.prepare_player_sequences", MODULE_PATH)
 batch = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(batch)
@@ -85,6 +86,65 @@ def fixture(*, bad_root=False):
 
 
 class CatalogTests(unittest.TestCase):
+    def assert_expanded_catalog(self, catalog, digest):
+        self.assertEqual(catalog["verified_inventory_sha256"],
+                         "18af668aa0ff97985f91030f6c17d0552a9630fe25d40893dc5a7ac8381b7cdf")
+        self.assertNotIn("checkpoint", catalog)
+        self.assertEqual((catalog["sequence_count"], catalog["source_frame_count"],
+                          catalog["selected_frame_count"]), (117, 13514, 10288))
+        self.assertEqual(catalog["source"], {
+            "repository": "historicalsource/nflblitz2000",
+            "commit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+        })
+        self.assertEqual(catalog["format_source"], batch.reader.wan.FORMAT_SOURCE)
+        self.assertEqual(len({e["source_path"] for e in catalog["clips"]}), 17)
+        self.assertEqual([e["runtime_name"] for e in catalog["clips"]],
+                         sorted(e["runtime_name"] for e in catalog["clips"]))
+        for entry in catalog["clips"]:
+            self.assertEqual(set(entry), batch.ENTRY_FIELDS)
+        projection = json.dumps(catalog["clips"], sort_keys=True, separators=(",", ":")).encode()
+        self.assertEqual(hashlib.sha256(projection).hexdigest(),
+                         "7c8771031ae5c164356c58d5cf82163e6f47683213c8e96ca1fb2dc688020169")
+        self.assertEqual(digest, "421e3adac3ba3dce186293de69f631abcee5559d89f3ed38d7781a703ea1bb74")
+
+    def test_expanded_catalog_is_exact_metadata_only_requirements_not_a_gameplay_freeze(self):
+        self.assert_expanded_catalog(*batch.load_catalog(BALL_CATALOG))
+
+    def test_expanded_catalog_preserves_all_56_default_entries_and_default_bytes(self):
+        default, digest = batch.load_catalog(batch.CATALOG)
+        self.assertEqual(digest, "c87b485de70bacaba9d2dd83bb2ae6bbfc59b90885e2aaa0f15e3133c7c3fa43")
+        expanded, _ = batch.load_catalog(BALL_CATALOG)
+        by_name = {e["runtime_name"]: e for e in expanded["clips"]}
+        self.assertEqual(len(by_name.keys() - {e["runtime_name"] for e in default["clips"]}), 61)
+        for entry in default["clips"]:
+            self.assertEqual(by_name[entry["runtime_name"]], entry, entry["runtime_name"])
+        self.assertEqual(by_name["CATCH_2F"]["source_path"], "anim/CATCH.WAN")
+        self.assertEqual(by_name["C_BICYCF"]["source_path"], "anim/catches2.wan")
+        self.assertEqual(tuple(by_name["DLINE_03"][k] for k in
+                               ("source_frames", "selected_frames", "source_first", "source_last")),
+                         (287, 144, 0, 286))
+        self.assertEqual(tuple(by_name["SPIN"][k] for k in
+                               ("source_frames", "selected_frames", "source_first", "source_last")),
+                         (56, 28, 1, 55))
+
+    def test_mutated_expanded_metadata_fails_the_same_public_catalog_gate(self):
+        original = json.loads(BALL_CATALOG.read_bytes())
+        self.assert_expanded_catalog(*batch.load_catalog(BALL_CATALOG))
+        for mutate in (
+                lambda c: c.update(verified_inventory_sha256="0" * 64),
+                lambda c: c["source"].update(commit="0" * 40),
+                lambda c: c["clips"][0].update(source_git_blob_sha1="0" * 40),
+                lambda c: c["clips"][0].update(source_path="anim/Other.wan"),
+                lambda c: c["clips"][0].update(runtime_name="OTHER"),
+                lambda c: c["clips"][6].update(source_first=1),
+                lambda c: c["clips"][6].update(rotations_xyzw=[])):
+            changed = copy.deepcopy(original)
+            mutate(changed)
+            with self.subTest(mutation=changed != original):
+                with mock.patch.object(batch, "_read_bytes", return_value=json.dumps(changed).encode()):
+                    with self.assertRaises((batch.WanError, AssertionError)):
+                        self.assert_expanded_catalog(*batch.load_catalog(BALL_CATALOG))
+
     def test_published_catalog_is_only_frozen_pins_names_counts_and_boundaries(self):
         catalog, digest = batch.load_catalog(batch.CATALOG)
         self.assertEqual(catalog["checkpoint"], "edc6193")
@@ -157,6 +217,167 @@ class BatchTests(unittest.TestCase):
                 "--catalog", str(self.catalog_path), *extra,
             ])
         return status, stdout.getvalue(), stderr.getvalue()
+
+    def assert_fixture_output(self, destination):
+        inventory = json.loads((destination / batch.MANIFEST).read_bytes())
+        self.assertEqual(inventory["catalog_sha256"],
+                         hashlib.sha256(self.catalog_path.read_bytes()).hexdigest(), "catalog_sha256")
+        self.assertEqual(len(inventory["clips"]), len(self.catalog["clips"]), "output clip count")
+        for entry, expected in zip(inventory["clips"], self.catalog["clips"]):
+            name = expected["runtime_name"]
+            for field in batch.ENTRY_FIELDS:
+                self.assertEqual(entry[field], expected[field], field)
+            self.assertEqual(entry["path"], "clips/" + name + ".json", "path")
+            self.assertEqual(entry["selected_source_frame_indices"], SELECTED[name],
+                             "selected_source_frame_indices")
+            encoded = (destination / entry["path"]).read_bytes()
+            self.assertEqual(entry["sha256"], hashlib.sha256(encoded).hexdigest(), "sha256")
+            clip = json.loads(encoded)
+            self.assertEqual(clip["sequence"]["runtime_name"], name, "runtime_name")
+            self.assertEqual(clip["sequence"]["selected_source_frame_indices"], SELECTED[name],
+                             "selected_source_frame_indices")
+            self.assertEqual([f["source_frame_index"] for f in clip["frames"]],
+                             SELECTED[name], "source_frame_index")
+            self.assertEqual([f["exported_frame_index"] for f in clip["frames"]],
+                             list(range(len(SELECTED[name]))), "exported_frame_index")
+            self.assertEqual(clip["provenance"]["local_input"], expected["source_path"], "local_input")
+
+    def test_explicit_catalog_does_not_change_the_implicit_frozen_default(self):
+        status, output, error = self.cli()
+        self.assertEqual(status, 0, error)
+        self.assertEqual(json.loads(output)["clips"], 3)
+        self.assert_fixture_output(self.destination)
+        stdout, stderr = io.StringIO(), io.StringIO()
+        default_destination = self.directory / "implicit-default"
+        with mock.patch.object(batch, "load_catalog", wraps=batch.load_catalog) as load:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                status = batch.main(["--source-root", str(self.source),
+                                     "--destination", str(default_destination)])
+        load.assert_called_once_with(batch.CATALOG)
+        self.assertEqual(status, 2)
+        self.assertIn("Line.wan", stderr.getvalue())
+        self.assertFalse(default_destination.exists())
+        self.assertEqual(hashlib.sha256(batch.CATALOG.read_bytes()).hexdigest(),
+                         "c87b485de70bacaba9d2dd83bb2ae6bbfc59b90885e2aaa0f15e3133c7c3fa43")
+
+    def test_another_catalog_cannot_reuse_a_bundle_even_with_identical_sequences(self):
+        original_result = self.prepare()
+        original = self.snapshot()
+        other_path = self.directory / "other-catalog.json"
+        other = copy.deepcopy(self.catalog)
+        other["verified_inventory_sha256"] = "b" * 64
+        other_path.write_text(json.dumps(other), encoding="utf-8")
+        with self.assertRaisesRegex(batch.WanError, "identity mismatch: export-inventory.json"):
+            batch.prepare_bundle(self.source, self.destination, other_path, reuse=True)
+        self.assertEqual(self.snapshot(), original)
+        other_destination = self.directory / "other-bundle"
+        other_result = batch.prepare_bundle(self.source, other_destination, other_path)
+        self.assertNotEqual(other_result["manifest_sha256"], original_result["manifest_sha256"])
+        other_outputs = self.snapshot(other_destination)
+        for path, data in original.items():
+            if path != batch.MANIFEST:
+                self.assertEqual(other_outputs[path], data, path)
+        other["clips"] = [other["clips"][0], other["clips"][2]]
+        other.update(sequence_count=2, source_frame_count=6, selected_frame_count=3)
+        other_path.write_text(json.dumps(other), encoding="utf-8")
+        with self.assertRaises(batch.WanError):
+            batch.prepare_bundle(self.source, self.destination, other_path, reuse=True)
+        self.assertEqual(self.snapshot(), original)
+
+    def test_catalog_symlinks_and_parent_traversal_are_rejected_before_output(self):
+        alias = self.directory / "catalog-alias.json"
+        alias.symlink_to(self.catalog_path)
+        parent_alias = self.directory / "catalog-parent-alias"
+        parent_alias.symlink_to(self.directory, target_is_directory=True)
+        for path, message in (
+                (alias, "symlinks"),
+                (parent_alias / "catalog.json", "symlinks"),
+                (self.directory / "unused" / ".." / "catalog.json", "parent traversal")):
+            with self.subTest(path=path), self.assertRaisesRegex(batch.WanError, message):
+                batch.prepare_bundle(self.source, self.destination, path)
+            self.assertFalse(self.destination.exists())
+
+    def test_wrong_source_path_case_fails_visibly_without_normalizing_or_writing(self):
+        for entry in self.catalog["clips"][:2]:
+            entry["source_path"] = "anim/multi.wan"
+        self.write_catalog()
+        status, _, error = self.cli()
+        self.assertEqual(status, 2)
+        self.assertIn("anim/multi.wan", error)
+        self.assertFalse(self.destination.exists())
+        self.assertEqual((self.source / "anim/Multi.WAN").read_bytes(), self.files["anim/Multi.WAN"])
+
+    def test_runtime_alias_preserves_original_synthetic_authoring_name_case_and_sparse_map(self):
+        authoring_name = b"alpha_balls_123456.b"
+        payload = animation(authoring_name, (0, 0x4000, 0, 0x4000, 0x4000, 0), 7)
+        data = b"WIFF" + struct.pack(">I", len(payload)) + payload
+        self.files = {"anim/Alias.WaN": data}
+        self.catalog["clips"] = [{
+            "runtime_name": "ALPHA_BALLS_123", "source_path": "anim/Alias.WaN",
+            "source_git_blob_sha1": blob_sha1(data), "source_frames": 6,
+            "selected_frames": 3, "source_first": 1, "source_last": 4,
+        }]
+        self.catalog.update(sequence_count=1, source_frame_count=6, selected_frame_count=3)
+        self.write_fixture()
+        self.prepare()
+        manifest = json.loads((self.destination / batch.MANIFEST).read_bytes())
+        entry = manifest["clips"][0]
+        clip = json.loads((self.destination / entry["path"]).read_bytes())
+        self.assertEqual(clip["sequence"]["authoring_name"], authoring_name.decode("ascii"))
+        self.assertEqual(clip["sequence"]["runtime_name"], "ALPHA_BALLS_123")
+        self.assertEqual(clip["provenance"]["local_input"], "anim/Alias.WaN")
+        self.assertEqual(entry["selected_source_frame_indices"], [1, 3, 4])
+        self.assertEqual(clip["sequence"]["selected_source_frame_indices"], [1, 3, 4])
+        for ordinal, source_frame in enumerate((1, 3, 4)):
+            frame = clip["frames"][ordinal]
+            self.assertEqual((frame["exported_frame_index"], frame["source_frame_index"]),
+                             (ordinal, source_frame))
+            self.assertEqual(frame["root_translation"]["authoring_xyz"],
+                             [source_frame + .25, 14., -source_frame - .5])
+            self.assertEqual(frame["root_translation"]["scaled_runtime_xyz"],
+                             [v * .12898 for v in [source_frame + .25, 14., -source_frame - .5]])
+            self.assertEqual(len(frame["rotations_xyzw"]), 15)
+
+    def test_generated_artifact_mutations_fail_the_same_identity_selection_and_hash_gate(self):
+        self.prepare()
+        self.assert_fixture_output(self.destination)
+        for field in ("catalog_sha256", "source_git_blob_sha1", "source_path",
+                      "selected_source_frame_indices", "path", "sha256", "runtime_name",
+                      "source_frame_index"):
+            destination = self.directory / ("mutated-" + field)
+            shutil.copytree(self.destination, destination)
+            manifest_path = destination / batch.MANIFEST
+            manifest = json.loads(manifest_path.read_bytes())
+            entry = manifest["clips"][1]
+            if field == "catalog_sha256":
+                manifest[field] = "0" * 64
+            elif field == "source_git_blob_sha1":
+                entry[field] = "0" * 40
+            elif field == "source_path":
+                entry[field] = "anim/Other.wan"
+            elif field == "selected_source_frame_indices":
+                entry[field] = [0, 2, 2]
+            elif field == "path":
+                entry[field] = "clips/OTHER.json"
+            elif field == "sha256":
+                entry[field] = "0" * 64
+            else:
+                clip_path = destination / entry["path"]
+                clip = json.loads(clip_path.read_bytes())
+                if field == "runtime_name":
+                    clip["sequence"][field] = "OTHER"
+                else:
+                    clip["frames"].reverse()
+                clip_path.write_text(batch.reader.encode_clip(clip), encoding="utf-8")
+                entry["sha256"] = hashlib.sha256(clip_path.read_bytes()).hexdigest()
+            manifest_path.write_text(batch.reader.encode_clip(manifest), encoding="utf-8")
+            before = self.snapshot(destination)
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(AssertionError, field):
+                    self.assert_fixture_output(destination)
+                with self.assertRaises(batch.WanError):
+                    self.prepare(destination, reuse=True)
+                self.assertEqual(self.snapshot(destination), before)
 
     def test_multiple_sequences_share_one_read_and_preserve_every_selected_map(self):
         with mock.patch.object(batch, "_read_source", wraps=batch._read_source) as read_source:

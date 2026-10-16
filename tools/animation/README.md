@@ -55,7 +55,52 @@ read-only verification of an **entire identical bundle**: the batch freshly
 decodes the pinned source and compares every output byte, rejects missing,
 changed or extra entries, and rejects symlinks and path escapes.
 
-### Existing Unity importer arguments
+## Reproduce exactly the expanded B1/B2 117-sequence library
+
+`ball_sequences.json` is an **explicit opt-in**, metadata-only superset of the
+unchanged 56-sequence default: **117 sequences, 10,288 selected frames, 13,514
+authoring frames across 17 WANs**. It is the exact sorted metadata projection of
+Core's stable expanded inventory, SHA-256
+`18af668aa0ff97985f91030f6c17d0552a9630fe25d40893dc5a7ac8381b7cdf`.
+That inventory pin identifies the requirements, not decoded output bytes or a
+final gameplay-code freeze. No ignored inventory is needed to run the recipe.
+
+Use the **existing** `--catalog` option with the same explicit pinned local
+source root. Omitting it still prepares only `player_sequences.json` (56 clips).
+No decoder, selection, timing, runtime, importer or manifest-schema change is
+needed:
+
+```sh
+SOURCE_ROOT=/absolute/path/to/your/local/nflblitz2000
+BUNDLE=.squad/.scratch/player-animation-ball-recipe/bundle
+
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root "$SOURCE_ROOT" \
+  --catalog tools/animation/ball_sequences.json \
+  --destination "$BUNDLE"
+
+# Read-only verification of an already complete, identical bundle:
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root "$SOURCE_ROOT" \
+  --catalog tools/animation/ball_sequences.json \
+  --destination "$BUNDLE" --reuse
+```
+
+Names, case-sensitive source paths, source pins and selected boundaries are
+preserved exactly, including runtime aliases and sparsely selected sequences.
+Full authoring-to-selected maps and motion come only from the unchanged reader,
+not from new public fixtures. Relocating identical source WANs does not change
+any emitted byte. Selecting another catalog, even with the same clips but
+different metadata, cannot reuse this bundle's manifest.
+
+Only canonical `provenance.local_input` and the fixed explanatory
+`provenance.source_linkage` may differ from older machine-path-bearing Core
+exports; all other decoded data must agree. Use the **newly printed**
+`manifest_sha256`, never the Core inventory pin or old decoded hashes, for
+native import. This bounded preparation is not all-source-animation or
+whole-gameplay completion.
+
+## Existing Unity importer arguments
 
 The printed `manifest_sha256` is the actual bundle manifest pin. With the
 existing local `local-plyr266` rig imported, pass the bundle root and portable
@@ -256,20 +301,32 @@ adjustment, wrong root scale) must fail the same artifact assertions. Production
 files and original cached inputs are never mutated by the tests.
 
 Batch tests independently construct multiple selected sequences in one WAN plus
-a second WAN. They inspect counts, names, sparse maps, computed content pins,
+a second WAN and a long authoring-name/runtime-alias case. They inspect explicit
+catalog selection versus the unchanged default, counts, names, sparse maps, computed content pins,
 canonical provenance, one-read caching, relocated-root byte equality and
 new-only/read-only-reuse behavior. Corrupt, missing, extra and symlinked emitted
-artifacts must fail reuse without being repaired. The entire frozen catalog
-metadata projection is fingerprinted, not just its aggregate frame totals.
+artifacts must fail reuse without being repaired. Catalog symlinks/traversal and
+incorrect source-path case fail visibly. Both public catalogs' entire metadata
+projections are fingerprinted, not just their aggregate frame totals. Mutations
+of the actual expanded metadata and generated synthetic bundle must fail the
+same catalog/path/source-pin/selection/output-identity/hash assertions.
 
 `tests/CheckPreparedLibrary.cs` is an opt-in native check entry point for a
 C# 7.3 check project linked to the **actual production** `AssetImport` and
-`Contracts` sources, with no Unity dependency. Its three arguments are bundle
-root, baseline inventory file, and baseline inventory root. It invokes the real
-`SourceAnimationLibrary.Read` and compares all 56 clips' runtime source revisions,
+`Contracts` sources, with no Unity dependency. Compile those production sources
+against .NET Standard 2.1 and reference them from the runnable check project;
+do not substitute Unity API stubs or a decoder copy. Its three legacy arguments
+are bundle root, baseline inventory file, and baseline inventory root; that
+form still requires exactly 56 clips / 3,731 selected / 4,046 authoring frames.
+An optional **fourth argument**, the explicit catalog path, checks its baseline
+inventory pin, emitted manifest/catalog identity and every catalog entry, and
+uses that catalog's exact totals (117 / 10,288 / 13,514 for `ball_sequences.json`).
+It invokes the real `SourceAnimationLibrary.Read` and compares all clips' runtime source revisions,
 original source SHA-256/blob/path identities, selected maps and every selected
-frame value against the local baseline. No original motion is embedded in the
-checker; this actual-data check is separate from the synthetic Python suite.
+frame value against the local baseline. With the fourth argument it also checks
+the actual contract's selected-ordinal mapping at first/middle/last frames.
+No original motion is embedded in the checker; this actual-data check is separate
+from the synthetic Python suite.
 
 ## Space and gameplay meaning
 
