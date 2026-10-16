@@ -11,6 +11,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -29,6 +30,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -118,6 +120,8 @@ jobs:
         run: python3 tests/assets/run.py
       - name: Test source-camera behavior
         run: python3 tests/camera/run.py
+      - name: Test original audio package reader without banks or Unity
+        run: python3 tests/audio/run.py --mutate
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references
