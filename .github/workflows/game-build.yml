@@ -1,0 +1,64 @@
+name: Game source checks
+
+on:
+  pull_request:
+    paths:
+      - 'Assets/Scripts/Contracts/**'
+      - 'Assets/Scripts/Gameplay/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'hosting/**'
+      - 'Dockerfile'
+      - 'compose.yaml'
+      - '.dockerignore'
+      - '.github/workflows/game-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Assets/Scripts/Contracts/**'
+      - 'Assets/Scripts/Gameplay/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'hosting/**'
+      - 'Dockerfile'
+      - 'compose.yaml'
+      - '.dockerignore'
+      - '.github/workflows/game-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-and-tooling:
+    name: Core inventory and build-tool units (no Unity)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: '10.0.100'
+      - name: Select the tested SDK
+        run: |
+          printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json
+      - name: Core tests with exact case inventory and source hash guard
+        run: python3 tests/run-core.py
+      - name: Test the inventory failure gates
+        run: python3 tests/test-runner.py
+      - name: Build-tool unit checks
+        run: python3 scripts/test-webgl-tooling.py
+      - name: Build and hosting shell syntax
+        run: |
+          bash -n scripts/build-webgl.sh scripts/serve-webgl.sh
+          sh -n scripts/verify-webgl.sh hosting/entrypoint.sh
