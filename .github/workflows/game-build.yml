@@ -6,6 +6,7 @@ on:
       - 'Assets/Scripts/Contracts/**'
       - 'Assets/Scripts/Gameplay/**'
       - 'tests/**'
+      - 'tools/assets/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -18,6 +19,7 @@ on:
       - 'Assets/Scripts/Contracts/**'
       - 'Assets/Scripts/Gameplay/**'
       - 'tests/**'
+      - 'tools/assets/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -56,6 +58,8 @@ jobs:
         run: python3 tests/run-core.py
       - name: Test the inventory failure gates
         run: python3 tests/test-runner.py
+      - name: Test source-player preparation without original assets
+        run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Build-tool unit checks
         run: python3 scripts/test-webgl-tooling.py
       - name: Build and hosting shell syntax
