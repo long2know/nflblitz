@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>SourceMovement.sdk-netstandard21</AssemblyName>
+    <DebugType>none</DebugType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <Import Project="MovementSources.props" />
+  <Target Name="RecordMovementSdkReferences" BeforeTargets="CoreCompile">
+    <Error Condition="'$(MovementReferenceReceipt)' == ''" Text="An explicit ignored reference receipt path is required." />
+    <WriteLinesToFile File="$(MovementReferenceReceipt)" Lines="@(ReferencePath->'%(FullPath)')" Overwrite="true" Encoding="UTF-8" />
+  </Target>
+</Project>

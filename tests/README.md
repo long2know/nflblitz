@@ -110,6 +110,24 @@ of the simulation producers or camera stage.
 This independent project excludes the actively integrated full simulation;
 interface/DTO green is not behavior, original-C corpus, or full-game parity.
 
+## Original movement and evasion helpers
+
+See [`movement/README.md`](movement/README.md). Run the explicit SDK profile
+before its generated-receipt guards:
+
+```sh
+python3 tests/movement/run.py --fetch-inputs --sdk-netstandard21
+python3 -B -m unittest discover -s tests/movement -p 'test_publication.py' -q
+```
+
+The frozen pure helpers pass 14,047 original-C cases, 813,702 production
+assertions, sixteen implementation mutants and fifteen publication guards.
+The SDK .NET Standard 2.1 API check is explicitly **not Unity validation**;
+the separate actual Unity-reference API mode is retained. Immediate animation
+boundaries are test fixtures, not a production VM or completed Core integration.
+The [runtime-safe exporter](../tools/movement/README.md) preserves exact static
+data without the test-only `Responses` fixture; its output stays ignored.
+
 ## Unity metadata
 
 No editor or third-party Python package is needed:

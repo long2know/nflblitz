@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pinned runtime movement data; no animation fixture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source", "float_encoding", "data"],
+  "properties": {
+    "schema": { "const": "original-source-movement-runtime/v1" },
+    "float_encoding": { "const": "ieee754-binary32-uint32-bits" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "tree", "profile", "blobs"],
+      "properties": {
+        "repository": { "const": "historicalsource/nflblitz2000" },
+        "revision": { "const": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded" },
+        "tree": { "const": "a7e0352125d46075b7d98e87253ab89b9160a4c7" },
+        "profile": { "const": "OriginalRelease57Hz" },
+        "blobs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["player.c", "include/player.h", "handicap.c"],
+          "properties": {
+            "player.c": { "const": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c" },
+            "include/player.h": { "const": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8" },
+            "handicap.c": { "const": "871424596fb9786af3602a49cc9d20c466df8ca1" }
+          }
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Constants", "Tables", "Friction", "Defense"],
+      "properties": {
+        "Constants": {
+          "type": "object",
+          "minProperties": 23,
+          "maxProperties": 23,
+          "propertyNames": { "pattern": "^[A-Z0-9_]+$" },
+          "additionalProperties": { "$ref": "#/$defs/bits" }
+        },
+        "Tables": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_seqs", "run_scripts", "int_run_scripts", "qb_runs", "qb_seqs",
+                       "running_taunt_tbl", "push_anim_tbl", "intercept_anim_tbl", "hurdle_tbl",
+                       "turbo_hurdle_tbl", "breath_seq_tbl", "violent_db_late_hits_tbl", "db_late_hits_tbl"],
+          "properties": {
+            "run_seqs": { "$ref": "#/$defs/eight" },
+            "run_scripts": { "$ref": "#/$defs/eight" },
+            "int_run_scripts": { "$ref": "#/$defs/eight" },
+            "qb_runs": { "$ref": "#/$defs/twentyFour" },
+            "qb_seqs": { "$ref": "#/$defs/twentyFour" },
+            "running_taunt_tbl": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/identity" } },
+            "push_anim_tbl": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/identity" } },
+            "intercept_anim_tbl": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/identity" } },
+            "hurdle_tbl": { "$ref": "#/$defs/eight" },
+            "turbo_hurdle_tbl": { "$ref": "#/$defs/eight" },
+            "breath_seq_tbl": { "type": "array", "minItems": 14, "maxItems": 14, "items": { "$ref": "#/$defs/identity" } },
+            "violent_db_late_hits_tbl": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/identity" } },
+            "db_late_hits_tbl": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/identity" } }
+          }
+        },
+        "Friction": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/bits" } },
+        "Defense": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Line", "Back", "Base", "Range", "Plow"],
+            "properties": {
+              "Line": { "$ref": "#/$defs/sixBits" },
+              "Back": { "$ref": "#/$defs/sixBits" },
+              "Base": { "type": "integer", "minimum": 0 },
+              "Range": { "type": "integer", "minimum": 0 },
+              "Plow": { "type": "integer", "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "bits": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "allOf": [
+        { "not": { "minimum": 2139095040, "maximum": 2147483647 } },
+        { "not": { "minimum": 4286578688, "maximum": 4294967295 } }
+      ],
+      "description": "Raw finite IEEE754 binary32 bits, NOT a numeric speed value. Decode by bit reinterpretation."
+    },
+    "identity": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "eight": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/identity" } },
+    "twentyFour": { "type": "array", "minItems": 24, "maxItems": 24, "items": { "$ref": "#/$defs/identity" } },
+    "sixBits": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/bits" } }
+  }
+}

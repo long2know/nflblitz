@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <MovementSourceRoot Condition="'$(MovementSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</MovementSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Contracts/**/*.cs" Link="Production/Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceMovement*.cs" Link="Production/Gameplay/%(Filename)%(Extension)" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceEvasion*.cs" Link="Production/Gameplay/%(Filename)%(Extension)" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourcePlaybook.cs" Link="Production/Gameplay/SourcePlaybook.cs" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceDroneAI.cs" Link="Production/Gameplay/SourceDroneAI.cs" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceRandom.cs" Link="Production/Gameplay/SourceRandom.cs" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs" Link="Production/Gameplay/SourceClock.cs" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceMatchRules.cs" Link="Production/Gameplay/SourceMatchRules.cs" />
+    <Compile Include="$(MovementSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs" Link="Production/Gameplay/SourceMatchFlow.cs" />
+  </ItemGroup>
+</Project>

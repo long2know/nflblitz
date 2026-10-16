@@ -1,0 +1,48 @@
+{
+  "schema": "source-movement-runtime-recipe/v1",
+  "output_schema": "original-source-movement-runtime/v1",
+  "source": {
+    "repository": "historicalsource/nflblitz2000",
+    "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+    "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+    "profile": "OriginalRelease57Hz"
+  },
+  "inputs": {
+    "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+    "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+    "handicap.c": "871424596fb9786af3602a49cc9d20c466df8ca1"
+  },
+  "constants": {
+    "path": "include/player.h",
+    "suffix": "SPEED",
+    "count": 23
+  },
+  "tables": {
+    "run_seqs": { "kind": "sequence", "count": 8 },
+    "run_scripts": { "kind": "script", "count": 8 },
+    "int_run_scripts": { "kind": "script", "count": 8 },
+    "qb_runs": { "kind": "script", "count": 24 },
+    "qb_seqs": { "kind": "sequence", "count": 24 },
+    "running_taunt_tbl": { "kind": "script", "count": 4 },
+    "push_anim_tbl": { "kind": "script", "count": 3 },
+    "intercept_anim_tbl": { "kind": "script", "count": 2 },
+    "hurdle_tbl": { "kind": "script", "count": 8 },
+    "turbo_hurdle_tbl": { "kind": "script", "count": 8 },
+    "breath_seq_tbl": { "kind": "script", "count": 14 },
+    "violent_db_late_hits_tbl": { "kind": "script", "count": 2 },
+    "db_late_hits_tbl": { "kind": "script", "count": 3 }
+  },
+  "numeric_arrays": [
+    { "path": "player.c", "symbol": "field_friction_mult_factor" },
+    { "path": "handicap.c", "symbol": "dback_speed_ht" },
+    { "path": "handicap.c", "symbol": "dline_speed_ht" },
+    { "path": "handicap.c", "symbol": "def_acceltime_ht" },
+    { "path": "handicap.c", "symbol": "plow_ht" }
+  ],
+  "dimensions": {
+    "field_friction": 7,
+    "handicap_levels": 12,
+    "speed_columns": 6,
+    "acceleration_columns": 2
+  }
+}
