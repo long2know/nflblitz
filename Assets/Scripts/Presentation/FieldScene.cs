@@ -59,17 +59,13 @@ namespace Blitz.Presentation
             sourceAnimations = animations;
             if (sourcePrefab != null && animations == null)
                 throw new InvalidOperationException("Source field actors require the original animation library; static pose fallback is disabled.");
-            root = new GameObject("Original procedural field").transform;
+            SourceEnvironmentProvider sourceWorld = SourceEnvironmentProvider.ResolveWorldMode();
+            root = new GameObject(sourceWorld == null ? "Explicit graybox field" : "Original source environment").transform;
             root.SetParent(parent, false);
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            Material turfA = Lit("Turf / fern", new Color32(28, 86, 61, 255));
-            Material turfB = Lit("Turf / jade", new Color32(32, 96, 67, 255));
-            Material chalk = Flat("Chalk", new Color32(184, 213, 187, 255));
             Material home = Lit("Home / tide", Palette.Home);
             Material away = Lit("Away / ember", Palette.Away);
-            Material homeDark = Lit("Home end zone", new Color32(16, 76, 85, 255));
-            Material awayDark = Lit("Away end zone", new Color32(113, 57, 39, 255));
             Material dark = Lit("Graphite", Palette.Ink);
             Material trim = Lit("Warm white", Palette.White);
             Material gold = Flat("First down / gold", Palette.Gold);
@@ -78,53 +74,65 @@ namespace Blitz.Presentation
             Material shadow = Flat("Contact shadow", new Color32(14, 49, 34, 255));
             float halfWidth = SliceRules.FieldHalfWidthYards;
 
-            Box("Raised field foundation", root, new Vector3(0f, -0.55f, 0f),
-                new Vector3(126f, 0.7f, halfWidth * 2f + 6f), dark);
-            Box("Quiet surround", root, new Vector3(0f, -0.96f, 0f), new Vector3(210f, 0.2f, 130f), dark);
-            for (int stripe = 0; stripe < 20; stripe++)
-                Box("Five yard turf " + stripe, root, new Vector3(-47.5f + stripe * 5f, -0.14f, 0f),
-                    new Vector3(5f, 0.24f, halfWidth * 2f), stripe % 2 == 0 ? turfA : turfB);
-            Box("Home end zone", root, new Vector3(-55f, -0.14f, 0f), new Vector3(10f, 0.24f, halfWidth * 2f), homeDark);
-            Box("Away end zone", root, new Vector3(55f, -0.14f, 0f), new Vector3(10f, 0.24f, halfWidth * 2f), awayDark);
+            if (sourceWorld != null)
+            {
+                SourceEnvironmentProvider.AttachRequired(sourceWorld, root);
+            }
+            else
+            {
+                Material turfA = Lit("Turf / fern", new Color32(28, 86, 61, 255));
+                Material turfB = Lit("Turf / jade", new Color32(32, 96, 67, 255));
+                Material chalk = Flat("Chalk", new Color32(184, 213, 187, 255));
+                Material homeDark = Lit("Home end zone", new Color32(16, 76, 85, 255));
+                Material awayDark = Lit("Away end zone", new Color32(113, 57, 39, 255));
+                Box("Raised field foundation", root, new Vector3(0f, -0.55f, 0f),
+                    new Vector3(126f, 0.7f, halfWidth * 2f + 6f), dark);
+                Box("Quiet surround", root, new Vector3(0f, -0.96f, 0f), new Vector3(210f, 0.2f, 130f), dark);
+                for (int stripe = 0; stripe < 20; stripe++)
+                    Box("Five yard turf " + stripe, root, new Vector3(-47.5f + stripe * 5f, -0.14f, 0f),
+                        new Vector3(5f, 0.24f, halfWidth * 2f), stripe % 2 == 0 ? turfA : turfB);
+                Box("Home end zone", root, new Vector3(-55f, -0.14f, 0f), new Vector3(10f, 0.24f, halfWidth * 2f), homeDark);
+                Box("Away end zone", root, new Vector3(55f, -0.14f, 0f), new Vector3(10f, 0.24f, halfWidth * 2f), awayDark);
 
-            for (int yard = 0; yard <= 100; yard += 5)
-            {
-                float width = yard == 0 || yard == 100 ? 0.24f : 0.09f;
-                Box("Yard line " + yard, root, new Vector3(yard - 50f, 0.008f, 0f),
-                    new Vector3(width, 0.018f, halfWidth * 2f), chalk, false);
-                if (yard > 0 && yard < 100 && yard % 10 == 0)
+                for (int yard = 0; yard <= 100; yard += 5)
                 {
-                    string number = Math.Min(yard, 100 - yard).ToString();
-                    GroundText(number, new Vector3(yard - 50f, 0.035f, -halfWidth + 4f), 2.3f, Palette.White);
-                    GroundText(number, new Vector3(yard - 50f, 0.035f, halfWidth - 4f), 2.3f, Palette.White);
+                    float width = yard == 0 || yard == 100 ? 0.24f : 0.09f;
+                    Box("Yard line " + yard, root, new Vector3(yard - 50f, 0.008f, 0f),
+                        new Vector3(width, 0.018f, halfWidth * 2f), chalk, false);
+                    if (yard > 0 && yard < 100 && yard % 10 == 0)
+                    {
+                        string number = Math.Min(yard, 100 - yard).ToString();
+                        GroundText(number, new Vector3(yard - 50f, 0.035f, -halfWidth + 4f), 2.3f, Palette.White);
+                        GroundText(number, new Vector3(yard - 50f, 0.035f, halfWidth - 4f), 2.3f, Palette.White);
+                    }
                 }
+                for (int yard = 1; yard < 100; yard++)
+                {
+                    if (yard % 5 == 0)
+                        continue;
+                    Box("Near hash " + yard, root, new Vector3(yard - 50f, 0.012f, -7f),
+                        new Vector3(0.09f, 0.018f, 0.7f), chalk, false);
+                    Box("Far hash " + yard, root, new Vector3(yard - 50f, 0.012f, 7f),
+                        new Vector3(0.09f, 0.018f, 0.7f), chalk, false);
+                }
+                for (int sign = -1; sign <= 1; sign += 2)
+                {
+                    Box("Sideline", root, new Vector3(0f, 0.015f, sign * halfWidth),
+                        new Vector3(120.3f, 0.025f, 0.28f), chalk, false);
+                    Box("End boundary", root, new Vector3(sign * 60f, 0.015f, 0f),
+                        new Vector3(0.28f, 0.025f, halfWidth * 2f), chalk, false);
+                    Box("Low sideline rail", root, new Vector3(0f, -0.1f, sign * (halfWidth + 2.3f)),
+                        new Vector3(124f, 0.7f, 0.45f), homeDark);
+                    for (int end = -1; end <= 1; end += 2)
+                        Box("Corner pylon", root, new Vector3(end * 50f, 0.45f, sign * halfWidth),
+                            new Vector3(0.32f, 0.9f, 0.32f), away);
+                    GoalPost(sign * 62f, Lit("Goal frame " + sign, new Color32(230, 188, 94, 255)));
+                }
+                GroundText("H O M E", new Vector3(-55f, 0.035f, 0f), 2.7f, Palette.Home, new Vector3(90f, 0f, 90f));
+                GroundText("A W A Y", new Vector3(55f, 0.035f, 0f), 2.7f, Palette.Away, new Vector3(90f, 0f, 90f));
+                Ring("Midfield emblem", root, 3.8f, 0.09f, chalk).transform.localPosition = new Vector3(0f, 0.032f, 0f);
+                GroundText("30", new Vector3(0f, 0.04f, 0f), 3f, Palette.White);
             }
-            for (int yard = 1; yard < 100; yard++)
-            {
-                if (yard % 5 == 0)
-                    continue;
-                Box("Near hash " + yard, root, new Vector3(yard - 50f, 0.012f, -7f),
-                    new Vector3(0.09f, 0.018f, 0.7f), chalk, false);
-                Box("Far hash " + yard, root, new Vector3(yard - 50f, 0.012f, 7f),
-                    new Vector3(0.09f, 0.018f, 0.7f), chalk, false);
-            }
-            for (int sign = -1; sign <= 1; sign += 2)
-            {
-                Box("Sideline", root, new Vector3(0f, 0.015f, sign * halfWidth),
-                    new Vector3(120.3f, 0.025f, 0.28f), chalk, false);
-                Box("End boundary", root, new Vector3(sign * 60f, 0.015f, 0f),
-                    new Vector3(0.28f, 0.025f, halfWidth * 2f), chalk, false);
-                Box("Low sideline rail", root, new Vector3(0f, -0.1f, sign * (halfWidth + 2.3f)),
-                    new Vector3(124f, 0.7f, 0.45f), homeDark);
-                for (int end = -1; end <= 1; end += 2)
-                    Box("Corner pylon", root, new Vector3(end * 50f, 0.45f, sign * halfWidth),
-                        new Vector3(0.32f, 0.9f, 0.32f), away);
-                GoalPost(sign * 62f, Lit("Goal frame " + sign, new Color32(230, 188, 94, 255)));
-            }
-            GroundText("H O M E", new Vector3(-55f, 0.035f, 0f), 2.7f, Palette.Home, new Vector3(90f, 0f, 90f));
-            GroundText("A W A Y", new Vector3(55f, 0.035f, 0f), 2.7f, Palette.Away, new Vector3(90f, 0f, 90f));
-            Ring("Midfield emblem", root, 3.8f, 0.09f, chalk).transform.localPosition = new Vector3(0f, 0.032f, 0f);
-            GroundText("30", new Vector3(0f, 0.04f, 0f), 3f, Palette.White);
 
             scrimmage = Box("Current scrimmage / next spot when dead", root, Vector3.zero,
                 new Vector3(0.18f, 0.025f, halfWidth * 2f), cyan, false).transform;

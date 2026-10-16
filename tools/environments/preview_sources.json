@@ -1,0 +1,19 @@
+{
+  "schema": "source-world-preview-inputs/v1",
+  "description": "Metadata only: the six verified production preview sources and their existing metas. No FieldScene, gameplay/Core source, source art, generated data, or machine paths.",
+  "frozenDependencyCheckpoint": "edc6193470a24b11c2ee39de50aa71e22e49bfdb",
+  "files": [
+    {"path":"Assets/Scripts/AssetImport/SourceEnvironmentData.cs","sha256":"4494bfb6cf0e9769e6290fa3a78fc9bfac5fe0d592bba43688696e782f81bb88"},
+    {"path":"Assets/Scripts/AssetImport/SourceEnvironmentData.cs.meta","sha256":"82a2f297498376c9a4df75cf713474853e34cff02c422cf05d29bcc49ca82cfb"},
+    {"path":"Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs","sha256":"f361f5c156bbea8e04fbccde6b2f3bf71fabc6f1e5ce01c6b422bcfa00592f1a"},
+    {"path":"Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs.meta","sha256":"507f44d5d328502246275a069fa68fac44a15de82f0497ede41a683b62741e9f"},
+    {"path":"Assets/Scripts/AssetImport/GeneratedPlayerData.cs","sha256":"723a50fb34f0210c96f88692a9f0bb8ec1ac6151beb5aac89fcbe61386a75a49"},
+    {"path":"Assets/Scripts/AssetImport/GeneratedPlayerData.cs.meta","sha256":"b375a823372a5e3ff70a5d7f696ef6bf29040c949fcd4e06a2e0403ba59b19be"},
+    {"path":"Assets/Scripts/Presentation/SourceEnvironmentProvider.cs","sha256":"b41d846ccc24a3ffb8fc4c8cf357e18b136be1234b63b3a3b519b1dcaff80edd"},
+    {"path":"Assets/Scripts/Presentation/SourceEnvironmentProvider.cs.meta","sha256":"6fcaa245fedbb981716b7246d06c126fdf47ffc0f533c57ecf6de19edf9dd3d1"},
+    {"path":"Assets/Scripts/Editor/SourceEnvironmentImporter.cs","sha256":"0aec419114e7863c7bfd2e31b3a1bfe68a183fdd047efd4b6bdedfa1e91c3cb8"},
+    {"path":"Assets/Scripts/Editor/SourceEnvironmentImporter.cs.meta","sha256":"82c5ed9b105f5b923dd6de76a1dd99c4fd9eb458bff4397451307cfc34d51e21"},
+    {"path":"Assets/Scripts/Editor/SourceEnvironmentChecks.cs","sha256":"30de46e42a91392f6dc4885ee2357ca2917d66734f6ea4144aef346b335d6fc6"},
+    {"path":"Assets/Scripts/Editor/SourceEnvironmentChecks.cs.meta","sha256":"51779ef8cd6291aa507b7901766eac7ef959c987c4ca3cf47825a11968892ccd"}
+  ]
+}

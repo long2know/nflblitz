@@ -144,8 +144,13 @@ hurdles, audibles, on-fire/handicap systems, difficulty, penalties, exact forwar
 progress, collision order at corners, special teams, overtime, halftime
 possession, multiplayer, coin/buy-in flow, replay, records, rosters or presentation.
 
-Source field/stadium, original HUD art/layout, audio, jersey-number overlay
-geometry, other rosters/skins and original lighting are not ported. Continuous
+The source field/stadium converter, reader and importer now have separate
+original-C, native and world-only WebGL evidence; the verified prefab is not
+yet installed in the actual game. See the
+[environment recipe](../tools/environments/README.txt). Original HUD art/layout,
+audio, jersey-number overlays, full roster/skin rendering and lighting remain
+unintegrated. The immutable roster adapter preserves all 31 teams and 496
+static records, but that data alone does not change on-field uniforms. Continuous
 original animation is implemented for the selected library, but full source
 action/selector/root-transition parity remains open. The field/HUD, Unity
 normals/material cutoff and simple animation in
@@ -189,7 +194,7 @@ does not close a row.
 | P1 playbooks/routes/defense/audibles — L/D/V, V/P | `PlayStuf.c:off_slots/def_slots/play_pages/PlayStuf__SetupCurrentPlayPages/PlayStuf__ResetAudibles`; `playsel.c:PlaySel__MakeChoice/cpu_pick_play`; `playbook.c`; active `drone.c:_drone_qb` **L1163**, `_drone_wpn/_drone_db/assign_blockers/drone_cover_assign` | Enumerate reachable source pages/slots, including specials/custom/audibles; run every formation/route opcode and man/zone/blitz assignment with pinned inputs/RNG. Example `formation_stack` first lineman **(-12,-17.5)** source units and `off_slots[0]` **ZIG ZAG** → `play_zigzag`; Run/QuickPass/Cover/Blitz are not source play IDs. Earlier `_drone_qb` at L940 is disabled. |
 | D1 teams/rosters/stats/materials — L/D/V, V/P; one variant partial | `include/GAME.H` L220–223; `teamdata.c`; `player.c:load_uniform/draw_player` L6816–6928; `plyrinfo.c`; `nfl.c` stats updates | **31 teams**, **16** static player records/team, seven on-field actors/side; not 32 teams or one Bears body for everyone. Verify all reachable roster assignments, ratings/scale/body/skin/home-away uniform, held-ball model and one/two-digit jersey overlay. Number digits come from packed nibbles, with zero mapped to atlas slot 9. Match gameplay and final statistical accounting, not just appearance. |
 | I1 input/multiplayer — L/V, V/P | `player.c:player_proc` input edge logic, `_mode_*`, `audible_check`; `include/GAME.H:MAX_PLYRS/plyr_control`; `playsel.c:play_select` | Two/four-station configuration up to **four humans**, same-side cooperation, defensive/receiver switching, A/B/C simultaneous held/edge state and double taps. Preserve source command order; current single Home command and keyboard legend do not close this row. Browser focus-release behavior remains mandatory; network play is not inferred from cabinet stations. |
-| V1 field/camera/HUD/audio — D/V and coupled L, V/P; normal camera/player partial | `field.c`; `cambot.c` active mode table; `player.c:last_player_proc`; `plyrinfo.c`; `sounds.c:catch_sounds/fumble_ball_sounds/field_goal_speech`; source `models/`, `img2d/`, `img3d/`, `sounds/` | Original field/stadium/materials, full role/action animation, source camera transitions/replay/special plays, clock/score/play pages/markers/turbo bars/messages and event-timed music/crowd/announcer. Validate audio ID/bank dispatch plus actual decoded playback. N64 screenshots guide appearance; they do not establish identical arcade edition/pixels. |
+| V1 field/camera/HUD/audio — D/V and coupled L, V/P; normal camera/player partial, world separately inspected | `field.c`; `cambot.c` active mode table; `player.c:last_player_proc`; `plyrinfo.c`; `sounds.c:catch_sounds/fumble_ball_sounds/field_goal_speech`; source `models/`, `img2d/`, `img3d/`, `sounds/` | Original field/stadium/materials, full role/action animation, active source camera transitions and special plays, clock/score/play pages/markers/turbo bars/messages and event-timed music/crowd/announcer. Validate audio ID/bank dispatch plus actual decoded playback. Dormant replay data is not an active feature: `CamData.c` places `csi_replay1` under `#if 0`, and active `cambot.c` playback is false. Do not invent generic tackle replay/slow motion. N64 screenshots guide appearance; they do not establish identical arcade edition/pixels. |
 | F1 gameflow/records/configuration — L/D/V, V/P | `nfl.c:InitGameProc/eoq_handling/game_over`, `mainproc.c`, `PlayStuf.c`, `include/game_cfg.h`; source record/replay/cap call sites | Team/roster/play selection → complete match → intermissions/stats/OT/final → next match, source user configuration, reachable custom plays/power-ups/records/replay. Trace the actual callees before marking their cases verified. Exclude cabinet accounting, disk audits, diagnostics and hardware drivers; retain their gameplay-facing settings, human participation and continuation decisions with a documented free-play adapter. |
 
 ### Execution order and closing evidence
@@ -358,10 +363,11 @@ table is needed for this first full-quaternion pose.
   adaptations. Special/replay/attract/cinematic modes, shake and exact hardware
   clipping/timing are not ported; N64 pixel orientation is not certified.
 
-### Available but not ported
+### Available but not fully integrated
 
-`models/field2.sdl` and `models/stadpie.sdl` contain original stadium geometry;
-missing generated headers do not mean missing art. `img2d` WIF bundles and
+`models/field2.sdl` and `models/stadpie.sdl` now have a strict original-world
+adapter and isolated native/browser inspection; the actual game integration
+remains open. Missing generated headers do not mean missing art. `img2d` WIF bundles and
 manifests exist, but original HUD sprites are not decoded/installed. The archive
 contains WANs beyond the selected 56-clip increment and unported audio payloads,
 not a completed archive-wide animation/audio pipeline. A complete arcade rebuild

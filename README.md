@@ -101,9 +101,11 @@ coverage is separate from animation/browser acceptance.
   ported. Continuous clips are implemented, but complete original action/
   selector/root-transition parity is not. Throw/GetUp clips have native checks,
   but those actions were not observed in the recorded browser run.
-- The field/stadium, lighting and HUD remain approximations, not original assets
-  or N64 pixel fidelity. The source reference is arcade code; edition equivalence
-  with the supplied N64 screenshot is unverified.
+- The live game still has an approximate field and HUD. The
+  [original field/stadium adapter](tools/environments/README.txt) has separate
+  original-C, native and world-only WebGL proof; actual game integration,
+  lighting and original HUD remain open. The source reference is arcade code;
+  edition equivalence with the supplied N64 screenshot is unverified.
 - Thirty yards in four downs, six-point touchdowns and two-point safeties have
   source-traced tests. The injected source profile adds packed clock/rules/
   PAT/kick/period helpers and a 60-host/57-source adapter; complete caller flow,
