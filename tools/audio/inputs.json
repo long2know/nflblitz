@@ -1,0 +1,71 @@
+{
+  "schema": "source-audio-inputs/v1",
+  "original_rights": "Unverified. Public availability is not redistribution permission. Original bytes and every generated audio/data product remain local and ignored.",
+  "sources": [
+    {
+      "repository": "historicalsource/nflblitz2000",
+      "commit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+      "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+      "cache": "nflblitz2000",
+      "files": {
+        "sounds.c": "f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9",
+        "include/sndcalls.h": "69f6c483502fb689eb1991169e0e31858378c763",
+        "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+        "nfl.c": "15b49474fb55e8bac280b6515fcf7bf59cdf8664",
+        "playsel.c": "f5e87b921a4038d03f55174bbd5425241939e798",
+        "plyrseq.c": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
+        "sounds/CURSORS.BNK": "515154b9bb6c1e719a5cce018982480d5d764f0d",
+        "sounds/CURSORS.LST": "b30ba9c43644d74da7a8284a834e919ff1fc02dc",
+        "sounds/PLAYERS.BNK": "9a1ddee942413091117e031bd70ec65e9b44f745",
+        "sounds/PLAYERS.LST": "a80b3564bc495ebfeb214ee0f68b79663a257330"
+      }
+    },
+    {
+      "repository": "historicalsource/midwayvideo",
+      "commit": "1792293aaaea00a919b59e8c05716978e85b4333",
+      "cache": "midwayvideo",
+      "files": {
+        "include/goose/sound.h": "b67e1f1d07cc22faf3f4c9e0269e091460750a46",
+        "lib/sound/sound.c": "ccefa688c067c894ce81c15855f333e3ebe68c1d"
+      }
+    },
+    {
+      "repository": "Asure/DCSExplorer",
+      "commit": "1b7d0126cabb79c4c1365a90542806a60c9436f8",
+      "cache": "DCSExplorer",
+      "license_spdx": "BSD-3-Clause",
+      "attribution": "DCSDecoder: Copyright 2023 Michael J Roberts. Build-only dependency, not vendored into tracked source. Preserve upstream notices when redistributing any dependency binary or source.",
+      "files": {
+        "DCSDecoder/DCSDecoder.cpp": "c3c1217658659664dbf3b9ac963d5cda747e2426",
+        "DCSDecoder/DCSDecoder.h": "98ba7f572a5cdf623eb8fabec7cebc6a5faa44a6",
+        "DCSDecoder/DCSDecoderNative.cpp": "03a00ed88b6ce6a7e7d6eb0216b107f382e0e649",
+        "DCSDecoder/DCSDecoderNative.h": "d930a60baf176288e56255984c0d011607f5055d",
+        "DCSDecoder/PlatformSpecific.h": "bfab3440e1b7a15820bf619f8abdd5d6ddb46b89",
+        "BnkExtract/BnkExtract.cpp": "6c82a54cd4e93149f09f1dcbfb20f8431c67965f"
+      }
+    }
+  ],
+  "cursor_consumer_ids": [19, 23, 60, 63, 64, 67, 68],
+  "impact_tables": [
+    "linemen_hit_snds",
+    "carrier_hit_snds",
+    "non_carrier_hit_snds",
+    "fly_thru_air_snds",
+    "grnd_hit_snds",
+    "plr_land_grunt_snds"
+  ],
+  "impact_fixed_symbol": "P_DIVEHIT_SND",
+  "native_toolchain": {
+    "version": "13.3.0",
+    "target": "x86_64-linux-gnu"
+  },
+  "decoder_profile": {
+    "os": "OS95",
+    "rate": 31250,
+    "samples_per_frame": 240,
+    "pipeline_tail_frames": 2,
+    "default_master_volume": 255,
+    "mixing_level": "signed byte from the original playlist, baked into isolated PCM",
+    "scope": "Standalone compressed-stream decode only; not a DCS3 playlist interpreter, DSP emulator, or game sound-call engine."
+  }
+}

@@ -139,6 +139,21 @@ boundaries are test fixtures, not a production VM or completed Core integration.
 The [runtime-safe exporter](../tools/movement/README.md) preserves exact static
 data without the test-only `Responses` fixture; its output stays ignored.
 
+## Original audio packages
+
+The separate [`audio`](../tools/audio/README.md) preparation/reader layer has an
+asset-free regression command:
+
+```sh
+python3 tests/audio/run.py --mutate
+```
+
+This executes the actual immutable reader and synthetic parser/package failure
+gates without original banks, vendor code or Unity. Actual Unity-reference API
+compilation requires explicit `--unity-editor-data`. Decoded original samples
+and an isolated one-shot adapter do not implement source sound-selection RNG,
+DSP3 mixing or game-audio playback.
+
 ## Unity metadata
 
 No editor or third-party Python package is needed:

@@ -12,6 +12,7 @@ on:
       - 'tools/playbooks/**'
       - 'tools/movement/**'
       - 'tools/interface/**'
+      - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -31,6 +32,7 @@ on:
       - 'tools/playbooks/**'
       - 'tools/movement/**'
       - 'tools/interface/**'
+      - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -140,6 +142,8 @@ jobs:
         run: python3 tests/interface/stage_followup.py
       - name: Test original HUD resource preflight without assets or Unity
         run: python3 tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
+      - name: Test original audio package reader without banks or Unity
+        run: python3 tests/audio/run.py --mutate
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references
