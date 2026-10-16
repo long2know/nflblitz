@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Converted source playbook provenance, not original play arrays",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "source_revision", "source_tree", "profile", "source_inputs",
+    "recipe_sha256", "converter_sha256", "catalog", "counts", "opcode_occurrences",
+    "data_boundary", "full_gameplay_parity_claimed"
+  ],
+  "properties": {
+    "schema": { "const": "source-playbook-conversion/v1" },
+    "source_revision": { "$ref": "#/$defs/sha1" },
+    "source_tree": { "$ref": "#/$defs/sha1" },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "ticks_per_second", "use_old_qb"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "ticks_per_second": { "const": 57 },
+        "use_old_qb": { "const": false }
+      }
+    },
+    "source_inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "blob_sha1"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "blob_sha1": { "$ref": "#/$defs/sha1" }
+        }
+      }
+    },
+    "recipe_sha256": { "$ref": "#/$defs/sha256" },
+    "converter_sha256": { "$ref": "#/$defs/sha256" },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "format"],
+      "properties": {
+        "path": { "const": "catalog.tsv" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "format": { "const": "source-playbook/v1" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formations", "routes", "plays", "handicap_tables", "quarter_sines",
+        "stick_directions", "pool_entries"
+      ],
+      "properties": {
+        "formations": { "type": "integer", "minimum": 1 },
+        "routes": { "type": "integer", "minimum": 1 },
+        "plays": { "type": "integer", "minimum": 1 },
+        "handicap_tables": { "type": "integer", "minimum": 0 },
+        "quarter_sines": { "const": 257 },
+        "stick_directions": { "const": 49 },
+        "pool_entries": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "opcode_occurrences": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "data_boundary": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "full_gameplay_parity_claimed": { "const": false }
+  },
+  "$defs": {
+    "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "schema": "source-playbook-recipe/v1",
+  "source_revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "source_tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "profile": {
+    "identity": "OriginalRelease57Hz-USE_OLD_QB_FALSE",
+    "ticks_per_second": 57,
+    "use_old_qb": false
+  },
+  "inputs": {
+    "playbook": {
+      "path": "playbook.c",
+      "blob_sha1": "bfcdf44ce1a11a69ba1881ff2310d6b1aed5612b"
+    },
+    "slots": {
+      "path": "PlayStuf.c",
+      "blob_sha1": "12197b46ea73cb2563fcb80b8c61c4f1e819b314"
+    },
+    "selection": {
+      "path": "playsel.c",
+      "blob_sha1": "f5e87b921a4038d03f55174bbd5425241939e798"
+    },
+    "playstuf_header": {
+      "path": "include/PlayStuf.h",
+      "blob_sha1": "3df5e8e8a3f478c3b02860a401c950d1e83c5ad3"
+    },
+    "player_header": {
+      "path": "include/player.h",
+      "blob_sha1": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8"
+    },
+    "player": {
+      "path": "player.c",
+      "blob_sha1": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c"
+    },
+    "handicap": {
+      "path": "handicap.c",
+      "blob_sha1": "871424596fb9786af3602a49cc9d20c466df8ca1"
+    },
+    "trigs": {
+      "path": "lib/ani3d/TRIGS.H",
+      "blob_sha1": "a07d76798931f1240bdf7f3b8e753ebd7832763a"
+    },
+    "drone": {
+      "path": "drone.c",
+      "blob_sha1": "d4b636dcd8cc34109be5834b2be2b18b7c04439a"
+    },
+    "game_header": {
+      "path": "include/GAME.H",
+      "blob_sha1": "09d65c92971c32c44b1dc49fb4e4e98b371b1cd3"
+    }
+  },
+  "weighted_pools": {
+    "ShortOffense": { "symbol": "short_off_plays", "count": 52 },
+    "LongOffense": { "symbol": "long_off_plays", "count": 53 },
+    "ShortDefense": { "symbol": "short_def_plays", "count": 20 },
+    "ShortDefenseCustom": { "symbol": "short_def_plays2", "count": 27 },
+    "LongDefense": { "symbol": "long_def_plays", "count": 26 },
+    "LongDefenseCustom": { "symbol": "long_def_plays2", "count": 29 },
+    "BlitzDefense": { "symbol": "blitz_def_plays", "count": 19 }
+  },
+  "singleton_pools": {
+    "Punt": "play_punt",
+    "FakePunt": "play_fake_punt",
+    "FieldGoal": "play_field_goal",
+    "PuntReturn": "play_punt_return",
+    "BlockFieldGoal": "play_block_fg",
+    "GoalLineDefense": "play_goal_line"
+  },
+  "expected_counts": {
+    "formations": 29,
+    "routes": 140,
+    "plays": 88,
+    "handicap_tables": 34,
+    "quarter_sines": 257,
+    "stick_directions": 49
+  },
+  "runtime": {
+    "namespace": "Blitz.Gameplay",
+    "loader": "SourcePlaybook.LoadConverted(System.IO.TextReader)",
+    "cpu": "SourceMatchFlow.CpuPickPlay -> SourcePlaybook.ResolveCpuPlay",
+    "catalog": "catalog.tsv",
+    "manifest": "manifest.json",
+    "manifest_schema": "manifest.schema.json"
+  }
+}

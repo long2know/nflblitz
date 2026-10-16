@@ -1,0 +1,56 @@
+{
+  "schema": "source-playbook-regression-pins/v1",
+  "repository": "historicalsource/nflblitz2000",
+  "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "profile": {
+    "identity": "OriginalRelease57Hz-USE_OLD_QB_FALSE",
+    "ticks_per_second": 57,
+    "use_old_qb": false
+  },
+  "blobs": {
+    "playbook.c": "bfcdf44ce1a11a69ba1881ff2310d6b1aed5612b",
+    "PlayStuf.c": "12197b46ea73cb2563fcb80b8c61c4f1e819b314",
+    "playsel.c": "f5e87b921a4038d03f55174bbd5425241939e798",
+    "include/PlayStuf.h": "3df5e8e8a3f478c3b02860a401c950d1e83c5ad3",
+    "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+    "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+    "handicap.c": "871424596fb9786af3602a49cc9d20c466df8ca1",
+    "lib/ani3d/TRIGS.H": "a07d76798931f1240bdf7f3b8e753ebd7832763a",
+    "drone.c": "d4b636dcd8cc34109be5834b2be2b18b7c04439a",
+    "include/GAME.H": "09d65c92971c32c44b1dc49fb4e4e98b371b1cd3",
+    "nfl.c": "15b49474fb55e8bac280b6515fcf7bf59cdf8664",
+    "include/ani3d.h": "826c6322467fcfe503b8402b540e4731671f9b6b",
+    "lib/ani3d/pipe3D.c": "0966ecaf0d7eef7d9c635a97899a421ce1eeea41",
+    "lib/ani3d/ANIM.C": "97d7856d67a432937e249be274ef67a9ad354dc1"
+  },
+  "production_sha256": {
+    "Assets/Scripts/Gameplay/SourcePlaybook.cs": "bd51c3452fe49e5f5f8a49ef6e2cbef2cf692f566a0b46f714fb6c5e33b1e54e",
+    "Assets/Scripts/Gameplay/SourceDroneAI.cs": "0ff68c24b1699e2c51ff4941caa397386681a241565478a4209108a13075cd99",
+    "Assets/Scripts/Gameplay/SourceRandom.cs": "71566e84f0688041f40688e053c91f6239fe75240f8aaf77487fdcb667f69205"
+  },
+  "producer_sha256": {
+    "tools/playbooks/convert.py": "53390407d28e26e76fce26e130ca5649a10c17e9be95653d93de1a8b8b914853",
+    "tools/playbooks/recipe.json": "ddf2224028d1b928dbc04869d08e2b9648381fa120bab56787d720a931cbdba8",
+    "tools/playbooks/manifest.schema.json": "b437f1a853807cff1e68fc8ee4b928a89c3acf0b84e0c86a46244dfb8f48313c"
+  },
+  "catalog_sha256": "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3",
+  "expected": {
+    "assertions": 21141803,
+    "compiled_original_catalog_records": 7565,
+    "original_numeric_cases": 20000,
+    "original_source_actor_decision_ticks": 220208,
+    "original_receiver_frames": 1200,
+    "original_block_assignment_frames": 1200,
+    "route_programs": 140,
+    "route_side_runs": 280,
+    "original_lineup_inputs": 8640,
+    "original_initialization_inputs": 300,
+    "original_switch_timing_ticks": 432,
+    "original_rng_calls": 19779,
+    "command_retained_ticks": 192,
+    "buttons_retained_ticks": 712,
+    "cross_actor_effects": 493
+  },
+  "boundary": "Host-compiled original C functional seams with synthetic actor frames, animation feedback and explicit raw input tapes. Not original physics, Unity native, MIPS, target libc PRNG/qsort, scheduler or full-match equivalence."
+}
