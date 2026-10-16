@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Contract and optional Docker smoke tests; all players here are labeled stubs."""
 
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -24,15 +26,38 @@ def run(args, **kwargs):
     return subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
 
 
-def create_site(site):
+def write_generation_proof(site, build_id="1" * 32):
+    artifacts = [site / "index.html"]
+    for suffix in ("loader.js", "framework.js", "wasm", "data"):
+        artifacts.append(next((site / "Build").glob("*." + suffix)))
+    lines = [
+        "format=blitz-webgl-build-v1", "build-id=" + build_id,
+        "unity-version=6000.3.24f1", "build-target=WebGL",
+        "build-result=Succeeded", "total-errors=0",
+        "build-report-bytes=" + str(sum(path.stat().st_size for path in artifacts)),
+    ]
+    for path in artifacts:
+        lines.append("sha256=" + hashlib.sha256(path.read_bytes()).hexdigest() +
+                     " " + path.relative_to(site).as_posix())
+    (site / "build-generation.txt").write_text("\n".join(lines) + "\n")
+
+
+def create_site(site, hosting_stub=True):
     (site / "Build").mkdir(parents=True)
-    (site / "hosting-test-stub.txt").write_text("HOSTING TEST ONLY, NOT A PLAYABLE GAME\n")
+    (site / "TemplateData").mkdir()
+    (site / "TemplateData/webmemd-icon.png").write_bytes(base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jCuMAAAAASUVORK5CYII="
+    ))
+    if hosting_stub:
+        (site / "hosting-test-stub.txt").write_text("HOSTING TEST ONLY, NOT A PLAYABLE GAME\n")
+    label = "WEBGL_HOSTING_TEST_STUB" if hosting_stub else "SYNTHETIC_BUILD_CONTRACT_FIXTURE"
     (site / "index.html").write_text(
-        '<!doctype html><meta charset="utf-8"><title>Hosting test only</title>'
-        '<p>WEBGL_HOSTING_TEST_STUB: NOT A PLAYABLE GAME</p>'
+        '<!doctype html><html><head><meta charset="utf-8"><title>Hosting test only</title></head><body>'
+        '<p>' + label + ': NOT A PLAYABLE GAME</p>'
+        '<canvas id="unity-canvas" width="1280" height="720" style="width:1280px;height:720px"></canvas>'
         '<script src="Build/smoke.loader.js"></script>'
         '<script>const config = {frameworkUrl:"Build/smoke.framework.js",'
-        'codeUrl:"Build/smoke.wasm",dataUrl:"Build/smoke.data"};</script>\n'
+        'codeUrl:"Build/smoke.wasm",dataUrl:"Build/smoke.data"};</script></body></html>\n'
     )
     (site / "Build/smoke.loader.js").write_text(
         "// HOSTING STUB ONLY\nfunction createUnityInstance() { throw new Error('Not a game'); }\n"
@@ -40,6 +65,7 @@ def create_site(site):
     (site / "Build/smoke.framework.js").write_text("// HOSTING STUB ONLY\n")
     (site / "Build/smoke.wasm").write_bytes(b"\0asm\x01\0\0\0")
     (site / "Build/smoke.data").write_bytes(b"HOSTING STUB ONLY, NOT UNITY GAME DATA\n")
+    write_generation_proof(site)
 
 
 class WorkDirectoryTest(unittest.TestCase):
@@ -59,11 +85,11 @@ class ArtifactContractTests(WorkDirectoryTest):
         self.site = self.work / "WebGL"
         create_site(self.site)
 
-    def verify(self, allow=True, since=None):
+    def verify(self, allow=True, expected_id=None):
         env = dict(os.environ, WEBGL_ALLOW_TEST_STUB="1" if allow else "0")
         args = ["sh", str(ROOT / "scripts/verify-webgl.sh"), str(self.site)]
-        if since is not None:
-            args.append(str(since))
+        if expected_id is not None:
+            args.append(expected_id)
         return run(args, env=env)
 
     def test_complete_labeled_stub_requires_explicit_opt_in(self):
@@ -111,15 +137,50 @@ class ArtifactContractTests(WorkDirectoryTest):
         link.symlink_to(self.site / "Build/smoke.wasm")
         self.assertNotEqual(self.verify().returncode, 0)
 
-    def test_stale_index_cannot_count_as_new_build(self):
-        marker = self.work / "build-start"
-        marker.touch()
-        os.utime(self.site / "index.html", (1, 1))
-        result = self.verify(since=marker)
+    def test_cached_old_mtimes_pass_only_with_current_generation_proof(self):
+        for path in self.site.rglob("*"):
+            if path.is_file():
+                os.utime(path, (1, 1))
+        self.assertEqual(self.verify(expected_id="1" * 32).returncode, 0)
+        result = self.verify(expected_id="2" * 32)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("stale output is not a successful build", result.stdout)
-        os.utime(self.site / "index.html", (marker.stat().st_mtime + 1, marker.stat().st_mtime + 1))
-        self.assertEqual(self.verify(since=marker).returncode, 0)
+        (self.site / "index.html").touch()
+        self.assertNotEqual(self.verify(expected_id="2" * 32).returncode, 0)
+
+    def test_missing_failed_or_malformed_build_report_proof_is_rejected(self):
+        proof = self.site / "build-generation.txt"
+        original = proof.read_text()
+        proof.unlink()
+        self.assertIn("missing current BuildReport generation proof", self.verify().stdout)
+        for malformed in (
+            original.replace("build-result=Succeeded", "build-result=Failed"),
+            original.replace("total-errors=0", "total-errors=1"),
+            original.replace("build-report-bytes=", "not-a-report="),
+            original.replace("build-report-bytes=" + original.split("build-report-bytes=")[1].splitlines()[0],
+                             "build-report-bytes=0"),
+            original + "sha256=" + "0" * 64 + " ../../outside-data\n",
+        ):
+            with self.subTest(proof=malformed[:80]):
+                proof.write_text(malformed)
+                self.assertNotEqual(self.verify().returncode, 0)
+
+    def test_current_proof_detects_nonempty_payload_mutation(self):
+        data = self.site / "Build/smoke.data"
+        data.write_bytes(data.read_bytes() + b"mutation")
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("generation hash mismatch: Build/smoke.data", result.stdout)
+
+    def test_linked_output_or_parent_cannot_escape_generation(self):
+        alias = self.work / "alias"
+        alias.symlink_to(self.site, target_is_directory=True)
+        result = run(["sh", str(ROOT / "scripts/verify-webgl.sh"), str(alias)])
+        self.assertNotEqual(result.returncode, 0)
+        parent = self.work / "parent"
+        parent.symlink_to(self.work, target_is_directory=True)
+        result = run(["sh", str(ROOT / "scripts/verify-webgl.sh"), str(parent / "WebGL")])
+        self.assertNotEqual(result.returncode, 0)
 
 
 class BuildEntrypointTests(WorkDirectoryTest):
@@ -135,12 +196,22 @@ class BuildEntrypointTests(WorkDirectoryTest):
         self.editor = self.work / "Editor/Unity"
         (self.editor.parent / "Data/PlaybackEngines/WebGLSupport").mkdir(parents=True)
         self.editor.write_text(
-            '#!/bin/sh\nif [ "${1:-}" = -version ]; then echo "${TEST_UNITY_VERSION:-6000.3.24f1}"; exit 0; fi\n'
-            'printf "%s\\n" "$@" > "$TEST_INVOCATION"\nexit "${TEST_UNITY_EXIT:-0}"\n'
+            "#!/usr/bin/env python3\n"
+            "import os, runpy, shutil, sys\nfrom pathlib import Path\n"
+            "if sys.argv[1:] == ['-version']:\n"
+            " print(os.environ.get('TEST_UNITY_VERSION','6000.3.24f1')); sys.exit(0)\n"
+            "Path(os.environ['TEST_INVOCATION']).write_text('\\n'.join(sys.argv[1:])+'\\n')\n"
+            "if os.environ.get('TEST_FIXTURE'):\n"
+            " output=Path(sys.argv[sys.argv.index('-projectPath')+1])/'Build/WebGL'\n"
+            " shutil.copytree(os.environ['TEST_FIXTURE'],output,dirs_exist_ok=True)\n"
+            " if os.environ.get('TEST_ATTEST') == '1':\n"
+            "  runpy.run_path(os.environ['TEST_HELPER'])['write_generation_proof'](output,os.environ['BLITZ_WEBGL_BUILD_ID'])\n"
+            "sys.exit(int(os.environ.get('TEST_UNITY_EXIT','0')))\n"
         )
         self.editor.chmod(0o755)
         self.invocation = self.work / "editor-arguments.txt"
-        self.env = dict(os.environ, UNITY_EDITOR=str(self.editor), TEST_INVOCATION=str(self.invocation))
+        self.env = dict(os.environ, UNITY_EDITOR=str(self.editor), TEST_INVOCATION=str(self.invocation),
+                        TEST_HELPER=str(ROOT / "scripts/test-webgl-tooling.py"))
 
     def build(self, **env):
         return run(
@@ -168,8 +239,64 @@ class BuildEntrypointTests(WorkDirectoryTest):
         os.utime(site / "index.html", (1, 1))
         result = self.build()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("stale output is not a successful build", result.stdout)
         self.assertFalse(receipt.exists())
+        archived = list((self.project / "Build").glob(".webgl-previous-*/build-receipt.json"))
+        self.assertEqual(len(archived), 1)
+        self.assertEqual(archived[0].read_text(), '{"obsolete":true}\n')
+        self.assertFalse((site / "index.html").exists())
+
+    def test_cached_payload_copy_with_current_report_passes_without_touching_mtimes(self):
+        fixture = self.work / "cached-export"
+        create_site(fixture, hosting_stub=False)
+        for path in fixture.rglob("*"):
+            if path.is_file():
+                os.utime(path, (1, 1))
+        result = self.build(TEST_FIXTURE=str(fixture), TEST_ATTEST="1")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        site = self.project / "Build/WebGL"
+        self.assertEqual((site / "index.html").stat().st_mtime, 1)
+        self.assertEqual((site / "Build/smoke.wasm").stat().st_mtime, 1)
+        receipt = json.loads((site / "build-receipt.json").read_text())
+        self.assertEqual(receipt["schemaVersion"], 2)
+        self.assertIn("build-id=" + receipt["buildId"], (site / "build-generation.txt").read_text())
+
+    def test_zero_exit_replayed_old_report_or_incomplete_output_cannot_pass(self):
+        fixture = self.work / "cached-export"
+        create_site(fixture, hosting_stub=False)
+        replay = self.build(TEST_FIXTURE=str(fixture))
+        self.assertNotEqual(replay.returncode, 0)
+        self.assertIn("build invocation does not match", replay.stdout)
+        self.assertFalse((self.project / "Build/WebGL/build-generation.txt").exists())
+        (fixture / "Build/smoke.data").unlink()
+        partial = self.build(TEST_FIXTURE=str(fixture))
+        self.assertNotEqual(partial.returncode, 0)
+        self.assertIn("Build/*.data", partial.stdout)
+        self.assertFalse((self.project / "Build/WebGL/build-receipt.json").exists())
+
+    def test_editor_failure_invalidates_even_a_current_generation(self):
+        fixture = self.work / "cached-export"
+        create_site(fixture, hosting_stub=False)
+        result = self.build(TEST_FIXTURE=str(fixture), TEST_ATTEST="1", TEST_UNITY_EXIT="23")
+        self.assertEqual(result.returncode, 23)
+        self.assertFalse((self.project / "Build/WebGL/build-generation.txt").exists())
+        self.assertFalse((self.project / "Build/WebGL/build-receipt.json").exists())
+
+    def test_output_and_build_symlinks_rejected_without_touching_targets(self):
+        outside = self.work / "untouched"
+        outside.mkdir()
+        sentinel = outside / "sentinel.txt"
+        sentinel.write_text("unchanged")
+        (self.project / "Build").mkdir()
+        (self.project / "Build/WebGL").symlink_to(outside, target_is_directory=True)
+        self.assertNotEqual(self.build().returncode, 0)
+        self.assertFalse(self.invocation.exists())
+        (self.project / "Build/WebGL").unlink()
+        shutil.rmtree(self.project / "Build")
+        (self.project / "Build").symlink_to(outside, target_is_directory=True)
+        self.assertNotEqual(self.build().returncode, 0)
+        self.assertFalse(self.invocation.exists())
+        self.assertEqual(list(outside.iterdir()), [sentinel])
+        self.assertEqual(sentinel.read_text(), "unchanged")
 
     def test_exact_editor_version_is_enforced(self):
         result = self.build(TEST_UNITY_VERSION="6000.3.0f1")
@@ -224,10 +351,55 @@ class BuildEntrypointTests(WorkDirectoryTest):
         self.assertFalse((self.project / "Build/WebGL/build-receipt.json").exists())
 
 
+class ServeEntrypointTests(WorkDirectoryTest):
+    def setUp(self):
+        super().setUp()
+        self.project = self.work / "project"
+        (self.project / "scripts").mkdir(parents=True)
+        for name in ("serve-webgl.sh", "verify-webgl.sh"):
+            shutil.copy2(ROOT / "scripts" / name, self.project / "scripts" / name)
+        shutil.copy2(ROOT / "compose.yaml", self.project / "compose.yaml")
+        create_site(self.project / "Build/WebGL")
+        tools = self.work / "tools"
+        tools.mkdir()
+        docker = tools / "docker"
+        docker.write_text(
+            '#!/bin/sh\nif [ "$1" = compose ] && [ "$2" = version ]; then exit 0; fi\n'
+            'printf "%s\\n" "${BUILDX_BUILDER:-unset}" > "$TEST_BUILDER"\n'
+            'printf "%s\\n" "$@" > "$TEST_INVOCATION"\n'
+        )
+        docker.chmod(0o755)
+        self.builder = self.work / "builder.txt"
+        self.invocation = self.work / "compose-arguments.txt"
+        self.env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"],
+                        WEBGL_ALLOW_TEST_STUB="1", TEST_BUILDER=str(self.builder),
+                        TEST_INVOCATION=str(self.invocation))
+        self.env.pop("BUILDX_BUILDER", None)
+
+    def serve(self, **env):
+        return run(["bash", str(self.project / "scripts/serve-webgl.sh"), "--no-build"],
+                   env=dict(self.env, **env), cwd=ROOT / "scripts")
+
+    def test_default_builder_is_command_local_and_compose_ignores_dotenv(self):
+        result = self.serve()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.builder.read_text().strip(), "default")
+        args = self.invocation.read_text().splitlines()
+        self.assertEqual(args[:3], ["compose", "--env-file", "/dev/null"])
+        self.assertIn(str(self.project / "compose.yaml"), args)
+        self.assertEqual(args[-5:], ["up", "--no-build", "--abort-on-container-exit", "--exit-code-from", "web"])
+
+    def test_explicit_builder_override_is_preserved(self):
+        result = self.serve(BUILDX_BUILDER="operator-selected-builder")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.builder.read_text().strip(), "operator-selected-builder")
+
+
 @unittest.skipUnless(WITH_DOCKER, "pass --docker for actual static-runtime/container/context validation")
 class DockerHostingTests(WorkDirectoryTest):
     def docker(self, *args, check=True):
-        result = run(["docker", *args], cwd=ROOT)
+        result = run(["docker", *args], cwd=ROOT,
+                     env=dict(os.environ, BUILDX_BUILDER=os.environ.get("BUILDX_BUILDER") or "default"))
         if check:
             self.assertEqual(result.returncode, 0, result.stdout[-5000:])
         return result
@@ -293,6 +465,12 @@ class DockerHostingTests(WorkDirectoryTest):
             status, headers, body = request("/")
             self.assertEqual(status, 200)
             self.assertIn(b"NOT A PLAYABLE GAME", body)
+            self.assertIn(b'<meta name="viewport"', body)
+            self.assertIn(b'<style id="webgl-responsive">', body)
+            narrow_style = body.split(b'@media (max-width: 768px)', 1)[1].split(b"</style>", 1)[0]
+            self.assertIn(b"width: 100vw !important;", narrow_style)
+            self.assertIn(b"height: 100dvh !important;", narrow_style)
+            self.assertIn(b'rel="icon" type="image/png"', body)
             self.assertEqual(headers["Cache-Control"], "no-cache")
             self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
             for suffix, mime in (("loader.js", "application/javascript"), ("framework.js", "application/javascript"),
@@ -305,6 +483,11 @@ class DockerHostingTests(WorkDirectoryTest):
                 etag = headers["ETag"]
                 self.assertEqual(request("/Build/smoke." + suffix, {"If-None-Match": etag})[0], 304)
             self.assertEqual(request("/Build/smoke.wasm", {"Range": "bytes=0-7"})[::2], (206, b"\0asm\x01\0\0\0"))
+            icon_status, icon_headers, icon_body = request("/favicon.ico")
+            self.assertEqual(icon_status, 200)
+            self.assertEqual(icon_headers.get_content_type(), "image/png")
+            self.assertTrue(icon_body.startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertEqual(icon_body, request("/TemplateData/webmemd-icon.png")[2])
             for path in ("/Build/missing.wasm", "/Build/missing.loader.js", "/not-a-route",
                          "/Build/smoke.wasm.gz", "/.env", "/Assets/Source.cs"):
                 status, headers, body = request(path)
