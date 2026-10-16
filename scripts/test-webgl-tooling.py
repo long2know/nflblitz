@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -68,6 +69,37 @@ def create_site(site, hosting_stub=True):
     write_generation_proof(site)
 
 
+def assert_full_viewport_style(test, source):
+    match = re.search(r'<style id="webgl-responsive">([^<]+)</style>', source)
+    test.assertIsNotNone(match, "the served page must contain the actual responsive host style")
+    rules = dict(re.findall(r"([^{}]+)\{([^{}]*)\}", match[1].strip()))
+    rules = {selector.strip(): declarations for selector, declarations in rules.items()}
+    test.assertEqual(set(rules), {"html, body", "#unity-canvas"},
+                     "full-window styling must be unconditional and focus suppression canvas-only")
+
+    def properties(selector):
+        result = {}
+        for declaration in rules[selector].split(";"):
+            if declaration.strip():
+                name, value = declaration.split(":", 1)
+                result.setdefault(name.strip(), []).append(value.strip())
+        return result
+
+    document = properties("html, body")
+    for name, value in (("width", "100%"), ("height", "100%"), ("margin", "0"),
+                        ("padding", "0"), ("border", "0"), ("overflow", "hidden")):
+        test.assertEqual(document.get(name), [value], "document " + name)
+    canvas = properties("#unity-canvas")
+    for name, values in {
+        "display": ["block"], "position": ["static !important"],
+        "width": ["100vw !important"],
+        "height": ["100vh !important", "100dvh !important"],
+        "max-width": ["none !important"], "max-height": ["none !important"],
+        "margin": ["0"], "padding": ["0"], "border": ["0"], "outline": ["none"], "outline-width": ["0"],
+    }.items():
+        test.assertEqual(canvas.get(name), values, "canvas " + name)
+
+
 class WorkDirectoryTest(unittest.TestCase):
     def setUp(self):
         if (ROOT / "Build").is_symlink():
@@ -77,6 +109,29 @@ class WorkDirectoryTest(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.work)
+
+
+class ViewportStyleTests(WorkDirectoryTest):
+    def test_real_host_style_fills_every_viewport_without_outer_borders(self):
+        assert_full_viewport_style(self, (ROOT / "hosting/nginx.conf").read_text())
+
+    def test_real_host_style_mutations_are_rejected(self):
+        original = (ROOT / "hosting/nginx.conf").read_text()
+        for label, old, new in (
+            ("missing-full-width", "width: 100vw !important;", ""),
+            ("restored-desktop-cap", "width: 100vw !important;",
+             "width: min(100vw, calc(100vh * 16 / 9), 1280px) !important;"),
+            ("missing-full-height", "height: 100vh !important;\n    height: 100dvh !important;", ""),
+            ("restored-letterboxing", "height: 100dvh !important;",
+             "height: min(100dvh, calc(100vw * 9 / 16), 720px) !important;"),
+            ("restored-focus-border", "outline: none;", "outline: auto;"),
+        ):
+            with self.subTest(mutation=label):
+                self.assertIn(old, original, "mutation must change the real hosting config")
+                fixture = self.work / (label + ".conf")
+                fixture.write_text(original.replace(old, new))
+                with self.assertRaises(AssertionError, msg=label + " incorrectly passed the viewport gate"):
+                    assert_full_viewport_style(self, fixture.read_text())
 
 
 class ArtifactContractTests(WorkDirectoryTest):
@@ -466,10 +521,7 @@ class DockerHostingTests(WorkDirectoryTest):
             self.assertEqual(status, 200)
             self.assertIn(b"NOT A PLAYABLE GAME", body)
             self.assertIn(b'<meta name="viewport"', body)
-            self.assertIn(b'<style id="webgl-responsive">', body)
-            narrow_style = body.split(b'@media (max-width: 768px)', 1)[1].split(b"</style>", 1)[0]
-            self.assertIn(b"width: 100vw !important;", narrow_style)
-            self.assertIn(b"height: 100dvh !important;", narrow_style)
+            assert_full_viewport_style(self, body.decode())
             self.assertIn(b'rel="icon" type="image/png"', body)
             self.assertEqual(headers["Cache-Control"], "no-cache")
             self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
