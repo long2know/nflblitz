@@ -1,9 +1,82 @@
 # Original WAN poses and selected-frame clips, offline
 
-Both readers are original Python-standard-library code, require Python 3.9+, and
+These tools are original Python-standard-library code, require Python 3.9+, and
 operate only on explicit local input with an expected upstream **Git blob** pin.
 Decoded original motion and source WANs stay in ignored `.squad/.scratch/`; only
-the reader code and generated synthetic fixtures belong in publication.
+tool code, metadata-only pins and original synthetic fixtures belong in publication.
+
+## Reproduce the frozen 56-sequence library offline
+
+`player_sequences.json` is the publishable metadata-only catalog for the verified
+`edc6193` continuous-animation checkpoint: **56 sequences, 3,731 selected frames,
+4,046 authoring frames across 11 WANs**. It preserves original case-sensitive
+source paths, Git blob pins, runtime names, counts and selected boundaries.
+It contains no animation values or decoded-file hashes tied to an old local path.
+The source tree is `historicalsource/nflblitz2000` at
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`; converter provenance remains the
+`1792293aaaea00a919b59e8c05716978e85b4333` pin described below.
+
+From the project root, set `SOURCE_ROOT` to your existing local pinned source tree
+(the directory containing `anim/`). No ignored inventory, analysis helper,
+network access, Git invocation, package installation or historical executable is
+needed:
+
+```sh
+SOURCE_ROOT=/absolute/path/to/your/local/nflblitz2000
+BUNDLE=.squad/.scratch/player-animation-edc6193
+
+python3 tools/animation/prepare_player_sequences.py \
+  --source-root "$SOURCE_ROOT" \
+  --destination "$BUNDLE"
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/animation/tests -q
+```
+
+The destination must be **new** and beneath ignored `.squad/.scratch/`. The batch
+reads each required WAN once, caches its bytes, checks the Git blob identity and
+decodes with the unchanged `full_clip` / `encode_clip` implementation. Actual
+decoded names, counts and boundaries must match the catalog before any bundle
+is created. Every source frame is validated by the existing reader, including
+deselected frames. There is no resampling, new selection rule, inferred rate or
+playback-policy change.
+
+The bundle contains `clips/<runtime_name>.json` and `export-inventory.json`
+(`original-wan-export-inventory/v1`). Manifest clip paths are relative to the
+**bundle root**, with actual decoded-byte SHA-256, source blob/SHA-256, authoring
+count and full selected-source-index map. Clip provenance retains both source
+pins and uses the repository-relative WAN path for `local_input`; identical
+inputs at different physical roots produce identical bytes and hashes. The old
+single-clip CLI and its path-bearing output remain unchanged. Commit/path
+linkage is caller-supplied; offline blob verification is not a check of checkout
+HEAD.
+
+An existing destination is never overwritten or repaired. Add `--reuse` only for
+read-only verification of an **entire identical bundle**: the batch freshly
+decodes the pinned source and compares every output byte, rejects missing,
+changed or extra entries, and rejects symlinks and path escapes.
+
+### Existing Unity importer arguments
+
+The printed `manifest_sha256` is the actual bundle manifest pin. With the
+existing local `local-plyr266` rig imported, pass the bundle root and portable
+manifest to the existing native Editor importer:
+
+```sh
+MANIFEST_SHA256="$(python3 -c 'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' "$BUNDLE/export-inventory.json")"
+UNITY_EDITOR=/absolute/path/to/Unity/Editor/Unity
+
+"$UNITY_EDITOR" -batchmode -nographics -quit -projectPath "$PWD" \
+  -executeMethod Blitz.Editor.SourceAnimationImporter.ImportFromCommandLine \
+  -animationAssetRoot "$PWD/$BUNDLE" \
+  -animationManifest export-inventory.json \
+  -animationManifestSha256 "$MANIFEST_SHA256" \
+  -animationStableId local-plyr266
+```
+
+The importer is immutable: an existing animation library with a different
+manifest pin is refused, not replaced. Run this against the intended clean
+import target. Preparing the bundle alone does not launch Unity or alter any
+project asset, runtime source, timing, matrix convention or source selection.
 
 ## Complete selected-frame clip
 
@@ -181,6 +254,22 @@ and input aliases are rejected. Four isolated in-memory mutations of the actual
 clip decoder (dropped middle frame, reversed frame order, broken hemisphere
 adjustment, wrong root scale) must fail the same artifact assertions. Production
 files and original cached inputs are never mutated by the tests.
+
+Batch tests independently construct multiple selected sequences in one WAN plus
+a second WAN. They inspect counts, names, sparse maps, computed content pins,
+canonical provenance, one-read caching, relocated-root byte equality and
+new-only/read-only-reuse behavior. Corrupt, missing, extra and symlinked emitted
+artifacts must fail reuse without being repaired. The entire frozen catalog
+metadata projection is fingerprinted, not just its aggregate frame totals.
+
+`tests/CheckPreparedLibrary.cs` is an opt-in native check entry point for a
+C# 7.3 check project linked to the **actual production** `AssetImport` and
+`Contracts` sources, with no Unity dependency. Its three arguments are bundle
+root, baseline inventory file, and baseline inventory root. It invokes the real
+`SourceAnimationLibrary.Read` and compares all 56 clips' runtime source revisions,
+original source SHA-256/blob/path identities, selected maps and every selected
+frame value against the local baseline. No original motion is embedded in the
+checker; this actual-data check is separate from the synthetic Python suite.
 
 ## Space and gameplay meaning
 

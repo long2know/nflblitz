@@ -63,6 +63,16 @@ jobs:
         run: python3 tests/run-core.py
       - name: Test the inventory failure gates
         run: python3 tests/test-runner.py
+      - name: Fetch verified original C oracle inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tests/source-oracles/fetch_inputs.py
+      - name: Test pinned-source oracle extraction
+        run: python3 -B -m unittest discover -s tests/source-oracles -p 'test_*.py'
+      - name: Execute original C reference cases
+        run: python3 tests/source-oracles/run.py --source-root tests/source-oracles/.artifacts/original --full-matrix
+      - name: Compare source gameplay and host adapter
+        run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets

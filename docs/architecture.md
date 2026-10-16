@@ -1,20 +1,20 @@
 # Unity source-port integration contract v1
 
 **Owner:** Lead. **Contract checked:** October 16, 2026 (PDT).
-**Status:** actual Unity 6000.3.24f1 host import/build verified for the original
-player mesh/rig/textures, authentic static `QBSTANCE` frame 0 and source-derived
-normal camera. Native pose apply/reload and the matching Docker-served standing
-WebGL desktop/portrait visual-controls subset passed. The later minimal
-`NFL BLITZ 2000` identity/field-axis legend correction passed a host build,
-matching Docker promotion and six fresh browser controls checks. Current
-desktop/portrait images were reviewed visually; exact tiny-font legend OCR
-remains a separately recorded failed diagnostic, not an automated approval.
-The kernel is headless-tested, but this is not complete original-game parity.
+**Status:** continuous original animation is implemented and verified on Unity
+6000.3.24f1 host WebGL build `0000063700005f540000316b000003e7`, promoted to
+Docker `8080/?actors=source`. The shared library contains **56 original clips /
+3,731 selected source frames**. Actual native vertex checks and a
+**219.875-second browser recording** establish the bounded animation increment,
+not complete original-game parity. The earlier static `QBSTANCE` and
+identity/legend checks remain historical evidence in the
+[ledger](source-parity.md#current-implementation-evidence).
 
 ## Existing baseline, not the acceptance target
 
-**Full source gameplay parity is required.** The simplified kernel and static
-player preview below describe existing behavior only. The continuation boundary
+**Full source gameplay parity remains OPEN and required.** The simplified kernel
+and static-player milestone below are compatibility/history, not the current
+animated source runtime. The continuation boundary
 and [full completion matrix](source-parity.md#full-source-completion-matrix--executable-acceptance)
 supersede any earlier statement that two plays, static actors or a small prototype
 suffice. Keep the working build while replacing the approximations; do not
@@ -25,10 +25,27 @@ The repository root is the Unity project: `Assets/`, `Packages/`, and
 `Assets/Scenes/Boot.unity` is the built scene. Its presentation combines a
 procedural field/HUD with fourteen actors and one human-controlled Home team
 versus deterministic Away AI. Source mode uses the locally generated original
-player prefab; explicit graybox mode retains procedural actors. The implemented loop
-covers play selection, snap, running/turbo, targeted pass and automatic catch,
-tackle/out-of-bounds, down/possession resolution, scoring, and restart. The current
-source browser proof covers only the subset recorded in the
+player prefab **and required animation library**; explicit graybox mode retains
+procedural actors. There are two implemented profiles:
+
+- `GameSimulation(int seed = 1)` preserves the asset-free
+  `LegacyBaseline60Hz` compatibility kernel. The legacy behavior below and its
+  156 core cases do not certify the injected source path.
+- `GameSimulation(ISourceAnimationLibrary animations, int seed = 1)` selects
+  `OriginalRelease57Hz`. `BlitzRuntime` injects the same immutable library into
+  simulation and presentation. Host `Step` stays 60 Hz; an integer adapter
+  executes 57 source ticks per 60 calls and retains action edges until consumed.
+  Source mode starts opening-kickoff `PreSnap`, not legacy own-20 `PlaySelect`.
+  Actor script/frame/action/heading/layer/root state comes from the simulation,
+  including animation during selection and dead-ball recovery.
+- `SourceClock`, `SourceMatchRules` and `SourceMatchFlow` are integrated bounded
+  helpers for packed time, classification/spotting/scoring and PAT/kick/period
+  decisions. Helper availability is not complete caller-flow, special-teams or
+  original scheduler equivalence; independent oracle scope is recorded below.
+
+The legacy loop covers selection, snap, running/turbo, passing/catch, tackle/OOB,
+down/possession resolution, scoring and restart. The current source browser
+proof covers only the actions and non-rigid motion recorded in the
 [evidence ledger](source-parity.md#current-implementation-evidence).
 
 **Visual target correction, October 15, 2026:** this procedural Yard Rush graybox
@@ -36,12 +53,14 @@ does **not** meet the requested original-game appearance. Narrowing the full-fid
 request to this presentation was a scope error, not a visual-fidelity milestone.
 The supplied NFL Blitz 2000 screenshot is the camera/player/stadium/HUD target;
 the [source-data ledger](source-parity.md#visual-target-correction-and-asset-audit)
-separates imported mesh/textures and recovered first-pose data from remaining
-field/stadium, HUD, roster, animation, lighting and edition-equivalence gaps.
+separates imported mesh/textures and continuous animation from remaining
+field/stadium, HUD, roster, complete action/selector, lighting and
+edition-equivalence gaps.
 
 Two port-authored offensive patterns (`Run`, `QuickPass`) and two defensive choices
-(`Cover`, `Blitz`) currently exist; they do not suffice for parity. They are not
-archive formations. Home remains
+(`Cover`, `Blitz`) remain the legacy choices; they do not suffice for parity.
+The source profile adapts those menu labels to a small source formation subset,
+not the full original playbook/route/CPU-selection system. Home remains
 playable on defense after possession changes. Four quarters and a final score
 make a complete, deliberately simplified kernel match; a tie is a valid final
 result. That is not a complete original game or a browser full-match result.
@@ -62,8 +81,8 @@ files**, including metadata for Lead's contracts and Unity's gameplay scripts.
 | Accountable owner | Exclusive writes for this slice | Acceptance / handoff |
 | --- | --- | --- |
 | Lead | `docs/**`, `Assets/Scripts/Contracts/**`, root `README.md` | Maintain stable contracts, source evidence and current build/run status. |
-| Unity | `Assets/Scripts/Gameplay/**`, excluding `.meta`; bounded `tools/assets/**` and `tools/animation/**` recipes/readers | Own `Blitz.Gameplay.GameSimulation`, rules, AI and interactions; offline original-data preparation/first-pose decoding. No gameplay Unity references, scene changes, generated `.csproj`, or package changes. |
-| Unity Systems | `Assets/Scripts/AssetImport/**`, `Assets/Scripts/Presentation/**`, `Assets/Scripts/Runtime/**`, `Assets/Scripts/Editor/**`, all `.meta`, `Packages/**`, `ProjectSettings/**`, scene/prefab/material assets | Own source parser/native importer, rig/static-pose adapter, field/actors/ball/HUD, fixed-step bridge and camera. Single writer for shared Unity configuration and local imported assets. |
+| Unity | `Assets/Scripts/Gameplay/**`, excluding `.meta`; bounded `tools/assets/**` and `tools/animation/**` recipes/readers | Own `Blitz.Gameplay.GameSimulation`, rules, AI and interactions; offline original-data preparation and selected-frame clip export. No gameplay Unity references, scene changes, generated `.csproj`, or package changes. |
+| Unity Systems | `Assets/Scripts/AssetImport/**`, `Assets/Scripts/Presentation/**`, `Assets/Scripts/Runtime/**`, `Assets/Scripts/Editor/**`, all `.meta`, `Packages/**`, `ProjectSettings/**`, scene/prefab/material assets | Own source parser/native importer, rig/continuous-pose adapter, field/actors/ball/HUD, fixed-step bridge and camera. Single writer for shared Unity configuration and local imported assets. |
 | Frontend | Dockerfiles, compose/nginx configuration, root build/serve scripts, outer browser files and `.github/workflows/**` CI only | Reproducible build/serve entry points, Unity version/toolchain evidence, correct WebGL HTTP delivery and a documented container launch. Do not write Unity configuration or scripts under `Assets/`. |
 | Quality | `tests/**`, including all validation tooling and `tests/Blitz.Core.Tests/**` | Compile the exact core/contract files, test rules and replay determinism, and provide bounded browser smoke evidence when an artifact exists. No root project, gameplay, scene, or package edits. |
 | Backend | None | Dormant: no persistence, API, accounts or database is needed. |
@@ -77,8 +96,8 @@ generation, not assume the latest disk source is running.
 
 The selected editor is **Unity 6000.3.24f1**, recorded in project settings by
 Unity Systems, with the **.NET Standard 2.1** API profile. The real host builds
-compiled the source-player/camera/static-pose layer in that environment, with
-native pose apply/reload and standing-browser evidence recorded separately.
+compiled the source-player/camera/continuous-animation layer in that environment,
+with native and browser evidence recorded separately.
 Keep ordinary C# 7.3-compatible syntax
 and profile-compatible APIs.
 No records, `init`, Unity-dependent core types, NuGet core packages, DI container
@@ -91,7 +110,7 @@ are in [`GameplayContracts.cs`](../Assets/Scripts/Contracts/GameplayContracts.cs
 namespace `Blitz.Contracts`. Do not redeclare these types in Gameplay or Presentation.
 The interface avoids shared snapshot implementation constructors.
 
-Unity must provide this concrete entry point, with no additional required arguments:
+The implemented concrete entry points preserve the original constructor:
 
 ```csharp
 namespace Blitz.Gameplay
@@ -99,6 +118,7 @@ namespace Blitz.Gameplay
     public sealed class GameSimulation : Blitz.Contracts.IGameSimulation
     {
         public GameSimulation(int seed = 1);
+        public GameSimulation(Blitz.Contracts.ISourceAnimationLibrary animations, int seed = 1);
         public Blitz.Contracts.IGameState State { get; }
         public System.Collections.Generic.IReadOnlyList<Blitz.Contracts.GameEvent> Events { get; }
         public void Step(Blitz.Contracts.PlayerCommand command);
@@ -107,10 +127,11 @@ namespace Blitz.Gameplay
 }
 ```
 
-The block is a signature sketch, not a compilable implementation. Suggested entry
+The block is a signature sketch, not a compilable implementation. Entry
 file: `Assets/Scripts/Gameplay/GameSimulation.cs`. Unity owns its internal rule,
-AI, and snapshot types. Unity Systems stores an `IGameSimulation`, instantiated
-with `new Blitz.Gameplay.GameSimulation(1)`. No scene object enters the constructor.
+AI, and snapshot types. Unity Systems stores an `IGameSimulation`; source mode
+uses `new Blitz.Gameplay.GameSimulation(animations, 1)`, while explicit graybox
+uses the legacy constructor. No scene object enters either constructor.
 
 Example commands (pass targets below are global player IDs):
 
@@ -124,6 +145,11 @@ game.Restart(1);
 ```
 
 ### Coordinates, identity and read semantics
+
+The slot/control/possession policies below describe legacy compatibility.
+Source consumers use explicit `Role`, facing/animation and `ISourceGameState`
+instead of inferring source behavior from those legacy policies. DTO units and
+detached read semantics apply to both profiles.
 
 - `FieldVector.X` runs lengthwise in **yards**, Home goal line `0`, Away goal line
   `100`; end zones extend to `-10` and `110`. `Z` is lateral, centered at zero.
@@ -152,9 +178,9 @@ game.Restart(1);
 
 ## Legacy tick and command semantics
 
-These remain the compatibility behavior of the current kernel, not the target
-source rules. The full-source boundary below preserves callers while the source
-scheduler, clock, playbooks and outcomes replace these approximations.
+These remain the behavior of `LegacyBaseline60Hz`, not the injected source
+profile or target source rules. The full-source boundary below preserves callers
+while replacing these approximations; it does not assert all replacements are complete.
 
 `Step` represents exactly `1 / 60` second, accepts no delta time, and increments
 `State.Tick` once; `PlayNumber` starts at zero and increments once per snap.
@@ -241,13 +267,19 @@ members remain source-compatible. Default animation is **unspecified**, not a
 verified pose or permission to reuse the stationary QB. No Unity types enter
 these DTOs; keep C# 7.3/.NET Standard 2.1 compatibility.
 
-| Writer / exact files | Immediate contract / deliverable |
+| Writer / exact files | Implemented increment / remaining responsibility |
 | --- | --- |
 | Lead: `Assets/Scripts/Contracts/*.cs`, existing `docs/**` | Stable DTOs/units and this matrix; `.squad/.scratch/full-parity-contracts.json` is the local machine-readable handoff, not runtime data. No `.meta` writes. |
-| Unity: `tools/animation/**` | Finish the already-assigned offline `original-wan-clip/v1` producer: pinned WAN identity, sequence/flags/limb mapping, selected original indices, raw and source-scaled XYZ root, fifteen normalized XYZW rotations/frame. No second exporter or WAN investigation is needed. |
-| Unity: `Assets/Scripts/Gameplay/PlayerSimulation.cs`, `SimulationState.cs`, `GameSnapshot.cs`, new `SourceAnimationState.cs`; then `GameSimulation.cs`, `GameplayRules.cs`, new `SourceClock.cs` | Publish authoritative facing/role/action and explicit script/frame/layer/transition/root inputs. Initially label approximate action selection honestly. Port source sequence semantics and then the first core groups T1/T2/R1/S1/S2; preserve the entry point and detached snapshots. |
-| Unity Systems: new `Assets/Scripts/AssetImport/SourceAnimationLibrary.cs`, `Assets/Scripts/Presentation/SourceAnimationPlayer.cs`; `SourcePlayerRig.cs`, `FieldScene.cs`, `Runtime/FixedStepBridge.cs` and all `.meta` | Bounded clip loader/catalog, original pose sampler and rig application; drain snapshots/events per tick and render previous/current poses. Reuse `SourcePlayerPose`'s proven basis, pivots and reflection-aware rotation conversion. Do not put source state decisions in the view. |
-| Quality: `tests/**` | Original-function/trace oracles, DTO backward/default/detachment checks, actual clip frame/matrix/root checks, then production core and served-browser cases for every matrix row. Existing suites still describe the old slice unless new assertions prove replacement behavior. |
+| Unity: `tools/animation/**` | Offline `original-wan-clip/v1` producer and pinned preparation recipe: WAN identity, sequence/flags/limb mapping, selected original indices, raw/source-scaled XYZ root and fifteen normalized XYZW rotations/frame. The verified runtime consumes 56 clips, not archive-wide coverage. |
+| Unity: `Assets/Scripts/Gameplay/**`, excluding `.meta` | Source animation state/programs publish facing/role/action and explicit script/frame/layer/transition/root inputs. `GameSimulation.Source.cs` integrates `SourceClock`, `SourceMatchRules` and `SourceMatchFlow`. Complete original selectors, numeric VM/root traces and remaining T1/T2/R1/S1/S2 callers are still required; preserve detached snapshots and honest approximate-selection tags. |
+| Unity Systems: `Assets/Scripts/AssetImport/SourceAnimationLibrary.cs`, sampling/matrix helpers, `Assets/Scripts/Presentation/SourceAnimationPlayer.cs`; `SourcePlayerRig.cs`, `FieldScene.cs`, `Runtime/FixedStepBridge.cs` and all `.meta` | Implemented bounded library, sampler and continuous rig application; drain snapshots/events per tick and render compatible previous/current poses. Preserve the proven basis/pivots and independent layer headings. Source state decisions stay out of the view. |
+| Quality: `tests/**` | Permanent original-C clock/classifier/spot/onside comparisons and synthetic DTO/host checks are delivered. Complete independent oracles and production/native/browser cases for every matrix row remain required. Existing baseline suites do not by themselves prove replacement behavior. |
+
+This is an implemented **bounded increment**, not completion of the normative
+source semantics below. Remaining selectors/VM branches, `AA_TOGROUND` and
+anchor/root-transition timing, two-part-to-full-body positional continuity,
+historical SEQ quantization and source fast-trig/platform floats still need
+original-source traces.
 
 ### Source clock, not clip FPS
 
@@ -256,8 +288,8 @@ these DTOs; keep C# 7.3/.NET Standard 2.1 compatibility.
   also contain 54/72 settings; do not claim every hardware/configuration is 57.
   Record platform/build flags and source-adjustment values in each trace.
 - Keep public `Step(PlayerCommand)` at **1/60 second** for existing bridge callers.
-  The source port owns an integer remainder: add 57 per call, execute a source
-  tick when it reaches 60, subtract 60. Sixty calls execute exactly 57 source
+  The implemented source profile owns an integer remainder: add 57 per call,
+  execute a source tick when it reaches 60, subtract 60. Sixty calls execute exactly 57 source
   ticks, never 60 animation advances. Retain pending action edges until consumed
   once by a source tick; calls without a source tick publish no repeated events.
   All actor scripts, motion, ball, contact, AI and game clock ultimately run in
@@ -279,7 +311,7 @@ these DTOs; keep C# 7.3/.NET Standard 2.1 compatibility.
 
 ### Pose input semantics
 
-The renderer consumes this exact signature; its implementation belongs to Systems:
+`SourceAnimationPlayer` implements this exact signature:
 
 ```csharp
 void Apply(PlayerView previous, PlayerView current, float renderInterpolation01);
@@ -289,8 +321,9 @@ The input is `current.Animation` (`ActorAnimationView`); no clip parser is suppl
 by Contracts. The producer owns the JSON field layout; Systems consumes that
 layout rather than changing it to match guessed C# serializer fields.
 
-- **Shared data API:** Systems implements `ISourceAnimationLibrary.GetClip(string)`
-  and `ISourceAnimationClip.GetFrame(int sourceFrame)`. `SelectedSourceFrames`
+- **Shared data API:** `SourceAnimationLibrary` implements
+  `ISourceAnimationLibrary.GetClip(string)` and
+  `ISourceAnimationClip.GetFrame(int sourceFrame)`. `SelectedSourceFrames`
   maps runtime sequence ordinals to original WAN indices; its count is the
   runtime sequence length, while `SourceFrameCount` is the authored length.
   `SourceAnimationFrame` exposes immutable fifteen-joint `Pose`, raw
@@ -300,10 +333,10 @@ layout rather than changing it to match guessed C# serializer fields.
   frames, verifies mapping/limbs/quaternions and rejects duplicate sequence keys.
   Missing sequence/frame throws with identity diagnostics, never frame-0 fallback.
   Core and view consume the **same immutable library** without Unity references.
-  Unity adds an overload `GameSimulation(ISourceAnimationLibrary animations,
-  int seed = 1)` for injection; retain `GameSimulation(int seed = 1)`.
-  Systems wires the source production runtime to the injected library; existing
-  asset-free kernel tests are not evidence for that source path.
+  The implemented overload `GameSimulation(ISourceAnimationLibrary animations,
+  int seed = 1)` provides injection; `GameSimulation(int seed = 1)` is retained.
+  `BlitzRuntime` wires the source production runtime to the injected library;
+  existing asset-free kernel tests are not evidence for that source path.
 - **Identity:** `SourceAnimationLayer.ScriptSymbol` is the exact active script
   (e.g. `qb_stance_anim`), distinct from `Sample.SequenceName` (`QBSTANCE`).
   `InstanceId` changes at script replacement/restart, not each render or ordinary
@@ -382,6 +415,13 @@ optional and cannot feed back into simulation. Cap accumulated frame time at
 input and accumulated time, so returning to a hidden tab does not fast-forward
 the game. Hidden-tab wall-clock time is not match time.
 
+In this frozen increment, `FixedStepBridge.BindSourceInputReset` uses a public
+reset method if present, otherwise a type-checked binding to the exact private
+`pendingSourceActions` queue. Native **25 input/lifecycle assertions** and the
+actual browser hidden/resume/restart trace passed. This is not a typed source
+lifecycle contract or full focus-release geometry acceptance; replacing that
+narrow private-buffer binding remains integration work.
+
 Default bindings: WASD/arrows (W = +X, D = +Z), Shift turbo, 1/2 choose the
 appropriate offensive/defensive play, Space snap/continue by phase, 1/2/3 pass
 to Home IDs 4/5/6 during live offense, F tackle, Q switch defender, R restart.
@@ -407,14 +447,29 @@ import or deletes failed partial output. The local recipe uses stable ID
 [exact import commands](build.md#prepare-and-import-a-local-source-player).
 
 `SourcePlayerProvider` chooses the mode once at presentation initialization:
-`?actors=source` requires a valid prefab and errors without one;
+`?actors=source` requires a valid prefab **and bundled animation library**;
 `?actors=graybox` deliberately selects primitives. With no parameter an installed
-source prefab takes precedence, otherwise the baseline runs. All fourteen source
+source prefab takes precedence and therefore also requires its library;
+without a prefab the baseline runs. All fourteen source
 actors reuse one Chicago home / `PC_WHITE` normal-body variant. Source geometry
 and pivots stay in archive units; only the presentation root converts by 1/7.8
 to gameplay yards. Source actors are not driven by the graybox sine-leg motion.
 
-`SourcePlayerPoseReader` validates one content-pinned decoded pose.
+`SourceAnimationImporter.ImportFromCommandLine` validates the explicit inventory
+SHA-256 and each decoded clip/source identity, then creates ignored Resources
+TextAssets and `BlitzSourcePlayers/local-plyr266/animation-library`. The importer
+requires the matching fifteen-joint player, refuses a different installed library
+or partial output, and verifies identical existing content without overwriting it.
+Runtime loads bundled assets only, not WANs or external filesystem/network data.
+`SourceAnimationLibrary` is shared by the core and renderer. Original authoring
+frame indices are mapped through selected ordinals; e.g. `M_GU_C2` has 60
+selected frames at odd authoring indices 1..119. The view evaluates independent
+lower/upper matrix branches/headings and applies the supplied resolved root once,
+never deriving actions from velocity or adding clip X/Z drift again. Missing
+library/clip/frame or unsupported state fails visibly, not as a static stance.
+See [local continuous-animation preparation/import](build.md#prepare-and-import-continuous-original-animation).
+
+`SourcePlayerPoseReader` remains a **historical single-frame diagnostic**.
 `ApplyAuthorizedStaticPoseFromCommandLine` is a narrow update of the matching
 generated prefab: preserve the debug bind prefab, protect geometry/material/
 texture provenance, apply parent-composed source rotations and anchored root
@@ -422,18 +477,20 @@ offset, then verify the saved data. `VerifyAuthorizedStaticPoseFromCommandLine`
 is the corresponding read/verification entry point. Actual native apply and
 independent saved reload passed against original matrices at all **343 split
 vertices**, within **2.79×10⁻⁶ source units**, followed by a matching standing
-WebGL/browser result. The [frame-0 apply/verify step](build.md#apply-qbstance-frame-0)
-is required to reproduce that preview; the preserved identity bind is debug-only,
-not acceptable game posture. This is one authentic stationary QB ball-holding
-frame applied to all fourteen actors, not a continuous animation controller or
-verified universal original pre-snap selection.
+WebGL/browser result on October 15. The [frame-0 apply/verify step](build.md#apply-qbstance-frame-0)
+reproduces the native single-pose check, not the historical browser generation;
+current source mode requires the continuous library. The preserved identity bind
+remains debug-only. At that milestone one authentic
+stationary QB ball-holding frame was applied to all fourteen actors, not verified
+universal original pre-snap selection.
 
 ### Camera and simulation isolation
 
 `PlayCamera.Render(IGameState, bool)` reads detached snapshots only.
 `NormalCameraModel` ports normal tracking/projection in yard space; no camera
 time, Unity physics or imported-pose transform writes gameplay state. Real-time
-follow smoothing adapts the archive 57 Hz response while simulation stays 60 Hz.
+follow smoothing adapts the archive 57 Hz response while the host stays 60 Hz
+and the injected profile runs 57 source ticks per 60 calls.
 QB-mode inference, current-receiver pass span, remembered dead-ball orientation,
 HUD/aspect-aware fitting and focus/rewind recovery are explicit adaptations,
 not identical original engine timing. See
@@ -476,10 +533,12 @@ do not add public state mutation or debug-win inputs just to make tests pass.
 The full integrated smoke must demonstrate selection → snap → a pass/catch or run →
 dead ball → another play, a real possession change with Home defensive controls,
 score/restart and final-match restart. The [browser harness](../tests/browser/README.md)
-records a passed **standing-source visual-controls subset**, not this whole contract.
+records historical standing-source checks, not this whole contract. The current
+animated recording additionally proves twelve actors' non-rigid same-clip motion
+and eight actions with zero runtime errors; it does not close the full smoke.
 Current perspective focus-release geometry, complete defense/scoring coverage,
 four-quarter final/restart and representative hardware performance remain
-unqualified. Prior graybox observations do not certify the newer posed snapshot.
+unqualified. Prior graybox/static observations do not certify the animated snapshot.
 
 Permanent `tests/assets/run.py` now preserves **2,751 assertions**: the original
 **419** parser/mesh checks plus **2,332** original synthetic pose checks. Eight
@@ -488,16 +547,30 @@ source mutations are rejected and seven actual pure-production inputs, including
 gates pass without ignored helpers or original pose data. Native Editor/runtime
 adapters and the actual 343-vertex source comparison remain separate evidence.
 `tests/camera/run.py` retains **3,568 assertions / six rejected mutations**.
-Metadata's **12 guard tests** and current **73-entry** audit require unique
-32-hex GUIDs, final LF and resolving script references; run the live inventory
+Metadata's **12 guard tests** and historical October 15 **73-entry** audit require
+unique 32-hex GUIDs, final LF and resolving script references; run the live inventory
 only on an owner-stable snapshot.
 
-Two historical bind host generations establish repeat-build proof; the later
-standing host generation passed matching Docker/browser checks. The subsequent
-identity/legend-only host build, matching Docker promotion and fresh
-desktop/portrait controls captures are verified. Title/legend appearance was
-reviewed manually; the exact legend OCR diagnostic remains explicitly
-unqualified. Freshness is current
+The permanent [source oracle](../tests/source-oracles/README.md) executes
+**21 groups / 123,039 original-C cases**. Its [production comparison](../tests/parity/README.md)
+covers **123,004 cases / 864,156 assertions**, plus **332 synthetic contract and
+host-adapter assertions**; 35 geometry cases are C-only. Independent original-C
+expectations cover clock/local-state wakes and discard, result classification,
+spotting/dispatch/clamp, field conversion and CPU onside, not the remaining
+result switch, PAT/period/kick callers or full animation interpreter.
+
+Continuous renderer evidence is separate: **26,745 pure checks / 13 rejected
+mutations**, **77,861 native vertex comparisons** with maximum error
+**1.1716899280145299×10⁻⁵ source units**, and the matching build's
+**219.875-second** browser recording. Throw/GetUp clips have native coverage but
+those actions were not observed in that recording. All sixteen matrix groups
+remain open for complete implementation and parity acceptance.
+
+Two historical bind generations establish repeat-build proof; the October 15
+standing and identity/legend generations retain their separate Docker/browser
+evidence, including the failed exact legend OCR diagnostic. The current
+continuous-animation generation is `0000063700005f540000316b000003e7`.
+Freshness is current
 BuildReport/run-ID/hash proof, **not payload mtime**; caches can be reused.
 Browser acceptance belongs to the
 exact served receipt/proof/payload hashes, not whichever generation is newest
