@@ -82,7 +82,7 @@ jobs:
       - name: Test source-camera behavior
         run: python3 tests/camera/run.py
       - name: Test browser assertions and isolated runtime
-        run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs
+        run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references
         run: python3 tests/test-unity-metadata.py
       - name: Build-tool unit checks
