@@ -140,11 +140,13 @@ namespace Blitz.Contracts
         public float VerticalVelocity { get; }
         public int LastTouchPlayerId { get; }
         public SourceBallControlView Control { get; }
+        public SourceBallPresentationView Presentation { get; }
 
         public BallView(BallMode mode, FieldVector position, float height, int carrierId, int targetPlayerId,
             SourceBallKind kind = SourceBallKind.Unspecified, FieldVector velocity = default(FieldVector),
             float verticalVelocity = 0f, int lastTouchPlayerId = -1,
-            SourceBallControlView control = default(SourceBallControlView))
+            SourceBallControlView control = default(SourceBallControlView),
+            SourceBallPresentationView presentation = default(SourceBallPresentationView))
         {
             Mode = mode;
             Position = position;
@@ -156,6 +158,7 @@ namespace Blitz.Contracts
             VerticalVelocity = verticalVelocity;
             LastTouchPlayerId = lastTouchPlayerId;
             Control = control;
+            Presentation = presentation;
         }
     }
 

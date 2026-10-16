@@ -169,6 +169,7 @@ namespace Blitz.Contracts
         public SourceKickoffType? Kickoff { get; }
         public TeamId? KickingTeam { get; }
         public TeamId? ReceivingTeam { get; }
+        public bool? OffenseFlipped { get; }
         public ReadOnlyCollection<SourceQuarterScore> QuarterScores { get; }
         public ReadOnlyCollection<SourceStationView> Stations { get; }
 
@@ -180,7 +181,7 @@ namespace Blitz.Contracts
             SourcePlaySelection awayPlay = default(SourcePlaySelection),
             int selectionCountdown = -1, SourcePatOption patChoice = SourcePatOption.Unselected,
             SourcePatStatus patStatus = SourcePatStatus.NotExtraPoint, SourceKickoffType? kickoff = null,
-            TeamId? kickingTeam = null, TeamId? receivingTeam = null)
+            TeamId? kickingTeam = null, TeamId? receivingTeam = null, bool? offenseFlipped = null)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -255,6 +256,7 @@ namespace Blitz.Contracts
             Kickoff = kickoff;
             KickingTeam = kickingTeam;
             ReceivingTeam = receivingTeam;
+            OffenseFlipped = offenseFlipped;
             QuarterScores = Array.AsReadOnly(scoresCopy);
             Stations = Array.AsReadOnly(stationsCopy);
         }

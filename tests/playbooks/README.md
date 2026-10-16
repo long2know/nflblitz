@@ -31,13 +31,16 @@ and matrix updates, not relaxed gates.
 
 ## What is proved
 
-The runner snapshots exactly five actual Contracts sources, the pure
+The runner snapshots all six actual Contracts sources (including the additive
+`SourcePresentationContracts.cs` referenced by actor/ball DTOs), the pure
 SourceClock/MatchRules/MatchFlow dependencies, and the final three P1 helpers.
 It compiles them as **C# 7.3 / netstandard2.1, warnings-as-errors**, then executes
 a net10.0 comparison harness. A test-only friend-assembly attribute exposes the
 internal fixture constructors and synthetic timer-state inputs; no production
 logic or visibility is edited. Hot full-kernel/M1/presentation files are excluded.
 Live production/producer inventory and hashes must remain unchanged throughout.
+The model includes `Contracts/**/*.cs`; its dependency inventory guard requires
+the complete six-file source set, without compiling presentation or the kernel.
 
 * Execute the actual permanent producer and its eleven synthetic tests in an
   isolated byte-identical copy. Validate its actual metadata schema, pinned input

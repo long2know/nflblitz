@@ -102,8 +102,11 @@ was caught and the shared sources were unchanged.
 ## Actual source-match contracts
 
 See [`contracts/README.md`](contracts/README.md): 177 promoted DTO assertions /
-65 enum mappings, 23 supplemental guards, 122 source-backed synthetic pure
-rules/flow assertions, and five isolated actual-source offending-field mutants.
+65 enum mappings, 23 supplemental guards, 189 presentation/flip assertions,
+122 source-backed synthetic pure rules/flow assertions, and 21 isolated
+actual-source offending-field mutants. Presentation settings, raw draw flags
+and ordered opcode/callback cues are detached contracts, not implementations
+of the simulation producers or camera stage.
 This independent project excludes the actively integrated full simulation;
 interface/DTO green is not behavior, original-C corpus, or full-game parity.
 

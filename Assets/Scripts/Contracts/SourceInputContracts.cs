@@ -68,10 +68,11 @@ namespace Blitz.Contracts
         public SourcePatOption PatChoice { get; }
         public SourceKickoffType? KickoffChoice { get; }
         public int AudibleSlot { get { return IsSpecified ? audibleSlot : -1; } }
+        public bool? OffenseFlipped { get; }
 
         public SourceCommand(SourceAction action, SourcePlaySelection play = default(SourcePlaySelection),
             int targetPlayerId = -1, SourcePatOption patChoice = SourcePatOption.Unselected,
-            SourceKickoffType? kickoffChoice = null, int audibleSlot = -1)
+            SourceKickoffType? kickoffChoice = null, int audibleSlot = -1, bool? offenseFlipped = null)
         {
             SourceContractGuard.Range((int)action, 0, 20, nameof(action));
             SourceContractGuard.Player(targetPlayerId, nameof(targetPlayerId));
@@ -85,6 +86,7 @@ namespace Blitz.Contracts
             PatChoice = patChoice;
             KickoffChoice = kickoffChoice;
             this.audibleSlot = audibleSlot;
+            OffenseFlipped = offenseFlipped;
             IsSpecified = true;
         }
     }
@@ -176,15 +178,17 @@ namespace Blitz.Contracts
         public int ControllerStationId { get { return IsSpecified ? controllerStationId : -1; } }
         public SourceRosterIdentity Roster { get; }
         public int NoCatchSourceTicks { get; }
+        public SourceActorPresentationView Presentation { get; }
 
         public SourceActorView(int controllerStationId, SourceRosterIdentity roster = default(SourceRosterIdentity),
-            int noCatchSourceTicks = 0)
+            int noCatchSourceTicks = 0, SourceActorPresentationView presentation = default(SourceActorPresentationView))
         {
             SourceContractGuard.Station(controllerStationId, true, nameof(controllerStationId));
             SourceContractGuard.Range(noCatchSourceTicks, 0, int.MaxValue, nameof(noCatchSourceTicks));
             this.controllerStationId = controllerStationId;
             Roster = roster;
             NoCatchSourceTicks = noCatchSourceTicks;
+            Presentation = presentation;
             IsSpecified = true;
         }
     }
