@@ -7,9 +7,12 @@ python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json
 python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
 ```
 
-This small C# 7.3 project links the **actual production** contracts,
-`SourceClock.cs`, `SourceMatchRules.cs`, `SourceMatchFlow.cs`, and the source
-animation state/programs with their pure gameplay support files. It does not
+This C# 7.3 project links the **actual production** contracts, complete pure
+gameplay kernel, and pure `AssetImport/*.cs` dependency in both modes.
+The complete source inventory keeps adapter dependencies linked as the source
+profile expands; a hand-maintained subset can omit required production types.
+`--full-kernel` selects the host-adapter **checks**, not
+substitute types or a different production-source subset. It does not
 reference an old test binary, redefine production types, load Unity, or modify
 the existing core/asset/browser test projects.
 
@@ -68,3 +71,8 @@ The runner
 reports the 35 original-C geometry-only cases separately; it does not call them
 C# comparisons. .NET native compilation is not Unity/IL2CPP/WebGL certification.
 No browser or Unity Editor is started by these commands.
+
+For independently compiled DTO and pure match checks while the complete kernel
+is being edited, use [`../contracts/README.md`](../contracts/README.md).
+Compiling actual playbook/drone/ball dependencies here does not establish their
+AI, catch, motion, or full-match behavior.

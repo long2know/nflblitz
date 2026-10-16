@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'tools/assets/**'
       - 'tools/animation/**'
+      - 'tools/rosters/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -22,6 +23,7 @@ on:
       - 'tests/**'
       - 'tools/assets/**'
       - 'tools/animation/**'
+      - 'tools/rosters/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -63,6 +65,16 @@ jobs:
         run: python3 tests/run-core.py
       - name: Test the inventory failure gates
         run: python3 tests/test-runner.py
+      - name: Test detached source match and input contracts
+        run: |
+          python3 tests/contracts/test_runner.py
+          python3 tests/contracts/run.py
+      - name: Test offline roster exporter without original data
+        run: python3 -B -m unittest discover -s tools/rosters/tests -q
+      - name: Test immutable roster reader against synthetic input
+        run: |
+          python3 -B tools/rosters/tests/fixtures.py
+          dotnet run --project tools/rosters/checks/SourceRoster.Checks.csproj --configuration Release -p:NuGetAudit=false -- tools/rosters/SourceData/synthetic-rosters.json
       - name: Fetch verified original C oracle inputs
         env:
           GH_TOKEN: ${{ github.token }}

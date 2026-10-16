@@ -14,6 +14,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" Link="Production/Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" Link="Production/Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/NormalCameraModel.cs" Link="Production/NormalCameraModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Editor/NormalCameraChecks.cs" Link="Production/NormalCameraChecks.cs" />
   </ItemGroup>

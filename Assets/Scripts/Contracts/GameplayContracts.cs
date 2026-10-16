@@ -73,19 +73,25 @@ namespace Blitz.Contracts
         public InputAction Action { get; }
         public PlayId Play { get; }
         public int TargetPlayerId { get; }
+        public SourceCommand Source { get; }
+        public SourceInputFrame StationInputs { get; }
 
         public PlayerCommand(
             FieldVector move = default(FieldVector),
             bool turbo = false,
             InputAction action = InputAction.None,
             PlayId play = PlayId.Run,
-            int targetPlayerId = -1)
+            int targetPlayerId = -1,
+            SourceCommand source = default(SourceCommand),
+            SourceInputFrame stationInputs = null)
         {
             Move = move;
             Turbo = turbo;
             Action = action;
             Play = play;
             TargetPlayerId = targetPlayerId;
+            Source = source;
+            StationInputs = stationInputs;
         }
     }
 
@@ -101,11 +107,12 @@ namespace Blitz.Contracts
         public ActorRole Role { get; }
         public ActorAnimationView Animation { get; }
         public float ModelScale { get; }
+        public SourceActorView Source { get; }
 
         public PlayerView(int id, TeamId team, FieldVector position, FieldVector velocity, float turbo01,
             float height = 0f, FieldVector facingDirection = default(FieldVector),
             ActorRole role = ActorRole.Unspecified, ActorAnimationView animation = default(ActorAnimationView),
-            float modelScale = 1f)
+            float modelScale = 1f, SourceActorView source = default(SourceActorView))
         {
             Id = id;
             Team = team;
@@ -117,6 +124,7 @@ namespace Blitz.Contracts
             Role = role;
             Animation = animation;
             ModelScale = modelScale;
+            Source = source;
         }
     }
 
@@ -131,10 +139,12 @@ namespace Blitz.Contracts
         public FieldVector Velocity { get; }
         public float VerticalVelocity { get; }
         public int LastTouchPlayerId { get; }
+        public SourceBallControlView Control { get; }
 
         public BallView(BallMode mode, FieldVector position, float height, int carrierId, int targetPlayerId,
             SourceBallKind kind = SourceBallKind.Unspecified, FieldVector velocity = default(FieldVector),
-            float verticalVelocity = 0f, int lastTouchPlayerId = -1)
+            float verticalVelocity = 0f, int lastTouchPlayerId = -1,
+            SourceBallControlView control = default(SourceBallControlView))
         {
             Mode = mode;
             Position = position;
@@ -145,6 +155,7 @@ namespace Blitz.Contracts
             Velocity = velocity;
             VerticalVelocity = verticalVelocity;
             LastTouchPlayerId = lastTouchPlayerId;
+            Control = control;
         }
     }
 
