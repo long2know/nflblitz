@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "repository": "historicalsource/nflblitz2000",
+  "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "root_tree_sha": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "selected_variant": {
+    "team": "Chicago Bears",
+    "team_symbol": "TEAM_BEA",
+    "uniform": "HA_HOME",
+    "skin": "PC_WHITE",
+    "body": "PS_NORM",
+    "model": "MOD_266"
+  },
+  "inputs": [
+    {
+      "path": "models/plyr266.h",
+      "bytes": 30261,
+      "git_blob_sha1": "a6f301c3926b12ac20f17c776f5c31a26f22a6e7",
+      "sha256": "9d91e22e0f80dc369a52c8956c6fb3f7b37504a3b266a8cba4f5125d93741149",
+      "copy": true
+    },
+    {
+      "path": "models/skeleton.h",
+      "bytes": 11858,
+      "git_blob_sha1": "11250fd1509f09bc5ef7df62bbff6b332f2afc87",
+      "sha256": "a957d80a322948d7a41667cf80ab621a2ff7b5e74eee6d4da8fba31f216c0a93",
+      "copy": true
+    },
+    {
+      "path": "img3d/armhnd.tga",
+      "bytes": 16428,
+      "git_blob_sha1": "0f4af352cb6136519ad499c839b8fb7139d79347",
+      "sha256": "347ad80b9c6bd4555c6c5f94b044b92260a1ffadbf97e759fe7ab1be267fd3e8",
+      "copy": true,
+      "tga": {
+        "width": 64,
+        "height": 64,
+        "bits_per_pixel": 32,
+        "descriptor": 8
+      }
+    },
+    {
+      "path": "img3d/hedshu.tga",
+      "bytes": 12332,
+      "git_blob_sha1": "f0d83461cc66bc6876fc8d005dae55ec18d07569",
+      "sha256": "b2a5795cc67286d6a9a1c60c21f92f393134ab81f18dedfad84ffe405edb3fa3",
+      "copy": true,
+      "tga": {
+        "width": 64,
+        "height": 64,
+        "bits_per_pixel": 24,
+        "descriptor": 0
+      }
+    },
+    {
+      "path": "img3d/BEAHLOD.wms",
+      "bytes": 87422,
+      "git_blob_sha1": "b9b2ad0365c1215de25e8fdbe6329ccd814ebf09",
+      "sha256": "0324eed094da779271cc4db812db966c3ea02d58519320cb2e1deb940e1a45a8",
+      "copy": false
+    },
+    {
+      "path": "cambot.c",
+      "bytes": 100663,
+      "git_blob_sha1": "00c9c913bc6a697dfd590666bf5597f2c2bc1eb7",
+      "sha256": "7411bdd1d13b4cbe968a2888f8189cce5d16fafa9f66cf9e4665a1adfbe5ac85",
+      "copy": false,
+      "purpose": "Retain the existing restrictive source notice; no camera conversion."
+    }
+  ],
+  "notice": {
+    "path": "cambot.c",
+    "lines": [6, 12]
+  },
+  "atlas": {
+    "source": "img3d/BEAHLOD.wms",
+    "output": "img3d/BEAHLOD.level0.local-preview.tga",
+    "header_uint32_le": [32773, 0, 1, 0, 128, 256, 8, 0, 4, 11],
+    "width": 128,
+    "height": 256,
+    "mip_levels": 9,
+    "mip_bytes": 87382,
+    "output_bytes": 131090,
+    "output_sha256": "480de7c62c48d311186aea5656da99bf907a800b18ef1ec02ebe951aae92518e"
+  },
+  "ordered_runtime_textures": [
+    "ARMHND.WMS",
+    "HEDSHU.WMS",
+    "BEAHLOD.WMS",
+    "BEAHLOD.WMS",
+    "BEAHLOD.WMS"
+  ],
+  "request": {
+    "schemaVersion": 1,
+    "stableId": "local-plyr266",
+    "modelHeader": "models/plyr266.h",
+    "skeletonHeader": "models/skeleton.h",
+    "modelLimbArray": "plyr266_limbs",
+    "skeletonArray": "fbplyr_skel",
+    "skeletonLimbArray": "model266_limbs",
+    "materialArray": "plyr266_textures",
+    "unityX": "PositiveX",
+    "unityY": "PositiveY",
+    "unityZ": "NegativeZ",
+    "sourceTriangleOrder": "Renderer321",
+    "materialMap": [
+      {
+        "slot": "armhnd.wms",
+        "texturePath": "img3d/armhnd.tga",
+        "sourceSUnits": 256,
+        "sourceTUnits": 256,
+        "flipV": true,
+        "alphaCutoff": 0
+      },
+      {
+        "slot": "hedshu.wms",
+        "texturePath": "img3d/hedshu.tga",
+        "sourceSUnits": 256,
+        "sourceTUnits": 256,
+        "flipV": true,
+        "alphaCutoff": 0
+      },
+      {
+        "slot": "jersf.wms",
+        "texturePath": "img3d/BEAHLOD.level0.local-preview.tga",
+        "sourceSUnits": 128,
+        "sourceTUnits": 256,
+        "flipV": true,
+        "alphaCutoff": 0.01
+      },
+      {
+        "slot": "leghel.wms",
+        "texturePath": "img3d/BEAHLOD.level0.local-preview.tga",
+        "sourceSUnits": 128,
+        "sourceTUnits": 256,
+        "flipV": true,
+        "alphaCutoff": 0.01
+      },
+      {
+        "slot": "slvmsk.wms",
+        "texturePath": "img3d/BEAHLOD.level0.local-preview.tga",
+        "sourceSUnits": 128,
+        "sourceTUnits": 256,
+        "flipV": true,
+        "alphaCutoff": 0.01
+      }
+    ]
+  }
+}

@@ -29,6 +29,9 @@ triage-results.json
 [Bb]uilds/
 [Mm]emoryCaptures/
 [Rr]ecordings/
+# Local imports retain their upstream provenance; do not publish source artwork.
+Assets/Imported/
+Assets/Imported.meta
 .vs/
 *.csproj
 *.sln
