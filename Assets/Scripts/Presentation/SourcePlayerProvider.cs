@@ -1,12 +1,14 @@
 using System;
+using Blitz.Contracts;
 using UnityEngine;
 
 namespace Blitz.Presentation
 {
-    internal static class SourcePlayerProvider
+    public static class SourcePlayerProvider
     {
-        internal const string LocalPreviewId = "local-plyr266";
-        internal const string ResourceKey = "BlitzSourcePlayers/" + LocalPreviewId + "/player";
+        public const string LocalPreviewId = "local-plyr266";
+        public const string ResourceKey = "BlitzSourcePlayers/" + LocalPreviewId + "/player";
+        public const string AnimationResourceKey = "BlitzSourcePlayers/" + LocalPreviewId + "/animation-library";
 
         internal static SourcePlayerRig ResolveActorMode()
         {
@@ -28,12 +30,21 @@ namespace Blitz.Presentation
             SourcePlayerRig prefab = asset.GetComponent<SourcePlayerRig>();
             if (prefab == null) throw new InvalidOperationException("Local source player prefab has no generated SourcePlayerRig; refusing primitive substitution.");
             prefab.ValidateGeneratedRig();
-            if (prefab.HasStaticSourcePose)
-                Debug.Log("Actor mode: local source mesh/textures, " + prefab.PoseSequence + " frame" + prefab.PoseSourceFrame +
-                    " source pose (static; no original continuous animation; not verified pre-snap).");
-            else
-                Debug.Log("Actor mode: local source mesh/textures, authoring bind pose only; NOT standing or original animation.");
+            Debug.Log("Actor mode: local source mesh/textures, continuous original animation; explicit gameplay scripts/frames, no static fallback.");
             return prefab;
+        }
+
+        internal static ISourceAnimationLibrary ResolveRequiredAnimationLibrary(SourcePlayerRig sourcePrefab)
+        {
+            if (sourcePrefab == null) return null;
+            SourceAnimationLibraryAsset asset = Resources.Load<SourceAnimationLibraryAsset>(AnimationResourceKey);
+            if (asset == null)
+                throw new InvalidOperationException("Source actor mode requires the imported original animation library at Resources/" +
+                    AnimationResourceKey + ". Run the explicit clip importer; no static pose will be substituted.");
+            ISourceAnimationLibrary library = asset.Load();
+            Debug.Log("Original animation library loaded; inventory SHA256=" + asset.InventorySha256 +
+                "; source-clock samples required. Full gameplay/wall-clock parity is not asserted.");
+            return library;
         }
 
         internal static SourcePlayerRig AttachBindPose(SourcePlayerRig prefab, Transform facing)
@@ -42,15 +53,8 @@ namespace Blitz.Presentation
             // The source-camera contract documents 390 archive field units = 50 gameplay yards.
             // Mesh/pivot assets remain in source units; only this presentation root is converted.
             rig.transform.localScale = Vector3.one / NormalCameraModel.ArchiveUnitsPerYard;
-            if (rig.HasStaticSourcePose) return rig;
-            MeshRenderer[] renderers = rig.GetComponentsInChildren<MeshRenderer>();
-            if (renderers.Length == 0) throw new InvalidOperationException("Source player prefab contains no renderers.");
-            float ground = float.PositiveInfinity;
-            foreach (MeshRenderer renderer in renderers)
-                if (renderer.enabled) ground = Mathf.Min(ground, renderer.bounds.min.y);
-            if (float.IsInfinity(ground)) throw new InvalidOperationException("Source player has no enabled mesh; refusing graybox substitution.");
-            Vector3 correction = facing.InverseTransformVector(Vector3.up * (facing.position.y - ground));
-            rig.transform.localPosition += correction;
+            rig.transform.localPosition = Vector3.zero;
+            rig.transform.localRotation = Quaternion.identity;
             return rig;
         }
 

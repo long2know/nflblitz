@@ -1,3 +1,5 @@
+using System;
+using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Presentation;
 using UnityEngine;
@@ -14,6 +16,8 @@ namespace Blitz.Runtime
         private bool focused = true;
         private bool paused;
         private bool waitingForRelease;
+        private string sourceFailure;
+        private uint evidenceSerial;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         [SerializeField] private string runtimeStatus;
@@ -31,25 +35,35 @@ namespace Blitz.Runtime
 #if UNITY_WEBGL && !UNITY_EDITOR
             WebGLInput.captureAllKeyboardInput = false;
 #endif
-            bridge = new FixedStepBridge(new Blitz.Gameplay.GameSimulation(1));
-            field = new FieldScene(transform);
-            playCamera = new PlayCamera(transform);
-            hud = gameObject.AddComponent<PlayHud>();
-            hud.Initialize(this);
-            bridge.EventRaised += OnGameEvent;
-            field.Render(bridge.State, 0f);
-            playCamera.Render(bridge.State, true);
+            try
+            {
+                SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode();
+                ISourceAnimationLibrary animations = SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab);
+                var simulation = animations == null ? new Blitz.Gameplay.GameSimulation(1) :
+                    new Blitz.Gameplay.GameSimulation(animations, 1);
+                bridge = new FixedStepBridge(simulation, animations == null ? null : FixedStepBridge.BindSourceInputReset(simulation));
+                field = new FieldScene(transform, prefab, animations);
+                playCamera = new PlayCamera(transform);
+                hud = gameObject.AddComponent<PlayHud>();
+                hud.Initialize(this);
+                bridge.EventRaised += OnGameEvent;
+                field.Render(bridge.State, bridge.State, 1f, 0f);
+                playCamera.Render(bridge.State, true);
+            }
+            catch (PlayerAssetException e) { FailSourceMode(e); }
+            catch (InvalidOperationException e) { FailSourceMode(e); }
+            catch (NotSupportedException e) { FailSourceMode(e); }
         }
 
         private void Update()
         {
-            if (InputSuspended || bridge == null)
+            if (InputSuspended || bridge == null || sourceFailure != null)
                 return;
             if (waitingForRelease)
             {
                 if (!AnyGameKeyHeld())
                     waitingForRelease = false;
-                bridge.Advance(Time.unscaledDeltaTime, default(FieldVector), false);
+                Advance(default(FieldVector), false);
                 return;
             }
             if (Input.GetKeyDown(KeyCode.R))
@@ -62,7 +76,7 @@ namespace Blitz.Runtime
             float x = Axis(KeyCode.W, KeyCode.UpArrow, KeyCode.S, KeyCode.DownArrow);
             float z = Axis(KeyCode.D, KeyCode.RightArrow, KeyCode.A, KeyCode.LeftArrow);
             bool turbo = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            bridge.Advance(Time.unscaledDeltaTime, new FieldVector(x, z), turbo);
+            Advance(new FieldVector(x, z), turbo);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             IGameState state = bridge.State;
             runtimeStatus = "tick=" + state.Tick + " phase=" + state.Phase + " play=" + state.PlayNumber
@@ -72,10 +86,58 @@ namespace Blitz.Runtime
 
         private void LateUpdate()
         {
-            if (bridge == null)
+            if (bridge == null || field == null || sourceFailure != null)
                 return;
-            field.Render(bridge.State, InputSuspended ? 0f : Time.unscaledDeltaTime);
-            playCamera.Render(bridge.State, false);
+            try
+            {
+                field.Render(bridge.PreviousState, bridge.State, bridge.RenderInterpolation01, InputSuspended ? 0f : Time.unscaledDeltaTime);
+                playCamera.Render(bridge.State, false);
+            }
+            catch (PlayerAssetException e) { FailSourceMode(e); }
+            catch (InvalidOperationException e) { FailSourceMode(e); }
+            catch (NotSupportedException e) { FailSourceMode(e); }
+        }
+
+        private void Advance(FieldVector move, bool turbo)
+        {
+            try { bridge.Advance(Time.unscaledDeltaTime, move, turbo); }
+            catch (PlayerAssetException e) { FailSourceMode(e); }
+            catch (InvalidOperationException e) { FailSourceMode(e); }
+            catch (NotSupportedException e) { FailSourceMode(e); }
+        }
+
+        [UnityEngine.Scripting.Preserve]
+        public void LogAnimationEvidence()
+        {
+            if (field != null && sourceFailure == null)
+            {
+                string json = field.AnimationEvidence(bridge.State);
+                const int chunkLength = 3000;
+                int count = (json.Length + chunkLength - 1) / chunkLength;
+                string sample = bridge.State.Tick + "-" + (++evidenceSerial);
+                for (int i = 0; i < count; i++)
+                    Debug.Log("SOURCE_ANIMATION_EVIDENCE_PART " + sample + " " + i + "/" + count + " " +
+                        json.Substring(i * chunkLength, Math.Min(chunkLength, json.Length - i * chunkLength)));
+            }
+        }
+
+        private void FailSourceMode(Exception error)
+        {
+            sourceFailure = error.Message;
+            if (bridge != null) bridge.SetActive(false);
+            Debug.LogError("SOURCE ANIMATION ERROR: " + sourceFailure);
+        }
+
+        private void OnGUI()
+        {
+            if (sourceFailure == null) return;
+            int depth = GUI.depth;
+            GUI.depth = -10000;
+            GUI.color = Color.white;
+            var errorStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, wordWrap = true, fontSize = 16 };
+            GUI.Box(new Rect(12, 12, Mathf.Max(280, Screen.width - 24), Mathf.Min(260, Screen.height - 24)),
+                "SOURCE ANIMATION ERROR\n" + sourceFailure + "\nNo static/graybox substitute was created.", errorStyle);
+            GUI.depth = depth;
         }
 
         internal void SelectPlay(int choice)
@@ -109,6 +171,7 @@ namespace Blitz.Runtime
             if (bridge == null)
                 return;
             bridge.Restart();
+            if (field != null) field.ResetRenderHistory();
             waitingForRelease = true;
             hud.ClearNotices();
             playCamera.Render(State, true);
@@ -160,6 +223,8 @@ namespace Blitz.Runtime
             waitingForRelease = true;
             if (bridge != null)
                 bridge.SetActive(!InputSuspended);
+            if (field != null)
+                field.ResetRenderHistory();
         }
 
         private void OnDisable()

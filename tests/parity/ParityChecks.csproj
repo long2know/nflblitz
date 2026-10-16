@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BlitzFullKernel)' == 'true'">
+    <DefineConstants>$(DefineConstants);PARITY_FULL_KERNEL</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="ContractChecks.cs" />
+    <Compile Include="HostAdapterChecks.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" Link="Production/Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
+    <Compile Condition="'$(BlitzFullKernel)' != 'true'"
+             Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchRules.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceAnimationState.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceAnimationPrograms.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/SimulationState.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/PlayerSimulation.cs;$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameplayRules.cs"
+             Link="Production/Gameplay/%(Filename)%(Extension)" />
+    <Compile Condition="'$(BlitzFullKernel)' == 'true'"
+             Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" Link="Production/Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs')"
+           Text="Actual production SourceClock.cs is required; no substitute clock is allowed." />
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchRules.cs')"
+           Text="Actual production SourceMatchRules.cs is required; no substitute rules are allowed." />
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs')"
+           Text="Actual production SourceMatchFlow.cs is required; no substitute flow is allowed." />
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceAnimationState.cs')"
+           Text="Actual production source animation state is required for the synthetic contract traces." />
+  </Target>
+</Project>

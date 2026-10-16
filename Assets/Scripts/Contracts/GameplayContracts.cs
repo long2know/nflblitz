@@ -96,14 +96,27 @@ namespace Blitz.Contracts
         public FieldVector Position { get; }
         public FieldVector Velocity { get; }
         public float Turbo01 { get; }
+        public float Height { get; }
+        public FieldVector FacingDirection { get; }
+        public ActorRole Role { get; }
+        public ActorAnimationView Animation { get; }
+        public float ModelScale { get; }
 
-        public PlayerView(int id, TeamId team, FieldVector position, FieldVector velocity, float turbo01)
+        public PlayerView(int id, TeamId team, FieldVector position, FieldVector velocity, float turbo01,
+            float height = 0f, FieldVector facingDirection = default(FieldVector),
+            ActorRole role = ActorRole.Unspecified, ActorAnimationView animation = default(ActorAnimationView),
+            float modelScale = 1f)
         {
             Id = id;
             Team = team;
             Position = position;
             Velocity = velocity;
             Turbo01 = turbo01;
+            Height = height;
+            FacingDirection = facingDirection;
+            Role = role;
+            Animation = animation;
+            ModelScale = modelScale;
         }
     }
 
@@ -114,14 +127,24 @@ namespace Blitz.Contracts
         public float Height { get; }
         public int CarrierId { get; }
         public int TargetPlayerId { get; }
+        public SourceBallKind Kind { get; }
+        public FieldVector Velocity { get; }
+        public float VerticalVelocity { get; }
+        public int LastTouchPlayerId { get; }
 
-        public BallView(BallMode mode, FieldVector position, float height, int carrierId, int targetPlayerId)
+        public BallView(BallMode mode, FieldVector position, float height, int carrierId, int targetPlayerId,
+            SourceBallKind kind = SourceBallKind.Unspecified, FieldVector velocity = default(FieldVector),
+            float verticalVelocity = 0f, int lastTouchPlayerId = -1)
         {
             Mode = mode;
             Position = position;
             Height = height;
             CarrierId = carrierId;
             TargetPlayerId = targetPlayerId;
+            Kind = kind;
+            Velocity = velocity;
+            VerticalVelocity = verticalVelocity;
+            LastTouchPlayerId = lastTouchPlayerId;
         }
     }
 
@@ -133,6 +156,9 @@ namespace Blitz.Contracts
         public int PlayerId { get; }
         public int Value { get; }
         public FieldVector Position { get; }
+        public int ActorPlayerId { get; }
+        public int TargetPlayerId { get; }
+        public long SourceTick { get; }
 
         public GameEvent(
             long tick,
@@ -140,7 +166,10 @@ namespace Blitz.Contracts
             TeamId team,
             int playerId = -1,
             int value = 0,
-            FieldVector position = default(FieldVector))
+            FieldVector position = default(FieldVector),
+            int actorPlayerId = -1,
+            int targetPlayerId = -1,
+            long sourceTick = -1)
         {
             Tick = tick;
             Type = type;
@@ -148,6 +177,9 @@ namespace Blitz.Contracts
             PlayerId = playerId;
             Value = value;
             Position = position;
+            ActorPlayerId = actorPlayerId;
+            TargetPlayerId = targetPlayerId;
+            SourceTick = sourceTick;
         }
     }
 

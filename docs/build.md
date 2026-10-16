@@ -2,13 +2,12 @@
 
 The root is the Unity project. The verified route is a **Unity 6000.3.24f1 host
 editor**, followed by a **Docker static runtime**. Original player mesh/textures
-and authentic static `QBSTANCE` frame 0 have passed native apply/reload, host
-build and bounded standing-player browser checks in that runtime. The later
-identity/field-axis legend correction passed a host build, matching Docker
-promotion and fresh desktop/portrait controls captures. Its title and legend were
-visually reviewed; the separate exact tiny-font legend OCR diagnostic remains a
-known harness limitation, not an automated approval.
-See the [source-parity ledger](source-parity.md) for the visual/gameplay limits.
+now run with **continuous original animation: 56 clips / 3,731 selected source
+frames**. Verified host build `0000063700005f540000316b000003e7` is promoted at
+Docker `8080/?actors=source`. The October 15 static `QBSTANCE` and identity/legend
+checks below are historical milestones, not the current animation state.
+**Full gameplay parity remains OPEN.** See the
+[source-parity ledger](source-parity.md) for the native/browser evidence and limits.
 
 ## Pinned toolchain and external activation
 
@@ -92,12 +91,14 @@ preview. Do not hide it with an invented axis flip or call it animation.
 
 ## Apply QBSTANCE frame 0
 
-**Required after import and before building the standing preview.** Authentic
-frame-0 native application and independent saved-prefab reload both passed;
+**Historical October 15 standing-preview diagnostic, not the current runtime
+setup.** The continuous source runtime requires the clip-library step below,
+not this optional static-pose command. Authentic frame-0 native application and
+independent saved-prefab reload both passed;
 all **343 split vertices** matched the original source matrices within
 **2.79×10⁻⁶ source units**. The resulting WebGL generation passed the bounded
-desktop/portrait standing-player browser subset. Skipping this step reproduces
-only the unacceptable authoring-bind debug posture, not the verified preview.
+desktop/portrait standing-player browser subset. For that historical preview,
+omitting the pose left the unacceptable authoring-bind debug posture.
 
 Also supply `anim/Qb.wan` from the same pinned source revision. The offline
 [WAN reader documentation](../tools/animation/README.md) traces the original
@@ -144,7 +145,80 @@ installed pose; different or inconsistent data fails. The adapter composes
 normalized source XYZW rotations through the original hierarchy/basis and uses
 the source anchored root policy, not unbounded world-space animation motion.
 `QBSTANCE` is a stationary neutral-stick QB ball-holding pose, **not verified
-universal pre-snap behavior**. No continuous animation is installed.
+universal pre-snap behavior**. This command installs only one pose; current
+continuous animation instead consumes the required library and explicit source
+script/frame/layer/root state.
+
+## Prepare and import continuous original animation
+
+After the player import, prepare the pinned **56-clip / 3,731-selected-frame**
+library from the same explicitly supplied original source root using the
+[permanent offline animation recipe](../tools/animation/README.md).
+The metadata-only [catalog](../tools/animation/player_sequences.json) pins the
+eleven case-sensitive WAN paths, Git blobs, sequence names and selected counts.
+No network, ignored helper, historical executable or additional package is needed.
+Its `original-wan-clip/v1` files and `original-wan-export-inventory/v1` manifest
+remain ignored local data, not tracked motion fixtures. A single decoded
+`QBSTANCE` pose or the earlier 25-clip export is not this runtime's library.
+
+Continue in the same root Bash session with `SOURCE_ROOT` and `UNITY_EDITOR`
+set as above:
+
+```sh
+ANIMATION_ROOT="$PWD/.squad/.scratch/player-animation-edc6193"
+
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root "$SOURCE_ROOT" \
+  --destination "$ANIMATION_ROOT"
+
+ANIMATION_MANIFEST_SHA256="46474348e7010d9ed428b55f2369f8ae52551fa5ffbcbef76420ae3b11d8f672"
+
+"$UNITY_EDITOR" -batchmode -nographics -quit \
+  -projectPath "$PWD" -buildTarget WebGL \
+  -executeMethod Blitz.Editor.SourceAnimationImporter.ImportFromCommandLine \
+  -animationAssetRoot "$ANIMATION_ROOT" \
+  -animationManifest export-inventory.json \
+  -animationManifestSha256 "$ANIMATION_MANIFEST_SHA256" \
+  -animationStableId local-plyr266 \
+  -logFile "$PWD/Logs/player-animation-import.log"
+```
+
+Preparation requires a **new** destination beneath ignored `.squad/.scratch/`.
+`--reuse` only freshly decodes and verifies an entire byte-identical bundle
+read-only; missing, changed or extra output fails. The outputs are
+`clips/<runtime_name>.json` and `export-inventory.json`, with manifest paths
+relative to the bundle root. Portable `local_input` provenance makes identical
+source bytes at different physical roots reproduce identical bundle bytes.
+Use `python3 -B tools/animation/prepare_player_sequences.py --help` for the CLI.
+
+`Blitz.Editor.SourceAnimationImporter.ImportFromCommandLine` imports the pinned
+inventory and clip bytes into ignored `Assets/Imported/local-plyr266/Resources/`.
+It requires the matching fifteen-joint player and creates the resource
+`BlitzSourcePlayers/local-plyr266/animation-library`. Identical existing library
+content is verified read-only; a different library or partial import fails,
+without overwrite or cleanup permission. The expected manifest pin above is the
+recorded deterministic result of this frozen catalog/producer and pinned input;
+the recipe's printed `manifest_sha256` must match it. A mismatch is a failure,
+not permission to replace the pin. It is not the older machine-path-bearing
+inventory's hash. This recipe reproduces the selected source library, not
+byte-identical historical WebGL payloads; use the intended clean import target.
+
+The recipe owner's `.squad/.scratch/continuous-animation-recipe-handoff.json`
+records **38 Python tests** passing in both worktrees, identical hashes for all
+**57 bundle files** across primary, relocated and publication inputs, and
+**67,386 assertions** through the actual frozen C# 7.3 typed library.
+Source identities, selected mappings and every frame value remained unchanged;
+only portable provenance metadata changed from the older exports. Those recipe
+checks did **not** run Unity or rebuild the verified animated player.
+
+At runtime that same immutable library is injected into
+`GameSimulation(ISourceAnimationLibrary, int seed = 1)` and the renderer.
+The host remains 60 Hz; source animation/action state runs on the explicit
+57 Hz profile. The renderer uses selected **authoring frame IDs**, independent
+lower/upper headings and resolved root offsets, not a generic looping FPS,
+velocity-selected animation or double-applied X/Z clip drift. Missing source
+library/clip/frame fails visibly; there is no static or graybox substitution.
+Rebuild after either player or animation import.
 
 ## Host build: verified route
 
@@ -237,9 +311,10 @@ HTTP readiness, not gameplay.
 Use `http://127.0.0.1:8080/?actors=source` to require the generated source player;
 `?actors=graybox` explicitly selects the procedural baseline. Without a parameter,
 an installed source prefab is preferred, otherwise graybox runs. A missing or
-invalid required source prefab throws rather than silently substituting
-primitives. All fourteen source actors currently reuse one model/skin/uniform.
-Rebuild after import/pose changes; the browser cannot load new Editor assets from
+invalid required source prefab or animation library fails rather than silently
+substituting primitives or a static stance. All fourteen source actors currently
+reuse one model/skin/uniform, **not one static pose**.
+Rebuild after player/animation changes; the browser cannot load new Editor assets from
 disk into an older exported player.
 
 The runtime is non-root/read-only, contains no editor or source tree, serves WASM
@@ -252,8 +327,38 @@ builder unless `BUILDX_BUILDER` is explicitly supplied.
 
 ## Browser verification
 
-After the same real source-player generation is served, use the bounded
-perspective/source-player subset, not the older orthographic field-offset smoke:
+### Continuous-animation evidence — October 16, 2026
+
+The actual host build **`0000063700005f540000316b000003e7`**, validated
+`2026-10-16T17:43:03Z` (October 16 PDT), passed native checks and a real Chrome
+WebGL recording before coordinator promotion to Docker `8080/?actors=source`.
+The **219.875-second / 658-frame** recording contains **12 actors with
+non-rigid same-clip frame/joint changes**, **eight observed actions**
+(`PreSnap`, `Run`, `Kick`, `Idle`, `Catch`, `TurboRun`, `Fall`, `Contact`) and
+**zero browser runtime errors**. Hidden-tab source ticks stayed fixed and
+restart/resume was exercised. Throw/GetUp clips are native-verified, but those
+actions were not observed in this recording.
+
+Native first/middle/last/loop-diagnostic and independent heading/scale/transition
+samples made **77,861 native vertex comparisons**, maximum error
+**1.1716899280145299×10⁻⁵ source units**. Separate pure clip/sampling checks
+passed **26,745 assertions** and rejected **13 renderer mutations**. This is
+selected-library/rendering evidence, not every original script/selector/root
+branch, historical SEQ quantization, original fast-trig/float equivalence,
+all-action coverage, full-match parity or hardware-performance qualification.
+
+Local proof is `.squad/.scratch/continuous-animation-candidate-proof.json`;
+`.squad/.scratch/continuous-runtime-handoff.json` records the exact native/input
+proof, served build identity and browser report/video hashes. The recording is
+`.squad/.scratch/continuous-animation-browser-0000063700005f540000316b000003e7-actions/continuous-original-animation.mp4`.
+These are retained ignored evidence, not clean-checkout recipe dependencies.
+The candidate proof's `current8080` field is the **historical pre-promotion**
+static generation; it does not mean the animated build is still unpromoted.
+
+### Historical static-player harness — October 15, 2026
+
+The following bounded perspective/source-player command checked the older
+standing generation, not the current continuous runtime:
 
 ```sh
 bash tests/browser/with-posix-runtime.sh node tests/browser/smoke.mjs \
@@ -265,12 +370,12 @@ See the [browser harness README](../tests/browser/README.md) for installed
 Node/Chrome/Tesseract requirements, supported secure POSIX runtime-directory/
 transport handling and optional full-match commands.
 `--expected-source-pose qbstance-frame0` checks the actual distinct runtime marker;
-it is not a pose override. The harness default remains the historical bind
-expectation, so do not omit the flag for the standing generation or relabel a bind
-run as posed acceptance. `--final-presentation` additionally requires exact
-legend OCR. That stricter diagnostic currently misreads the tiny muted `+X`/`+Z`
-text and is not a passed acceptance gate; retain its failure separately from the
-source-controls subset and explicit visual review.
+it is not a pose override or a continuous-animation verifier. The harness
+default is the historical bind expectation; neither marker certifies the
+animated generation. `--final-presentation` additionally requires exact legend
+OCR. That historical diagnostic misread the tiny muted `+X`/`+Z` text and is not
+a passed acceptance gate; retain its failure separately from the source-controls
+subset and explicit visual review.
 
 Standing generation `0000067c000032dd00007938000039fe` passed six independent
 source visual-controls checks at desktop 1280×800 and portrait 360×740:
@@ -278,7 +383,7 @@ upright original-textured players, readable initial HUD, selection/snap/
 pass-catch/dead-ball/next-play/restart, and **zero runtime/network errors**.
 Served receipt/proof and all four payload hashes, sizes and MIME types matched.
 Actual standing PNGs were visually reviewed; these are not the old bind captures.
-This proves one authentic static frame, not continuous animation, universal
+That milestone proved one authentic static frame, not continuous animation, universal
 original pre-snap behavior, complete defensive coverage, perspective focus-release
 geometry, full-match/final restart or representative hardware performance.
 
@@ -287,10 +392,10 @@ The subsequent minimal identity/legend host build is
 (October 15 PDT). It uses `NFL BLITZ 2000`, subtitle
 `UNITY SOURCE PORT / IN PROGRESS`, and absolute field-axis hints rather than a
 false screen-relative “right”; input mappings are unchanged. That exact generation
-has now been promoted to Docker `8080`, with matching served receipt/proof and
+was promoted to Docker `8080` at that milestone, with matching served receipt/proof and
 all four payload hashes, sizes and MIME types. Six fresh source-controls checks
 passed with zero runtime/network/asset errors, and actual desktop/portrait PNGs
-were reviewed for the current title, subtitle and field-axis text. The earlier
+were reviewed for that title, subtitle and field-axis text. The earlier
 standing captures retain the previous label; the final images are separate.
 Exact legend OCR remains a failed diagnostic, not an inferred pass.
 
@@ -299,12 +404,12 @@ Exact legend OCR remains a failed diagnostic, not an inferred pass.
 | Layer | Observed result | Boundary |
 | --- | --- | --- |
 | Native import/static pose/camera | Actual source model/rig/TGAs/runtime-atlas derivative imported; authentic `QBSTANCE` frame 0 applied/reloaded, **343 vertices** within **2.79×10⁻⁶ source units** of original matrices; native camera **3,595 assertions** passed. | One static source pose, not continuous animation, universal pre-snap behavior or original visual parity. |
-| Historical bind host generations | `00005e4c0000691f00002c0100006780`, then `00002b790000553000005d2b00000d97`, both passed. The same-path/cache repeat took 19 seconds. | Retained two-generation build proof, not current standing posture. Payloads need not be byte-identical across generations. |
+| Historical bind host generations | `00005e4c0000691f00002c0100006780`, then `00002b790000553000005d2b00000d97`, both passed. The same-path/cache repeat took 19 seconds. | Retained two-generation build proof, not the current animated generation. Payloads need not be byte-identical across generations. |
 | Standing host WebGL / static runtime | `0000067c000032dd00007938000039fe` built and was promoted to Docker `8080/?actors=source`; served receipt/proof and all four payload hashes/MIME matched. | Authentic static frame 0, all fourteen actors sharing one variant. |
-| Latest identity/legend host build and promotion | `00000688000072cf00002aa300002ef9`, validated `2026-10-16T02:44:09Z` (October 15 PDT), passed matching Docker promotion and **six fresh source-controls checks / zero errors**, with current desktop/portrait PNGs visually reviewed. **33 browser-tool tests** separately pass. | Exact tiny-font legend OCR remains a recorded failed diagnostic; manual review is not automated OCR approval. |
+| Identity/legend host build and promotion | `00000688000072cf00002aa300002ef9`, validated `2026-10-16T02:44:09Z` (October 15 PDT), passed matching Docker promotion and **six fresh source-controls checks / zero errors**, with its desktop/portrait PNGs visually reviewed. **33 browser-tool tests** separately passed. | Exact tiny-font legend OCR remains a recorded failed diagnostic; manual review is not automated OCR approval. |
 | Docker editor | Immutable manifest pin verified; acquisition stopped without a cached runnable editor. | No successful Docker-editor build claimed. |
 | Static runtime / generation tooling | **21 tooling tests** and **eight actual artifact checks** recorded; real pinned-nginx integration is separate from mocked editor/tool contracts. | Synthetic hosting cases are not gameplay proof. |
-| Standing source browser | **Six checks**, **zero errors**, desktop/portrait upright PNGs and selection/snap/catch/dead/next/restart passed on the matching standing generation; **30 browser-tool tests** separately passed. | Earlier public label; no continuous animation, full-match, perspective-focus or hardware-performance qualification. |
+| Standing source browser | **Six checks**, **zero errors**, desktop/portrait upright PNGs and selection/snap/catch/dead/next/restart passed on the matching standing generation; **30 browser-tool tests** separately passed. | Earlier public label/static-only milestone; no full-match, perspective-focus or hardware-performance qualification. |
 
 The historical bind-generation record is local
 `Build/source-player-generation-repeats.json`, with bind promotion/HTTP evidence
@@ -314,7 +419,7 @@ Historical standing promotion/HTTP evidence is `Build/standing-player-hosting-re
 the passed standing browser evidence and screenshot manifest are
 `tests/browser/artifacts/game-1792117872816/evidence.json` and `screenshots.json`
 in that same directory, including
-`source-qbstance-frame0-desktop-play-select.png`. Current identity-generation
+`source-qbstance-frame0-desktop-play-select.png`. Historical identity-generation
 HTTP evidence is `Build/final-player-hosting-readiness.json`, verified
 `2026-10-16T02:48:24Z` (October 15 PDT). These ignored records/captures are
 retained locally, not prerequisites for reproducing the code path from a checkout.
@@ -326,8 +431,8 @@ Final-title controls/captures are in
 
 ## Headless and tooling checks
 
-Python 3.9+ and .NET SDK 10.0.100 run the source-only suites without Unity or
-original art. Check live metadata only while no owner is writing assets:
+Python 3.9+ and .NET SDK 10.0.100 run the baseline source-only suites without
+Unity or original art. Check live metadata only while no owner is writing assets:
 
 ```sh
 python3 tests/run-core.py
@@ -349,9 +454,30 @@ The camera suite retains **3,568 assertions / six rejected mutations**.
 
 The core suite has **156 cases / six runner guards**; preparation has **35**
 synthetic tests and the WAN reader **12**. Metadata has **12 guard tests** and
-passed the current **73-entry** asset/meta/GUID/LF inventory; that is an observed
-snapshot, not a fixed allowlist. WAN-reader tests prove decoding, not native
+passed the historical October 15 **73-entry** asset/meta/GUID/LF inventory; that
+is an observed snapshot, not a fixed allowlist. The first clip exporter later
+added **14** synthetic tests to the unchanged **12** pose-reader tests; that
+26-test record covers the earlier 25-clip export, not the complete 56-clip recipe.
+WAN-reader tests prove decoding, not native
 application by themselves.
+
+The additional [original-C oracle](../tests/source-oracles/README.md) requires
+GCC or Clang and the exact inputs in `tests/source-oracles/pins.json`.
+Use the supplied pinned source root offline; optional blob acquisition is
+documented separately. Generate the corpus **before** the production comparison:
+
+```sh
+python3 tests/source-oracles/run.py --source-root "$SOURCE_ROOT" --full-matrix
+python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
+```
+
+Recorded October 16: **21 original-C groups / 123,039 cases**, **123,004 C#
+comparisons / 864,156 assertions**, plus **332 synthetic contract/host-adapter
+assertions**, zero failures. The **35 C-only geometry cases** are not production
+comparisons. Clock/local-state wakes/discard, result classification, exact
+spotting/dispatch/clamp, field conversion and CPU onside are covered; later
+result-switch/PAT/kick/period callers and full gameplay are not certified.
+The frozen CI fetches pinned oracle inputs before its oracle/comparison steps.
 
 Build/hosting tooling validation (the optional `--docker` case uses a labeled,
 non-playable fixture):
