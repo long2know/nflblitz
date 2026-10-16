@@ -8,10 +8,10 @@ namespace Blitz.Presentation
 {
     public sealed class SourceAnimationLibraryAsset : ScriptableObject
     {
-        [SerializeField] private TextAsset inventory;
-        [SerializeField] private string inventorySha256;
-        [SerializeField] private string[] sourcePaths;
-        [SerializeField] private TextAsset[] decodedClips;
+        [SerializeField] private TextAsset inventory = null;
+        [SerializeField] private string inventorySha256 = null;
+        [SerializeField] private string[] sourcePaths = null;
+        [SerializeField] private TextAsset[] decodedClips = null;
         private SourceAnimationLibrary cached;
 
         public string InventorySha256 { get { return inventorySha256; } }

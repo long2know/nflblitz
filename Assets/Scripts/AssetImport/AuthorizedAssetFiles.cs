@@ -114,7 +114,7 @@ namespace Blitz.AssetImport
             return DecodeUtf8(ReadBytes(relative, maximumBytes), relative);
         }
 
-        internal static string DecodeUtf8(byte[] bytes, string relative)
+        public static string DecodeUtf8(byte[] bytes, string relative)
         {
             try { return new UTF8Encoding(false, true).GetString(bytes); }
             catch (DecoderFallbackException) { throw new PlayerAssetException("Input '" + relative + "' is not valid UTF-8/ASCII source."); }

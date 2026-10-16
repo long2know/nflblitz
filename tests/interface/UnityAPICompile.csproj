@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <DefineConstants>$(BlitzUnityDefines)</DefineConstants>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="InterfaceModel.csproj" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(UnityManagedRoot)/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(UnityManagedRoot)/UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(UnityManagedRoot)/UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudAsset.cs" Link="Production/SourceHudAsset.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceHudWebViewport.cs" Link="Production/SourceHudWebViewport.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceCabinetInputUnity.cs" Link="Production/SourceCabinetInputUnity.cs" />
+  </ItemGroup>
+</Project>

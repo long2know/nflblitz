@@ -421,7 +421,7 @@ namespace Blitz.Editor
                 throw new PlayerAssetException("Explicit named " + field + " is required (no numeric/default convention).");
             return parsed;
         }
-        private static string RequiredArgument(string[] args, string name)
+        internal static string RequiredArgument(string[] args, string name)
         {
             string value = null;
             for (int i = 0; i < args.Length; i++)
@@ -434,7 +434,7 @@ namespace Blitz.Editor
             if (value == null) throw new PlayerAssetException("Required explicit argument " + name + " was not supplied.");
             return value;
         }
-        private static void EnsureFolder(AuthorizedAssetRoot guard, string path, string parent, string leaf)
+        internal static void EnsureFolder(AuthorizedAssetRoot guard, string path, string parent, string leaf)
         {
             if (AssetDatabase.IsValidFolder(path))
             {
@@ -449,13 +449,13 @@ namespace Blitz.Editor
             guard.ExistingDirectory(path);
             guard.ExistingFile(path + ".meta");
         }
-        private static void WriteNew(AuthorizedAssetRoot guard, string relative, byte[] bytes)
+        internal static void WriteNew(AuthorizedAssetRoot guard, string relative, byte[] bytes)
         {
             string path = guard.NewPath(relative);
             using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 stream.Write(bytes, 0, bytes.Length);
         }
-        private static Mesh CreateUnityMesh(BindPoseLimbMesh data)
+        internal static Mesh CreateUnityMesh(BindPoseLimbMesh data)
         {
             var mesh = new Mesh { name = data.Symbol + " / bind pose",
                 indexFormat = data.Positions.Count > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16 };
@@ -467,8 +467,8 @@ namespace Blitz.Editor
             mesh.RecalculateBounds();
             return mesh;
         }
-        private static GameObject CreateHierarchy(string stableId, SourcePlayer player, IList<BindPoseLimbMesh> data,
-            Mesh[] meshes, Material[] materials)
+        internal static GameObject CreateHierarchy(string stableId, SourcePlayer player, IList<BindPoseLimbMesh> data,
+            Mesh[] meshes, Material[] materials, Func<int, Material[]> jointMaterials = null)
         {
             var root = new GameObject(stableId + " / bind-pose-only / source units");
             var nodes = new Transform[player.Nodes.Count];
@@ -481,7 +481,7 @@ namespace Blitz.Editor
                     nodes[i].SetParent(root.transform, false);
                     joint.AddComponent<MeshFilter>().sharedMesh = meshes[i];
                     MeshRenderer renderer = joint.AddComponent<MeshRenderer>();
-                    renderer.sharedMaterials = materials;
+                    renderer.sharedMaterials = jointMaterials == null ? materials : jointMaterials(i);
                     renderer.enabled = player.Nodes[i].DrawEnabled;
                 }
                 for (int i = 0; i < nodes.Length; i++)

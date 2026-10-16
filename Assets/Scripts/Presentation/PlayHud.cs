@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Runtime;
 using UnityEngine;
@@ -10,6 +11,8 @@ namespace Blitz.Presentation
     public sealed class PlayHud : MonoBehaviour
     {
         private BlitzRuntime runtime;
+        private SourceHudRenderer sourceHud;
+        private SourceHudViewport legacyViewport;
         private GUIStyle label;
         private GUIStyle paragraph;
         private GUIStyle button;
@@ -22,16 +25,19 @@ namespace Blitz.Presentation
         internal void Initialize(BlitzRuntime owner)
         {
             runtime = owner;
+            if (runtime.IsSourceProfile) sourceHud = new SourceHudRenderer(runtime, runtime.SourceHudAsset);
         }
 
         internal void ClearNotices()
         {
             notices.Clear();
             toast = null;
+            if (sourceHud != null) sourceHud.Clear();
         }
 
         internal void OnGameEvent(GameEvent gameEvent)
         {
+            if (sourceHud != null) return;
             string message = EventText(gameEvent);
             if (string.IsNullOrEmpty(message))
                 return;
@@ -47,15 +53,36 @@ namespace Blitz.Presentation
             }
         }
 
+        internal void OnSourceGameEvent(SourceGameEvent value)
+        { if (sourceHud != null) sourceHud.OnSourceEvent(value); }
+
+        internal void OnSourceHostStep(IGameState state)
+        { if (sourceHud != null) sourceHud.OnHostStep(state); }
+
         private void OnGUI()
         {
-            if (runtime == null || runtime.State == null)
+            if (runtime == null || runtime.State == null || runtime.SourceFailure != null)
                 return;
+            if (sourceHud != null)
+            {
+                try
+                {
+                    runtime.ReadSourceKeyboardEvent(Event.current);
+                    sourceHud.OnGUI();
+                }
+                catch (SourceInterfaceException error) { runtime.FailSourceMode(error); }
+                catch (SourceRosterException error) { runtime.FailSourceMode(error); }
+                catch (ArgumentException error) { runtime.FailSourceMode(error); }
+                return;
+            }
             EnsureStyles();
             GUIUtility.keyboardControl = 0;
-            HudLayout layout = new HudLayout(Screen.width, Screen.height);
+            SourceHudViewport viewport = SourceHudWebViewport.Measure();
+            legacyViewport = viewport;
+            HudLayout layout = new HudLayout((int)viewport.ContentWidth, (int)viewport.ContentHeight);
             Matrix4x4 previousMatrix = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(layout.Scale, layout.Scale, 1f));
+            GUI.matrix = Matrix4x4.Scale(new Vector3((float)(layout.Scale * viewport.CssToGuiX),
+                (float)(layout.Scale * viewport.CssToGuiY), 1f));
             IGameState state = runtime.State;
             DrawHeader(layout, state);
             DrawPlayerLabels(layout, state);
@@ -101,7 +128,7 @@ namespace Blitz.Presentation
             }
 
             Text(new Rect(20f, 12f, 180f, 32f), "NFL BLITZ 2000", 26, Palette.White, true);
-            Text(new Rect(21f, 44f, 190f, 18f), "UNITY SOURCE PORT / IN PROGRESS", 11, Palette.Muted);
+            Text(new Rect(21f, 44f, 190f, 18f), "LEGACY60HZ / EXPLICIT GRAYBOX", 11, Palette.Muted);
             float middle = width * 0.5f;
             Score(new Rect(middle - 268f, 9f, 168f, 58f), "HOME", state.HomeScore, Palette.Home, false);
             Score(new Rect(middle + 100f, 9f, 168f, 58f), "AWAY", state.AwayScore, Palette.Away, true);
@@ -311,7 +338,8 @@ namespace Blitz.Presentation
             if (screen.z <= 0f || !camera.pixelRect.Contains(new Vector2(screen.x, screen.y)))
                 return;
             Rect scene = new Rect(0f, layout.Header, layout.Width - layout.Sidebar, layout.Height - layout.Header - layout.Footer);
-            Vector2 anchor = new Vector2(screen.x / layout.Scale, (Screen.height - screen.y) / layout.Scale);
+            Vector2 anchor = new Vector2((float)(screen.x / legacyViewport.DevicePixelRatio) / layout.Scale,
+                (float)((legacyViewport.BufferHeight - screen.y) / legacyViewport.DevicePixelRatio) / layout.Scale);
             Rect rect;
             if (!TryWorldLabelRect(scene, anchor, text, size, out rect))
                 return;
@@ -363,7 +391,7 @@ namespace Blitz.Presentation
         {
             float width = layout.Width - layout.Sidebar;
             Text(new Rect(16f, layout.Header + 10f, width - 32f, 21f),
-                state.Possession == TeamId.Home ? "HOME ATTACKS +X  >>>" : "<<<  AWAY ATTACKS -X / YOU DEFEND", 12,
+                state.Possession == TeamId.Home ? "LEGACY60HZ GRAYBOX / HOME +X  >>>" : "LEGACY60HZ GRAYBOX / AWAY -X / YOU DEFEND", 12,
                 state.Possession == TeamId.Home ? Palette.Home : Palette.Away, true);
             if (state.Phase == GamePhase.DeadBall)
                 Text(new Rect(16f, layout.Header + 35f, width - 32f, 20f), "PLAY OVER / LINES SHOW NEXT SCRIMMAGE", 11, Palette.Gold, true);

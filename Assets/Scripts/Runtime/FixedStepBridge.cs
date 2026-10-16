@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Blitz.Contracts;
 
 namespace Blitz.Runtime
@@ -24,7 +23,11 @@ namespace Blitz.Runtime
             if (simulation == null)
                 throw new ArgumentNullException(nameof(simulation));
             this.simulation = simulation;
-            this.clearSimulationInput = clearSimulationInput;
+            IPendingSourceInput pending = simulation as IPendingSourceInput;
+            this.clearSimulationInput = clearSimulationInput ?? (pending == null ? (Action)null : pending.ClearPendingInput);
+            ISourceMatchState source = simulation.State as ISourceMatchState;
+            if (source != null && source.Match != null && pending == null)
+                throw new InvalidOperationException("The source profile requires typed IPendingSourceInput.ClearPendingInput().");
             previousState = simulation.State;
         }
 
@@ -45,22 +48,19 @@ namespace Blitz.Runtime
             }
         }
         public event Action<GameEvent> EventRaised;
+        public event Action<SourceGameEvent> SourceEventRaised;
+        public event Action<SourcePresentationCue> SourcePresentationCueRaised;
+        public event Action<IGameState> BeforeHostStep;
+        public event Action<IGameState> AfterHostStep;
 
         public static Action BindSourceInputReset(IGameSimulation simulation)
         {
             if (simulation == null) throw new ArgumentNullException(nameof(simulation));
-            MethodInfo reset = simulation.GetType().GetMethod("ClearPendingInput", BindingFlags.Instance | BindingFlags.Public,
-                null, Type.EmptyTypes, null);
-            if (reset != null && reset.ReturnType == typeof(void))
-                return (Action)Delegate.CreateDelegate(typeof(Action), simulation, reset);
-            // The current kernel has no lifecycle interface. Bind only its exact transient command buffer,
-            // never actor/clock/physics state; a renamed or incompatible buffer must fail visibly.
-            FieldInfo field = simulation.GetType().GetField("pendingSourceActions", BindingFlags.Instance | BindingFlags.NonPublic);
-            var pending = field == null ? null : field.GetValue(simulation) as Queue<PlayerCommand>;
+            IPendingSourceInput pending = simulation as IPendingSourceInput;
             if (pending == null)
-                throw new InvalidOperationException("Source input lifecycle requires the kernel's transient command-buffer reset; " +
-                    simulation.GetType().FullName + " exposes neither ClearPendingInput() nor the expected command buffer. Stale input replay is disabled.");
-            return pending.Clear;
+                throw new InvalidOperationException("Source input lifecycle requires typed IPendingSourceInput.ClearPendingInput(); " +
+                    simulation.GetType().FullName + " does not implement it. Private-buffer reflection is not supported.");
+            return pending.ClearPendingInput;
         }
 
         public void QueueAction(InputAction action, PlayId play = PlayId.Run, int targetPlayerId = -1)
@@ -71,6 +71,20 @@ namespace Blitz.Runtime
         }
 
         public int Advance(double elapsedSeconds, FieldVector move, bool turbo)
+        {
+            return AdvanceInternal(elapsedSeconds, move, turbo, null);
+        }
+
+        public int AdvanceSource(double elapsedSeconds, Func<SourceInputFrame> nextHostInput)
+        {
+            if (nextHostInput == null) throw new ArgumentNullException(nameof(nextHostInput));
+            ISourceMatchState source = State as ISourceMatchState;
+            if (source == null || source.Match == null)
+                throw new InvalidOperationException("Raw source station input requires the explicit source-match profile.");
+            return AdvanceInternal(elapsedSeconds, default(FieldVector), false, nextHostInput);
+        }
+
+        private int AdvanceInternal(double elapsedSeconds, FieldVector move, bool turbo, Func<SourceInputFrame> nextHostInput)
         {
             if (!active)
                 return 0;
@@ -89,7 +103,13 @@ namespace Blitz.Runtime
                 PlayerCommand edge = actions.Count > 0 ? actions.Dequeue() : default(PlayerCommand);
                 IGameState entry = State;
                 GamePhase entryPhase = State.Phase;
-                simulation.Step(new PlayerCommand(move, turbo, edge.Action, edge.Play, edge.TargetPlayerId));
+                Action<IGameState> before = BeforeHostStep;
+                if (before != null) before(entry);
+                SourceInputFrame input = nextHostInput == null ? null : nextHostInput();
+                if (nextHostInput != null && input == null)
+                    throw new InvalidOperationException("The source cabinet producer returned no input frame.");
+                simulation.Step(new PlayerCommand(move, turbo, edge.Action, edge.Play, edge.TargetPlayerId,
+                    stationInputs: input));
                 ISourceGameState sourceBefore = entry as ISourceGameState;
                 ISourceGameState sourceAfter = State as ISourceGameState;
                 if (sourceAfter == null || sourceBefore == null || sourceAfter.SourceTick > sourceBefore.SourceTick)
@@ -107,6 +127,27 @@ namespace Blitz.Runtime
                     if (handler != null)
                         handler(events[i]);
                 }
+                ISourceMatchSimulation sourceSimulation = simulation as ISourceMatchSimulation;
+                if (sourceSimulation != null)
+                {
+                    IReadOnlyList<SourceGameEvent> sourceEvents = sourceSimulation.SourceEvents;
+                    for (int i = 0; i < sourceEvents.Count; i++)
+                    {
+                        Action<SourceGameEvent> handler = SourceEventRaised;
+                        if (handler != null) handler(sourceEvents[i]);
+                    }
+                }
+                ISourcePresentationSimulation presentation = simulation as ISourcePresentationSimulation;
+                if (presentation != null && presentation.PresentationCues != null)
+                {
+                    foreach (SourcePresentationCue cue in presentation.PresentationCues.Cues)
+                    {
+                        Action<SourcePresentationCue> handler = SourcePresentationCueRaised;
+                        if (handler != null) handler(cue);
+                    }
+                }
+                Action<IGameState> after = AfterHostStep;
+                if (after != null) after(State);
                 if (State.Phase != entryPhase)
                     actions.Clear();
             }

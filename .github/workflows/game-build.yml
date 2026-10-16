@@ -11,6 +11,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/interface/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -29,6 +30,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/interface/**'
       - 'tools/environments/**'
       - 'scripts/**'
       - 'hosting/**'
@@ -130,6 +132,14 @@ jobs:
         run: python3 tests/assets/run.py
       - name: Test source-camera behavior
         run: python3 tests/camera/run.py
+      - name: Test source team and impact helpers without original assets
+        run: python3 tests/presentation/run.py
+      - name: Test original HUD and cabinet interface without original assets
+        run: python3 tests/interface/run.py
+      - name: Test complete interface caller and inventory guards
+        run: python3 tests/interface/stage_followup.py
+      - name: Test original HUD resource preflight without assets or Unity
+        run: python3 tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references

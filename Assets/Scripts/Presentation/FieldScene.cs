@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Blitz.AssetImport;
 using Blitz.Contracts;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -42,6 +43,9 @@ namespace Blitz.Presentation
         private readonly Actor[] actors = new Actor[SliceRules.PlayersPerTeam * 2];
         private readonly SourcePlayerRig sourcePlayerPrefab;
         private readonly ISourceAnimationLibrary sourceAnimations;
+        private readonly SourceTeamPresenter sourceTeams;
+        private Func<PlayerView, SourceTeamDrawState> sourceDrawState;
+        private int designatedHomeSide = -1;
         private readonly Transform scrimmage;
         private readonly Transform target;
         private readonly Transform ball;
@@ -59,6 +63,8 @@ namespace Blitz.Presentation
             sourceAnimations = animations;
             if (sourcePrefab != null && animations == null)
                 throw new InvalidOperationException("Source field actors require the original animation library; static pose fallback is disabled.");
+            if (sourcePrefab != null)
+                sourceTeams = new SourceTeamPresenter(SourcePlayerProvider.ResolveRequiredTeamPresentation());
             SourceEnvironmentProvider sourceWorld = SourceEnvironmentProvider.ResolveWorldMode();
             root = new GameObject(sourceWorld == null ? "Explicit graybox field" : "Original source environment").transform;
             root.SetParent(parent, false);
@@ -179,8 +185,24 @@ namespace Blitz.Presentation
             QualitySettings.antiAliasing = 2;
         }
 
+        internal void BindSourceTeamDrawState(int actualDesignatedHomeSide, Func<PlayerView, SourceTeamDrawState> actualSourceDrawState)
+        {
+            if (actualDesignatedHomeSide < 0 || actualDesignatedHomeSide > 1)
+                throw new ArgumentOutOfRangeException(nameof(actualDesignatedHomeSide));
+            sourceDrawState = actualSourceDrawState ?? throw new ArgumentNullException(nameof(actualSourceDrawState));
+            designatedHomeSide = actualDesignatedHomeSide;
+        }
+
         internal void Render(IGameState previous, IGameState state, float renderInterpolation01, float deltaTime)
         {
+            ISourceMatchState sourceMatch = state as ISourceMatchState;
+            ISourcePresentationState presentationState = state as ISourcePresentationState;
+            if (sourceTeams != null && !state.Ball.Presentation.IsSpecified)
+                throw new InvalidOperationException("Original separate/held ball drawing requires the actual BF_PHANTOM raw flags.");
+            if (sourceTeams != null && ((sourceDrawState == null && presentationState == null) ||
+                sourceDrawState != null && designatedHomeSide < 0 || sourceMatch == null || sourceMatch.Match == null))
+                throw new InvalidOperationException("Original opposing-team renderer needs actual match/roster/home-side/draw-state inputs. " +
+                    "BindSourceTeamDrawState before first Render; matching Chicago uniforms or guessed source flags are not a fallback.");
             animationTime += Mathf.Min(deltaTime, 0.1f);
             scrimmage.localPosition = new Vector3(state.LineOfScrimmage - 50f, 0.04f, 0f);
             target.localPosition = new Vector3(state.FirstDownLine - 50f, 0.047f, 0f);
@@ -190,6 +212,12 @@ namespace Blitz.Presentation
                 if (view.Id < 0 || view.Id >= actors.Length)
                     continue;
                 Actor actor = actors[view.Id];
+                if (actor.SourceRig != null)
+                {
+                    if (sourceDrawState == null) sourceTeams.Apply(actor.SourceRig, view, presentationState);
+                    else sourceTeams.Apply(actor.SourceRig, view, sourceMatch.Match.Configuration,
+                        designatedHomeSide, state.Ball.CarrierId, sourceDrawState(view));
+                }
                 PlayerView old = FindPlayer(previous, view.Id, view);
                 bool interpolate = actor.SourceAnimation != null && Blitz.AssetImport.SourceActorPoseSampler.CanInterpolate(old, view);
                 Vector3 currentPosition = Ground(view.Position) + Vector3.up * view.Height;
@@ -215,11 +243,11 @@ namespace Blitz.Presentation
                     actor.LeftLeg.localRotation = Quaternion.Euler(stride, 0f, 0f);
                     actor.RightLeg.localRotation = Quaternion.Euler(-stride, 0f, 0f);
                 }
-                actor.ControlRing.SetActive(state.ControlledPlayerId == view.Id);
-                actor.ReceiverRing.SetActive(state.Possession == TeamId.Home && view.Id >= 4 && view.Id <= 6
+                actor.ControlRing.SetActive(actor.SourceRig == null && state.ControlledPlayerId == view.Id);
+                actor.ReceiverRing.SetActive(actor.SourceRig == null && state.Possession == TeamId.Home && view.Id >= 4 && view.Id <= 6
                     && (state.Phase == GamePhase.PreSnap || state.Phase == GamePhase.LiveBall));
-                actor.TargetRing.SetActive(state.Ball.Mode == BallMode.InFlight && state.Ball.TargetPlayerId == view.Id);
-                actor.Arrow.gameObject.SetActive(state.ControlledPlayerId == view.Id);
+                actor.TargetRing.SetActive(actor.SourceRig == null && state.Ball.Mode == BallMode.InFlight && state.Ball.TargetPlayerId == view.Id);
+                actor.Arrow.gameObject.SetActive(actor.SourceRig == null && state.ControlledPlayerId == view.Id);
                 actor.Arrow.localRotation = actor.SourceAnimation != null && facing.sqrMagnitude > 0.001f ?
                     Quaternion.LookRotation(facing) : actor.Body.localRotation;
                 float pulse = 1f + 0.08f * Mathf.Sin(animationTime * 5f);
@@ -227,6 +255,8 @@ namespace Blitz.Presentation
             }
 
             BallView ballView = state.Ball;
+            ball.gameObject.SetActive(sourceTeams == null || ballView.CarrierId == -1 ||
+                (ballView.Presentation.RawFlags & 0x800) != 0);
             Vector3 position = Ground(ballView.Position) + Vector3.up * Mathf.Max(0.3f, ballView.Height);
             if (ballView.Mode == BallMode.Held && ballView.CarrierId >= 0 && ballView.CarrierId < actors.Length)
             {
@@ -304,6 +334,21 @@ namespace Blitz.Presentation
                     secondarySourceFrame = view.Animation.Secondary.Sample.SourceFrame,
                     position = actor.Root.position, joints = new List<AnimationJointEvidence>()
                 };
+                SourceTeamAppearance appearance = actor.SourceRig.TeamAppearance;
+                if (appearance != null)
+                {
+                    item.uniformIdentity = appearance.UniformIdentity;
+                    item.sourcePlayerId = appearance.SourcePlayerId;
+                    item.sourceTeamIndex = appearance.Player.Profile.Identity.TeamIndex;
+                    item.sourceRosterIndex = appearance.Player.Profile.Identity.RosterIndex;
+                    item.packedJerseyNumber = appearance.Player.Profile.PackedJerseyNumber;
+                    var bound = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (MeshRenderer renderer in actor.SourceRig.GetComponentsInChildren<MeshRenderer>())
+                    foreach (Material material in renderer.sharedMaterials) bound.Add(material.name);
+                    item.actualMaterialIdentities = new List<string>(bound);
+                    item.actualMaterialIdentities.Sort(StringComparer.Ordinal);
+                    item.viewportBounds = SourceTeamVisibility.ProjectBounds(actor.SourceRig, Camera.main, out item.hasVisibleBounds);
+                }
                 foreach (int index in indices)
                 {
                     Transform joint = actor.SourceRig.GetJoint(index);
@@ -339,6 +384,22 @@ namespace Blitz.Presentation
                 json.Append(",\"secondarySequence\":"); JsonString(json, actor.secondarySequence);
                 json.Append(",\"secondarySourceFrame\":").Append(actor.secondarySourceFrame).Append(",\"position\":");
                 JsonVector(json, actor.position);
+                json.Append(",\"uniformIdentity\":"); JsonString(json, actor.uniformIdentity);
+                json.Append(",\"sourcePlayerId\":"); JsonString(json, actor.sourcePlayerId);
+                json.Append(",\"sourceTeamIndex\":").Append(actor.sourceTeamIndex)
+                    .Append(",\"sourceRosterIndex\":").Append(actor.sourceRosterIndex)
+                    .Append(",\"packedJerseyNumber\":").Append(actor.packedJerseyNumber)
+                    .Append(",\"actualMaterialIdentities\":[");
+                if (actor.actualMaterialIdentities != null)
+                    for (int m = 0; m < actor.actualMaterialIdentities.Count; m++)
+                    {
+                        if (m != 0) json.Append(',');
+                        JsonString(json, actor.actualMaterialIdentities[m]);
+                    }
+                json.Append("],\"hasVisibleBounds\":").Append(actor.hasVisibleBounds ? "true" : "false");
+                json.Append(",\"viewportBounds\":["); JsonNumber(json, actor.viewportBounds.x); json.Append(',');
+                JsonNumber(json, actor.viewportBounds.y); json.Append(','); JsonNumber(json, actor.viewportBounds.z);
+                json.Append(','); JsonNumber(json, actor.viewportBounds.w); json.Append(']');
                 json.Append(",\"joints\":[");
                 for (int j = 0; j < actor.joints.Count; j++)
                 {
@@ -394,6 +455,11 @@ namespace Blitz.Presentation
             public long sourceTick;
             public string role, action, selectionEvidence, script, sequence, secondaryScript, secondarySequence;
             public float frameInterpolation, renderInterpolation;
+            public int sourceTeamIndex, sourceRosterIndex, packedJerseyNumber;
+            public string uniformIdentity, sourcePlayerId;
+            public List<string> actualMaterialIdentities;
+            public bool hasVisibleBounds;
+            public Vector4 viewportBounds;
             public Vector3 position;
             public List<AnimationJointEvidence> joints;
         }
@@ -441,8 +507,9 @@ namespace Blitz.Presentation
             receiverRing.transform.localPosition = Vector3.up * 0.04f;
             GameObject targetRing = Ring("Pass target / gold", actorRoot, 1.55f, 0.12f, targetMaterial);
             targetRing.transform.localPosition = Vector3.up * 0.07f;
-            Primitive("Contact shadow", PrimitiveType.Cylinder, actorRoot, new Vector3(0.16f, 0.015f, 0.16f),
-                new Vector3(1.15f, 0.008f, 1.15f), shadow, false);
+            if (sourceRig == null)
+                Primitive("Contact shadow", PrimitiveType.Cylinder, actorRoot, new Vector3(0.16f, 0.015f, 0.16f),
+                    new Vector3(1.15f, 0.008f, 1.15f), shadow, false);
             Transform arrow = new GameObject("Controlled direction").transform;
             arrow.SetParent(actorRoot, false);
             Mesh arrowMesh = new Mesh { name = "Original directional chevron" };

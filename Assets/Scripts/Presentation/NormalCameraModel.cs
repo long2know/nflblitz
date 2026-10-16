@@ -135,6 +135,19 @@ namespace Blitz.Presentation
             return new NormalCameraFrame(focus, distance, aspect, direction);
         }
 
+        internal NormalCameraFrame SourceTransientReturnTarget(IGameState state, float aspect)
+        {
+            if (!initialized || state == null)
+                throw new InvalidOperationException("Initialize the normal source camera before requesting a transient return target.");
+            if (!Finite(aspect) || aspect <= 0f) aspect = 512f / 384f;
+            bool setup = IsSetup(state.Phase);
+            bool stopped = state.Phase == GamePhase.DeadBall || state.Phase == GamePhase.GameOver;
+            float desiredDistance;
+            FieldVector desired = DesiredFocus(state, setup, stopped, out desiredDistance);
+            desiredDistance = Math.Max(desiredDistance, RequiredDistance(state, setup, aspect));
+            return new NormalCameraFrame(desired, desiredDistance, aspect, direction);
+        }
+
         private FieldVector DesiredFocus(IGameState state, bool setup, bool stopped, out float desiredDistance)
         {
             PlayerView player;

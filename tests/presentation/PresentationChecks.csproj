@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Exclude="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterface*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs')" Link="Production/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs')" Link="Production/SourceImpactShaker.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs')" Link="Production/SourceCinematicPlayback.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicDepthRange.cs" Link="Production/SourceCinematicDepthRange.cs" />
+  </ItemGroup>
+</Project>
