@@ -168,7 +168,7 @@ export function phaseRect(canvas) {
 export function readVisibleHud(fullText, headerText, scoreText = {}) {
   const header = parseHud(headerText);
   return { ...parseHud(fullText), homeScore: readTeamScore(scoreText.home, 'Home'), awayScore: readTeamScore(scoreText.away, 'Away'),
-    possession: header.possession, quarter: header.quarter, clockSeconds: header.clockSeconds };
+    possession: header.possession, quarter: header.quarter, clockSeconds: header.clockSeconds, down: header.down };
 }
 
 export function parseOcrTsv(tsv) {

@@ -35,7 +35,7 @@ rendering performed for this documentation update.
 | Metadata | **12 guard tests** and current **73 assets / 73 metadata / 73 unique GUIDs**, terminal LF and three resolving scene/prefab script references passed; actual copied 33-hex mutation rejected without shared-source changes. | Owner-stable observed inventory, not a fixed count or native import/build certification. |
 | Host WebGL / Docker | Two historical bind generations passed fresh-generation proof; standing generation **`0000067c000032dd00007938000039fe`** then built/promoted with matching served receipt/proof and all four payload hashes/size/MIME. **21 generation-tooling tests / eight actual artifact checks** separately passed. See [build evidence](build.md#bounded-evidence-recorded-october-15-2026). | No successful Docker-editor build; historical bind generations are not current standing posture. |
 | Standing source-player browser | **Six checks / zero errors**, Docker `8080/?actors=source`, desktop 1280×800 and portrait 360×740: actual upright textured players, initial HUD, selection/snap/pass-catch/dead-ball/next-play/restart. Exact QBSTANCE marker and served receipt/proof/four hashes matched the standing generation; **30 browser-tool tests** separately passed. | Previous public label. No continuous animation, full-match/final restart, perspective focus-release geometry or hardware-performance qualification. |
-| Latest identity/legend correction | Minimal `NFL BLITZ 2000` / `UNITY SOURCE PORT / IN PROGRESS` title and absolute field-axis legend host build **`00000688000072cf00002aa300002ef9`** passed, receipt validated **`2026-10-16T02:44:09Z`** (October 15 PDT). Exact generation promoted to Docker with matching served receipt/proof/four payloads; **31 final-presentation tool tests** separately passed. Inputs unchanged. | Fresh final-title browser capture pending. Existing standing screenshots and tool tests do not qualify this later UI render. |
+| Latest identity/legend correction | Build **`00000688000072cf00002aa300002ef9`**, validated **`2026-10-16T02:44:09Z`** (October 15 PDT), passed host build, matching Docker promotion and **six fresh controls checks / zero errors**. Current desktop/portrait images show `NFL BLITZ 2000`, its in-progress subtitle and field-axis legend; those details were visually reviewed. **33 browser-tool tests** separately pass. | The strict tiny-font legend OCR diagnostic failed and remains recorded; manual image review is not an automated OCR pass. No full-match, perspective-focus or original-game fidelity claim. |
 
 The passed standing subset and screenshot manifest are local
 `tests/browser/artifacts/game-1792117872816/evidence.json` and `screenshots.json`
@@ -49,6 +49,11 @@ scope and retained failed predecessors. Current identity-generation HTTP proof i
 `Build/final-player-hosting-readiness.json`, verified `2026-10-16T02:48:24Z`
 (October 15 PDT). That promotion does not invalidate the standing proof or make
 its older-label PNGs new-title evidence.
+The current final-title captures and controls evidence are
+`tests/browser/artifacts/game-1792119716569/evidence.json` and `screenshots.json`,
+including `source-qbstance-frame0-desktop-play-select.png` and the portrait
+counterpart. `manual-presentation-review.json` records the actual visual review;
+the failed strict legend OCR run at `game-1792119015841` is retained separately.
 The separate public-API-only core match smoke reached four-quarter `GameOver`
 and restart; it is not a rendered full match.
 

@@ -38,7 +38,7 @@ bash tests/browser/with-posix-runtime.sh node tests/browser/smoke.mjs --url 'htt
 # Only AFTER coordinator promotes the QBSTANCE generation and provides readiness:
 bash tests/browser/with-posix-runtime.sh node tests/browser/smoke.mjs --url 'http://127.0.0.1:8080/?actors=source' --visual-controls-only --expected-source-pose qbstance-frame0 --timeout-ms 60000
 
-# Only AFTER the final branding/axes generation is promoted:
+# Strict diagnostic (known small-font axis OCR limitation; see evidence below):
 bash tests/browser/with-posix-runtime.sh node tests/browser/smoke.mjs --url 'http://127.0.0.1:8080/?actors=source' --visual-controls-only --expected-source-pose qbstance-frame0 --final-presentation --timeout-ms 60000
 
 # Coordinator's separate static preview of the same real build (NOT Docker):
@@ -175,6 +175,42 @@ Unity FPS measurement or performance-budget verdict. Chrome JS heap values
 exclude total process/GPU/WASM memory. No game telemetry/debug API is injected.
 
 ## Current evidence boundary
+
+### Final NFL title/world-field-legend generation
+
+`game-1792119716569/evidence.json` records **six strict source/runtime/controls
+checks passed** in31.634s on actual final `8080`, zero runtime/asset errors.
+Served receipt/proof/four payloads match build
+`00000688000072cf00002aa300002ef9`, proof SHA-256
+`d2749c8df0f21c069142f35e0d86c96af1ec32f25dcf28fe6874cb384d1a9a34`.
+The exact QBSTANCE marker and actual upright source meshes remain verified.
+
+Current clean desktop/portrait/live/dead/restart PNGs, hashes/pixel/HUD manifest
+and **explicit manual presentation review** are in that directory. The viewed
+current images show `NFL BLITZ 2000`, desktop
+`UNITY SOURCE PORT / IN PROGRESS`, and `W = +X field / D = +Z field`;
+CDP document title is `Unity Web Player | NFL Blitz 2000 - Unity Port`.
+There is no old-title/candidate PNG substitution.
+
+**Do not report the exact-text presentation OCR gate as passed.**
+`game-1792119015841/evidence.json` remains **failed**: small muted `+X/+Z field`
+pixels were OCR-read as `4%/+2` and `fled` despite correct visible text.
+Bounded crop/contrast alternatives were retained, not substituted as invented
+text. The final six-check run omits this optional diagnostic flag and uses
+manual PNG review for branding/axes, recorded in
+`manual-presentation-review.json`. All runtime/network/asset-error, marker,
+generation, fresh-HUD and actual control gates remain unchanged and strict.
+
+A second run `game-1792119578019` correctly exposed a parser defect, not a
+gameplay reset: world `FIRST DOWN` followed by the `1 RUN` card overrode the
+actual header `2nd & 20`. Down now comes from the same atomic scoreboard crop
+as clock/possession. Actual-image regression evidence is retained there;
+**32/32 tooling tests pass**, zero skipped. The final run observed actual
+catch/out-of-bounds/down2→Continue/down2→R/down1/Q1/2:00.
+
+This remains one-variant **static QBSTANCE frame0**, not continuous animation,
+verified original pre-snap/fidelity, perspective focus-position or full-match
+acceptance. Final images stay ignored/local; no publication performed.
 
 ### Current promoted static QBSTANCE frame0
 

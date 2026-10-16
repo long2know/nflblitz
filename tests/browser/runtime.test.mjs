@@ -1,11 +1,29 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { access, chmod, lstat, readFile, readdir, rename, symlink, unlink, writeFile } from 'node:fs/promises';
+import { access, chmod, lstat, readFile, readdir, realpath, rename, symlink, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import test from 'node:test';
+import test, { after, before } from 'node:test';
 import { createChromeRuntime } from './runtime.mjs';
 import { launchChrome, targetSession } from './chrome.mjs';
+
+const previousRuntimeRoot = process.env.CHROME_RUNTIME_ROOT;
+before(async () => {
+  if (!previousRuntimeRoot) {
+    process.env.CHROME_RUNTIME_ROOT = await realpath(path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)), '../..'));
+  }
+});
+after(() => {
+  if (previousRuntimeRoot === undefined) delete process.env.CHROME_RUNTIME_ROOT;
+  else process.env.CHROME_RUNTIME_ROOT = previousRuntimeRoot;
+});
+
+test('runtime fixtures use an existing physical root without prior browser artifacts', async () => {
+  const root = process.env.CHROME_RUNTIME_ROOT;
+  assert.ok((await lstat(root)).isDirectory());
+  assert.equal(await realpath(root), root);
+});
 
 test('Chrome uses a unique owned 0700 runtime and cleans only that runtime', async () => {
   const first = await createChromeRuntime();

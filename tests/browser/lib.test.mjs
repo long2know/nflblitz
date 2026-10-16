@@ -179,6 +179,13 @@ test('current possession comes only from scoreboard, not the prior touchdown/pos
   assert.throws(() => phaseRect({ x: 0, y: 0, width: 360, height: 740 }), /desktop sidebar/);
 });
 
+test('world FIRST DOWN followed by 1 RUN cannot reset the observed scoreboard down', () => {
+  const full = 'HOME BALL\n2nd & 20\nPLAY SELECT\nFIRST DOWN\n1 RUN\n2 QUICK PASS';
+  assert.equal(parseHud(full).down, 1, 'Reproduces the actual full-frame OCR order.');
+  assert.equal(readVisibleHud(full, 'HOME BALL\n2nd & 20\nQ1\n1:59').down, 2);
+  assert.equal(readVisibleHud(full, 'unreadable').down, null);
+});
+
 test('narrow viewport must expose real readable movement/action/play controls, not only fit the canvas', () => {
   const text = '1 RUN\n2 QUICK PASS\nWASD / arrows move SHIFT turbo F tackle Q switch';
   requireNarrowControls(text, 'actual-360x740-controls.png');

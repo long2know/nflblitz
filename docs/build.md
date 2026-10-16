@@ -4,9 +4,10 @@ The root is the Unity project. The verified route is a **Unity 6000.3.24f1 host
 editor**, followed by a **Docker static runtime**. Original player mesh/textures
 and authentic static `QBSTANCE` frame 0 have passed native apply/reload, host
 build and bounded standing-player browser checks in that runtime. The later
-identity/field-axis legend correction has also passed a host build; its matching
-Docker promotion is verified. Only its fresh final-title browser capture remains
-pending for that evidence delta, not the standing-pose integration.
+identity/field-axis legend correction passed a host build, matching Docker
+promotion and fresh desktop/portrait controls captures. Its title and legend were
+visually reviewed; the separate exact tiny-font legend OCR diagnostic remains a
+known harness limitation, not an automated approval.
 See the [source-parity ledger](source-parity.md) for the visual/gameplay limits.
 
 ## Pinned toolchain and external activation
@@ -266,8 +267,10 @@ transport handling and optional full-match commands.
 `--expected-source-pose qbstance-frame0` checks the actual distinct runtime marker;
 it is not a pose override. The harness default remains the historical bind
 expectation, so do not omit the flag for the standing generation or relabel a bind
-run as posed acceptance. For the later identity/legend-corrected generation, add
-`--final-presentation` after serving that same receipt-pinned build.
+run as posed acceptance. `--final-presentation` additionally requires exact
+legend OCR. That stricter diagnostic currently misreads the tiny muted `+X`/`+Z`
+text and is not a passed acceptance gate; retain its failure separately from the
+source-controls subset and explicit visual review.
 
 Standing generation `0000067c000032dd00007938000039fe` passed six independent
 source visual-controls checks at desktop 1280×800 and portrait 360×740:
@@ -285,9 +288,11 @@ The subsequent minimal identity/legend host build is
 `UNITY SOURCE PORT / IN PROGRESS`, and absolute field-axis hints rather than a
 false screen-relative “right”; input mappings are unchanged. That exact generation
 has now been promoted to Docker `8080`, with matching served receipt/proof and
-all four payload hashes, sizes and MIME types. Only fresh final-title/legend
-browser capture remains pending for this correction. The standing captures above
-retain the previous label and do not qualify that newer UI generation.
+all four payload hashes, sizes and MIME types. Six fresh source-controls checks
+passed with zero runtime/network/asset errors, and actual desktop/portrait PNGs
+were reviewed for the current title, subtitle and field-axis text. The earlier
+standing captures retain the previous label; the final images are separate.
+Exact legend OCR remains a failed diagnostic, not an inferred pass.
 
 ## Bounded evidence recorded October 15, 2026
 
@@ -296,7 +301,7 @@ retain the previous label and do not qualify that newer UI generation.
 | Native import/static pose/camera | Actual source model/rig/TGAs/runtime-atlas derivative imported; authentic `QBSTANCE` frame 0 applied/reloaded, **343 vertices** within **2.79×10⁻⁶ source units** of original matrices; native camera **3,595 assertions** passed. | One static source pose, not continuous animation, universal pre-snap behavior or original visual parity. |
 | Historical bind host generations | `00005e4c0000691f00002c0100006780`, then `00002b790000553000005d2b00000d97`, both passed. The same-path/cache repeat took 19 seconds. | Retained two-generation build proof, not current standing posture. Payloads need not be byte-identical across generations. |
 | Standing host WebGL / static runtime | `0000067c000032dd00007938000039fe` built and was promoted to Docker `8080/?actors=source`; served receipt/proof and all four payload hashes/MIME matched. | Authentic static frame 0, all fourteen actors sharing one variant. |
-| Latest identity/legend host build and promotion | `00000688000072cf00002aa300002ef9`, validated `2026-10-16T02:44:09Z` (October 15 PDT), passed and was promoted to Docker with matching served receipt/proof/four payloads. **31 final-presentation tool tests** passed separately. | Fresh final-title browser capture pending; earlier standing captures and tool tests are not new-title render proof. |
+| Latest identity/legend host build and promotion | `00000688000072cf00002aa300002ef9`, validated `2026-10-16T02:44:09Z` (October 15 PDT), passed matching Docker promotion and **six fresh source-controls checks / zero errors**, with current desktop/portrait PNGs visually reviewed. **33 browser-tool tests** separately pass. | Exact tiny-font legend OCR remains a recorded failed diagnostic; manual review is not automated OCR approval. |
 | Docker editor | Immutable manifest pin verified; acquisition stopped without a cached runnable editor. | No successful Docker-editor build claimed. |
 | Static runtime / generation tooling | **21 tooling tests** and **eight actual artifact checks** recorded; real pinned-nginx integration is separate from mocked editor/tool contracts. | Synthetic hosting cases are not gameplay proof. |
 | Standing source browser | **Six checks**, **zero errors**, desktop/portrait upright PNGs and selection/snap/catch/dead/next/restart passed on the matching standing generation; **30 browser-tool tests** separately passed. | Earlier public label; no continuous animation, full-match, perspective-focus or hardware-performance qualification. |
@@ -313,6 +318,11 @@ in that same directory, including
 HTTP evidence is `Build/final-player-hosting-readiness.json`, verified
 `2026-10-16T02:48:24Z` (October 15 PDT). These ignored records/captures are
 retained locally, not prerequisites for reproducing the code path from a checkout.
+Final-title controls/captures are in
+`tests/browser/artifacts/game-1792119716569/`, including `evidence.json`,
+`screenshots.json`, `manual-presentation-review.json` and
+`source-qbstance-frame0-desktop-play-select.png`. The strict OCR failure at
+`game-1792119015841` is preserved and is not relabeled as a pass.
 
 ## Headless and tooling checks
 

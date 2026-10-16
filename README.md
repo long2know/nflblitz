@@ -9,11 +9,11 @@ not a finished or whole-game-parity recreation.
 with authentic static `QBSTANCE` frame 0, passed native apply/reload and a
 bounded Docker-served desktop/portrait standing-player visual-controls check.
 The source-derived normal camera and Unity **6000.3.24f1** host WebGL builds also
-passed. The subsequent `NFL BLITZ 2000` / `UNITY SOURCE PORT / IN PROGRESS`
-identity and field-axis legend correction has passed a host build and matching
-Docker promotion; fresh final-title browser evidence remains pending. The earlier
-standing proof is valid with its previous label, not proof of that later UI
-generation.
+passed. The latest `NFL BLITZ 2000` / `UNITY SOURCE PORT / IN PROGRESS`
+generation has fresh desktop/portrait controls captures and a visual review of
+the current title and field-axis legend. The evidence ledger separates those
+results from the exact tiny-font legend OCR diagnostic, which remains a harness
+limitation.
 
 ## Import, build and run
 

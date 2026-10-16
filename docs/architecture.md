@@ -5,9 +5,10 @@
 player mesh/rig/textures, authentic static `QBSTANCE` frame 0 and source-derived
 normal camera. Native pose apply/reload and the matching Docker-served standing
 WebGL desktop/portrait visual-controls subset passed. The later minimal
-`NFL BLITZ 2000` identity/field-axis legend correction has passed a host build
-and matching Docker promotion; fresh final-title browser evidence remains
-pending, not pose integration.
+`NFL BLITZ 2000` identity/field-axis legend correction passed a host build,
+matching Docker promotion and six fresh browser controls checks. Current
+desktop/portrait images were reviewed visually; exact tiny-font legend OCR
+remains a separately recorded failed diagnostic, not an automated approval.
 The kernel is headless-tested, but this is not complete original-game parity.
 
 ## Bounded outcome
@@ -339,8 +340,10 @@ only on an owner-stable snapshot.
 
 Two historical bind host generations establish repeat-build proof; the later
 standing host generation passed matching Docker/browser checks. The subsequent
-identity/legend-only host build and matching Docker promotion are verified, with
-fresh final-title browser evidence still pending. Freshness is current
+identity/legend-only host build, matching Docker promotion and fresh
+desktop/portrait controls captures are verified. Title/legend appearance was
+reviewed manually; the exact legend OCR diagnostic remains explicitly
+unqualified. Freshness is current
 BuildReport/run-ID/hash proof, **not payload mtime**; caches can be reused.
 Browser acceptance belongs to the
 exact served receipt/proof/payload hashes, not whichever generation is newest
