@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Blitz.Contracts;
 
 namespace Blitz.Runtime
@@ -11,20 +12,56 @@ namespace Blitz.Runtime
         public const int MaximumStepsPerFrame = 6;
 
         private readonly IGameSimulation simulation;
+        private readonly Action clearSimulationInput;
         private readonly Queue<PlayerCommand> actions = new Queue<PlayerCommand>();
         private double accumulator;
         private bool active = true;
         private bool discardNextFrame;
+        private IGameState previousState;
 
-        public FixedStepBridge(IGameSimulation simulation)
+        public FixedStepBridge(IGameSimulation simulation, Action clearSimulationInput = null)
         {
             if (simulation == null)
                 throw new ArgumentNullException(nameof(simulation));
             this.simulation = simulation;
+            this.clearSimulationInput = clearSimulationInput;
+            previousState = simulation.State;
         }
 
         public IGameState State { get { return simulation.State; } }
+        public IGameState PreviousState { get { return previousState; } }
+        public float RenderInterpolation01
+        {
+            get
+            {
+                ISourceGameState source = State as ISourceGameState;
+                if (source == null)
+                    return (float)Math.Min(1d, accumulator / StepSeconds);
+                if (source.SourceTicksPerSecond <= 0)
+                    throw new InvalidOperationException("Source snapshots require a positive source tick rate.");
+                double phase = (State.Tick % SliceRules.TicksPerSecond) * source.SourceTicksPerSecond %
+                    SliceRules.TicksPerSecond / (double)SliceRules.TicksPerSecond;
+                return (float)Math.Min(1d, phase + accumulator * source.SourceTicksPerSecond);
+            }
+        }
         public event Action<GameEvent> EventRaised;
+
+        public static Action BindSourceInputReset(IGameSimulation simulation)
+        {
+            if (simulation == null) throw new ArgumentNullException(nameof(simulation));
+            MethodInfo reset = simulation.GetType().GetMethod("ClearPendingInput", BindingFlags.Instance | BindingFlags.Public,
+                null, Type.EmptyTypes, null);
+            if (reset != null && reset.ReturnType == typeof(void))
+                return (Action)Delegate.CreateDelegate(typeof(Action), simulation, reset);
+            // The current kernel has no lifecycle interface. Bind only its exact transient command buffer,
+            // never actor/clock/physics state; a renamed or incompatible buffer must fail visibly.
+            FieldInfo field = simulation.GetType().GetField("pendingSourceActions", BindingFlags.Instance | BindingFlags.NonPublic);
+            var pending = field == null ? null : field.GetValue(simulation) as Queue<PlayerCommand>;
+            if (pending == null)
+                throw new InvalidOperationException("Source input lifecycle requires the kernel's transient command-buffer reset; " +
+                    simulation.GetType().FullName + " exposes neither ClearPendingInput() nor the expected command buffer. Stale input replay is disabled.");
+            return pending.Clear;
+        }
 
         public void QueueAction(InputAction action, PlayId play = PlayId.Run, int targetPlayerId = -1)
         {
@@ -50,8 +87,15 @@ namespace Blitz.Runtime
             while (steps < MaximumStepsPerFrame && accumulator + 1e-9d >= StepSeconds)
             {
                 PlayerCommand edge = actions.Count > 0 ? actions.Dequeue() : default(PlayerCommand);
+                IGameState entry = State;
                 GamePhase entryPhase = State.Phase;
                 simulation.Step(new PlayerCommand(move, turbo, edge.Action, edge.Play, edge.TargetPlayerId));
+                ISourceGameState sourceBefore = entry as ISourceGameState;
+                ISourceGameState sourceAfter = State as ISourceGameState;
+                if (sourceAfter == null || sourceBefore == null || sourceAfter.SourceTick > sourceBefore.SourceTick)
+                    previousState = entry;
+                else if (sourceAfter.SourceTick < sourceBefore.SourceTick)
+                    previousState = State;
                 accumulator = Math.Max(0d, accumulator - StepSeconds);
                 steps++;
 
@@ -80,12 +124,15 @@ namespace Blitz.Runtime
             actions.Clear();
             accumulator = 0d;
             discardNextFrame = true;
+            previousState = State;
+            if (clearSimulationInput != null) clearSimulationInput();
         }
 
         public void Restart()
         {
             ClearTransientInput();
             simulation.Restart(1);
+            previousState = State;
         }
 
         private static bool AcceptsAction(IGameState state, InputAction action)

@@ -4,17 +4,39 @@ using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
-    public sealed class GameSimulation : IGameSimulation
+    public enum SimulationProfile { LegacyBaseline60Hz, OriginalRelease57Hz }
+
+    public sealed partial class GameSimulation : IGameSimulation
     {
         private readonly List<GameEvent> stepEvents = new List<GameEvent>();
+        private readonly ISourceAnimationLibrary sourceAnimations;
+        private readonly Queue<PlayerCommand> pendingSourceActions = new Queue<PlayerCommand>();
         private uint randomState;
 
+        public SimulationProfile Profile { get; }
+        public string ReferenceProfile
+        {
+            get
+            {
+                return Profile == SimulationProfile.OriginalRelease57Hz
+                    ? "Original normal 57 Hz source animation/rules; provisional RNG, AI and contact coverage"
+                    : "Explicit approximate 60 Hz legacy baseline";
+            }
+        }
         internal SimulationState Model { get; private set; }
         public IGameState State { get; private set; }
         public IReadOnlyList<GameEvent> Events { get; private set; }
 
         public GameSimulation(int seed = 1)
         {
+            Profile = SimulationProfile.LegacyBaseline60Hz;
+            Restart(seed);
+        }
+
+        public GameSimulation(ISourceAnimationLibrary animations, int seed = 1)
+        {
+            sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
+            Profile = SimulationProfile.OriginalRelease57Hz;
             Restart(seed);
         }
 
@@ -23,8 +45,14 @@ namespace Blitz.Gameplay
             randomState = unchecked((uint)seed) ^ 0x9E3779B9u;
             Model = new SimulationState();
             stepEvents.Clear();
-            PlayerSimulation.LineUp(Model);
-            Model.BallHeight = 0f;
+            pendingSourceActions.Clear();
+            if (Profile == SimulationProfile.OriginalRelease57Hz)
+                InitializeSource();
+            else
+            {
+                PlayerSimulation.LineUp(Model);
+                Model.BallHeight = 0f;
+            }
             Publish();
         }
 
@@ -32,6 +60,23 @@ namespace Blitz.Gameplay
         {
             stepEvents.Clear();
             Model.Tick++;
+            if (Profile == SimulationProfile.OriginalRelease57Hz)
+            {
+                if (command.Action != InputAction.None)
+                    pendingSourceActions.Enqueue(command);
+                Model.SourceClockRemainder += SourceTiming.DefaultTicksPerSecond;
+                if (Model.SourceClockRemainder >= SliceRules.TicksPerSecond)
+                {
+                    Model.SourceClockRemainder -= SliceRules.TicksPerSecond;
+                    Model.SourceTick++;
+                    PlayerCommand edge = pendingSourceActions.Count == 0 ? default(PlayerCommand)
+                        : pendingSourceActions.Dequeue();
+                    SourceStep(new PlayerCommand(PlayerSimulation.NormalizeInput(command.Move), command.Turbo,
+                        edge.Action, edge.Play, edge.TargetPlayerId));
+                }
+                Publish();
+                return;
+            }
             switch (Model.Phase)
             {
                 case GamePhase.PlaySelect:
@@ -140,7 +185,7 @@ namespace Blitz.Gameplay
                 if (PlayerSimulation.DistanceSquared(defender.Position, Model.BallPosition)
                     <= PlayerSimulation.ManualTackleReach * PlayerSimulation.ManualTackleReach)
                 {
-                    EndPlay(PlayOutcome.Tackled, Model.CarrierId, Model.BallPosition);
+                    EndPlay(PlayOutcome.Tackled, Model.CarrierId, Model.BallPosition, defender.Id);
                     return;
                 }
             }
@@ -185,6 +230,7 @@ namespace Blitz.Gameplay
                 return;
 
             Model.ForwardPassUsed = true;
+            Model.ThrowerId = quarterbackId;
             Model.BallMode = BallMode.InFlight;
             Model.CarrierId = -1;
             Model.TargetPlayerId = targetId;
@@ -196,7 +242,8 @@ namespace Blitz.Gameplay
             Model.BallHeight = 1.1f;
             if (Model.Possession == TeamId.Home)
                 Model.ControlledPlayerId = quarterbackId;
-            Emit(GameEventType.PassThrown, Model.Possession, targetId, 0, quarterback.Position);
+            Emit(GameEventType.PassThrown, Model.Possession, targetId, 0, quarterback.Position,
+                quarterbackId, targetId);
         }
 
         private void AdvancePass()
@@ -222,7 +269,8 @@ namespace Blitz.Gameplay
                 if (Model.Possession == TeamId.Home)
                     Model.ControlledPlayerId = targetId;
                 SynchronizeHeldBall();
-                Emit(GameEventType.PassCaught, Model.Possession, targetId, 0, Model.BallPosition);
+                Emit(GameEventType.PassCaught, Model.Possession, targetId, 0, Model.BallPosition,
+                    targetId, Model.ThrowerId);
             }
             else
             {
@@ -271,13 +319,13 @@ namespace Blitz.Gameplay
                 if (PlayerSimulation.DistanceSquared(defender.Position, Model.BallPosition)
                     <= PlayerSimulation.AutoTackleReach * PlayerSimulation.AutoTackleReach)
                 {
-                    EndPlay(PlayOutcome.Tackled, Model.CarrierId, Model.BallPosition);
+                    EndPlay(PlayOutcome.Tackled, Model.CarrierId, Model.BallPosition, defender.Id);
                     return;
                 }
             }
         }
 
-        private void EndPlay(PlayOutcome cause, int affectedPlayerId, FieldVector position)
+        private void EndPlay(PlayOutcome cause, int affectedPlayerId, FieldVector position, int attackerId = -1)
         {
             if (Model.Phase != GamePhase.LiveBall)
                 return;
@@ -285,7 +333,7 @@ namespace Blitz.Gameplay
             PlayResolution resolution = GameplayRules.Resolve(offense, Model.Down, Model.SnapLineOfScrimmage,
                 Model.FirstDownLine, position.X, cause);
             if (cause == PlayOutcome.Tackled)
-                Emit(GameEventType.Tackled, offense, affectedPlayerId, 0, position);
+                Emit(GameEventType.Tackled, offense, affectedPlayerId, 0, position, attackerId, affectedPlayerId);
             else if (cause == PlayOutcome.OutOfBounds)
                 Emit(GameEventType.OutOfBounds, offense, affectedPlayerId, 0, position);
             else if (cause == PlayOutcome.Incomplete)
@@ -359,9 +407,11 @@ namespace Blitz.Gameplay
             return (int)((randomState >> 8) % (uint)maximum);
         }
 
-        private void Emit(GameEventType type, TeamId team, int playerId, int value, FieldVector position)
+        private void Emit(GameEventType type, TeamId team, int playerId, int value, FieldVector position,
+            int actorPlayerId = -1, int targetPlayerId = -1)
         {
-            stepEvents.Add(new GameEvent(Model.Tick, type, team, playerId, value, position));
+            stepEvents.Add(new GameEvent(Model.Tick, type, team, playerId, value, position,
+                actorPlayerId, targetPlayerId, Model.SourceMode ? Model.SourceTick : -1));
         }
 
         private void Publish()

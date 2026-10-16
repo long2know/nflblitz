@@ -1,4 +1,102 @@
-# One original WAN pose, offline
+# Original WAN poses and selected-frame clips, offline
+
+Both readers are original Python-standard-library code, require Python 3.9+, and
+operate only on explicit local input with an expected upstream **Git blob** pin.
+Decoded original motion and source WANs stay in ignored `.squad/.scratch/`; only
+the reader code and generated synthetic fixtures belong in publication.
+
+## Complete selected-frame clip
+
+`read_wan_clip.py` exports **every selected frame of one sequence**, in the
+original converter's selected export order, as compact deterministic JSON. It
+does not download files, execute historical tools, synthesize keyframes, pick a
+gameplay action, or guess a playback rate.
+
+```sh
+python3 tools/animation/read_wan_clip.py \
+  .squad/.scratch/reference/nflblitz2000/anim/Qb.wan \
+  --sequence QBSTANCE \
+  --source-repository historicalsource/nflblitz2000 \
+  --source-commit 89f840d58d152a2a9f230cb8d0cdffbd554c8ded \
+  --source-path anim/Qb.wan \
+  --expected-blob a5bed4bc6699a88281e888660e31e349d4009d3f \
+  --output .squad/.scratch/original-clips/QBSTANCE.json
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/animation/tests -q
+```
+
+The API is `full_clip(data, sequence, provenance)` followed by `encode_clip(clip)`.
+Required provenance fields are `repository` (`owner/name`), `commit` (lowercase
+40-digit SHA-1), `path` (relative repository path), and `git_blob_sha1` (lowercase
+40-digit **blob**, not file, SHA-1). Commit/path linkage remains the caller's
+responsibility: verify that metadata against the pinned source tree; the reader
+verifies content against the blob pin offline. Optional caller metadata is
+retained. CLI output must be explicitly specified beneath ignored scratch, and
+cannot overwrite the input, including a symlink or hardlink alias.
+
+### `original-wan-clip/v1`
+
+| Field | Contract |
+|---|---|
+| `provenance` | Source repository/commit/path/blob, actual byte length/SHA-256, verified content pin, original converter source pin. |
+| `sequence` | Actual authoring/runtime names, flags, chunk bounds/number/reference, source/selected frame counts, `selected_source_frame_indices`. |
+| `joints` | Exactly 15 `{name, fbplyr_skel_index, source_limb_id, parent_index}` entries, same mapping as the first-pose reader. |
+| `frames` | Every selected frame, once, in export order. Each has `exported_frame_index`, `source_frame_index`, original `source_frame_flags`, `root_translation`, and `rotations_xyzw`. |
+| `frames[].root_translation` | `authoring_xyz` and `scaled_runtime_xyz`, each three finite numbers. Scale is `root_translation.runtime_scale` at clip level (`0.12898`). |
+| `frames[].rotations_xyzw` | Fifteen normalized four-number arrays, indexed by `joints`, not WXYZ or world rotations. |
+| `record_layout` | Each record's ID, count, stride and record/data byte offsets. A source frame's address is `data_offset + source_frame_index * stride`. |
+| `validation` | All source frames, including deselected frames, are checked. Matrix orthogonality/determinant, quaternion norm, continuity and validated-frame summaries. |
+| `loop_boundary` | First/last source indices, last-to-first quaternion dots and root delta; diagnostics only, not permission to loop an action. |
+| `playback` | Explicitly unresolved tick rate, FPS, frame advance, loop and anchor mode. A separate **source-backed action/script binding** is required. |
+
+Deselected authoring frames are validated and participate in quaternion sign
+continuity, but are never emitted as runtime frames. Runtime script frame numbers
+address **exported indices**, not authoring indices. A partially selected sequence
+may therefore have different source and runtime counts. Original flags are
+preserved, not repurposed as invented release/contact events.
+
+Conversion follows the original converter's matrix convention and sign
+adjustments through preceding authoring frames. This gives normalized Python
+double quaternions for the original binary32 matrices. It deliberately does **not**
+reproduce lossy, lookup-table-based SEQ delta compression or claim bit identity
+with historical C float output. Frame zero exactly matches `first_pose` for the
+same input/sequence/provenance. At an interpolated sample, especially a loop seam
+or a gap in selection, use quaternion sign equivalence and shortest-arc
+interpolation; do not manufacture a closing keyframe.
+
+### Playback is not the WAN frame count
+
+Trace the active script in `plyrseq.c`, its selection in `player.c` / `detect.c`,
+and `lib/ani3d/ANIM.C`, rather than assuming 30 or 60 FPS:
+
+- `change_anim` immediately advances to the first frame break and sets
+  `PF_ANITICK`; `player_proc` avoids a second animation update in that tick, then
+  sleeps one process tick (`ANIM.C:325–360`; `player.c:1001–1006,1160–1161`).
+- `_animate_block` decrements the hold counter once per animation update.
+  `_next_frame` holds its new exported frame for the supplied tick count.
+  `ANI_RUNTOEND,1` is consequently one exported frame per process tick
+  (`ANIM.C:479–570,1621–1648`).
+- `ANI_INTSTREAM` and `ANI_STREAMTOEND` have explicit frame/tick ratios,
+  integer rounding, special frame-minus-one entry behavior and fractional-frame
+  truncation. `AA_TOGROUND` derives duration from current height/vertical velocity
+  and gravity; it is not a fixed FPS (`ANIM.C:766–836,1715–1823,2076–2128`).
+- The ordinary release graphics configurations explicitly use 57 Hz, while
+  debug configurations include other rates (`main.c:258–338,424–440,966–972`).
+  Keep the selected source configuration explicit; camera rate alone is not
+  proof of animation playback.
+- `MODE_ANCHORXZ` / `MODE_ANCHORY` are **one-shot next-frame anchoring bits**,
+  cleared when applied. They do not mean "discard root translation forever."
+  Secondary animations ignore translation. World drift, facing, model scale,
+  physics and anchoring are runtime responsibilities
+  (`include/ani3d.h:408–422`; `ANIM.C:578–625,961–1003`).
+
+`QBSTANCE`, for example, has a verified looping `ANI_RUNTOEND,1` script. A throw,
+catch, tackle or getup may instead skip entry frames, interpolate into a specific
+exported frame, execute several differently timed segments, or stop before the
+last selected frame. The exporter still preserves the **complete** selected
+clip. Do not loop these actions or apply one idle/rate to all roles.
+
+## Backward-compatible one-pose reader
 
 `read_wan_pose.py` is an original Python-standard-library reader for **one
 first-exported pose** in the observed Williams `WIFF` / `3AN ` format. Python 3.9+
@@ -54,11 +152,35 @@ guessing: `historicalsource/midwayvideo`, commit
 - Lines 585–631 establish normalized **XYZW** quaternions. Hemisphere continuity
   is preserved through preceding deselected authoring frames.
 
+The multiframe reader reuses the unchanged pose reader's bounded container,
+record and rotation helpers. It validates all root translations, limb offsets
+and matrices throughout the requested sequence, including after the last
+selected frame. Other sequences' payloads are not decoded. The pose reader's
+CLI, schema, pretty-printed encoding and first-frame results remain unchanged.
+
 The reader rejects malformed lengths, missing/duplicate/unknown records,
 inconsistent or excessive counts, unsupported flags/references, non-finite values,
 reflections, and non-orthonormal rotations. Unknown ancillary chunks are bounded
 and skipped, as in the original tool. Only the selected sequence's record payload
 is interpreted; this is not validation of every animation in the file.
+
+## Synthetic regression and mutation evidence
+
+The tests build multiframe WANs independently in memory, with shuffled record
+order, nonzero ignored offsets, sparse selection, varying roots and identity /
+90° / 180° / hemisphere-crossing rotations. They check first/middle/last selected
+frames, every output rotation against its source bytes, exact exported ordering,
+root scaling, names/parents, full provenance, legacy first-frame equality,
+deterministic CLI artifacts and sign-correct interpolation inputs.
+
+Negative coverage includes malformed container/record boundaries, duplicate
+sequences/records, invalid or inconsistent counts, references, unsupported
+flags/limb counts, invalid names, corrupt content pins, and non-finite/improper
+rotations in **deselected frames after the last exported frame**. Output escape
+and input aliases are rejected. Four isolated in-memory mutations of the actual
+clip decoder (dropped middle frame, reversed frame order, broken hemisphere
+adjustment, wrong root scale) must fail the same artifact assertions. Production
+files and original cached inputs are never mutated by the tests.
 
 ## Space and gameplay meaning
 

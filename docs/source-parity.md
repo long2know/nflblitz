@@ -1,6 +1,6 @@
 # Source parity and port evidence
 
-**Checked October 15, 2026 (PDT).** Reference: public
+**Contract checked October 16, 2026 (PDT).** Reference: public
 [`historicalsource/nflblitz2000`](https://github.com/historicalsource/nflblitz2000).
 Pinned default-branch revision:
 [`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`](https://github.com/historicalsource/nflblitz2000/commit/89f840d58d152a2a9f230cb8d0cdffbd554c8ded),
@@ -8,7 +8,10 @@ with a non-truncated source tree. The target is the original NFL Blitz 2000
 appearance and logic, not a generic football graybox. Current code combines
 original C# rules/runtime with a source-derived camera and local original-data
 conversion. It is not a complete port of the original C engine or every shipped
-version/configuration.
+version/configuration. **Full source gameplay parity is the acceptance target.**
+The static-player milestone and simplified kernel below are historical baseline
+evidence, not an acceptable stopping point. No deferred feature below is removed
+from the completion target.
 
 Archive-source links below pin that revision; line numbers refer to the raw source's
 physical lines. Original inputs and converted art stay in ignored local storage;
@@ -76,7 +79,7 @@ The bounded browser subset does not certify every row or original-game equivalen
 | Default auto-hike | [`include/GAME.H` L361–363](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/include/GAME.H#L361-L363), `MAX_HIKE_TIME`; [`nfl.c` L1155–1172](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/nfl.c#L1155-L1172), normal-play counter assignment. | Five seconds to auto-snap Home offense. This is the header default, potentially build-overridable; CPU's one-second readiness is an original slice choice. |
 | Four regulation quarters, displayed 2:00 start | [`include/GAME.H` L218–226](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/include/GAME.H#L218-L226). | Four 120-second live-time periods in the slice; no overtime. Starting display/count supported; elapsed-time policy is simplified below. |
 
-## Verified source features deliberately not carried over
+## Baseline substitutions to replace, not scope exclusions
 
 - **Clock speed is not simply two wall-clock minutes.** `game_clock_proc` and
   `time_table` in [`nfl.c` L2868–2993](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/nfl.c#L2868-L2993)
@@ -84,8 +87,8 @@ The bounded browser subset does not certify every row or original-game equivalen
   [`ADJUST.C` L21](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/ADJUST.C#L21)
   provides the default setting; [L82–90](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/ADJUST.C#L82-L90)
   contains approximate timing descriptions. Comments and scheduler assumptions do
-  not establish an exact real-time mapping. Use fixed 60 Hz live-time ticks, no
-  late-half acceleration/deceleration or fractional-second discard.
+  not establish an exact real-time mapping. The baseline uses fixed 60 Hz
+  live-time ticks without those adjustments; the continuation must replace it.
 - **Selection clock is not the snap clock.**
   [`playsel.c` L1045–1053](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/playsel.c#L1045-L1053)
   starts a different countdown with initial values nine/five by quarter.
@@ -105,7 +108,7 @@ The bounded browser subset does not certify every row or original-game equivalen
   Its touchback sets twenty at [L1724–1730](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/nfl.c#L1724-L1730);
   reusing twenty for initial/post-score setup is a **slice substitute**, not kickoff parity.
 
-## Explicit unverified/deferred fidelity
+## Baseline unverified fidelity, still required
 
 Original deterministic routes, pursuit, blocking, movement speeds, turbo economy,
 geometric tackle reach, ball arc/lead and automatic catch are slice tuning, not
@@ -121,6 +124,115 @@ ported. The field/HUD, Unity normals/material cutoff and simple animation in
 explicit graybox mode remain approximations. Keep **source-traced**,
 **headless-tested**, **native-verified**, **Unity-built**, and **browser-observed**
 separate; none alone establishes whole-game parity.
+
+## Full-source completion matrix — executable acceptance
+
+All paths/symbols in this section refer to the pinned archive revision above.
+On October 16 the cached metadata's **entries** matched the commit's actual tree
+`a7e0352125d46075b7d98e87253ab89b9160a4c7`; its top-level `sha` labels the commit,
+not that tree. Cached `nfl.c` and `playsel.c` bytes failed their Git blob checks.
+Rules below were read from the Git blob API and verified against
+`15b49474fb55e8bac280b6515fcf7bf59cdf8664` and
+`f5e87b921a4038d03f55174bbd5425241939e798`, respectively. Do not use raw-cache
+line numbers or raw-URL freshness as content verification.
+
+**Status vocabulary:** **V/P** = source expectation verified / full implementation
+and parity tests pending; **partial** = only the earlier bounded subset exists.
+Verification covers the facts listed, not untraced callees or every branch of
+the group. No row currently has full parity acceptance. L = pure logic, D = source data,
+V = visual/audio/runtime. Quality records expected **and observed** state, ordered
+events, decisions and source ticks for each named case; a header constant alone
+does not close a row.
+
+| ID / kind / status | Active source targets | Minimum discriminating cases / reference expectations |
+| --- | --- | --- |
+| A1 animation clock, poses, transitions — L/D/V, V/P; frame-0 partial | `player.c:player_proc` L750–1177; `plyrseq.c:qb_stance_anim` L1075–1084, `qb_run_anim/qb_t_run_anim` L306–343; `lib/ani3d/ANIM.C:_animate_block/_next_frame/_ani_inttoseq/_ani_runtoend/_ani_intstream/_ani_streamtoend`; `models/skeleton.h` | Different role stances and moving/action clips on fourteen actors; stance loops at one selected frame/tick; turbo QB streaming uses **0.81 ticks/frame**, not a universal FPS. Verify first/middle/last/loop frames, hold counts, interrupted transition, two-part torso heading, root anchors and no double drift. Authentic clip + approximate selector is still partial. |
+| M1 locomotion/turbo/evasion — L/D, V/P | `player.c:standard_run/qb_run/_mode_qb/_mode_wpn/_mode_db/maybe_dive`; `include/player.h` L175–203; `playbook.c` route opcodes | Neutral/49-way stick, reverse/backpedal, turbo exhaustion/recharge, spin, juke, hurdle, dive and field friction. Reference base constants are archive units/tick: QB **1.30**, carrier **1.35**, human defender **1.45**, turbo defender **1.85**; apply actual stat/handicap/friction branches, not those constants alone. Turbo re-press with `0 < non_turbo_time < 9` flags the double tap (`player.c` L952–974). |
+| C1 blocking/contact/get-up — L/D/V, V/P | `detect.c:player_detect_proc/do_collision/evade_vs_tackle/block_vs_rush/fumble_or_bobble`; `player.c:player_down`, `plyrseq.c` attack/get-up scripts | Attacker/victim order, block vs rush, dive vs spin/hurdle, uninterruptible/puppet/contact windows, landing/get-up, late hit and helmet/ball consequences. Compare attack volumes and source joint positions, not the current 1.15/2.4-yard tackle radii. Offscreen actors must still have collision matrices (`player.c` L6634–6675). |
+| C2 on-fire/tuning — L/D/V, V/P | `player.c:check_receiver_fire/reset_team_fire/maybe_plyr_fire`; **active** `nfl.c` L1445–1512; `handicap.c:set_handicaps`; `ADJUST.C` | Same receiver's **third** consecutive completion enables offense fire; two qualifying loss-of-yard results enable defense fire; reset/turnover/loss and on-fire gameplay effects must match. `detect.c:update_onfire_stuff` is inside `#if 0` and is **not** the defense oracle. Default difficulty **5**, allowed **0..10**; compare seeded decisions across settings. |
+| B1 throw/receiver/catch/control — L/D/V, V/P | `player.c:_mode_qb/pick_receiver/qb_release_ball/set_ball_vels/standard_catch/wpn_change_player/db_change_player`; `plyrseq.c` throw callbacks; `include/GAME.H:CONTROL_TIME` | Intent vs actual release tick; normal/turbo throws, receiver selection and human control transfer (**CONTROL_TIME=18** ticks). Active catch proximity is **<14 source units** to pelvis or **<5** to a wrist, not the nearby commented 12. Reject self-catch at flight time **<=10**, other offensive receiver **<=15**, fumble/bobble **<=30**; test each boundary and actual catch/deflect/interception outcome. |
+| B2 loose ball/possession — L/D/V, V/P | `player.c:ball_proc/fumble_ball/lateral_ball/standard_catch`; `include/ani3d.h:GRAVITY`; `detect.c:fumble_or_bobble`; `result.c:_norm_oobball/_norm_car_oez` | Pass, bobble, fumble, lateral, interception, recovery by either team, return, out-of-bounds and end-zone exceptions. Gravity is **−0.08 source units/tick²**, with the source half-step position update. Recovery in own end zone without leaving gives touchback only under the source possession/recovery flags; leaving then returning can give safety. Forward fumble OOB cannot improve the spot past the fumble point. Preserve source RNG consumption/probability tables. |
+| R1 downs/spotting — L, V/P; partial | `nfl.c` L1422–1443, L1626–1730; `result.c:result_functions/_norm_*` | Four downs, **30** yards, goal-to-go, incompletion/turnover both directions. Port the actual source-space rounding expression (integer cast **before** `*10/78`, integer division) and `1..99` clamp, including negative and near-zero positions; current yard-space ceil/floor is not exact. |
+| T1 clocks/snap — L, V/P | `main.c:graphics_init/get_tsec`; `nfl.c:game_clock_proc/time_table` L2868–2993, fractional discard L1387–1388; `ADJUST.C` L21; `player.c:_mode_qbps`; `playsel.c:timedown_play_select` caller L1045–1053 | Reference gameplay profile **57 ticks/s**; max auto-hike **5*tsec = 285**. Packed start **0x00020000**, first active clock iteration **0x00013b18**. Rates **[30,25,20,18,16]**, default index **2**, bad adjustment fallback **3**. At packed `0x00001f00`, quarter index 1/3 yields `0x00001e22`; quarter index 0/default yields `0x00001e14`; play-time increment reaching 18 uses low byte `0x30` unless late-half branch wins. Stop clock, discard low byte at play end, separate selection timer **9** first quarter / **5** later; trace its helper, not seconds guessed from the labels. |
+| T2 periods/halftime/overtime — L/V, V/P | `nfl.c:eoq_handling/start_new_quarter/game_over`, L1982–2101, L2448–2463; `include/GAME.H` L218–238 | Finish the live play and any required conversion after clock expiry. At halftime the other initial-possession team receives a kickoff. Tied regulation enters OT; maximum **three** overtimes, tied third OT may end the game. Test conversion skip only under L875–883's time/quarter/lead conditions, tied/untied final and OT kickoff alternation; do not import conventional NFL sudden-death rules. |
+| S1 scoring/PAT/2pt — L/D/V, V/P; TD/safety partial | `nfl.c` L1732–1818, L875–903; `playsel.c:play_select` L1241–1255, L1342–1368, L1489–1502; `result.c:_pat_*` | TD **6**, safety **2**, conversion **2**, FG **3**, PAT safety **1** to opponent. Free PAT adds **1** unless source miss branch: human lead >14, quarter index >2, draw <2/100; CPU lead >8, index >1, draw <3/100. Include failed conversion, defensive possession and period-ending exceptions, not automatic seven. |
+| S2 kick/punt/restarts — L/D/V, V/P | `nfl.c` kickoff branch L905–1173, result branches L1811–1891; `player.c:punt_ball/kick_ball/set_punt_ball_vels/set_field_goal_ball_vels/ball_proc`; `result.c:_norm_deadball/_norm_oobball/_kick_*` | Opening/post-score/halftime/OT kickoffs, quick kick, onside, punt/fake, FG/fake/block/miss/return, touchback and safety restart. Quick-kick setup **40**, touchback **20**, untouched kickoff OOB receiving LOS **40**. Verify actual dispatch: empty `_fg_*`/`_punt_*` result handlers are not invented kick logic; normal-play ball type classifies those outcomes. No universal own-20 restart. |
+| P1 playbooks/routes/defense/audibles — L/D/V, V/P | `PlayStuf.c:off_slots/def_slots/play_pages/PlayStuf__SetupCurrentPlayPages/PlayStuf__ResetAudibles`; `playsel.c:PlaySel__MakeChoice/cpu_pick_play`; `playbook.c`; active `drone.c:_drone_qb` **L1163**, `_drone_wpn/_drone_db/assign_blockers/drone_cover_assign` | Enumerate reachable source pages/slots, including specials/custom/audibles; run every formation/route opcode and man/zone/blitz assignment with pinned inputs/RNG. Example `formation_stack` first lineman **(-12,-17.5)** source units and `off_slots[0]` **ZIG ZAG** → `play_zigzag`; Run/QuickPass/Cover/Blitz are not source play IDs. Earlier `_drone_qb` at L940 is disabled. |
+| D1 teams/rosters/stats/materials — L/D/V, V/P; one variant partial | `include/GAME.H` L220–223; `teamdata.c`; `player.c:load_uniform/draw_player` L6816–6928; `plyrinfo.c`; `nfl.c` stats updates | **31 teams**, **16** static player records/team, seven on-field actors/side; not 32 teams or one Bears body for everyone. Verify all reachable roster assignments, ratings/scale/body/skin/home-away uniform, held-ball model and one/two-digit jersey overlay. Number digits come from packed nibbles, with zero mapped to atlas slot 9. Match gameplay and final statistical accounting, not just appearance. |
+| I1 input/multiplayer — L/V, V/P | `player.c:player_proc` input edge logic, `_mode_*`, `audible_check`; `include/GAME.H:MAX_PLYRS/plyr_control`; `playsel.c:play_select` | Two/four-station configuration up to **four humans**, same-side cooperation, defensive/receiver switching, A/B/C simultaneous held/edge state and double taps. Preserve source command order; current single Home command and keyboard legend do not close this row. Browser focus-release behavior remains mandatory; network play is not inferred from cabinet stations. |
+| V1 field/camera/HUD/audio — D/V and coupled L, V/P; normal camera/player partial | `field.c`; `cambot.c` active mode table; `player.c:last_player_proc`; `plyrinfo.c`; `sounds.c:catch_sounds/fumble_ball_sounds/field_goal_speech`; source `models/`, `img2d/`, `img3d/`, `sounds/` | Original field/stadium/materials, full role/action animation, source camera transitions/replay/special plays, clock/score/play pages/markers/turbo bars/messages and event-timed music/crowd/announcer. Validate audio ID/bank dispatch plus actual decoded playback. N64 screenshots guide appearance; they do not establish identical arcade edition/pixels. |
+| F1 gameflow/records/configuration — L/D/V, V/P | `nfl.c:InitGameProc/eoq_handling/game_over`, `mainproc.c`, `PlayStuf.c`, `include/game_cfg.h`; source record/replay/cap call sites | Team/roster/play selection → complete match → intermissions/stats/OT/final → next match, source user configuration, reachable custom plays/power-ups/records/replay. Trace the actual callees before marking their cases verified. Exclude cabinet accounting, disk audits, diagnostics and hardware drivers; retain their gameplay-facing settings, human participation and continuation decisions with a documented free-play adapter. |
+
+### Execution order and closing evidence
+
+1. **Now:** Unity's clip producer finishes `original-wan-clip/v1`; Unity Systems
+   loads/samples it and Unity publishes actor-facing animation inputs using the
+   [shared boundary](architecture.md#full-source-animationgameplay-boundary).
+   Keep the exporter moving; no second WAN reverse-engineering effort.
+2. **First core port while animation runs:** Unity replaces packed clock/snap,
+   `result.c` classification and `nfl.c` spotting/downs/scoring/PAT/restart/period
+   transitions (T1/T2/R1/S1/S2), then movement/contact/catch/loose-ball and source
+   AI/playbooks (M1/C1/C2/B1/B2/P1). Data/UI/audio/flow work remains required and
+   may run in its owner's independent files; this ordering is not a scope cut.
+3. Quality's first feasible C oracle seams: compile the **unchanged verified**
+   active `result.c` functions/table with a minimal globals/header shim; compare
+   all reachable play-type/cause/ball-type/flag combinations, including no-op
+   handlers as such. Extract the exact spotting block and one clock iteration
+   with pinned source hashes/line spans; supply adjustment/RNG inputs rather
+   than replacing outputs with C# expectations. Pure `detect.c:point2line_d`
+   and `line_int_check` supply numeric geometry seams. Scheduler stubs must
+   preserve sleep/order and record calls; they are not an original engine run.
+4. Each row closes only with linked source path/blob/symbol/build flags,
+   discriminating expected/observed traces, actual production C# tests (no
+   skipped/empty inventory), mutation rejection, and native/browser evidence
+   where relevant. Trace source tick, process/actor order, state, RNG draws,
+   decision/script/frame, ball/possession and ordered events. Declare float
+   tolerances per measured operation; do not replace exact decisions with
+   generous position tolerances.
+5. **Full completion requires every row implemented/tested**, no silent
+   approximate/static fallback, and a fresh Docker-served browser complete
+   match plus special-case sessions covering defense, turnovers, all scoring/
+   kicks, halftime, OT and final restart, multiplayer/focus and actual
+   animation/audio/HUD. Retain build receipt/payload hashes, frame/video and
+   trace evidence. Current 156 core tests and a few source headers cannot
+   certify this target.
+
+### Concrete engine/tool dependencies, not a missing-data waiver
+
+`nfl.lnk` links `lib/select.a`, `lib/ani3d.a`, `/video/lib/libc.a`,
+`goose.a`, `glide.a` and `sound.a`; the root makefile names `ccmips`,
+`asmmips` and `psylink` plus platform sound libraries. These are not Unity dependencies:
+port the reachable Goose process/sleep/run-level/input/RNG semantics to the
+deterministic C# scheduler, use pure source joint transforms for gameplay,
+adapt Glide drawing to Unity, and map source sound calls to decoded bank cues.
+Never require a historical MIPS executable to run in the browser.
+
+`anim/MAKEFILE` actively runs `wan2seq -s 0.12898` and `seq2ani`; the pinned
+external `historicalsource/midwayvideo` revision above exposes `tools/wan2seq`,
+`tools/seq2ani`, `tools/3df2wms`, `tools/mwms2wms`, `tools/sdl2seq` and
+`tools/reseq`. Use those original sources as offline format/schedule oracles;
+regenerate selected frame lists/sequence identities from the appropriate
+`anim/seattle.mak` or Vegas list, rather than guessing absent generated
+`genseq.h/.ani` or delta lookup data. Full-quaternion WAN export already avoids
+the compressed-runtime lookup dependency.
+
+The same tools revision also contains `lib/goose/process.c`, `randper.c`,
+`switch.c`, `include/goose`, `include/glide` and `lib/sound/sound.c`.
+Verified `process.c` blob `967ca53910f24ddfa48a14485113a8fd0c989959`
+sorts ascending run level; `include/id.h` orders camera `0x100`, audibles
+`0x200`, players `0x300`, cursors `0x400`, collisions `0x500`, ball `0x600`
+and replay `0x900`. Equal-level insertion/dispatch still needs tracing.
+Verified `randper.c` blob `56fcf55f38cf1421a4206e6a101f98586dc430d5`
+implements `randrng` through the platform `random()` remainder (zero range
+returns zero); the current C# xorshift is not a verified replacement.
+
+No demonstrated blocker prevents starting the actor boundary or core port.
+Exact Goose equal-run-level ordering/RNG, other platform animation selections,
+complete source asset conversion and playable `.BNK/.SND` decoding remain
+**unverified dependencies**, not proven absent data and not accepted substitutes.
+The owner must pin a specific missing symbol/format/call and attempted original
+tool path before calling it unresolvable; missing audio would block **V1/full
+acceptance**, not clocks, rules or animation development.
 
 ## Visual target correction and asset audit
 

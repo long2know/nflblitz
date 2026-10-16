@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using Blitz.Contracts;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -27,6 +29,7 @@ namespace Blitz.Presentation
             internal Transform LeftLeg;
             internal Transform RightLeg;
             internal SourcePlayerRig SourceRig;
+            internal SourceAnimationPlayer SourceAnimation;
             internal GameObject ControlRing;
             internal GameObject ReceiverRing;
             internal GameObject TargetRing;
@@ -38,6 +41,7 @@ namespace Blitz.Presentation
         private readonly List<Mesh> meshes = new List<Mesh>();
         private readonly Actor[] actors = new Actor[SliceRules.PlayersPerTeam * 2];
         private readonly SourcePlayerRig sourcePlayerPrefab;
+        private readonly ISourceAnimationLibrary sourceAnimations;
         private readonly Transform scrimmage;
         private readonly Transform target;
         private readonly Transform ball;
@@ -49,9 +53,12 @@ namespace Blitz.Presentation
         private int trailCount;
         private float animationTime;
 
-        internal FieldScene(Transform parent)
+        internal FieldScene(Transform parent, SourcePlayerRig sourcePrefab, ISourceAnimationLibrary animations)
         {
-            sourcePlayerPrefab = SourcePlayerProvider.ResolveActorMode();
+            sourcePlayerPrefab = sourcePrefab;
+            sourceAnimations = animations;
+            if (sourcePrefab != null && animations == null)
+                throw new InvalidOperationException("Source field actors require the original animation library; static pose fallback is disabled.");
             root = new GameObject("Original procedural field").transform;
             root.SetParent(parent, false);
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -164,7 +171,7 @@ namespace Blitz.Presentation
             QualitySettings.antiAliasing = 2;
         }
 
-        internal void Render(IGameState state, float deltaTime)
+        internal void Render(IGameState previous, IGameState state, float renderInterpolation01, float deltaTime)
         {
             animationTime += Mathf.Min(deltaTime, 0.1f);
             scrimmage.localPosition = new Vector3(state.LineOfScrimmage - 50f, 0.04f, 0f);
@@ -175,13 +182,23 @@ namespace Blitz.Presentation
                 if (view.Id < 0 || view.Id >= actors.Length)
                     continue;
                 Actor actor = actors[view.Id];
-                actor.Root.localPosition = Ground(view.Position);
+                PlayerView old = FindPlayer(previous, view.Id, view);
+                bool interpolate = actor.SourceAnimation != null && Blitz.AssetImport.SourceActorPoseSampler.CanInterpolate(old, view);
+                Vector3 currentPosition = Ground(view.Position) + Vector3.up * view.Height;
+                actor.Root.localPosition = interpolate ? Vector3.Lerp(
+                    Ground(old.Position) + Vector3.up * old.Height, currentPosition, renderInterpolation01) : currentPosition;
                 Vector3 velocity = new Vector3(view.Velocity.X, 0f, view.Velocity.Z);
                 Vector3 facing = velocity.sqrMagnitude > 0.05f ? velocity
                     : state.Possession == view.Team ? new Vector3(state.OffenseDirection, 0f, 0f)
                     : Ground(state.Ball.Position) - actor.Root.localPosition;
                 facing.y = 0f;
-                if (facing.sqrMagnitude > 0.001f)
+                if (actor.SourceAnimation != null)
+                {
+                    actor.Body.localRotation = Quaternion.identity;
+                    actor.SourceAnimation.Apply(old, view, renderInterpolation01);
+                    facing = new Vector3(view.FacingDirection.X, 0f, view.FacingDirection.Z);
+                }
+                else if (facing.sqrMagnitude > 0.001f)
                     actor.Body.localRotation = Quaternion.LookRotation(facing);
                 bool moving = state.Phase == GamePhase.LiveBall && velocity.sqrMagnitude > 0.5f;
                 float stride = moving ? Mathf.Sin(animationTime * 17f + i * 0.9f) * 25f : 0f;
@@ -195,7 +212,8 @@ namespace Blitz.Presentation
                     && (state.Phase == GamePhase.PreSnap || state.Phase == GamePhase.LiveBall));
                 actor.TargetRing.SetActive(state.Ball.Mode == BallMode.InFlight && state.Ball.TargetPlayerId == view.Id);
                 actor.Arrow.gameObject.SetActive(state.ControlledPlayerId == view.Id);
-                actor.Arrow.localRotation = actor.Body.localRotation;
+                actor.Arrow.localRotation = actor.SourceAnimation != null && facing.sqrMagnitude > 0.001f ?
+                    Quaternion.LookRotation(facing) : actor.Body.localRotation;
                 float pulse = 1f + 0.08f * Mathf.Sin(animationTime * 5f);
                 actor.TargetRing.transform.localScale = new Vector3(pulse, 1f, pulse);
             }
@@ -204,7 +222,10 @@ namespace Blitz.Presentation
             Vector3 position = Ground(ballView.Position) + Vector3.up * Mathf.Max(0.3f, ballView.Height);
             if (ballView.Mode == BallMode.Held && ballView.CarrierId >= 0 && ballView.CarrierId < actors.Length)
             {
-                position += actors[ballView.CarrierId].Body.forward * 0.65f;
+                Actor carrier = actors[ballView.CarrierId];
+                Vector3 forward = carrier.SourceAnimation == null ? carrier.Body.forward :
+                    new Vector3(carrier.SourceAnimation.AppliedView.FacingDirection.X, 0, carrier.SourceAnimation.AppliedView.FacingDirection.Z);
+                position += forward * 0.65f;
                 position.y = Mathf.Max(position.y, 1.15f);
             }
             ball.position = position;
@@ -231,6 +252,148 @@ namespace Blitz.Presentation
                 for (int i = 0; i < trailCount; i++)
                     ballTrail.SetPosition(i, trailPoints[i]);
             }
+        }
+
+        private static PlayerView FindPlayer(IGameState state, int id, PlayerView current)
+        {
+            if (state != null)
+                for (int i = 0; i < state.Players.Count; i++)
+                    if (state.Players[i].Id == id) return state.Players[i];
+            return current;
+        }
+
+        internal void ResetRenderHistory()
+        {
+            trailCount = 0;
+            lastTrailTick = -1;
+            ballTrail.positionCount = 0;
+        }
+
+        internal string AnimationEvidence(IGameState state)
+        {
+            var evidence = new AnimationEvidenceDocument {
+                hostTick = state.Tick, phase = state.Phase.ToString(), ballMode = state.Ball.Mode.ToString(),
+                carrierId = state.Ball.CarrierId, targetId = state.Ball.TargetPlayerId,
+                controlledPlayerId = state.ControlledPlayerId, actors = new List<AnimationActorEvidence>()
+            };
+            ISourceGameState source = state as ISourceGameState;
+            evidence.sourceTick = source == null ? -1 : source.SourceTick;
+            int[] indices = { 0, 1, 4, 8, 11, 14 };
+            foreach (Actor actor in actors)
+            {
+                if (actor.SourceAnimation == null) continue;
+                PlayerView view = actor.SourceAnimation.AppliedView;
+                var item = new AnimationActorEvidence {
+                    id = view.Id, role = view.Role.ToString(), action = view.Animation.Action.ToString(),
+                    selectionEvidence = view.Animation.SelectionEvidence.ToString(),
+                    sourceTick = view.Animation.SourceTick, script = view.Animation.Primary.ScriptSymbol,
+                    sequence = view.Animation.Primary.Sample.SequenceName, sourceFrame = view.Animation.Primary.Sample.SourceFrame,
+                    nextSourceFrame = view.Animation.Primary.Sample.NextSourceFrame,
+                    frameInterpolation = view.Animation.Primary.Sample.Interpolation01,
+                    renderInterpolation = actor.SourceAnimation.RenderInterpolation01,
+                    secondaryScript = view.Animation.Secondary.ScriptSymbol,
+                    secondarySequence = view.Animation.Secondary.Sample.SequenceName,
+                    secondarySourceFrame = view.Animation.Secondary.Sample.SourceFrame,
+                    position = actor.Root.position, joints = new List<AnimationJointEvidence>()
+                };
+                foreach (int index in indices)
+                {
+                    Transform joint = actor.SourceRig.GetJoint(index);
+                    item.joints.Add(new AnimationJointEvidence { index = index, position = joint.position, localRotation = joint.localRotation });
+                }
+                evidence.actors.Add(item);
+            }
+            return EvidenceJson(evidence);
+        }
+
+        private static string EvidenceJson(AnimationEvidenceDocument document)
+        {
+            var json = new StringBuilder(16384);
+            json.Append("{\"hostTick\":").Append(document.hostTick).Append(",\"sourceTick\":").Append(document.sourceTick);
+            json.Append(",\"phase\":"); JsonString(json, document.phase);
+            json.Append(",\"ballMode\":"); JsonString(json, document.ballMode);
+            json.Append(",\"carrierId\":").Append(document.carrierId).Append(",\"targetId\":").Append(document.targetId)
+                .Append(",\"controlledPlayerId\":").Append(document.controlledPlayerId).Append(",\"actors\":[");
+            for (int i = 0; i < document.actors.Count; i++)
+            {
+                if (i != 0) json.Append(',');
+                AnimationActorEvidence actor = document.actors[i];
+                json.Append("{\"id\":").Append(actor.id).Append(",\"sourceTick\":").Append(actor.sourceTick);
+                json.Append(",\"role\":"); JsonString(json, actor.role);
+                json.Append(",\"action\":"); JsonString(json, actor.action);
+                json.Append(",\"selectionEvidence\":"); JsonString(json, actor.selectionEvidence);
+                json.Append(",\"script\":"); JsonString(json, actor.script);
+                json.Append(",\"sequence\":"); JsonString(json, actor.sequence);
+                json.Append(",\"sourceFrame\":").Append(actor.sourceFrame).Append(",\"nextSourceFrame\":").Append(actor.nextSourceFrame);
+                json.Append(",\"frameInterpolation\":"); JsonNumber(json, actor.frameInterpolation);
+                json.Append(",\"renderInterpolation\":"); JsonNumber(json, actor.renderInterpolation);
+                json.Append(",\"secondaryScript\":"); JsonString(json, actor.secondaryScript);
+                json.Append(",\"secondarySequence\":"); JsonString(json, actor.secondarySequence);
+                json.Append(",\"secondarySourceFrame\":").Append(actor.secondarySourceFrame).Append(",\"position\":");
+                JsonVector(json, actor.position);
+                json.Append(",\"joints\":[");
+                for (int j = 0; j < actor.joints.Count; j++)
+                {
+                    if (j != 0) json.Append(',');
+                    AnimationJointEvidence joint = actor.joints[j];
+                    json.Append("{\"index\":").Append(joint.index).Append(",\"position\":"); JsonVector(json, joint.position);
+                    json.Append(",\"localRotation\":{\"x\":"); JsonNumber(json, joint.localRotation.x);
+                    json.Append(",\"y\":"); JsonNumber(json, joint.localRotation.y);
+                    json.Append(",\"z\":"); JsonNumber(json, joint.localRotation.z);
+                    json.Append(",\"w\":"); JsonNumber(json, joint.localRotation.w);
+                    json.Append("}}");
+                }
+                json.Append("]}");
+            }
+            return json.Append("]}").ToString();
+        }
+
+        private static void JsonVector(StringBuilder json, Vector3 value)
+        {
+            json.Append("{\"x\":"); JsonNumber(json, value.x);
+            json.Append(",\"y\":"); JsonNumber(json, value.y);
+            json.Append(",\"z\":"); JsonNumber(json, value.z); json.Append('}');
+        }
+        private static void JsonNumber(StringBuilder json, float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                throw new InvalidOperationException("Actual source animation telemetry contains a nonfinite native transform.");
+            json.Append(value.ToString("R", CultureInfo.InvariantCulture));
+        }
+        private static void JsonString(StringBuilder json, string value)
+        {
+            if (value == null) { json.Append("null"); return; }
+            json.Append('"');
+            foreach (char c in value)
+            {
+                if (c == '"' || c == '\\') json.Append('\\').Append(c);
+                else if (c < 32) json.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                else json.Append(c);
+            }
+            json.Append('"');
+        }
+
+        [Serializable] private sealed class AnimationEvidenceDocument
+        {
+            public long hostTick, sourceTick;
+            public string phase, ballMode;
+            public int carrierId, targetId, controlledPlayerId;
+            public List<AnimationActorEvidence> actors;
+        }
+        [Serializable] private sealed class AnimationActorEvidence
+        {
+            public int id, sourceFrame, nextSourceFrame, secondarySourceFrame;
+            public long sourceTick;
+            public string role, action, selectionEvidence, script, sequence, secondaryScript, secondarySequence;
+            public float frameInterpolation, renderInterpolation;
+            public Vector3 position;
+            public List<AnimationJointEvidence> joints;
+        }
+        [Serializable] private sealed class AnimationJointEvidence
+        {
+            public int index;
+            public Vector3 position;
+            public Quaternion localRotation;
         }
 
         private Actor CreateActor(int id, Material jersey, Material dark, Material trim,
@@ -288,6 +451,7 @@ namespace Blitz.Presentation
             return new Actor
             {
                 Root = actorRoot, Body = body, LeftLeg = leftLeg, RightLeg = rightLeg, SourceRig = sourceRig,
+                SourceAnimation = sourceRig == null ? null : new SourceAnimationPlayer(sourceRig, sourceAnimations),
                 ControlRing = controlRing, ReceiverRing = receiverRing, TargetRing = targetRing, Arrow = arrow
             };
         }

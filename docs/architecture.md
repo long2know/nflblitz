@@ -1,6 +1,6 @@
 # Unity source-port integration contract v1
 
-**Owner:** Lead. **Decision date / status checked:** October 15, 2026 (PDT).
+**Owner:** Lead. **Contract checked:** October 16, 2026 (PDT).
 **Status:** actual Unity 6000.3.24f1 host import/build verified for the original
 player mesh/rig/textures, authentic static `QBSTANCE` frame 0 and source-derived
 normal camera. Native pose apply/reload and the matching Docker-served standing
@@ -11,7 +11,14 @@ desktop/portrait images were reviewed visually; exact tiny-font legend OCR
 remains a separately recorded failed diagnostic, not an automated approval.
 The kernel is headless-tested, but this is not complete original-game parity.
 
-## Bounded outcome
+## Existing baseline, not the acceptance target
+
+**Full source gameplay parity is required.** The simplified kernel and static
+player preview below describe existing behavior only. The continuation boundary
+and [full completion matrix](source-parity.md#full-source-completion-matrix--executable-acceptance)
+supersede any earlier statement that two plays, static actors or a small prototype
+suffice. Keep the working build while replacing the approximations; do not
+relabel them as source-equivalent.
 
 The repository root is the Unity project: `Assets/`, `Packages/`, and
 `ProjectSettings/`; **do not create a nested `Unity/` project**.
@@ -32,8 +39,9 @@ the [source-data ledger](source-parity.md#visual-target-correction-and-asset-aud
 separates imported mesh/textures and recovered first-pose data from remaining
 field/stadium, HUD, roster, animation, lighting and edition-equivalence gaps.
 
-Two original offensive patterns (`Run`, `QuickPass`) and two defensive choices
-(`Cover`, `Blitz`) suffice. They are not copied archive formations. Home remains
+Two port-authored offensive patterns (`Run`, `QuickPass`) and two defensive choices
+(`Cover`, `Blitz`) currently exist; they do not suffice for parity. They are not
+archive formations. Home remains
 playable on defense after possession changes. Four quarters and a final score
 make a complete, deliberately simplified kernel match; a tie is a valid final
 result. That is not a complete original game or a browser full-match result.
@@ -142,7 +150,11 @@ game.Restart(1);
   ordered list for the **last step only**, replaced even when empty. Drain it
   after *each* simulation step, not just once per rendered frame.
 
-## Tick and command semantics
+## Legacy tick and command semantics
+
+These remain the compatibility behavior of the current kernel, not the target
+source rules. The full-source boundary below preserves callers while the source
+scheduler, clock, playbooks and outcomes replace these approximations.
 
 `Step` represents exactly `1 / 60` second, accepts no delta time, and increments
 `State.Tick` once; `PlayNumber` starts at zero and increments once per snap.
@@ -218,6 +230,148 @@ scoring/new-possessing team, `PlayerId` the affected carrier/receiver or `-1`.
 or two for scoring events, the ended quarter number for `QuarterEnded`, and
 `+1` Home win / `-1` Away win / `0` tie for `GameEnded`; otherwise zero.
 Neutral quarter/game events use `TeamId.Home` with `PlayerId == -1`.
+
+## Full-source animation/gameplay boundary
+
+Authoritative additive types are now in
+[`SourceAnimationContracts.cs`](../Assets/Scripts/Contracts/SourceAnimationContracts.cs)
+and the extended `PlayerView`, `BallView` and `GameEvent` constructors in
+`GameplayContracts.cs`. All original constructor calls and `IGameSimulation`
+members remain source-compatible. Default animation is **unspecified**, not a
+verified pose or permission to reuse the stationary QB. No Unity types enter
+these DTOs; keep C# 7.3/.NET Standard 2.1 compatibility.
+
+| Writer / exact files | Immediate contract / deliverable |
+| --- | --- |
+| Lead: `Assets/Scripts/Contracts/*.cs`, existing `docs/**` | Stable DTOs/units and this matrix; `.squad/.scratch/full-parity-contracts.json` is the local machine-readable handoff, not runtime data. No `.meta` writes. |
+| Unity: `tools/animation/**` | Finish the already-assigned offline `original-wan-clip/v1` producer: pinned WAN identity, sequence/flags/limb mapping, selected original indices, raw and source-scaled XYZ root, fifteen normalized XYZW rotations/frame. No second exporter or WAN investigation is needed. |
+| Unity: `Assets/Scripts/Gameplay/PlayerSimulation.cs`, `SimulationState.cs`, `GameSnapshot.cs`, new `SourceAnimationState.cs`; then `GameSimulation.cs`, `GameplayRules.cs`, new `SourceClock.cs` | Publish authoritative facing/role/action and explicit script/frame/layer/transition/root inputs. Initially label approximate action selection honestly. Port source sequence semantics and then the first core groups T1/T2/R1/S1/S2; preserve the entry point and detached snapshots. |
+| Unity Systems: new `Assets/Scripts/AssetImport/SourceAnimationLibrary.cs`, `Assets/Scripts/Presentation/SourceAnimationPlayer.cs`; `SourcePlayerRig.cs`, `FieldScene.cs`, `Runtime/FixedStepBridge.cs` and all `.meta` | Bounded clip loader/catalog, original pose sampler and rig application; drain snapshots/events per tick and render previous/current poses. Reuse `SourcePlayerPose`'s proven basis, pivots and reflection-aware rotation conversion. Do not put source state decisions in the view. |
+| Quality: `tests/**` | Original-function/trace oracles, DTO backward/default/detachment checks, actual clip frame/matrix/root checks, then production core and served-browser cases for every matrix row. Existing suites still describe the old slice unless new assertions prove replacement behavior. |
+
+### Source clock, not clip FPS
+
+- `SourceTiming.DefaultTicksPerSecond == 57` selects the archive's normal 57 Hz
+  profile (`main.c:graphics_init/get_tsec`). Seattle's other resolution branches
+  also contain 54/72 settings; do not claim every hardware/configuration is 57.
+  Record platform/build flags and source-adjustment values in each trace.
+- Keep public `Step(PlayerCommand)` at **1/60 second** for existing bridge callers.
+  The source port owns an integer remainder: add 57 per call, execute a source
+  tick when it reaches 60, subtract 60. Sixty calls execute exactly 57 source
+  ticks, never 60 animation advances. Retain pending action edges until consumed
+  once by a source tick; calls without a source tick publish no repeated events.
+  All actor scripts, motion, ball, contact, AI and game clock ultimately run in
+  that same source domain/order, not separate floating accumulators.
+- `ISourceGameState` is an optional detached `IGameState` extension with
+  `SourceTick`, `SourceTicksPerSecond`, `PackedGameTime`, `ClockActive`.
+  `IGameState.Tick` remains the host-step counter; event `SourceTick` identifies
+  actual source execution. The packed low byte is the source clock countdown
+  field, **not** 60-Hz remaining time or decimal tenths. Legacy quarter/timer
+  fields may be HUD projections; never use them as the source rule clock.
+- `player_proc` calls `animate_model` once unless `PF_ANITICK` says the frame
+  break was already processed. `_animate_block` decrements `anicnt`; a positive
+  script byte advances one frame and holds that many ticks. `ANI_RUNTOEND,1`
+  therefore holds a selected frame for one tick. `_ani_streamtoend` rounds
+  `ticks_per_frame * remaining_frames` to a tick count, including its special
+  initial-frame rule; `qb_t_run_anim` uses **0.81**. `ANI_INTTOSEQ`,
+  `ANI_INTSTREAM`, variable frame/count, callbacks and flags are behavior,
+  not metadata to replace with a 30/60-FPS looping Animator.
+
+### Pose input semantics
+
+The renderer consumes this exact signature; its implementation belongs to Systems:
+
+```csharp
+void Apply(PlayerView previous, PlayerView current, float renderInterpolation01);
+```
+
+The input is `current.Animation` (`ActorAnimationView`); no clip parser is supplied
+by Contracts. The producer owns the JSON field layout; Systems consumes that
+layout rather than changing it to match guessed C# serializer fields.
+
+- **Shared data API:** Systems implements `ISourceAnimationLibrary.GetClip(string)`
+  and `ISourceAnimationClip.GetFrame(int sourceFrame)`. `SelectedSourceFrames`
+  maps runtime sequence ordinals to original WAN indices; its count is the
+  runtime sequence length, while `SourceFrameCount` is the authored length.
+  `SourceAnimationFrame` exposes immutable fifteen-joint `Pose`, raw
+  `AuthoringRoot` and pre-actor-scale `ScaledRoot` in source units. Clip identity
+  includes source revision/path/blob/SHA256 and decoded SHA256; `SourceFlags`
+  means WAN flags, not actor mode bits. Loader validation pins these, bounds
+  frames, verifies mapping/limbs/quaternions and rejects duplicate sequence keys.
+  Missing sequence/frame throws with identity diagnostics, never frame-0 fallback.
+  Core and view consume the **same immutable library** without Unity references.
+  Unity adds an overload `GameSimulation(ISourceAnimationLibrary animations,
+  int seed = 1)` for injection; retain `GameSimulation(int seed = 1)`.
+  Systems wires the source production runtime to the injected library; existing
+  asset-free kernel tests are not evidence for that source path.
+- **Identity:** `SourceAnimationLayer.ScriptSymbol` is the exact active script
+  (e.g. `qb_stance_anim`), distinct from `Sample.SequenceName` (`QBSTANCE`).
+  `InstanceId` changes at script replacement/restart, not each render or ordinary
+  loop. Role/action enums are descriptive tags, **not** original mode/opcode IDs.
+  `SelectionEvidence` distinguishes approximate selection from source-verified
+  selection independently of content-pinned clip authenticity.
+- **Samples:** `SourceFrame`/`NextSourceFrame` are original WAN frame indices
+  present in the producer's selected-frame mapping, not output-array offsets.
+  Map the source VM's selected-sequence `iframe` through that mapping first.
+  `Interpolation01` is explicit `0..1`; a held frame uses equal indices/zero.
+  Never interpolate a skipped authoring frame, infer a wrap, choose a next clip
+  or advance time from rendering. Port `_stream_frame/_interpolate_frame` math
+  for authoritative source interpolation; any extra render smoothing is visual
+  only and must not affect contacts, catches or root movement.
+- **Transitions:** `TransitionFromPose`, when non-null, contains fifteen source
+  local XYZW unit rotations captured at the actual transition tick, including
+  interrupted blends/turn hacks. `SourceJointPose` copies its collection.
+  Blend to the explicit sample using `Transition01`; null means use the sample
+  directly. Capture from source state, never the last camera-rendered pose.
+- **Two-part transforms:** `Primary` is the lower/full branch; optional `Secondary`
+  is the upper branch. `JointMask` marks **final matrix outputs**, not a simple
+  replacement of local rotations on one skeleton. `LowerBodyJoints == 0x7e01`
+  (0,9..14), `UpperBodyJoints == 0x01fe` (1..8), `AllJoints == 0x7fff`.
+  In two-part mode evaluate the secondary's own hidden pelvis rotation and
+  heading before upper descendants, then the primary pelvis/legs, as
+  `player.c:last_player_proc` L6659–6674 and `models/skeleton.h` do.
+  A layer's nonzero `FacingDirection` overrides the actor heading; zero inherits.
+  This preserves source `fwd2` separately from `fwd`.
+- **Position/heading:** `PlayerView.Position` is the simulation's object X/Z in
+  existing yard coordinates; `Height` is object Y in yards, **excluding** pelvis
+  root height. `FacingDirection` is a unit field X/Z vector; `(1,0)` points +X,
+  `(0,1)` +Z; zero is unspecified. Do not replace source facing with velocity
+  (stationary throws/backpedals differ). `ModelScale` is the positive roster
+  `ascale` applied once to model geometry/pivots, default 1 for legacy calls.
+  Core catch/contact joint positions must come from pure source pose/pivot math
+  using the shared library, including offscreen actors; Unity transforms and
+  camera-space coordinates must never feed back into gameplay.
+- **Root:** `Animation.RootOffsetSourceUnits` is the **resolved local rig offset**
+  after source anchoring/interpolation, in archive runtime units and already
+  including actor scale. Normally it is `(0, ay, 0)`: add it through the proven
+  coordinate conversion and divide by **7.8** once. WAN root authoring translation
+  is multiplied by **0.12898** offline, not again at render time.
+  The simulation consumes source X/Z root deltas, rotates them by source facing
+  and publishes the resulting world `Position`; the view must **not** apply
+  those deltas again. `MODE_ANCHORXZ` suppresses/clears at the next frame change,
+  not for an entire clip; `MODE_ANCHORY` adjusts object Y/clamps it as source
+  requires. `MODE_SECONDARY` never drives world motion. The loader's scaled
+  frame root is data for the core's resolver, not an independent render mover.
+- **Interpolation/failure:** render interpolation only blends compatible
+  previous/current snapshots; discontinuities/restart/source-instance changes
+  use the explicit transition/new state. Do not extrapolate while focus-paused.
+  Source mode requires valid clip/frame/limb identity and finite normalized
+  poses for every actor; missing data/unspecified animation must visibly fail
+  acceptance with actor/sequence/frame diagnostics, never silently freeze the
+  QB pose or substitute a generic Unity walk. `?actors=graybox` stays explicit.
+
+`BallView.Kind` is a typed semantic kind, not the numeric `LB_*` identifier;
+`Velocity`/`VerticalVelocity` are yards/second and `LastTouchPlayerId == -1`
+means unknown. These additive fields default to unspecified/zero/unknown in old
+calls. They do not themselves implement fumbles or kicks.
+`GameEvent.ActorPlayerId` is the initiator and `TargetPlayerId` the intended
+other actor; `-1` means unspecified. Preserve legacy `PlayerId` semantics:
+**PassThrown.PlayerId currently names the receiver, not the thrower.** A new
+release event fills `ActorPlayerId = quarterback`, `TargetPlayerId = receiver`,
+keeps legacy receiver `PlayerId`, and records actual `SourceTick`; old events'
+new fields remain `-1`, never an inferred QB. Array order is source execution
+order. Source animation callbacks, not completion of a view's blend, release
+the ball and cause gameplay events.
 
 ## Runtime and browser handoff
 

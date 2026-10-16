@@ -1,0 +1,32 @@
+{
+  "schema": "original-c-oracle-pins/v1",
+  "repository": "historicalsource/nflblitz2000",
+  "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "blobs": {
+    "nfl.c": "15b49474fb55e8bac280b6515fcf7bf59cdf8664",
+    "result.c": "eaf1201d0531a9d06d8ce0b1e9e75463062e2923",
+    "detect.c": "68c239fa2e617988107fbebeb4dfeff5bbfe9233",
+    "include/GAME.H": "09d65c92971c32c44b1dc49fb4e4e98b371b1cd3",
+    "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+    "ADJUST.C": "986a1e63ca3e25c03b33afa233e9b3fe34f69c9b",
+    "include/ani3d.h": "826c6322467fcfe503b8402b540e4731671f9b6b",
+    "lib/ani3d/pipe3D.c": "0966ecaf0d7eef7d9c635a97899a421ce1eeea41"
+  },
+  "profile": {
+    "source_tick_hz": 57,
+    "defined_gameplay_flags": [],
+    "undefined_gameplay_flags": [
+      "DEBUG", "NODRONES", "NOKICKOFF", "NOCLOCK",
+      "SHORT_QUARTERS", "Q_GAME", "NO_FIRE"
+    ],
+    "rng_draws": [
+      {
+        "function": "cpu_do_onside",
+        "call": "C rand()",
+        "sequence": "Explicit externally supplied nonnegative raw draws, recorded in each expected.draws; no underlying stdlib/MIPS RNG algorithm assumed."
+      }
+    ],
+    "process_order": "One isolated result/spot call or one/two original clock wakes per input. A paired trace executes original game_proc fractional discard at the first sleep before resuming the original clock's local gt. No Goose scheduler emulation."
+  }
+}

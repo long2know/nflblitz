@@ -1,4 +1,6 @@
 using System;
+using Blitz.AssetImport;
+using Blitz.Contracts;
 using UnityEngine;
 
 namespace Blitz.Presentation
@@ -27,6 +29,7 @@ namespace Blitz.Presentation
         public int PoseSourceFrame { get { return poseSourceFrame; } }
         public string PoseSha256 { get { return poseSha256; } }
         public TextAsset PoseSource { get { return poseSource; } }
+        public bool HasContinuousPose { get; private set; }
 
         // Called by the explicit editor importer; no external source files are read in a player/WebGL build.
         public void InitializeBindPose(string id, Transform[] orderedJoints, int[] parents, int[] flags)
@@ -89,7 +92,44 @@ namespace Blitz.Presentation
             return joints[index];
         }
 
-        // Future animation adapters must supply converted Unity-local rotations; this is not a WAN decoder.
+        public SourceVector3 GetUnityReferencePivot(int index)
+        {
+            GetJoint(index);
+            Vector3 pivot = restPositions[index];
+            int parent = parentIndices[index], depth = 0;
+            while (parent >= 0)
+            {
+                if (++depth > JointCount) throw new InvalidOperationException("Source rig parent cycle.");
+                pivot += restPositions[parent];
+                parent = parentIndices[parent];
+            }
+            return new SourceVector3(pivot.x, pivot.y, pivot.z);
+        }
+
+        public int GetParentIndex(int index)
+        {
+            GetJoint(index);
+            return parentIndices[index];
+        }
+
+        // Matrix outputs, not local-rotation overrides: upper and lower branches can have different pelvises.
+        public void ApplyContinuousSourcePose(SourceEvaluatedPose pose)
+        {
+            if (pose == null || pose.Joints.Count != JointCount || JointCount != SourceTiming.JointCount)
+                throw new InvalidOperationException("Continuous source pose/rig mapping requires fifteen joints.");
+            for (int i = 0; i < JointCount; i++) joints[i].localScale = Vector3.one;
+            joints[0].localScale = Vector3.one * pose.ModelScale;
+            for (int i = 0; i < JointCount; i++)
+            {
+                SourceJointTransform joint = pose.Joints[i];
+                SourceVector3 p = joint.Position;
+                SourceRotation q = joint.Rotation;
+                joints[i].SetPositionAndRotation(transform.TransformPoint(new Vector3(p.X, p.Y, p.Z)),
+                    transform.rotation * new Quaternion(q.X, q.Y, q.Z, q.W));
+            }
+            HasContinuousPose = true;
+        }
+
         public void SetUnityLocalRotation(int index, Quaternion rotation)
         {
             double length = (double)rotation.x * rotation.x + (double)rotation.y * rotation.y +
@@ -110,6 +150,7 @@ namespace Blitz.Presentation
                 joints[i].localScale = Vector3.one;
             }
             stage = ImportStage;
+            HasContinuousPose = false;
             poseSequence = null; poseSha256 = null; poseSource = null; poseSourceFrame = 0;
         }
 
@@ -130,6 +171,7 @@ namespace Blitz.Presentation
             }
             joints[0].localPosition += anchoredRootOffset;
             stage = StaticPoseStage; poseSequence = sequence; poseSourceFrame = sourceFrame;
+            HasContinuousPose = false;
             poseSha256 = sourceSha256; poseSource = originalDecodedPose;
             ValidateGeneratedRig();
         }
