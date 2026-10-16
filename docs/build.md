@@ -220,6 +220,28 @@ velocity-selected animation or double-applied X/Z clip drift. Missing source
 library/clip/frame fails visibly; there is no static or graybox substitution.
 Rebuild after either player or animation import.
 
+## Prepare and import the original field and stadium
+
+The original world is a separate local asset preparation/import step from the
+player and animation library. Follow the pinned
+[environment recipe](../tools/environments/README.txt) for `field2.sdl`,
+`stadpie.sdl`, original textures, the converter receipt and
+`Blitz.Editor.SourceEnvironmentImporter.ImportFromCommandLine`.
+Use the manifest hash from the bundle you actually prepared.
+
+The importer requires a new `Assets/Imported/source-environment` destination
+and creates `BlitzSourceEnvironment/source-field2-stadpie/world` in Resources.
+After explicit import and a genuine game rebuild,
+`?actors=source&environment=source` requires the verified original world;
+missing assets fail rather than creating a substitute stadium.
+`?environment=graybox` is explicit procedural presentation. With no environment
+parameter, an installed original world is preferred and a missing one is logged.
+
+The independently verified world-only inspector is **not** the playable game
+and must not replace the live game build. Its native/WebGL proof does not
+establish root-project actor, gameplay-camera or HUD integration. Coordinate
+Editor ownership and source freezes before an actual root import/build.
+
 ## Host build: verified route
 
 From the repository root, use an existing supported, activated installation with
