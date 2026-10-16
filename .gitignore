@@ -41,6 +41,8 @@ Assets/Imported.meta
 *.booproj
 *.opendb
 *.VC.db
+__pycache__/
+*.py[cod]
 
 # Credentials and Unity activation artifacts (inject via external secret storage)
 .env
