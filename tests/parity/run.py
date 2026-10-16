@@ -10,6 +10,7 @@ import subprocess
 import sys
 import uuid
 
+from prepare_inputs import fixture_hashes
 
 SUITE = Path(__file__).resolve().parent
 ROOT = SUITE.parents[1]
@@ -37,7 +38,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, required=True)
     parser.add_argument("--full-kernel", action="store_true", help="Also compile and exercise the actual source-profile host adapter.")
+    parser.add_argument("--fixture-manifest", type=Path, help="Explicit pinned real-input fixture.json, required with --full-kernel.")
     args = parser.parse_args()
+    if args.full_kernel and args.fixture_manifest is None:
+        parser.error("--full-kernel requires --fixture-manifest; synthetic/geometry fallbacks are forbidden.")
+    fixture_path = args.fixture_manifest.resolve() if args.fixture_manifest is not None else None
+    fixture_before = fixture_hashes(fixture_path) if args.full_kernel else None
     case_path = args.cases.resolve()
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     mode = "full-kernel" if args.full_kernel else "focused"
@@ -77,6 +83,8 @@ def main():
         command += ["-p:BaseIntermediateOutputPath=" + str(build_root / "obj") + "/",
                     "-p:BaseOutputPath=" + str(build_root / "bin") + "/"]
         command += ["--", str(case_path), str(SUITE / "fixtures/synthetic-contract-traces.json")]
+        if args.full_kernel:
+            command.append(str(fixture_path))
         commands.append(command)
         process = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=180)
         text = process.stdout + process.stderr
@@ -98,6 +106,7 @@ def main():
         "mutation": {"executed": False}, "browser_or_unity_executed": False,
         "full_gameplay_parity_claimed": False,
         "full_kernel_adapter_requested": args.full_kernel,
+        "real_input_sha256_before": fixture_before,
     }
     try:
         baseline, summary, text = execute("baseline")
@@ -151,7 +160,14 @@ def main():
         evidence["isolated_validation_build_removed"] = not validation_build.exists()
         evidence["production_sha256_after"] = hashes(source_files())
         evidence["production_hashes_unchanged"] = evidence["production_sha256_after"] == before
+        evidence["real_input_sha256_after"] = fixture_hashes(fixture_path) if args.full_kernel else None
+        evidence["real_input_hashes_unchanged"] = evidence["real_input_sha256_after"] == fixture_before
+        stable = evidence["production_hashes_unchanged"] and evidence["real_input_hashes_unchanged"]
+        if not stable:
+            evidence["status"] = "inconclusive-inputs-or-sources-changed"
         report_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        if not stable:
+            raise RuntimeError("Actual production sources or pinned real inputs changed during validation.")
 
 
 if __name__ == "__main__":

@@ -84,6 +84,7 @@ class InventoryGuardTests(unittest.TestCase):
                 self.assertIn(dependency, included, str(project) + " omits actual pose sampling.")
         self.assertEqual([
             "Blitz.Core.Tests/Blitz.Core.Tests.csproj",
+            "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)

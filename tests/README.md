@@ -110,6 +110,17 @@ of the simulation producers or camera stage.
 This independent project excludes the actively integrated full simulation;
 interface/DTO green is not behavior, original-C corpus, or full-game parity.
 
+## Actual ball and input/cue callers
+
+See [`ball/README.md`](ball/README.md) for runtime-extracted pinned original-C
+ball/receiver/predicate cases, real original-pose factory inputs, actual
+input/camera/VM cue callers, strict geometry/control-time boundaries, the
+source-backed PAT/kickoff `Down=-1` guard regression, and isolated production
+mutations. See [`parity/README.md`](parity/README.md) for the full-kernel
+factory command: it requires an explicit real-input manifest and retains all
+existing host/source adapter assertions. Neither suite is all-row/full-match,
+original-platform RNG/scheduler, native-build or browser qualification.
+
 ## Original movement and evasion helpers
 
 See [`movement/README.md`](movement/README.md). Run the explicit SDK profile

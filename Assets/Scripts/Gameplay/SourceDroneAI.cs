@@ -244,7 +244,9 @@ namespace Blitz.Gameplay
             if (actors == null) throw new ArgumentNullException(nameof(actors));
             Directions = directions ?? throw new ArgumentNullException(nameof(directions));
             SourceP1Guard.Side(rules.OffenseSide);
-            if (rules.Down < 0 || rules.Down > 4 || rules.LineOfScrimmage < 0 || rules.LineOfScrimmage > 100 ||
+            bool originalPatOrKickoffDown = rules.Down == -1 &&
+                (rules.PlayType == SourcePlayType.ExtraPoint || rules.PlayType == SourcePlayType.Kickoff);
+            if ((rules.Down < 0 && !originalPatOrKickoffDown) || rules.Down > 4 || rules.LineOfScrimmage < 0 || rules.LineOfScrimmage > 100 ||
                 rules.FirstDown < 0 || rules.FirstDown > 110)
                 throw new ArgumentOutOfRangeException(nameof(rules));
             if (sourceTick < 0 || snapTick < 0 || snapTick > sourceTick) throw new ArgumentOutOfRangeException(nameof(sourceTick));

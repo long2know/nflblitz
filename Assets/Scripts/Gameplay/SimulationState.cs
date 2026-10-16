@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Blitz.Contracts;
 
 namespace Blitz.Gameplay
@@ -8,6 +10,9 @@ namespace Blitz.Gameplay
         internal readonly TeamId Team;
         internal FieldVector Position;
         internal FieldVector SnapPosition;
+        internal FieldVector SourcePosition;
+        internal float SourceHeight;
+        internal bool SourceCoordinates;
         internal FieldVector Velocity;
         internal float Turbo01 = 1f;
         internal int ContactCooldownTicks;
@@ -38,6 +43,45 @@ namespace Blitz.Gameplay
         internal bool SourceHasBall;
         internal long AnimationSerial;
         internal int NoCatchTicks;
+        internal int SourceControllerStation = -1;
+        internal SourceRosterIdentity SourceRoster;
+        internal SourceDirectionMath SourceDirections;
+        internal SourceActorMode SourceMode;
+        internal SourceActorJob SourceJob;
+        internal int SourceTarget = -1;
+        internal int SourceStick = 24;
+        internal int SourcePreviousStick = 24;
+        internal SourceDroneButtons SourceButtons;
+        internal SourceDroneButtons SourceOldButtons;
+        internal SourceDroneButtons SourceNewButtons;
+        internal SourceDroneButtons SourceReleasedButtons;
+        internal readonly SourceDroneButtons[] SourceButtonHistory = new SourceDroneButtons[5];
+        internal int SourceDroneThrowTarget = -1;
+        internal int SourceNonATicks;
+        internal int SourceNonBTicks;
+        internal bool SourceUnblockable;
+        internal bool SourceWaveArm;
+        internal bool SourceBackpedal;
+        internal int SourceBackpedalTarget = -1;
+        internal bool SourceReverseRoute;
+        internal int SourceForcedMoveHeading = -1;
+        internal bool SourceThrowing;
+        internal int SourceHandicap = 5;
+        internal string SourcePendingCatch;
+        internal string SourceRequestedScript;
+        internal int SourceCatchLaunchTime;
+        internal bool SourceCatchTwoPart;
+        internal bool SourcePendingLateral;
+        internal bool SourceLateHittable;
+        internal FieldVector SourceBallTarget;
+        internal FieldVector SourceBallLocation;
+        internal int SourceBallTimeRemaining;
+        internal bool SourcePlayOver;
+        internal bool SourceIsCarrier;
+        internal bool SourcePendingFireCheck;
+        internal bool SourceHelmetPopped;
+        internal int SourceSpinCount;
+        internal int SourceRawFlags = 0;
 
         internal ActorState(int id)
         {
@@ -64,19 +108,124 @@ namespace Blitz.Gameplay
         internal bool SourceHalfKickoff;
         internal SourceKickoffKind SourceKickoffKind;
         internal int SourceKickingSide;
+        internal int SourceQuickReturnActor = -1;
         internal bool SourceKickApproach;
         internal bool SourceFirstKickoff = true;
         internal FieldVector SourceBallVelocity;
         internal float SourceBallVerticalVelocity;
-        internal bool SourceBallFrozen;
+        internal SourceBallFlags SourceBallFlags;
+        internal SourceVector3 SourceBallPosition;
+        internal SourceVector3 SourceBallOrigin;
+        internal SourceVector3 SourceBallTarget;
+        internal SourceVector3 SourceBallPrevious;
+        internal int SourceBallBounces;
+        internal long SourceBallBounceTick;
+        internal int SourceBallPitch;
+        internal int SourceBallPitchRate = 40;
+        internal int SourceBallRoll;
+        internal int SourceBallHeading;
+        internal int SourceBallElevation;
+        internal float SourceBallScale = 2f;
+        internal int SourceLastPossession;
+        internal int SourceLastCarrierId = -1;
+        internal float SourceCatchX;
+        internal FieldVector SourceContactPosition;
+        internal SourceVector3 SourceContactSourcePosition;
+        internal float SourcePlayEndX;
+        internal float SourcePlayEndZ;
+        internal bool SourceHasContactSpot;
+        internal float SourceVictimHeight;
+        internal readonly int[] SourceOffensivePlays = new int[2];
+        internal readonly int[] SourceLostFumbles = new int[2];
+        internal readonly int[] SourceInterceptions = new int[2];
+        internal readonly int[] SourceDeflections = new int[2];
+        internal readonly int[] SourceFumbles = new int[2];
+        internal readonly int[] SourceBobbles = new int[2];
+        internal readonly int[] SourceLastReceiver = { -1, -1 };
+        internal readonly int[] SourceConsecutiveCompletions = new int[2];
+        internal readonly bool[] SourceTeamFire = new bool[2];
+        internal readonly int[] SourceSpinCount = new int[2];
+        internal int SourceFumblesOnPlay;
+        internal bool SourceNoAssist = false;
+        internal bool SourceNoFumbles = false;
+        internal bool SourceNoInterceptions = false;
+        internal bool SourceSuperDrones = false;
+        internal bool SourceDronesLose = false;
+        internal bool SourceDronesWinning = false;
+        internal bool SourceAbusingSpin = false;
+        internal bool SourceBeginPlayInitialized;
         internal float SourceFumbleX;
         internal int SourcePendingTackleVictim = -1;
         internal int SourcePendingTackleAttacker = -1;
-        internal int SourcePendingControl = -1;
         internal long SourceRandomDraws;
+        internal string SourceRandomProcess = "game_proc";
+        internal int SourceRandomActor = -1;
+        internal int SourceRandomProcessOrder;
+        internal int SourceRandomCallIndex;
+        internal int SourceDispatchOrdinal;
+        internal int SourcePresentationOrder;
+        internal readonly uint[] SourceAnimationUniqueMasks = new uint[6];
+        internal SourcePlaybook SourcePlaybook;
+        internal SourcePlayDefinition SourceOffensePlay;
+        internal SourcePlayDefinition SourceDefensePlay;
+        internal SourceFormationSlot[] SourceFormationSlots;
+        internal readonly SourceRouteState[] SourceDrones = new SourceRouteState[14];
+        internal SourceAiParameters SourceAiParameters;
+        internal PlayerCommand SourceCurrentInput;
+        internal int SourceCameraHeading;
+        internal long SourceCameraHeadingSampleTick;
+        internal Func<int, int> SourceCStandardRandom;
+        internal SourceQuarterbackPlan SourceQuarterbackPlan;
+        internal SourceAiFrame SourceAiFrame;
+        internal float[,] SourceDistances;
+        internal int[,] SourceAngles;
+        internal SourceBlockAssignments SourceBlocking;
+        internal IReadOnlyList<SourceReceiverAssessment> SourceReceivers;
+        internal long SourceSnapTick;
+        internal int SourceMotionDirection = 1;
+        internal SourceMatchConfiguration SourceConfiguration;
+        internal SourcePresentationSettings SourcePresentation;
+        internal bool SourceOffenseFlipped;
+        internal ISourceTeamRoster SourceRosters;
+        internal SourceCaptainSlot SourceCaptain;
+        internal bool SourceRequestedOnside;
+        internal int SourceHikeCounterAtSnap;
+        internal int SourcePuntStrength;
+        internal float SourceKickMeterPercent;
+        internal float SourceKickWind;
+        internal bool SourcePerfectFieldGoal = false;
+        internal readonly int[] SourceStationPlayers = { -1, -1, -1, -1 };
+        internal readonly float[] SourceStationTurbo = { 100f, 100f, 100f, 100f };
+        internal readonly int[,] SourceQuarterScores = new int[7, 2];
+        internal SourceMatchResult SourceResultView;
+        internal SourcePeriodView SourcePeriodView;
+        internal SourceMatchPhase SourceMatchPhase;
+        internal SourcePlaySelection SourceHomePlay;
+        internal SourcePlaySelection SourceAwayPlay;
+        internal readonly bool[] SourcePlaySelectionReady = new bool[2];
+        internal SourcePatOption SourcePatChoice = SourcePatOption.Unselected;
+        internal SourcePatStatus SourcePatStatus = SourcePatStatus.NotExtraPoint;
+        internal int SourceSelectionCountdown = -1;
         internal float SourceHumanTurbo = 100f;
         internal int SourceDisallowPassTicks;
-        internal bool SourceBallDeflected;
+        internal bool SourceBallFrozen
+        {
+            get { return (SourceBallFlags & SourceBallFlags.Freeze) != 0; }
+            set
+            {
+                if (value) SourceBallFlags |= SourceBallFlags.Freeze;
+                else SourceBallFlags &= ~SourceBallFlags.Freeze;
+            }
+        }
+        internal bool SourceBallDeflected
+        {
+            get { return (SourceBallFlags & SourceBallFlags.Deflected) != 0; }
+            set
+            {
+                if (value) SourceBallFlags |= SourceBallFlags.Deflected;
+                else SourceBallFlags &= ~SourceBallFlags.Deflected;
+            }
+        }
         internal int PlayNumber;
         internal GamePhase Phase = GamePhase.PlaySelect;
         internal TeamId Possession = TeamId.Home;
