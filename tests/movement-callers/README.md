@@ -45,6 +45,13 @@ tracked fixture, so it does not need this mixed artifact or a private cache.
 The actual full-M1 gate below remains required; valid input preparation does
 not turn `bc_adjust[6]`, zero R_SKIP or any unrelated exception into PASS.
 
+The full-M1 runner persists `<output>/result.json` and prints its terminal
+status and report path. `UNMET-public-R_SKIP` remains a nonzero failure and
+prints the exact required advancement/pose assertion to stderr, rather than
+silently exiting after the independent physics comparison passes. Other
+failures and changed-generation outcomes also remain nonzero. The console
+summary does not dump the recorded model, RNG or pose observations.
+
 ## Current281 canonical entry and honest coverage boundary
 
 The commands/results below this section are historical117/156/157/272

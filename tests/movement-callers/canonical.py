@@ -210,6 +210,20 @@ def require_m1_replay(code, summary, receipt):
     raise RuntimeError("M1 replay must pass its real R_SKIP gate or report that exact unmet criterion, never relabel a different failure.")
 
 
+def _write_m1_result(output, result):
+    path = output / "result.json"
+    path.write_text(json.dumps(result, indent=2) + "\n")
+    status = result["status"]
+    if status == "passed-full-M1-public-caller-gate":
+        print("M1", status)
+        print("M1 report:", path)
+    else:
+        print("M1 REGRESSION FAILED:", status, file=sys.stderr)
+        if status == "UNMET-public-R_SKIP":
+            print("Unmet required assertion:", M1_COVERAGE_ASSERTION, file=sys.stderr)
+        print("M1 report:", path, file=sys.stderr)
+
+
 def m1_main(argv):
     parser = argparse.ArgumentParser(description="Full actual-factory M1 successor fixed-vector gate, never old scoped acceptance.")
     for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "source-root", "replay-commands", "output"):
@@ -354,7 +368,7 @@ def m1_main(argv):
         result["live_production_unchanged"] = result["production_after"] == pins
         if not result["live_production_unchanged"]:
             result["status"] = "inconclusive-generation-changed"
-        (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+        _write_m1_result(output, result)
     return 0 if result["status"] == "passed-full-M1-public-caller-gate" else 1
 
 

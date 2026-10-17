@@ -1,11 +1,37 @@
 import hashlib
+import io
+import json
+import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import canonical
 
 
 class CanonicalObservationGuards(unittest.TestCase):
+    def test_full_m1_terminal_report_is_persisted_and_failures_are_not_silent(self):
+        for status in ("passed-full-M1-public-caller-gate", "UNMET-public-R_SKIP",
+                       "failed", "inconclusive-generation-changed",
+                       "passed-scoped-entry-and-cache-only"):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as work:
+                output = Path(work)
+                result = {"status": status, "runs": {"unlogged-proof": "not-for-console"}}
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    canonical._write_m1_result(output, result)
+                self.assertEqual(json.loads((output / "result.json").read_text()), result)
+                success = status == "passed-full-M1-public-caller-gate"
+                visible, empty = (stdout, stderr) if success else (stderr, stdout)
+                self.assertEqual(empty.getvalue(), "")
+                self.assertIn(status, visible.getvalue())
+                self.assertIn(str(output / "result.json"), visible.getvalue())
+                self.assertNotIn("not-for-console", visible.getvalue())
+                if not success:
+                    self.assertIn("M1 REGRESSION FAILED:", visible.getvalue())
+                if status == "UNMET-public-R_SKIP":
+                    self.assertIn(canonical.M1_COVERAGE_ASSERTION, visible.getvalue())
+
     def test_snap_hike_root_is_explicit_and_controls_target_actual_producer_context(self):
         source = (canonical.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Source.cs").read_text()
         request = source[source.index("        private void SnapSource("):
@@ -62,6 +88,8 @@ class CanonicalObservationGuards(unittest.TestCase):
         runner = (canonical.HERE / "canonical.py").read_text()
         self.assertIn("for spec in CANONICAL_CACHE_MUTANTS:", runner)
         self.assertIn("for identity, filename, old, new, expected in controls.MUTANTS:", runner)
+        self.assertIn("_write_m1_result(output, result)", runner[runner.index("def m1_main("):])
+        self.assertIn('return 0 if result["status"] == "passed-full-M1-public-caller-gate" else 1', runner)
 
     def test_exact_frozen_unique_call_site_and_byte_normalization(self):
         original = (canonical.ROOT / canonical.CACHE_SOURCE).read_bytes()
