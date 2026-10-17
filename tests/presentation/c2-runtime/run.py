@@ -72,17 +72,48 @@ def caller_guards(values):
             "team/template/import and fresh-domain checks select same new281 profile")
     build = text("Editor/WebGlBuild.cs")
     require("BuildContact281C2" in build and "PrepareContact281C2Project" in build and
-            "if (profile.IsContact281C2) runtime.ConfigureSourceResourceProfile(profile.StableId)" in build,
+            "if (profile.UsesC2Data) runtime.ConfigureSourceResourceProfile(profile.StableId)" in build,
             "explicit C2 build recipe persists its real runtime selector; default recipe remains separate")
     require("profile.RequireImpact(library)" in methods.compact(text("Presentation/SourcePlayerProvider.cs")),
             "actual camera provider enforces bound477 generation")
     return 12
 
 
+def m1_caller_guards(values):
+    def text(name):
+        return values["Assets/Scripts/" + name].decode()
+    services = text("Runtime/SourceInterfaceServices.cs")
+    require("if (profile.IsContact281C2M1) return C2M1ResourceKey;" in services and
+            "SourceInterfacePackagePlan.C2M1ServicesResourceKey" in services, "M1 services strict new resource key")
+    require("Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey" in services and
+            "Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks" in services,
+            "M1 callback key and reader remain generation-specific")
+    require("SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration()" in services,
+            "M1 actual runtime factory cannot use old-nine creator")
+    importer = text("Editor/SourceTeamInterfaceImporter.cs")
+    require("PlanFromContact281C2M1Arguments" in importer and "WithContact281C2M1" in importer and
+            "services.InitializeContact281C2M1(" in importer and "C2M1CallbackSha256" in importer,
+            "M1 import plan initializer and payload pin must agree")
+    require("RequireAnimationProfileAsset(profile, animations)" in importer and
+            "Contact281C2M1.AnimationAssetPath" in importer and
+            "RequireAnimationProfileAsset(profile, sharedAnimations)" in text("Editor/SourceTeamImporter.cs"),
+            "only canonical byte-identical animation may be shared, never callback/catalog/service")
+    require("VerifyContact281C2M1BindingsFromCommandLine" in text("Editor/SourceTeamInterfaceChecks.cs") and
+            "C2M1CallbackSha256" in text("Editor/SourceTeamInterfaceChecks.cs"),
+            "M1 persisted checks must not use old-nine JSON pin")
+    build = text("Editor/WebGlBuild.cs")
+    require("BuildContact281C2M1" in build and "PrepareContact281C2M1Project" in build and
+            "SourceTeamResourceProfile.SelectRuntimeProfile(null, profile.StableId)" in build,
+            "M1 build recipe respects the shared deferred URL admission guard")
+    return 7
+
+
 def arguments(parser):
     for name in ("inputs", "old272", "fixture", "impact", "old-impact", "hud"):
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--m1-inputs", type=Path)
+    parser.add_argument("--m1-impact", type=Path)
 
 
 def input_args(args, output):
@@ -95,6 +126,13 @@ def input_args(args, output):
             require(path.is_relative_to(ROOT), "all original/package inputs must be explicitly NEWroot-local")
             result.append(str(path))
         result.append(str(output / "package-inputs"))
+    require(bool(args.m1_inputs) == bool(args.m1_impact), "both explicit M1 input and482 catalog paths required")
+    if args.m1_inputs:
+        require(bool(result), "M1 package preflight retains all old-generation actual controls")
+        for path in (args.m1_inputs, args.m1_impact):
+            path = path.resolve(strict=True)
+            require(path.is_relative_to(ROOT), "M1 assets must remain NEWroot-local")
+            result.append(str(path))
     return result
 
 
@@ -143,6 +181,7 @@ def main():
               "source_sha256": {n: sha(b) for n, b in values.items()}, "native_Editor_DSP_or_fullgame": False}
     try:
         report["actual_caller_guards"] = caller_guards(values)
+        report["actual_M1_caller_guards"] = m1_caller_guards(values)
         actual = input_args(args, output)
         report["explicit_inputs"] = actual[:-1]
         snapshot(values, work); env = env_for(output)

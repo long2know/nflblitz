@@ -420,3 +420,70 @@ production source-domain boundary failure, not an asset/native/C2 guess or
 permission to normalize state. The actual failure trace now also retains raw
 facing/target, actual route argument sources, formation/cache inputs and all34
 real handicap table records. Full M1/R_SKIP/original8 mutants remain blocked.
+# Explicit C2 M1 successor full public-input gate
+
+## Source57 snap request versus actual HikeBall
+
+Original `player.c:1643–1696` starts the real center animation and clock and sets
+`GF_HIKING_BALL`, but remains `GM_PRE_SNAP`. The actual `hike_ball` callback
+(`player.c:5656–5679`, `plyrseq.c:8750–8758`) changes game mode and marks the holder
+only after `ANI_INTSTREAM21,4`. Live and the published `Snapped` event therefore
+belong to that opcode group, not the QB request. Existing Legacy60 immediate
+snap behavior is unchanged. Request clock activation remains at the original
+request boundary; no kick-meter/default timing is fabricated.
+
+```sh
+python3 -B tests/movement-callers/run.py --snap-hike-only \
+  --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
+  --sound-functions "$UNCHANGED_OLD6_SAFN" \
+  --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
+  --output .squad/.scratch/source-snap-hike-focused
+```
+
+These421 named assertions cover real-factory Source57 normal and field-goal
+requests, single real release, repeated actual snap commands, reentrant hiking
+guard, source-derived VM wake timing, live holder-variable reads despite an
+immutable preactor frame, all14x15 cache rows, invalid live/receiver-1 rejection
+and separate Legacy60 behavior. The release delay is derived by executing the
+unchanged21/4 stream in the existing VM and compared with actual source wakes,
+not assumed to mean four host frames. Three compiled controls restore early
+Live, stale holder variables or a missing hiking guard and must fail named
+assertions with zero compile diagnostics.
+
+The kicker variable facade uses current ball/mode/holder globals but copies the
+captured geometry matrices unchanged; it does not replace the shared AI frame,
+redesign AI decisions or assign a holder early. Controlled timing cases are
+**not** a public R_SKIP witness. Tests requiring immediate Source57 Live must
+use the actual HikeBall boundary explicitly; old bank/data/pose inputs, Legacy60
+contracts and unrelated assertions must not be rebased to restore early Live.
+
+The old C1 modes and old-nine `canonical.py --c2-inputs` scoped window remain
+separate. The M1 successor must use its actual production
+`SourceC2Composition.CreateM1Simulation`, internal real geometry, original two
+bank draws before AI, and unchanged SAFN before wake. It cannot use the old
+`SourceCacheWitness` proxy constructor.
+
+```sh
+python3 -B tests/movement-callers/run.py \
+  --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
+  --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
+  --sound-functions "$UNCHANGED_OLD6_SAFN" \
+  --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
+  --replay-commands "$EXACT_SAVED_12000_PUBLIC_COMMANDS" \
+  --output .squad/.scratch/m1-successor-full-qualification
+```
+
+The explicit sidecar is not a272 relabel. The replay accepts complete recorded
+`commands` JSON or per-host command JSONL, reconstructs every public command,
+and never regenerates inputs from the changed successor state. The same fixed
+unfiltered15-value provider/seed/config is retained. New original running-taunt
+draws legitimately change subsequent gameplay/RNG; they must not be removed or
+normalized to an old hash.
+
+Independent uninstrumented and unique-hash/reversible actual-cache observation
+runs compare every recorded state/input/pose/raw draw. All3 old cache and8 caller
+controls remain mandatory with zero-diagnostic compilation and named causal
+failures. The after2299 same-actor/same-instance two-ordinal/two-real15-pose R_SKIP
+assertion remains a hard gate. A zero result reports **UNMET**, never full M1 or
+the old36948 acceptance. Any unrelated source fault stops the replay without an
+extra wake, queue reset, seed search, substituted state or next policy.

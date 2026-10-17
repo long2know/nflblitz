@@ -53,7 +53,7 @@ def validate_callers(sources):
             "originalSoundVmFunctions.bytes.Length != 1983" in sound,
             "actual services must reject copied/missing/wrong SAFN canonical reference before playback")
     create = body(services, "CreateSimulation")
-    require("if(!Profile.IsContact272&&!Profile.IsContact281C2)" in create and "!ReferenceEquals(prefab,teams.Template)" in create,
+    require("if(!Profile.IsContact272&&!Profile.UsesC2Data)" in create and "!ReferenceEquals(prefab,teams.Template)" in create,
             "historical services/copied template fail before selecting any old contact simulation")
     require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
             "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create,
@@ -75,7 +75,7 @@ def validate_callers(sources):
     importer = source("Editor/SourceTeamInterfaceImporter.cs")
     require("SourceInterfacePackagePlan.WithContact272(PlanFromSoundVmArguments(args))" in importer
             and "services.InitializeContact272(" in importer
-            and "(!profile.IsContact272 && !profile.IsContact281C2) || !plan.HasSoundVm" in importer,
+            and "(!profile.IsContact272 && !profile.UsesC2Data) || !plan.HasSoundVm" in importer,
             "actual Editor plan/import must select contact272 with mandatory SAFN, never old services")
     team = source("Editor/SourceTeamImporter.cs")
     require("ImportContact272FromCommandLine" in team and "SourceTeamResourceProfile.Contact272" in team

@@ -5,6 +5,65 @@ RNG = "complete native callback ordered guards and exact RNG count"
 LATCH = "native latch AFTER taunt and BEFORE mad synchronous change_anim"
 
 
+def m1_specifications():
+    data = "Assets/Scripts/AssetImport/SourceC2CallbackData.cs"
+    sound = P + "SourceC2SoundFunctions.cs"
+    vm = G + "SourceSoundVm.cs"
+    real = "M1 running-taunt real ANI_CODE resolves exact registered tuple"
+    chance = "M1 running-taunt native chance9vs10 zero-output no-eager-index contract"
+    bounds = "M1 running-taunt native ordered100 then conditional3 bounds"
+    output = "M1 running-taunt original bank table priority and callee519or524 attribution"
+    return [
+        ("m1-drop-binding", data,
+         "bindings.Add(new SourceC2VmBinding(bindingScripts[n], function, kind, lines[n], arguments[n]));",
+         "if (lines[n] != 6401) bindings.Add(new SourceC2VmBinding(bindingScripts[n], function, kind, lines[n], arguments[n]));",
+         "M1 running-taunt exact14 bindings and unchanged9 extension programs"),
+        ("m1-miskey-script", data, "ScriptSymbol = script; FunctionSymbol = function;",
+         'ScriptSymbol = script + "_wrong"; FunctionSymbol = function;', real),
+        ("m1-miskey-line", data, "FunctionKind = kind; SourceLine = line; Argument0 = argument;",
+         "FunctionKind = kind; SourceLine = line + 1; Argument0 = argument;", real),
+        ("m1-miskey-args", data, "FunctionKind = kind; SourceLine = line; Argument0 = argument;",
+         "FunctionKind = kind; SourceLine = line; Argument0 = argument + 1;", real),
+        ("m1-old-profile-promotion", "Assets/Scripts/Runtime/SourceC2Composition.cs",
+         "return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations",
+         "return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations",
+         "M1 running-taunt successor factory rejects old-nine bootstrap"),
+        ("m1-chance10-inclusive", sound, 'sp == -4 && Draw(100, "taunt_speech", 518) >= 10',
+         'sp == -4 && Draw(100, "taunt_speech", 518) > 10', chance),
+        ("m1-ez-chance10-inclusive", sound, 'sp == -5 && Draw(100, "taunt_speech", 523) >= 10',
+         'sp == -5 && Draw(100, "taunt_speech", 523) > 10', chance),
+        ("m1-eager-index", sound, "int sp = context.Argument0;",
+         'int sp = context.Argument0; if (sp == -4) Draw(3, "taunt_speech", 519);', chance),
+        ("m1-index-before-chance", sound, 'if (sp == -4 && Draw(100, "taunt_speech", 518) >= 10 ||',
+         'if (sp == -4 && (Draw(3, "taunt_speech", 519) + Draw(100, "taunt_speech", 518)) >= 10 ||', chance),
+        ("m1-wrong-bound", sound, 'Draw(data.SpeechTable(table).Count,\n                    "taunt_speech", line)',
+         'Draw(data.SpeechTable(table).Count + 1,\n                    "taunt_speech", line)', bounds),
+        ("m1-wrong-table", sound, 'sp == -4 ? "histep_taunt_sp"', 'sp == -4 ? "short_taunt_sp"', bounds),
+        ("m1-private-RNG", sound, "recorder = new Recorder(random);",
+         "recorder = new Recorder(new SourceInjectedRandom(site => 0, random.Provenance));",
+         "M1 running-taunt actual shared RNG process actor cursor no private/reordered stream"),
+        ("m1-wrong-bank", sound, 'Bank(state.CurrentTauntBank, "taunt_bnk_str")',
+         'Bank(state.CurrentPlayerBank, "taunt_bnk_str")', output),
+        ("m1-wrong-priority", data, "Priority = (uint)priority;", "Priority = (uint)(priority + 1);", output),
+        ("m1-wrong-callee", sound,
+         "new SourceAudioResolvedOriginalSoundCall(context, call.Site, calls.Count, bank, id,",
+         "new SourceAudioResolvedOriginalSoundCall(context, new SourceAudioCalleeSite(call.Site.SourcePath, call.Site.SourceGitBlob, call.Site.FunctionSymbol, call.Site.SourceLine + 1), calls.Count, bank, id,",
+         output),
+        ("m1-reversed-FIFO", vm,
+         "sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null));",
+         "sourceSoundVmPending.Insert(0, new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null));",
+         "M1 running-taunt actual6401then6508 FIFO and synchronous shared call cursor"),
+        ("m1-zero-percent-muted", sound, "int sp = context.Argument0;",
+         "int sp = context.Argument0; if (context.Argument1 == 0) return;", chance),
+        ("m1-unknown-bank-defaulted", sound, 'Bank(state.CurrentTauntBank, "taunt_bnk_str")',
+         'Bank(state.CurrentTauntBank ?? "taunts3", "taunt_bnk_str")',
+         "M1 running-taunt unknown bank stays typed failure not invented default"),
+        ("m1-partial-cursor-dropped", vm, "AdvanceSourceSoundRandom(execution, error.PartialResult);",
+         "/* compiled causal control: omit partial source cursor */",
+         "M1 running-taunt partial missing-bank chance+index cursor retained"),
+    ]
+
+
 def specifications(root):
     specs = [
         ("carrier-probability45", G + "SourceC2Callbacks.cs", "? 70 : 45", "? 70 : 44", RNG),

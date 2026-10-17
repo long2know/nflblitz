@@ -72,7 +72,7 @@ namespace Blitz.Runtime
                 ISourceAnimationLibrary animations = null;
                 if (prefab == null)
                 {
-                    if (profile.IsContact281C2)
+                    if (profile.UsesC2Data)
                         throw new SourceInterfaceException("Explicit C2 entry cannot silently select legacy graybox/old bank initialization.");
                     if (!ExplicitGraybox(Application.absoluteURL))
                         throw new SourceInterfaceException("Original source player assets are missing. Only explicit ?actors=graybox selects LegacyBaseline60Hz; no implicit generic source-mode substitute was created.");

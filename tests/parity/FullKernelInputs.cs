@@ -22,6 +22,7 @@ internal sealed class FullKernelInputs
     internal const string ContactFixtureSchema = "source-contact-kernel-real-inputs/v1";
     internal bool IsContactProfile { get; private set; }
     internal bool IsC2Profile { get; private set; }
+    internal bool IsC2M1Profile { get; private set; }
     internal SourceC2CallbackData C2Data { get; private set; }
     internal string C2InputRoot { get; private set; }
     internal SourceVector3[] ReferencePivots { get; private set; }
@@ -54,8 +55,10 @@ internal sealed class FullKernelInputs
 
     internal static FullKernelInputs Load(string manifestPath, bool movementLibrary = false,
         bool selectedMovementLibrary = false, string soundFunctionsPath = null, bool legacyAnimationLibrary = false,
-        string c2InputsPath = null)
+        string c2InputsPath = null, string c2M1InputsPath = null)
     {
+        if (c2InputsPath != null && c2M1InputsPath != null)
+            throw new ArgumentException("Select exactly one old-nine or M1-successor C2 input generation.");
         if (string.IsNullOrWhiteSpace(manifestPath))
             throw new ArgumentException("An explicit prepared real-input fixture manifest is required.", nameof(manifestPath));
         string root = Path.GetDirectoryName(Path.GetFullPath(manifestPath));
@@ -148,11 +151,12 @@ internal sealed class FullKernelInputs
                     GameSimulation.SourceSoundVmDataSha256)
                 : File.ReadAllBytes(soundFunctionsPath);
             result.SoundFunctions = SourceAudioFunctionData.Read(soundFunctions, GameSimulation.SourceSoundVmDataSha256);
-            if (c2InputsPath != null)
+            if (c2InputsPath != null || c2M1InputsPath != null)
             {
                 if (selectedMovementLibrary || legacyAnimationLibrary)
                     throw new InvalidDataException("Canonical281 cannot alias a historical selected156/legacy library.");
-                result.C2InputRoot = Path.GetFullPath(c2InputsPath);
+                result.IsC2M1Profile = c2M1InputsPath != null;
+                result.C2InputRoot = Path.GetFullPath(c2M1InputsPath ?? c2InputsPath);
                 string animationRoot = Path.Combine(result.C2InputRoot, "animation281");
                 byte[] c2Inventory = File.ReadAllBytes(Path.Combine(animationRoot, "export-inventory.json"));
                 if (Sha256(c2Inventory) != SourceTeamResourceProfile.C2AnimationSha256)
@@ -162,9 +166,10 @@ internal sealed class FullKernelInputs
                 SourceTeamResourceProfile.Contact281C2.RequireLibrary(result.Animations);
                 if (result.Animations.SequenceNames.Count != 281 || result.Animations.FrameCount != 26230)
                     throw new InvalidDataException("Canonical281 requires every actual clip/frame, never a272 relabel.");
-                result.C2Data = SourceInterfacePackagePlan.ReadC2Callbacks(
-                    File.ReadAllBytes(Path.Combine(result.C2InputRoot, "c2-callback-data.json")),
-                    File.ReadAllBytes(Path.Combine(result.C2InputRoot, "m-qbfite-hit-extension.safn")));
+                byte[] callbacks = File.ReadAllBytes(Path.Combine(result.C2InputRoot, "c2-callback-data.json"));
+                byte[] hit = File.ReadAllBytes(Path.Combine(result.C2InputRoot, "m-qbfite-hit-extension.safn"));
+                result.C2Data = result.IsC2M1Profile ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks, hit)
+                    : SourceInterfacePackagePlan.ReadC2Callbacks(callbacks, hit);
                 result.Geometry = new SourceCatchGeometry(result.Animations, pivots);
                 result.IsContactProfile = false;
                 result.IsC2Profile = true;
@@ -183,9 +188,13 @@ internal sealed class FullKernelInputs
         {
             if (configuration == null || presentation == null)
                 throw new InvalidDataException("Canonical281 callers must provide their existing explicit match/presentation inputs.");
-            game = SourceC2Composition.CreateSimulation(Animations, ReferencePivots, Playbook, configuration,
-                Rosters, presentation, MovementRuntime, settings, SoundFunctions,
-                SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed);
+            game = IsC2M1Profile
+                ? SourceC2Composition.CreateM1Simulation(Animations, ReferencePivots, Playbook, configuration,
+                    Rosters, presentation, MovementRuntime, settings, SoundFunctions,
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed)
+                : SourceC2Composition.CreateSimulation(Animations, ReferencePivots, Playbook, configuration,
+                    Rosters, presentation, MovementRuntime, settings, SoundFunctions,
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed);
         }
         else
         {

@@ -9,6 +9,35 @@ import source
 
 
 class ContactRunnerTests(unittest.TestCase):
+    def test_M1_successor_requires_its_own_actual_factory_native_binding_inventory(self):
+        row = {
+            "status": "passed", "assertions": 251,
+            "production_profile": "original-teams-contact281-c2-m1",
+            "c2_callback_data_sha256": "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a",
+            "actual_bound_SAFN": run.SOUND_SHA,
+            "c2_bounded_evidence": {"m1_running_taunt_actual_factory_ANI_CODE_cases": 30},
+        }
+        run.require_m1_sound_summary(0, row)
+        for key, value in (("assertions", 250), ("production_profile", "original-teams-contact281-c2"),
+                           ("c2_callback_data_sha256", run.C2_DATA_SHA),
+                           ("actual_bound_SAFN", "unbound"),
+                           ("c2_bounded_evidence", {"m1_running_taunt_actual_factory_ANI_CODE_cases": 29})):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                run.require_m1_sound_summary(0, dict(row, **{key: value}))
+        with self.assertRaises(RuntimeError):
+            run.require_m1_sound_summary(1, row)
+
+    def test_M1_compiled_controls_are_distinct_and_match_live_causal_source_sites(self):
+        from c2_controls import m1_specifications
+        controls = m1_specifications()
+        self.assertEqual(len(controls), 19)
+        self.assertEqual(len({row[0] for row in controls}), 19)
+        for identity, relative, old, new, assertion in controls:
+            with self.subTest(identity=identity):
+                self.assertEqual((run.ROOT / relative).read_text().count(old), 1)
+                self.assertNotEqual(old, new)
+                self.assertTrue(assertion.startswith("M1 running-taunt "))
+
     def summary(self):
         return {
             "schema": "source-contact-checks/v1", "status": "passed", "assertions": run.EXPECTED_ASSERTIONS["kernel"],

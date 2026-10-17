@@ -278,6 +278,7 @@ internal static partial class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length == 6 && args[0] == "snap-hike") return SnapHikeChecks(args);
         var result = new Dictionary<string, object> {
             { "schema", "source-movement-caller-checks/v1" }, { "status", "error" },
             { "whole_M1_or_full_gameplay_qualified", false }, { "native_or_browser_qualified", false }
@@ -285,13 +286,23 @@ internal static partial class Program
         try
         {
             string c2Inputs = null;
+            string c2M1Inputs = null;
+            if (args.Length >= 2 && args[args.Length - 2] == "--c2-m1-inputs")
+            {
+                c2M1Inputs = args[args.Length - 1];
+                args = args.Take(args.Length - 2).ToArray();
+            }
             if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
             {
                 c2Inputs = args[args.Length - 1];
                 args = args.Take(args.Length - 2).ToArray();
             }
             bool canonical = args.Length == 5 && (args[2] == "canonical281" || args[2] == "canonical281-observed");
-            if (!canonical && (args.Length != 3 && args.Length != 4 ||
+            bool m1Replay = args.Length == 6 && new[] {
+                "m1-complete", "m1-complete-observed", "historical-canonical-replay", "historical-canonical-replay-observed"
+            }.Contains(args[2]);
+            bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
+            if (!canonical && !m1Replay && (args.Length != 3 && args.Length != 4 ||
                 !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
@@ -299,11 +310,26 @@ internal static partial class Program
             Directory.CreateDirectory(outputRoot);
             mutationRun = args[2] == "controlled";
             real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded",
-                soundFunctionsPath: args.Length >= 4 ? args[3] : null, c2InputsPath: canonical ? args[4] : c2Inputs);
+                soundFunctionsPath: args.Length >= 4 ? args[3] : null,
+                c2InputsPath: canonical || historicalReplay ? args[4] : c2Inputs,
+                c2M1InputsPath: m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
+            if (m1Replay)
+            {
+                M1CompleteReplay(args[5], args[2].EndsWith("-observed", StringComparison.Ordinal), historicalReplay);
+                result["status"] = historicalReplay ? "historical-canonical-vector-replayed" : "passed";
+                result["assertions"] = assertions;
+                result["mode"] = args[2];
+                result["public_R_SKIP_gate_qualified"] = !historicalReplay && m1ReplayPositive;
+                result["actual_factory_replay"] = m1ReplayEvidence;
+                result["whole_M1_or_full_gameplay_qualified"] = false;
+                result["complete_publication_qualification"] = false;
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
             if (canonical)
             {
                 CanonicalEntry(args[2] == "canonical281-observed");
@@ -423,6 +449,8 @@ internal static partial class Program
                 presentation: presentation, movementSettings: movementSettings, camera: camera);
             return activeGame;
         }
+        if (real.IsC2M1Profile)
+            throw new InvalidOperationException("M1 successor cache proof must use actual SourceC2Composition and canonical call-site observation, never a proxy constructor.");
         var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, random, 1,
             real.Rosters, presentation, real.MovementRuntime, movementSettings);
         game.BindSourceSoundVmData(real.SoundFunctions);

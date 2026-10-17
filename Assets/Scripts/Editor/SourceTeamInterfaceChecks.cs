@@ -116,6 +116,18 @@ namespace Blitz.Editor
         public static void VerifyContact281C2FromCommandLine() { VerifyContact281C2(true); }
         public static void VerifyContact281C2BindingsFromCommandLine() { VerifyContact281C2(false); }
 
+        public static void VerifyContact281C2M1FromCommandLine() { VerifyContact281C2M1(true); }
+        public static void VerifyContact281C2M1BindingsFromCommandLine() { VerifyContact281C2M1(false); }
+
+        private static void VerifyContact281C2M1(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromContact281C2M1Arguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
         private static void VerifyContact281C2(bool pixels)
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -171,13 +183,13 @@ namespace Blitz.Editor
             Require(services.Profile.StableId == profile.StableId, "Saved services explicit generation tag differs; old resources are not upgraded.");
             Require(ReferenceEquals(services.Hud, hud), "Saved services refer to a different original HUD.");
             SourceAnimationLibraryAsset animation = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
+            SourceTeamInterfaceImporter.RequireAnimationProfileAsset(profile, animation);
             Require(animation != null && animation.InventorySha256 == profile.AnimationSha256 &&
-                AssetDatabase.GetAssetPath(animation) == profile.AnimationAssetPath &&
                 ReferenceEquals(animation.Load(), services.Animations), "Saved services do not reuse the SAME explicit animation profile/library.");
             SourceAnimationLibrary actualLibrary = animation.Load() as SourceAnimationLibrary;
             Require(actualLibrary != null, "Saved actual typed animation library is missing.");
             profile.RequireInventory(animation.InventorySha256, actualLibrary.SequenceNames.Count, actualLibrary.FrameCount);
-            if (profile.IsContact272 || profile.IsContact281C2)
+            if (profile.IsContact272 || profile.UsesC2Data)
             {
                 SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
                 Require(teams != null && teams.Template.StableId == profile.StableId,
@@ -247,8 +259,10 @@ namespace Blitz.Editor
             }
             if (plan.HasC2)
             {
-                VerifyC2Text(savedServices, "originalC2Callbacks", SourceInterfacePackagePlan.C2CallbackResourceKey,
-                    plan.CopyC2Callbacks(), SourceInterfacePackagePlan.C2CallbackSha256);
+                VerifyC2Text(savedServices, "originalC2Callbacks",
+                    profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey : SourceInterfacePackagePlan.C2CallbackResourceKey,
+                    plan.CopyC2Callbacks(),
+                    profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackSha256 : SourceInterfacePackagePlan.C2CallbackSha256);
                 VerifyC2Text(savedServices, "originalC2HitExtension", SourceInterfacePackagePlan.C2HitResourceKey,
                     plan.CopyC2HitExtension(), SourceInterfacePackagePlan.C2HitSha256);
                 Require(services.C2Data.PayloadSha256 == plan.C2Data.PayloadSha256 &&

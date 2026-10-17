@@ -7,6 +7,59 @@ tool code, metadata-only pins and original synthetic fixtures belong in publicat
 
 ## Explicit C2 production281 generation
 
+### Explicit M1 running-taunt successor (not the old-nine default)
+
+`--profile contact281-c2-m1` selects a **separate** trusted generation. Without
+that option both producers still reproduce the frozen old-nine C2 bytes below.
+The successor keeps every281 clip, all26,230 frames, nine C2 extension programs,
+old-six SAFN and ONE7538 unchanged. It adds only these source-verified VM bindings
+to the existing nine, not new clips/programs or a fictitious cyclic `ANI_END`:
+
+| Script | `plyrseq.c` operand line | `taunt_speech` arguments |
+| --- | --- | --- |
+| `r_histep_anim` |6373| `-4,0,0` |
+| `r_skip_anim` |6401| `-4,0,0` |
+| `r_hihand_anim` |6428| `-4,0,0` |
+| `r_bktau2_anim` |6480| `-4,0,0` |
+| `r_ezsprint_anim` |6508| `-5,0,0` |
+
+Original `sounds.c:507–528` already drives the generic selector. `-4` consumes
+`randrng(100)`, returns empty at10 or above, otherwise consumes `randrng(3)` for
+the original histep table. `-5` consumes only `randrng(100)` and emits fixed11
+below10. The actual initialized taunt bank is required when emitting; percent0
+is unused, not mute. No new selector, DSP state or target-PRNG claim is involved.
+
+```sh
+python3 -B tools/animation/prepare_c2_profile.py \
+  --source-root "$AUTHORIZED_NFL_SOURCE_ROOT" \
+  --base-bundle "$AUTHORIZED_272_BUNDLE" --extra-bundle "$AUTHORIZED_EXTRA9" \
+  --profile contact281-c2-m1 --destination .squad/.scratch/c2-m1/inputs
+python3 -B tools/animation/prepare_c2_impact.py \
+  --base-catalog "$AUTHORIZED_C1_469_CATALOG" \
+  --callback-data .squad/.scratch/c2-m1/inputs/c2-callback-data.json \
+  --plyrseq "$AUTHORIZED_NFL_SOURCE_ROOT/plyrseq.c" \
+  --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs \
+  --profile contact281-c2-m1 --destination .squad/.scratch/c2-m1/impact
+```
+
+| Successor identity | Value |
+| --- | --- |
+| Resource profile | `original-teams-contact281-c2-m1` |
+| Payload profile | `OriginalRelease57Hz-C2-M1-InitSoundBanks-v1` |
+| Callback SHA-256 | `b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a` |
+| Callback resource key | `SourceData/source-c2-m1-callbacks-b0c02e55` |
+| Computed477+5 impact sites | **482**, `2fee43a7a20dad06d8846b1d558a69d8648041368091ab12677c941e19b66cd1` |
+| Actual factory | `SourceC2Composition.CreateM1Simulation` |
+
+Old `CreateSimulation` / `ReadC2Callbacks` remain old-nine only; the successor
+uses `CreateM1Simulation` / `ReadC2M1Callbacks`. Mixed generations fail visibly.
+Runtime/resource/import/build URL wiring is a separate Systems integration gate,
+not implicit promotion from C1 or old C2. Source calls/raw RNG/FIFO qualification
+is not DSP playback or full-game/native acceptance.
+
+For the existing proper original-C producer, `tests/contact/prepare_c2.py` accepts
+the same explicit `--profile contact281-c2-m1`; its default is unchanged.
+
 `prepare_c2_profile.py` reproduces the **exact Core-qualified canonical bytes**,
 using existing `read_wan_clip.encode_clip`, `prepare_functions.produce/encode`
 and `prepare_functions.canonical`. It takes explicit original/base/extra roots;
@@ -15,11 +68,25 @@ union format, embed original tables in source, retrieve anything or decode new
 motion. Original tables, bank pools and nine callback tuples are extracted from
 their pinned source. All272 and nine new clip bytes are copied unchanged.
 
+The extra-nine acquisition edge uses the tracked **metadata-only**
+`c2_sequences.json`, SHA-256
+`29073877f1e6586fb961b18b65d7d1173e7d77e2a8567e8f64bc2f3fbbc42210`.
+It contains only names, source paths/blob pins, frame counts/bounds and converter
+provenance, not WAN, frame, pose or audio payloads. The unchanged generic exporter
+decodes the nine clips from `anim/misc.wan`, `anim/misc3.wan` and `anim/misc4.wan`;
+all three are already included in `tests/parity/fetch_inputs.py --profile contact272`.
+No ignored catalog, additional WAN download or new decoder is required.
+
 ```sh
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root .squad/.scratch/SourceData/contact-kernel-original \
+  --catalog tools/animation/c2_sequences.json \
+  --destination .squad/.scratch/c2-presentation/extra9
+
 python3 -B tools/animation/prepare_c2_profile.py \
   --source-root .squad/.scratch/SourceData/contact-kernel-original \
   --base-bundle .squad/.scratch/SourceData/contact-kernel272/contact-animation \
-  --extra-bundle .squad/.scratch/c2-taunt-profile/extra \
+  --extra-bundle .squad/.scratch/c2-presentation/extra9 \
   --destination .squad/.scratch/c2-presentation/inputs
 # Add --reuse only to freshly compare all288 existing output bytes.
 
@@ -33,10 +100,12 @@ python3 -B tools/animation/prepare_c2_impact.py \
 
 | Explicit C2 artifact | SHA-256 |
 | --- | --- |
+| Nine-clip / 1,338-selected-frame extra manifest | `3e69a29f11c15c5d318f486824b1a3bba1f9489905e20d4c9ce76742af7a8c5f` |
 |281/26,230-frame animation manifest | `e87401c8cf3e348cc2d9c7255a1f18f43e41b1694ff7dff45c4bf025a5ecce4f` |
 | `c2-callback-data.json` | `9d2cb7ac5d92c3c2178fc1970a68ccad778fb7d319513b1787fe3ba3fe905f99` |
 | ONE7538 hit-extension SAFNv1 | `bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904` |
 |477-site bound impact catalog | `9e82809268e18ae5d792f6e1614f0ea949a04b579bf4a93ea81b7833be4ce8ac` |
+| Separate unchanged old-six SAFNv1 | `4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280` |
 
 This is the verified272+9 distinct union, not an assumed277 subset. Nine real
 clips add1338 selected fifteen-bone frames; transitive BREATH98/RUSH_C75 already
@@ -52,6 +121,38 @@ into an animation cue, actor0 or a fabricated camera site.
 
 Use `tests/presentation/c2-runtime/README.md` for fresh package/runtime proofs.
 Historical producers/catalogs below remain unchanged and distinct.
+
+### Optional original-C C2 oracle inputs
+
+The public C2 runtime fixture above needs no Midway process source. The separate
+original-C oracle requires two explicit local files from `historicalsource/midwayvideo`
+revision `1792293aaaea00a919b59e8c05716978e85b4333`. The NFL input fetcher does not
+acquire them. If network retrieval is separately authorized, the existing pinned
+Git-blob recipe is:
+
+```sh
+PROCESS_ROOT=.squad/.scratch/SourceData/c2-process-original
+test ! -e "$PROCESS_ROOT" || exit 1
+mkdir -p "$PROCESS_ROOT/lib/goose"
+gh api repos/historicalsource/midwayvideo/git/blobs/967ca53910f24ddfa48a14485113a8fd0c989959 \
+  --jq .content | base64 --decode > "$PROCESS_ROOT/lib/goose/process.c"
+gh api repos/historicalsource/midwayvideo/git/blobs/7b44637c3d59e2256ad099226b7ea17f108907ef \
+  --jq .content | base64 --decode > "$PROCESS_ROOT/lib/goose/mthread.c"
+
+python3 -B tests/contact/prepare_c2.py \
+  --source-root "$AUTHORIZED_NFL_SOURCE_ROOT" --process-root "$PROCESS_ROOT" \
+  --base272 "$AUTHORIZED_272_BUNDLE" \
+  --extra9 .squad/.scratch/c2-presentation/extra9 \
+  --output .squad/.scratch/c2-original-oracle-preparation
+```
+
+Use a new ignored process root, never overwrite an existing input.
+`tests/contact/c2_oracle.py` verifies both Git blob hashes before extracting any
+body; there is no fallback to invented scheduler behavior. Production producers
+and oracle preparation remain offline by default; these explicit `gh` commands
+are the only retrieval step shown. Source bodies and generated oracle/data
+outputs must stay ignored/local. Host-C evidence does not establish target
+scheduler, ABI, native game or DSP equivalence.
 
 ## C1 production successor: explicit Contact272
 

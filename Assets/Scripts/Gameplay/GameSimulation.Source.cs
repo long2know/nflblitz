@@ -293,6 +293,8 @@ namespace Blitz.Gameplay
 
         private void SnapSource(bool automatic)
         {
+            if (Model.Phase != GamePhase.PreSnap || (Model.SourceFlags & SourceGameFlags.HikingBall) != 0)
+                return;
             if (!automatic && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
                 && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.Punt)) != 0)
                 throw new NotSupportedException("Manual source kick/punt meter needs plyrinfo.c k_bar/k_marker widths, "
@@ -306,8 +308,6 @@ namespace Blitz.Gameplay
                 int sign = (SourceDrawFor("plyrinfo.c:kick_meter_proc:auto_hike_sign")(2) << 1) - 1;
                 Model.SourceKickMeterPercent = percent * sign;
             }
-            Model.Phase = GamePhase.LiveBall;
-            Model.SourceMatchPhase = SourceMatchPhase.LiveBall;
             Model.PreSnapTicksRemaining = 0;
             Model.PlayNumber++;
             Model.LiveTicks = 0;
@@ -329,9 +329,6 @@ namespace Blitz.Gameplay
             SourcePlayerDriver.Snap(Model, SourceDraw);
             if (sourceGeometry != null)
                 SynchronizeSourceHeldBall();
-            Emit(GameEventType.Snapped, Model.Possession, Model.CarrierId, 0, Model.BallPosition,
-                Model.OffenseOffset + 3, Model.OffenseOffset + 1);
-            EmitSource(SourceEventType.Snapped, Model.OffenseOffset + 3, Model.OffenseOffset + 1);
         }
 
         private void PrepareSourceKickoff(bool first, bool half)
@@ -1377,6 +1374,8 @@ namespace Blitz.Gameplay
             if (Model.SourceDrones[actor.Id].LastSourceTick == Model.SourceTick)
                 return actor.SourceMove;
             SourceAiFrame frame = Model.SourceAiFrame ?? BuildSourceAiFrame();
+            if (actor.SourceMode == SourceActorMode.Kicker)
+                frame = CurrentSourceKickerVariables(frame);
             int active = 0;
             foreach (SourceStationConfiguration station in sourceConfiguration.Stations) active |= 1 << station.StationId;
             SourceKickerStage kickerStage = Model.Phase == GamePhase.LiveBall ? SourceKickerStage.InPlay
@@ -1414,6 +1413,45 @@ namespace Blitz.Gameplay
                 && (actor.SourceButtons & ~actor.SourceOldButtons & SourceDroneButtons.D) != 0 ? step.Script : null;
             if (!step.CommandWritten) return actor.SourceMove;
             return new FieldVector(step.DesiredMovement.X, step.DesiredMovement.Z);
+        }
+
+        private SourceAiFrame CurrentSourceKickerVariables(SourceAiFrame captured)
+        {
+            // _drone_kicker reads current ball globals/holder position in its process,
+            // not a pre-player ball snapshot. The original geometry caches stay intact.
+            var actors = new SourceAiActor[14];
+            for (int id = 0; id < actors.Length; id++) actors[id] = captured.Actors[id];
+            var distances = new float[14, 14];
+            var angles = new int[14, 14];
+            for (int from = 0; from < 14; from++)
+                for (int to = 0; to < 14; to++)
+                {
+                    distances[from, to] = captured.Distance(from, to);
+                    angles[from, to] = captured.Angle(from, to);
+                }
+            int holder = Model.TargetPlayerId;
+            if (holder >= 0 && Model.CarrierId >= 0)
+            {
+                SourceAiActor previous = actors[holder];
+                SourceVector3 root = SourcePlayerDriver.WorldPosition(Model.Players[holder]);
+                actors[holder] = new SourceAiActor(previous.Id, new SourcePlanar(root.X, root.Z),
+                    previous.Velocity, previous.Mode, previous.Job, previous.Target, previous.Flags,
+                    previous.Station, previous.Facing, previous.Stick, previous.AttackTarget, previous.Height,
+                    previous.RawFacing);
+            }
+            var ball = new SourceAiBall(SourceBallTypeFor(Model.BallKind),
+                new SourcePlanar(Model.SourceBallPosition.X, Model.SourceBallPosition.Z),
+                new SourcePlanar(Model.SourceBallVelocity.X, Model.SourceBallVelocity.Z),
+                new SourcePlanar(Model.SourceBallTarget.X, Model.SourceBallTarget.Z), Model.CarrierId,
+                Model.TargetPlayerId, Model.ThrowerId, Model.PassTicksElapsed, Model.PassTicksTotal,
+                Model.SourceBallPosition.Y, Model.SourceBallVerticalVelocity,
+                (Model.SourceBallFlags & SourceBallFlags.Bounce) != 0);
+            return new SourceAiFrame(actors, captured.Directions, captured.Rules, ball, Model.SourceTick,
+                Model.SourceSnapTick, captured.CameraHeading, captured.HumanTeamMask,
+                Model.Phase != GamePhase.LiveBall && Model.Phase != GamePhase.PreSnap,
+                Model.SourceFlags, captured.OffenseFire, captured.FireReceiver,
+                captured.OffensePlayFlags, captured.DefensePlayFlags, Model.Phase == GamePhase.LiveBall,
+                distances, angles);
         }
 
         private void ApplySourceDroneAnimation(ActorState actor)
@@ -1669,6 +1707,8 @@ namespace Blitz.Gameplay
                 ActorState actor = Model.Players[actorId];
                 int target = Model.OffenseOffset + 3;
                 Model.CarrierId = -1;
+                Model.Phase = GamePhase.LiveBall;
+                Model.SourceMatchPhase = SourceMatchPhase.LiveBall;
                 Model.BallMode = BallMode.InFlight;
                 Model.TargetPlayerId = target;
                 Model.BallKind = SourceBallKind.Lateral;
@@ -1681,6 +1721,9 @@ namespace Blitz.Gameplay
                     fieldGoal, 5.40f, zOffset);
                 Model.SourceBallFlags &= ~(SourceBallFlags.Bounce | SourceBallFlags.Bobble | SourceBallFlags.FirePass
                     | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+                Emit(GameEventType.Snapped, Model.Possession, actorId, 0, Model.BallPosition,
+                    target, actorId);
+                EmitSource(SourceEventType.Snapped, target, actorId);
             }
         }
 

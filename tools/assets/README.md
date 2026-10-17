@@ -1,5 +1,13 @@
 # Original player/team presentation inputs
 
+**Explicit C2-M1 successor resource registry:** `original-teams-contact281-c2-m1`
+uses the same canonical e874 animation but strict new fourteen-binding callback
+JSON,482-site catalog and services keys. See
+`../interface/packaging.md`. Explicit URL/build admission uses Parent's
+authorized single shared-selector guard addition; default/old-nine behavior
+is unchanged. This is not M1/gameplay/CI/native qualification or a rendering
+change.
+
 **Explicit C2 successor:** `original-teams-contact281-c2` binds canonical281/
 26,230 frames,477 original impact/callback sites and separately pinned C2 JSON/
 ONE7538 sound extension. Use the C2 producer and package sections in

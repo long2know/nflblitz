@@ -1,5 +1,55 @@
 # Original B1 HUD and match-service resource packaging
 
+## Explicit C2-M1 fourteen-binding successor
+
+The new profile is `original-teams-contact281-c2-m1`. It retains the exact281/
+26,230-frame `e87401c8...` animation and unchanged old6/ONE7538 sound payloads,
+but **does not** alias the old-nine callback/service/catalog identities:
+
+| Successor artifact | Identity |
+| --- | --- |
+| Services | `BlitzSourceInterface/original-contact281-c2-m1-match-services` |
+| Callback JSON | `SourceData/source-c2-m1-callbacks-b0c02e55` |
+| Callback SHA-256 | `b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a` |
+| Payload profile | `OriginalRelease57Hz-C2-M1-InitSoundBanks-v1` |
+| Catalog schema/sites | `original-impact-contact281-c2-m1/v1` /482 |
+| Catalog SHA-256 | `2fee43a7a20dad06d8846b1d558a69d8648041368091ab12677c941e19b66cd1` |
+
+The new five running-taunt sites6373/6401/6428/6480(-4) and6508(-5) retain
+actual source caller/callee/process/RNG context. No new clip, camera, ground
+fallback or DSP behavior is invented. The old-nine reader/factory remains
+strictly old-nine; `ReadC2M1Callbacks`, `WithContact281C2M1`,
+`InitializeContact281C2M1` and actual `SourceC2Composition.CreateM1Simulation`
+are selected only for this explicit successor.
+
+Future licensed resource surfaces are
+`SourceTeamImporter.ImportContact281C2M1FromCommandLine`,
+`SourceTeamInterfaceImporter.ImportContact281C2M1FromCommandLine`,
+`SourceTeamChecks.VerifyContact281C2M1FromCommandLine` and
+`SourceTeamInterfaceChecks.VerifyContact281C2M1BindingsFromCommandLine`.
+Use the same explicit flags below, with the new prepared M1 callback root,
+the new482 catalog and a fresh interface stable ID. A single unique canonical
+e874 animation asset may be reused from either explicit C2 generation; only
+that byte-identical animation is shared. Callback, team/template, catalog and
+service resources remain generation-specific.
+
+After Core's holder diagnosis went idle, Parent authorized the **single**
+shared URL-selection guard addition. Explicit selection is now
+`?actors=source&sourceprofile=original-teams-contact281-c2-m1`; the build methods
+`PrepareContact281C2M1Project` / `BuildContact281C2M1` check that same public
+selector before any preparation. No private selector/proxy factory bypass
+is installed. Existing C1/default and old-nine C2 selection is unchanged;
+conflicting pinned build/URL generations still fail. No Editor or resource
+import/build has been executed.
+
+The current public M1 remains **unqualified**: canonical and first saved
+window contain zero R_SKIP observations, and a distinct saved second vector
+stops at source5590/actor13 in kicker-holder/int_receiver=-1 handling. No
+new probes, seed/vector changes or gameplay repair is performed by resource
+wiring. CI, playability, fullM1/all16/native/DSP are not claimed passed.
+The separately disclosed parent-autonomous portability repair below remains
+not explicit user approval and not target-memory/ABI emulation.
+
 ## Explicit Contact281C2 production binding
 
 C2 is **opt-in**, not a silent change to existing C1 or explicit graybox/

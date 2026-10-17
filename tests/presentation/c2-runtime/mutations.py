@@ -15,7 +15,8 @@ CATALOG = "Assets/Scripts/AssetImport/SourceCinematicLibrary.cs"
 DEFAULT = (
     ("new281-key-aliases272", PACKAGE, 'C2AnimationKey = "SourceData/local-plyr266-contact281-c2-e87401c8"',
      'C2AnimationKey = "SourceData/local-plyr266-contact272-9cae962b"', "C2 animation not272 alias"),
-    ("wrong277-profile", PACKAGE, "C2AnimationSha256, 281, 26230, false", "C2AnimationSha256, 277, 26230, false",
+    ("wrong277-profile", PACKAGE, "C2StableId, C2AnimationKey, C2AnimationSha256, 281, 26230, false",
+     "C2StableId, C2AnimationKey, C2AnimationSha256, 277, 26230, false",
      "full nine-script281 closure not277"),
     ("C2-JSON-resource-aliases-old6", PACKAGE, 'C2CallbackResourceKey = "SourceData/source-c2-callbacks-9d2cb7ac"',
      'C2CallbackResourceKey = "SourceData/sound-functions-safn1-4a557304"', "C2 JSON resource identity"),
@@ -23,6 +24,20 @@ DEFAULT = (
      'SoundVmFunctionsSha256 = "4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280"',
      'SoundVmFunctionsSha256 = "bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904"',
      "old6 SAFN identity unchanged"),
+)
+M1_ACTUAL = (
+    ("m1-reader-aliases-old-nine", PACKAGE,
+     "return ReadC2CallbacksForProfile(callbacks, hitExtension, SourceTeamResourceProfile.Contact281C2M1);",
+     "return ReadC2CallbacksForProfile(callbacks, hitExtension, SourceTeamResourceProfile.Contact281C2);",
+     "M1 canonical14 schema and reader must load"),
+    ("m1-factory-aliases-old-nine", FACTORY,
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,",
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,",
+     "new factory rejects old-nine bootstrap must reject"),
+    ("m1-missing-running-tuple6373", CATALOG,
+     "if (cue.Script == script && cue.Line == originalLine && cue.Kind == kind) return cue;",
+     "if (cue.Line != 6373 && cue.Script == script && cue.Line == originalLine && cue.Kind == kind) return cue;",
+     "M1 exact14 catalog caller tuples including6373 must exist"),
 )
 ACTUAL = (
     ("bootstrap-omitted-until-after-AI", FACTORY, "rosters, presentation, movementData, movementSettings, c2Bootstrap);",
@@ -67,7 +82,8 @@ def main():
     run.require(output.is_relative_to(run.SUITE / ".artifacts"), "mutations stay in own ignored outputs")
     output.mkdir(parents=True, exist_ok=True)
     values = run.sources(); work = output / "source"; rows = []
-    actual = run.input_args(args, output); cases = DEFAULT + (ACTUAL if actual else ())
+    actual = run.input_args(args, output)
+    cases = DEFAULT + (ACTUAL if actual else ()) + (M1_ACTUAL if args.m1_inputs else ())
     try:
         run.snapshot(values, work); env = run.env_for(output)
         for label, path, before, after, assertion in cases:

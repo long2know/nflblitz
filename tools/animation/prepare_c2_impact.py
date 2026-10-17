@@ -13,13 +13,17 @@ profile = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(profile)
 
 
-def prepare(base, callbacks, plyrseq, programs, destination):
+def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=profile.PROFILE):
+    profile.require(selected_profile in (profile.PROFILE, profile.M1_PROFILE), "Select one explicit impact generation.")
+    m1 = selected_profile == profile.M1_PROFILE
     def read(path, pin):
         data = profile.selected._read_bytes(profile.selected._absolute(path), 4 * 1024 * 1024)
         profile.require(profile.sha(data) == pin, "Explicit original/C2 metadata content pin differs.")
         return json.loads(data)
     catalog = read(base, "738d712b6f80d8a9456338548e7bbce1fdf88baa46f342a7c45efffd02a8f23a")
-    data = read(callbacks, profile.DATA_SHA)
+    data = read(callbacks, profile.M1_DATA_SHA if m1 else profile.DATA_SHA)
+    profile.require(data["profile"] == (profile.M1_ENTRY_PROFILE if m1 else profile.ENTRY_PROFILE),
+                    "Callback and selected impact profiles differ.")
     raw = profile.selected._read_bytes(profile.selected._absolute(plyrseq), 4 * 1024 * 1024)
     profile.require(profile.selected.reader.wan.git_blob_sha1(raw) == profile.SOURCE_PINS["plyrseq.c"],
                     "Pinned plyrseq.c changed.")
@@ -44,20 +48,25 @@ def prepare(base, callbacks, plyrseq, programs, destination):
             catalog["animation_cues"].append({"script": binding["script"], "line": line, "kind": "callback",
                 "arguments": arguments, "execution": "actual ordered C2 source callback; selection occurs in Core, not presentation"})
             added.append(line)
-    profile.require(len(added) == 8 and len(catalog["animation_cues"]) == 477, "Exact469+8 C2 closure required.")
+    expected_added = 13 if m1 else 8
+    profile.require(len(added) == expected_added and len(catalog["animation_cues"]) == 469 + expected_added,
+                    "Exact original C2 speech-site union required.")
     binding = catalog["contact_binding"]
     binding.update(legacy_animation_manifest_sha256=binding["animation_manifest_sha256"],
                    legacy_programs_sha256=binding["programs_sha256"],
                    animation_manifest_sha256=profile.ANIMATION_SHA, programs_sha256=profile.sha(program_bytes),
-                   c2_payload_sha256=profile.DATA_SHA)
+                   c2_payload_sha256=profile.M1_DATA_SHA if m1 else profile.DATA_SHA)
     binding["new_callback_lines"] = sorted(binding["new_callback_lines"] + added)
-    catalog["schema"] = "original-impact-contact281-c2/v1"
+    catalog["schema"] = "original-impact-contact281-c2-m1/v1" if m1 else "original-impact-contact281-c2/v1"
     catalog["animation_cues"].sort(key=lambda cue: cue["line"])
     catalog["qualifications"] += [
         "Explicit original281 C2 bank-entry profile; all469 old sites, tables and original camera math are unchanged.",
         "Eight real taunt_speech sites added; hit7538 retains its original site and uses explicit HitFunctionExtension dispatch.",
         "Native whistle events have no animation cue or synthetic actor/site; raw output transport is not DSP playback.",
     ]
+    if m1:
+        catalog["qualifications"].append(
+            "Explicit M1 successor adds only the four original running-taunt scripts and their ezsprint replacement; old nine-binding C2 remains distinct.")
     encoded = (json.dumps(catalog, sort_keys=True, indent=2) + "\n").encode()
     destination = profile.selected._absolute(destination)
     profile.require(destination.is_relative_to(profile.ROOT / ".squad/.scratch"), "Original catalogs must remain ignored/local.")
@@ -68,8 +77,9 @@ def prepare(base, callbacks, plyrseq, programs, destination):
         destination.mkdir(parents=True)
         with (destination / "impact-presentation.json").open("xb") as stream:
             stream.write(encoded)
-    return {"schema": catalog["schema"], "sha256": profile.sha(encoded), "sites": 477,
-            "animation_manifest_sha256": profile.ANIMATION_SHA, "c2_data_sha256": profile.DATA_SHA,
+    return {"schema": catalog["schema"], "sha256": profile.sha(encoded), "sites": len(catalog["animation_cues"]),
+            "animation_manifest_sha256": profile.ANIMATION_SHA,
+            "c2_data_sha256": profile.M1_DATA_SHA if m1 else profile.DATA_SHA,
             "C2_programs_sha256": profile.sha(program_bytes), "new_speech_sites": sorted(added)}
 
 
@@ -77,9 +87,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("base-catalog", "callback-data", "plyrseq", "programs", "destination"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--profile", choices=(profile.PROFILE, profile.M1_PROFILE), default=profile.PROFILE)
     args = parser.parse_args()
     try:
-        print(json.dumps(prepare(args.base_catalog, args.callback_data, args.plyrseq, args.programs, args.destination), indent=2))
+        print(json.dumps(prepare(args.base_catalog, args.callback_data, args.plyrseq, args.programs,
+                                 args.destination, args.profile), indent=2))
         return 0
     except (OSError, ValueError, KeyError) as error:
         print("error: " + str(error), file=sys.stderr)

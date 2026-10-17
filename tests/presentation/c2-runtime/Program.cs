@@ -12,7 +12,7 @@ using Blitz.Gameplay;
 using Blitz.Presentation;
 using Blitz.Runtime;
 
-internal static class Program
+internal static partial class Program
 {
     private static int assertions;
     private static SourceAnimationLibrary library, old272;
@@ -38,9 +38,10 @@ internal static class Program
         try
         {
             Identity();
+            M1Registry();
             if (args.Length != 0)
             {
-                Check(args.Length == 7, "explicit current C2/local historical/package input closure");
+                Check(args.Length == 7 || args.Length == 9, "explicit current C2/local historical/package input closure");
                 Load(args);
                 Factory();
                 Selectors();
@@ -50,6 +51,7 @@ internal static class Program
                 PartialAndRestart();
                 OldSix();
                 Package(args);
+                if (args.Length == 9) M1Profile(args);
                 File.WriteAllLines(Path.Combine(args[6], "bounded-evidence.txt"), evidence);
             }
             Console.WriteLine("PASS C2 production binding: " + assertions + " assertions; actual=" + (args.Length != 0) +

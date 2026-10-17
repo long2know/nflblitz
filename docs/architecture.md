@@ -2,12 +2,38 @@
 
 **Owner:** Lead. **Contract checked:** October 17, 2026 (PDT).
 **Current source boundary:** default/empty selection remains Contact272;
-Contact281C2 is an explicit opt-in portable-source/resource increment, not a
-new playable build. See the [current factories/resources/build selection](build.md#current-contactc2-source-mode-resources)
-and [component evidence, M1 gaps and autonomous portability disclosure](source-parity.md#current-contactc2-boundary).
+old-nine Contact281C2 and StageB Contact281C2M1 are separate explicit opt-ins,
+not a new playable build. StageA's tracked `c2_sequences.json` supplies only
+extra9 preparation metadata. The M1 successor keeps the same 281 animation
+bytes and uses fourteen bindings/482 impact sites, strict new callback/
+services identities and actual `SourceC2Composition.CreateM1Simulation`.
+Producer `--profile contact281-c2-m1` is explicit; an omitted C2 producer
+profile still means old-nine, independently of the runtime's C1 default.
+See the [current factories/resources/build selection](build.md#current-contactc2-source-mode-resources)
+and [current blockers and generation-scoped evidence](source-parity.md#current-contactc2-boundary).
 Historical constructor/resource descriptions below retain their original
 generation meaning; old56/117/156/157 assets are not current-engine fallbacks.
-All sixteen full-parity rows remain OPEN.
+The two timing profiles below are distinct from these three resource profiles.
+
+**Blocked qualification:** Source57 now retains PreSnap/HikingBall until the
+actual `hike_ball` stream callback; request-time Live/holder assignment is not
+the source contract. That source-derived fix does not define the remaining
+original six-int automatic-array `bc_adjust[6]` read. No corrected semantics
+or matching target runtime evidence is approved; strict failure remains.
+Positive public R_SKIP is still zero, and clean CI lacks acquisition of the
+exact reviewed 12,000-command input-only replay. The unchanged workflow remains
+legacy69/443 and failed, not current-generation qualification.
+[Current post-snap defined-domain QA](source-parity.md#current-post-snap-defined-domain-qa)
+qualifies the named B1, snap, running-binding, package and archived-API surfaces
+only; its fingerprint excludes all seven mutable Frontend paths. It is not
+full-generation acceptance. Full M1/CI/PR21 merge and all sixteen parity rows
+remain OPEN.
+
+The existing parent-autonomous no-eligible-candidate return/diagnostic before
+`maybe_taunt`'s original `bearing(me,-1)` has no captured explicit user approval.
+It is not target-memory/instruction/ABI emulation and does not authorize a
+similar fallback for `bc_adjust[6]`. Native/DSP/Unity entitlement remain
+unqualified; no current whole-game or browser proof follows from source/API work.
 
 **Recorded live status:** continuous original animation is implemented and verified on Unity
 6000.3.24f1 host WebGL build `0000063700005f540000316b000003e7`, promoted to

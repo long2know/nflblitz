@@ -52,9 +52,13 @@ internal static partial class Program
         SourceC2Bootstrap entry = bootstrap ?? SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(c2Data);
         GameSimulation game;
         if (actualGeometry == null)
-            game = SourceC2Composition.CreateSimulation(c2Library, real.ReferencePivots, real.Playbook,
-                configuration, real.Rosters, presentation, real.MovementRuntime, movementSettings,
-                real.SoundFunctions, entry, factory, 1);
+            game = c2Data.Profile == SourceC2CallbackData.M1Profile
+                ? SourceC2Composition.CreateM1Simulation(c2Library, real.ReferencePivots, real.Playbook,
+                    configuration, real.Rosters, presentation, real.MovementRuntime, movementSettings,
+                    real.SoundFunctions, entry, factory, 1)
+                : SourceC2Composition.CreateSimulation(c2Library, real.ReferencePivots, real.Playbook,
+                    configuration, real.Rosters, presentation, real.MovementRuntime, movementSettings,
+                    real.SoundFunctions, entry, factory, 1);
         else
         {
             // Preserved historical proxy trace, never the canonical real-composition qualification.
@@ -65,6 +69,177 @@ internal static partial class Program
         game.SourceCameraHeadingProvider = (snapshot, tick) => FullKernelInputs.SetControlledMovementCamera(game, snapshot, tick);
         lastGame = game;
         return game;
+    }
+
+    private static void C2M1SoundChecks(string inputs, string nativeRootPath, string oldInputs)
+    {
+        c2Root = Path.GetFullPath(inputs);
+        c2Data = real.C2Data; c2Library = real.Animations; c2Geometry = real.Geometry;
+        C2Check(real.IsC2M1Profile && c2Data.Profile == SourceC2CallbackData.M1Profile &&
+            c2Data.PayloadSha256 == SourceInterfacePackagePlan.C2M1CallbackSha256 &&
+            c2Data.Bindings.Count == 14 && SourceAnimationPrograms.CreateC2Extension().Count == 9,
+            "M1 running-taunt exact14 bindings and unchanged9 extension programs");
+        string[] symbols = { "r_histep_anim", "r_skip_anim", "r_hihand_anim", "r_bktau2_anim", "r_ezsprint_anim" };
+        int[] lines = { 6373, 6401, 6428, 6480, 6508 };
+        byte[] callbacks = File.ReadAllBytes(Path.Combine(c2Root, "c2-callback-data.json"));
+        byte[] oldCallbacks = File.ReadAllBytes(Path.Combine(oldInputs, "c2-callback-data.json"));
+        byte[] hit = File.ReadAllBytes(Path.Combine(c2Root, "m-qbfite-hit-extension.safn"));
+        SourceC2CallbackData old = SourceInterfacePackagePlan.ReadC2Callbacks(oldCallbacks, hit);
+        C2Check(old.Bindings.Count == 9 && old.Profile == SourceC2CallbackData.EntryProfile &&
+            old.PayloadSha256 == SourceInterfacePackagePlan.C2CallbackSha256 &&
+            SourceTeamResourceProfile.SelectRuntimeProfile(null) == SourceTeamResourceProfile.Contact272,
+            "M1 running-taunt old-nine and defaultC1 remain explicit and unchanged");
+        C2Throws<Exception>(() => SourceInterfacePackagePlan.ReadC2Callbacks(callbacks, hit),
+            "M1 running-taunt old resource reader rejects successor bytes");
+        C2Throws<Exception>(() => SourceInterfacePackagePlan.ReadC2M1Callbacks(oldCallbacks, hit),
+            "M1 running-taunt successor reader rejects old resource bytes");
+        string text = System.Text.Encoding.UTF8.GetString(callbacks);
+        foreach (string changed in new[] {
+            text.Replace(SourceC2CallbackData.M1Profile, SourceC2CallbackData.EntryProfile),
+            System.Text.RegularExpressions.Regex.Replace(text, "(\"line\"\\s*:\\s*)6401",
+                match => match.Groups[1].Value + "6402"),
+            System.Text.RegularExpressions.Regex.Replace(text,
+                "\"arguments\"\\s*:\\s*\\[\\s*-4\\s*,\\s*0\\s*,\\s*0\\s*\\]", "\"arguments\":[-5,0,0]") })
+        {
+            C2Check(changed != text, "M1 running-taunt malformed-input control changes the actual produced payload");
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(changed);
+            C2Throws<Exception>(() => SourceC2CallbackData.Read(bytes, Hash(bytes), c2Data.HitExtensionData),
+                "M1 running-taunt structural profile/tuple validation is not a hash whitelist shortcut");
+        }
+        C2Throws<Exception>(() => CreateC2(site => 9, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(old)),
+            "M1 running-taunt successor factory rejects old-nine bootstrap");
+        SourceC2CallbackData successor = c2Data;
+        try
+        {
+            c2Data = old;
+            GameSimulation historical = CreateC2(site => 9);
+            C2Check(historical.C2State.DataSha256 == SourceInterfacePackagePlan.C2CallbackSha256,
+                "M1 running-taunt old factory explicitly accepts unchanged old-nine data");
+            ActorState historicalActor = historical.Model.Players[4];
+            Bind<Action<string, int, int>>(historical, "BeginSourceProcess")("player_proc", historicalActor.Id, 6);
+            int before = ((SourceInjectedRandom)historical.SourceRandomService).Trace.Count;
+            historicalActor.AnimationState.FullBody("r_skip_anim", historicalActor, historical.SourceTick, n => 0,
+                AnimationSelectionEvidence.SourceVerified);
+            SourceSoundVmDispatch retained = historical.TakeSourceSoundVmDispatches().Dispatches.Single();
+            C2Check(retained.Status == SourceSoundVmStatus.Unsupported && retained.Result == null &&
+                ((SourceInjectedRandom)historical.SourceRandomService).Trace.Count == before,
+                "M1 running-taunt old-nine source tuple remains Unsupported without silent RNG promotion");
+            C2Throws<Exception>(() => CreateC2(site => 9, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(successor)),
+                "M1 running-taunt old factory rejects successor bootstrap");
+        }
+        finally { c2Data = successor; }
+        c2NativeRoot = Path.GetFullPath(nativeRootPath);
+        using (JsonDocument receipt = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(c2NativeRoot, "receipt.json"))))
+            C2Check(receipt.RootElement.GetProperty("proper_original_void_functions_no_undefined_scalar_returns").GetBoolean() &&
+                receipt.RootElement.GetProperty("cases_sha256").GetString() ==
+                    Hash(File.ReadAllBytes(Path.Combine(c2NativeRoot, "cases.json"))),
+                "M1 running-taunt original-C proper VOID body and detached case hash");
+        using (JsonDocument native = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(nativeRootPath, "cases.json"))))
+        {
+            JsonElement[] speech = native.RootElement.GetProperty("speech").EnumerateArray().Select(r => r.Clone()).ToArray();
+            int actualCases = 0;
+            var evidence = new List<object>();
+            for (int script = 0; script < symbols.Length; script++)
+            foreach (int raw in new[] { 0, 1, 2, 9, 10, 99 })
+            {
+                int argument = script == 4 ? -5 : -4;
+                GameSimulation game = CreateC2(site => raw);
+                ActorState actor = game.Model.Players[4];
+                // Declared controlled source fixture, never a public-input R_SKIP witness.
+                game.Model.Phase = GamePhase.LiveBall;
+                Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", actor.Id, 6);
+                int actualProcessOrder = game.Model.SourceRandomProcessOrder;
+                int before = ((SourceInjectedRandom)game.SourceRandomService).Trace.Count;
+                Exception animationFailure = null;
+                try { actor.AnimationState.FullBody(symbols[script], actor, game.SourceTick, n => 0,
+                    AnimationSelectionEvidence.SourceVerified); }
+                catch (Exception error) { animationFailure = error; }
+                C2Check(animationFailure == null, "M1 running-taunt real ANI_CODE resolves exact registered tuple");
+                SourceSoundVmDispatch[] batch = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
+                C2Check(batch.Length == 1 && batch[0].Status == SourceSoundVmStatus.Resolved &&
+                    batch[0].C2Context != null && batch[0].HasOriginalAnimationCue,
+                    "M1 running-taunt real ANI_CODE resolves exact registered tuple");
+                SourceSoundVmDispatch dispatch = batch.Single();
+                JsonElement row = speech.First(r => C2Int(r.GetProperty("input"), "sp") == argument &&
+                    C2Int(r.GetProperty("input"), "chance") == raw &&
+                    C2Int(r.GetProperty("input"), "index") == (argument == -4 ? raw % 3 : 0) &&
+                    C2Int(r.GetProperty("input"), "bank") == raw % 2).GetProperty("expected");
+                C2Check(dispatch.Result.RandomCalls == C2Int(row, "draws") &&
+                    dispatch.Result.Calls.Count == C2Int(row, "calls"),
+                    "M1 running-taunt native chance9vs10 zero-output no-eager-index contract");
+                C2Check(dispatch.Result.RandomDraws.Select(d => d.Site.BoundOrModulus).SequenceEqual(
+                    row.GetProperty("bounds").EnumerateArray().Select(v => v.GetInt32())),
+                    "M1 running-taunt native ordered100 then conditional3 bounds");
+                SourceRandomDraw[] shared = ((SourceInjectedRandom)game.SourceRandomService).Trace.Skip(before).ToArray();
+                C2Check(shared.SequenceEqual(dispatch.Result.RandomDraws) &&
+                    game.Model.SourceRandomCallIndex == dispatch.Result.RandomCalls &&
+                    shared.Select(d => d.Site.CallIndex).SequenceEqual(Enumerable.Range(0, shared.Length)) &&
+                    shared.All(d => d.Raw == raw && d.Site.ActorId == actor.Id && d.Site.Process == "player_proc" &&
+                        d.Site.ProcessOrder == actualProcessOrder && d.Site.SourceTick == game.SourceTick),
+                    "M1 running-taunt actual shared RNG process actor cursor no private/reordered stream");
+                C2Check(dispatch.C2Context.SourcePath == "plyrseq.c" && dispatch.C2Context.SourceLine == lines[script] &&
+                    dispatch.C2Context.Argument0 == argument && dispatch.C2Context.Argument1 == 0 &&
+                    dispatch.C2Context.Argument2 == 0 && dispatch.C2Context.FirstCallIndex == 0 &&
+                    dispatch.C2Context.ProcessOrder == actualProcessOrder && dispatch.C2Context.ActorId == actor.Id &&
+                    dispatch.OriginalCue.Context.ExecutingSymbol == symbols[script] &&
+                    dispatch.OriginalCue.Context.SourceLine == lines[script],
+                    "M1 running-taunt exact caller script word-line args and process attribution");
+                if (dispatch.Result.Calls.Count > 0)
+                {
+                    SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls.Single();
+                    C2Check(call.Bank == row.GetProperty("bank").GetString() &&
+                        call.PlaylistId == C2Int(row, "id") && call.Volume == C2Int(row, "volume") &&
+                        call.Pan == 127 && call.PriorityWord == C2Int(row, "priority") &&
+                        call.CalleeSourceSite.SourcePath == "sounds.c" &&
+                        call.CalleeSourceSite.SourceLine == (argument == -4 ? 519 : 524) &&
+                        call.C2Context == dispatch.C2Context && call.HasOriginalAnimationCue,
+                        "M1 running-taunt original bank table priority and callee519or524 attribution");
+                }
+                C2Check(game.TakeSourceSoundVmDispatches().Dispatches.Count == 0,
+                    "M1 running-taunt FIFO drains exactly once");
+                evidence.Add(new { script = symbols[script], raw, argument, dispatch.C2Context,
+                    dispatch.Result.RandomDraws, calls = dispatch.Result.Calls.Select(c => new {
+                        c.Bank, c.PlaylistId, c.Volume, c.Pan, c.PriorityWord, c.CalleeSourceSite }).ToArray() });
+                actualCases++;
+            }
+            GameSimulation fifo = CreateC2(site => 1);
+            ActorState player = fifo.Model.Players[4];
+            Bind<Action<string, int, int>>(fifo, "BeginSourceProcess")("player_proc", player.Id, 6);
+            player.AnimationState.FullBody("r_skip_anim", player, fifo.SourceTick, n => 0, AnimationSelectionEvidence.SourceVerified);
+            player.AnimationState.FullBody("r_ezsprint_anim", player, fifo.SourceTick, n => 0, AnimationSelectionEvidence.SourceVerified);
+            SourceSoundVmDispatch[] ordered = fifo.TakeSourceSoundVmDispatches().Dispatches.ToArray();
+            C2Check(ordered.Length == 2 && ordered[0].C2Context.SourceLine == 6401 &&
+                ordered[1].C2Context.SourceLine == 6508 && ordered[0].Result.Calls.Single().PlaylistId == 13 &&
+                ordered[1].Result.Calls.Single().PlaylistId == 11 && fifo.Model.SourceRandomCallIndex == 3 &&
+                ordered[0].C2Context.FirstCallIndex == 0 && ordered[1].C2Context.FirstCallIndex == 2,
+                "M1 running-taunt actual6401then6508 FIFO and synchronous shared call cursor");
+            GameSimulation missing = CreateC2(site => 9);
+            player = missing.Model.Players[4]; missing.Model.SourceTauntBank = null;
+            Bind<Action<string, int, int>>(missing, "BeginSourceProcess")("player_proc", player.Id, 6);
+            ActorState missingPlayer = player;
+            C2Throws<SourceAudioMissingInputException>(() => missingPlayer.AnimationState.FullBody("r_skip_anim",
+                missingPlayer, missing.SourceTick, n => 0, AnimationSelectionEvidence.SourceVerified),
+                "M1 running-taunt unknown bank stays typed failure not invented default");
+            SourceSoundVmDispatch partial = missing.TakeSourceSoundVmDispatches().Dispatches.Single();
+            C2Check(partial.Status == SourceSoundVmStatus.MissingInput && partial.Result.RandomCalls == 2 &&
+                partial.Result.Calls.Count == 0 && missing.Model.SourceRandomCallIndex == 2,
+                "M1 running-taunt partial missing-bank chance+index cursor retained");
+            GameSimulation emptyMissing = CreateC2(site => 10);
+            player = emptyMissing.Model.Players[4]; emptyMissing.Model.SourceTauntBank = null;
+            Bind<Action<string, int, int>>(emptyMissing, "BeginSourceProcess")("player_proc", player.Id, 6);
+            player.AnimationState.FullBody("r_skip_anim", player, emptyMissing.SourceTick, n => 0,
+                AnimationSelectionEvidence.SourceVerified);
+            SourceSoundVmDispatch empty = emptyMissing.TakeSourceSoundVmDispatches().Dispatches.Single();
+            C2Check(empty.Status == SourceSoundVmStatus.Resolved && empty.Result.RandomCalls == 1 &&
+                empty.Result.Calls.Count == 0 && emptyMissing.Model.SourceTauntBank == null,
+                "M1 running-taunt chance10 returns before unused unknown bank without defaulting state");
+            c2Evidence["m1_running_taunt_actual_factory_ANI_CODE_cases"] = actualCases;
+            c2Evidence["m1_running_taunt_native_function_body"] = "sounds.c:507-528 proper VOID, not ABI int return or DSP";
+            c2Evidence["m1_running_taunt_controlled_fixture_not_public_witness"] = true;
+            c2Evidence["m1_running_taunt_actual_cases"] = evidence;
+            File.WriteAllText(Path.Combine(output, "m1-running-taunt-binding-evidence.json"),
+                JsonSerializer.Serialize(c2Evidence, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+        }
     }
 
     private static void C2CallbackChecks(string originalRoot, string inputs, string nativeRootPath, bool naturalOnly)
@@ -1112,8 +1287,10 @@ internal static partial class Program
 
     private static void AddC2Result(Dictionary<string, object> result)
     {
-        result["production_profile"] = "original-teams-contact281-c2";
+        result["production_profile"] = c2Data.Profile == SourceC2CallbackData.M1Profile
+            ? SourceTeamResourceProfile.C2M1StableId : SourceTeamResourceProfile.C2StableId;
         result["entry_profile"] = SourceC2CallbackData.EntryProfile;
+        if (c2Data.Profile == SourceC2CallbackData.M1Profile) result["binding_profile"] = c2Data.Profile;
         result["actual_animation_clips"] = c2Library.SequenceNames.Count;
         result["actual_animation_frames"] = c2Library.FrameCount;
         result["c2_animation_sha256"] = c2Library.InventorySha256;

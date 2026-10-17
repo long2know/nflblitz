@@ -139,7 +139,8 @@ namespace Blitz.AssetImport
                 RosterGuard.Sha256(json) == expectedSha256, "Original cinematic content pin mismatch.");
             RosterObject root = RosterJson.Object(RosterJson.Parse(json), "original impact presentation");
             string schema = root.Text("schema");
-            bool c2 = schema == "original-impact-contact281-c2/v1";
+            bool m1 = schema == "original-impact-contact281-c2-m1/v1";
+            bool c2 = m1 || schema == "original-impact-contact281-c2/v1";
             bool contact = c2 || schema == "original-impact-contact272/v1";
             RosterGuard.Require((contact || schema == "original-impact-presentation/v1") &&
                 root.Text("source_revision") == SourceTeamRosterLibrary.PinnedSourceRevision &&
@@ -237,7 +238,8 @@ namespace Blitz.AssetImport
                         binding.Text("legacy_programs_sha256", 64) == SourceTeamResourceProfile.ContactProgramsSha256,
                         "C2 must retain the qualified C1 source/library lineage.");
                     c2Data = binding.Text("c2_payload_sha256", 64);
-                    RosterGuard.Require(c2Data == SourceInterfacePackagePlan.C2CallbackSha256,
+                    RosterGuard.Require(c2Data == (m1 ? SourceInterfacePackagePlan.C2M1CallbackSha256
+                        : SourceInterfacePackagePlan.C2CallbackSha256),
                         "C2 impact must bind its actual frozen callback data.");
                 }
                 RosterGuard.Require(binding.Text("base_catalog_sha256", 64) ==
@@ -264,7 +266,8 @@ namespace Blitz.AssetImport
                         "C1 additional speech sites must remain exact original metadata, not implemented substitutes.");
                 }
                 binding.Done();
-                RosterGuard.Require(cameraBindings.Count == 25 && additional.Length == (c2 ? 36 : 28) && cues.Count == (c2 ? 477 : 469),
+                RosterGuard.Require(cameraBindings.Count == 25 && additional.Length == (m1 ? 41 : c2 ? 36 : 28) &&
+                    cues.Count == (m1 ? 482 : c2 ? 477 : 469),
                     "Impact coverage requires the exact historical469 or explicit C2477 source sites, never a missing-speech subset.");
             }
             string[] qualifications = root.Strings("qualifications", 1, 32); root.Done();

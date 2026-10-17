@@ -27,6 +27,135 @@ from kernel_sources import production_paths, canonical_hashes, C2_ANIMATION_SHA,
 from c2_controls import specifications as c2_specifications
 from prepare_c2 import prepare_original_oracles
 from fetch_inputs import verified_original_hashes
+
+
+def require_m1_sound_summary(code, summary):
+    if (code != 0 or summary is None or summary.get("status") != "passed"
+            or summary.get("assertions") != 251
+            or summary.get("production_profile") != "original-teams-contact281-c2-m1"
+            or summary.get("c2_callback_data_sha256") !=
+                "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a"
+            or summary.get("c2_bounded_evidence", {}).get("m1_running_taunt_actual_factory_ANI_CODE_cases") != 30
+            or summary.get("actual_bound_SAFN") != SOUND_SHA):
+        raise RuntimeError("Exact M1 successor real-factory/native-running-binding inventory required; not full M1.")
+
+
+def run_m1_sound(argv):
+    from c2_controls import m1_specifications
+    parser = argparse.ArgumentParser(description="Explicit M1 running-sound original-C/actual-factory focused closure.")
+    parser.add_argument("--m1-running-sound-only", action="store_true", required=True)
+    for name in ("source-root", "process-root", "fixture-manifest", "sound-functions",
+                 "c2-m1-inputs", "old-c2-inputs", "contact-artifacts", "output"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args(argv)
+    output = args.output.absolute()
+    if (output.exists() or not any(output.is_relative_to(p) for p in
+            (SUITE / ".artifacts", ROOT / ".squad/.scratch"))):
+        parser.error("Use a new ignored output child, never overwrite frozen receipts.")
+    output.mkdir(parents=True)
+    work = output / "work"
+    work.mkdir()
+    (work / "empty-feed").mkdir()
+    env = dict(os.environ, TMPDIR=str(work), TMP=str(work), TEMP=str(work),
+               PYTHONDONTWRITEBYTECODE="1", DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1",
+               MSBUILDDISABLENODEREUSE="1", DOTNET_CLI_HOME=str(work / "dotnet-home"),
+               NUGET_PACKAGES=str(work / "nuget"))
+    before = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in production_paths()}
+    inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
+    inputs.update(canonical_hashes(args.old_c2_inputs))
+    inputs.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
+    originals = verified_original_hashes(args.source_root, "contact272")
+    commands, native = prepare_original_oracles(args.source_root, args.process_root, output / "original-C")
+    snapshot = {str(p.relative_to(ROOT)): p.read_bytes() for p in production_paths()}
+    result = {"schema": "source-C2-M1-running-sound-focused/v1", "status": "failed",
+              "full_M1_game_native_or_DSP_qualified": False, "commands": commands, "controls": [],
+              "production_sha256_before": before, "input_sha256_before": inputs,
+              "original_source_sha256": originals, "proper_original_C": native}
+
+    def execute(label, mutation=None):
+        source = output / "copies" / label
+        for name, raw in snapshot.items():
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        if mutation:
+            identity, relative, old, new, expected = mutation
+            path = source / relative
+            text = path.read_text()
+            if text.count(old) != 1:
+                raise RuntimeError("M1 source mutation anchor must be unique: " + identity)
+            path.write_text(text.replace(old, new))
+        build = output / "build" / label
+        common = ["-p:BlitzSourceRoot=" + str(source) + "/",
+                  "-p:BaseIntermediateOutputPath=" + str(build / "obj") + "/",
+                  "-p:BaseOutputPath=" + str(build / "bin") + "/"]
+        command = ["dotnet", "build", str(SUITE / "ContactChecks.csproj"), "--no-restore",
+                   "--configuration", "Release", "--verbosity", "quiet", *common]
+        result["commands"].append(command)
+        compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+        text = compiled.stdout + compiled.stderr
+        if compiled.returncode and "NETSDK1004" in text:
+            restore = ["dotnet", "restore", str(SUITE / "ContactChecks.csproj"), "--source", str(work / "empty-feed"),
+                       "--verbosity", "quiet", "-p:NuGetAudit=false", *common]
+            result["commands"].append(restore)
+            restored = subprocess.run(restore, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+            if restored.returncode:
+                raise RuntimeError("M1 focused restore failed after missing assets: " + label)
+            compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+            text = compiled.stdout + compiled.stderr
+        (output / (label + "-compile.log")).write_text(text)
+        if compiled.returncode or "0 Warning(s)" not in text or "0 Error(s)" not in text:
+            raise RuntimeError("M1 focused controls require zero-diagnostic compilation, never compile-error kills: " + label)
+        destination = output / label
+        command = ["dotnet", str(build / "bin/Release/net10.0/ContactChecks.dll"),
+                   str(args.fixture_manifest.absolute()), str(args.contact_artifacts.absolute()), "c2-m1-sound",
+                   str(destination), str(args.sound_functions.absolute()), str(args.source_root.absolute()),
+                   str(args.c2_m1_inputs.absolute()), str(output / "original-C"), str(args.old_c2_inputs.absolute())]
+        result["commands"].append(command)
+        process = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+        (output / (label + ".log")).write_text(process.stdout + process.stderr)
+        rows = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
+        summary = rows[-1] if len(rows) == 1 else None
+        if mutation:
+            if (process.returncode != 1 or summary is None or summary.get("status") != "failed"
+                    or summary.get("assertions", 0) <= 0 or expected not in summary.get("failed_assertion", "")):
+                raise RuntimeError("M1 compiled control did not reject its exact named causal field: " + identity)
+            result["controls"].append({"id": identity, "source": relative, "compiled": True,
+                                       "zero_warnings_errors": True, "named_failure": summary["failed_assertion"]})
+            print("PASS M1 compiled control " + identity, flush=True)
+        else:
+            require_m1_sound_summary(process.returncode, summary)
+            result[label] = summary
+        shutil.rmtree(source)
+
+    try:
+        execute("baseline")
+        for mutation in m1_specifications():
+            execute(mutation[0], mutation)
+        execute("final-baseline")
+        if len(result["controls"]) != len(m1_specifications()):
+            raise RuntimeError("Every M1 source-binding causal control is mandatory.")
+        result["status"] = "passed-focused-not-full-M1"
+    except (RuntimeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
+        result["error"] = str(error)
+        print(str(error), file=sys.stderr)
+    finally:
+        after = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in production_paths()}
+        after_inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
+        after_inputs.update(canonical_hashes(args.old_c2_inputs))
+        after_inputs.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
+        result["production_sha256_after"] = after
+        result["input_sha256_after"] = after_inputs
+        result["all_production_and_inputs_unchanged_during_controls"] = after == before and after_inputs == inputs
+        if not result["all_production_and_inputs_unchanged_during_controls"]:
+            result["status"] = "inconclusive-generation-changed"
+        copies = output / "copies"
+        if copies.exists():
+            shutil.rmtree(copies)
+        result["own_source_copies_removed"] = not copies.exists()
+        (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    return 0 if result["status"] == "passed-focused-not-full-M1" else 1
+
 MUTANTS = (
     ("actual-wake-disconnected", "GameSimulation.Source.cs", "SourceContacts();",
      "/* isolated mutation: omitted actual detector wake */", "kernel", "actual kernel strict body10 boundary"),
@@ -517,4 +646,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_m1_sound(sys.argv[1:]) if "--m1-running-sound-only" in sys.argv else main())

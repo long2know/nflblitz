@@ -30,6 +30,9 @@ namespace Blitz.Editor
         public static void ImportContact281C2FromCommandLine()
         { ImportFromArguments(Environment.GetCommandLineArgs(), SourceTeamResourceProfile.Contact281C2); }
 
+        public static void ImportContact281C2M1FromCommandLine()
+        { ImportFromArguments(Environment.GetCommandLineArgs(), SourceTeamResourceProfile.Contact281C2M1); }
+
         private static void ImportFromArguments(string[] args, SourceTeamResourceProfile profile)
         {
             string root = PlayerAssetImporter.RequiredArgument(args, "-teamAssetRoot");
@@ -65,11 +68,23 @@ namespace Blitz.Editor
             string animationRoot, string preparedImpactRoot, string expectedImpactSha256, SourceTeamResourceProfile profile)
         {
             string destination = profile.Destination, resourceFolder = profile.TeamResourceFolder;
-            if (profile.IsContact272 || profile.IsContact281C2)
+            SourceAnimationLibraryAsset sharedAnimations = null;
+            if (profile.UsesC2Data)
             {
+                string existing = SourceTeamInterfaceImporter.FindUniqueResourcePath("SourceAnimationLibraryAsset", profile.AnimationResourceKey);
+                if (existing != null)
+                {
+                    sharedAnimations = AssetDatabase.LoadAssetAtPath<SourceAnimationLibraryAsset>(existing);
+                    SourceTeamInterfaceImporter.RequireAnimationProfileAsset(profile, sharedAnimations);
+                }
+            }
+            if (profile.IsContact272 || profile.UsesC2Data)
+            {
+                if (profile.IsContact272 && SourceTeamInterfaceImporter.FindUniqueResourcePath(
+                    "SourceAnimationLibraryAsset", profile.AnimationResourceKey) != null)
+                    throw new PlayerAssetException("The immutable Contact272 animation resource already exists.");
                 foreach (string[] identity in new[] {
                     new[] { "SourceTeamPresentationAsset", profile.TeamResourceKey },
-                    new[] { "SourceAnimationLibraryAsset", profile.AnimationResourceKey },
                     new[] { "SourceCinematicLibraryAsset", profile.ImpactResourceKey } })
                     if (SourceTeamInterfaceImporter.FindUniqueResourcePath(identity[0], identity[1]) != null)
                         throw new PlayerAssetException("Contact272 Resources identity already exists; no duplicate, overwrite or old-profile alias: " + identity[1]);
@@ -219,16 +234,19 @@ namespace Blitz.Editor
             asset.Initialize(savedRosters, SourceTeamPresentationData.PinnedRosterSha256, savedCatalog, expectedCatalogSha256,
                 models, heads, numberCache.Values.ToArray(), materialEntries.ToArray(), template);
             AssetDatabase.CreateAsset(asset, resourceFolder + "/team-presentation.asset");
-            TextAsset savedInventory = Text(output, resourceFolder + "/Animations/inventory.json", inventory);
-            var paths = new List<string>(); var texts = new List<TextAsset>();
-            foreach (KeyValuePair<string, byte[]> clip in clips)
+            if (sharedAnimations == null)
             {
-                paths.Add(clip.Key);
-                texts.Add(Text(output, resourceFolder + "/Animations/" + Path.GetFileName(clip.Key), clip.Value));
+                TextAsset savedInventory = Text(output, resourceFolder + "/Animations/inventory.json", inventory);
+                var paths = new List<string>(); var texts = new List<TextAsset>();
+                foreach (KeyValuePair<string, byte[]> clip in clips)
+                {
+                    paths.Add(clip.Key);
+                    texts.Add(Text(output, resourceFolder + "/Animations/" + Path.GetFileName(clip.Key), clip.Value));
+                }
+                var animationAsset = ScriptableObject.CreateInstance<SourceAnimationLibraryAsset>();
+                animationAsset.Initialize(savedInventory, profile.AnimationSha256, paths.ToArray(), texts.ToArray());
+                output.NewPath(profile.AnimationAssetPath); AssetDatabase.CreateAsset(animationAsset, profile.AnimationAssetPath);
             }
-            var animationAsset = ScriptableObject.CreateInstance<SourceAnimationLibraryAsset>();
-            animationAsset.Initialize(savedInventory, profile.AnimationSha256, paths.ToArray(), texts.ToArray());
-            output.NewPath(profile.AnimationAssetPath); AssetDatabase.CreateAsset(animationAsset, profile.AnimationAssetPath);
             var impactAsset = ScriptableObject.CreateInstance<SourceCinematicLibraryAsset>();
             impactAsset.Initialize(Text(output, resourceFolder + "/impact-catalog.json", impactBytes), expectedImpactSha256);
             AssetDatabase.CreateAsset(impactAsset, resourceFolder + "/impact-library.asset");

@@ -10,8 +10,10 @@ source/asset import. Assertions target the bounded slice in
 
 The checked-in Contact/C2 source is distinct from the recorded live56 browser
 player and all historical 56/117/156/157/272 test-entry identities.
-Default/empty selection remains `original-teams-contact272`; the281/26,230-frame
-`original-teams-contact281-c2` is **explicit opt-in**. Use the
+Default/empty selection remains `original-teams-contact272`; old-nine
+`original-teams-contact281-c2` and fourteen-binding
+`original-teams-contact281-c2-m1` are **separate explicit opt-ins**, both with
+unchanged281/26,230-frame animation bytes. Use the
 [current resource/preparation recipe](../docs/build.md#current-contactc2-source-mode-resources),
 not an old library relabeled as new. Teams/rosters, stations/possession/captain,
 designated home side, heads, power-ups, movement data/settings and original DIP
@@ -22,9 +24,12 @@ resources or unbound original audio/FX instead of substituting them.
 All sixteen [full-parity rows](../docs/source-parity.md#full-source-completion-matrix--executable-acceptance)
 remain **OPEN**.
 
-Original-data campaign counts below are recorded owner evidence, **not new
-campaign executions for this CI/documentation update**. The asset-free Contact/C2
-commands below were run locally on October 17, 2026. Pure tests, actual
+**Current post-snap defined-domain QA is frozen for the named tested surfaces**;
+see the [exact report and scope](../docs/source-parity.md#current-post-snap-defined-domain-qa).
+Only those results are current. Other campaign counts below belong to their
+dated source/data generations, not automatically the latest StageB/SnapHike source.
+The earlier October17 asset-free executions preceded that source; no suite or
+campaign was rerun for this documentation-only continuation. Pure tests, actual
 Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
@@ -51,7 +56,7 @@ python3 -B tests/presentation/c2-runtime/run.py
 python3 -B tests/presentation/c2-runtime/mutations.py
 ```
 
-The existing single `game-build.yml` job runs these gates alongside the retained
+The existing single `game-build.yml` job declares these gates alongside the retained
 Core, ball/M1/VM/P1 runner guards and all prior checks. Its `Assets/**`,
 `tests/**` and `tools/animation/**` triggers already include every new source,
 reader, factory, producer and test; README/build/parity/architecture changes
@@ -59,15 +64,19 @@ also trigger it. The workflow guard inspects actual event paths, named steps
 and executed command tokens, and rejects in-memory removals, echo/comment-only
 commands, missing mutations and accidental original-data flags.
 
-The new preflights compile actual pure production code separately as
-C#7.3/SDK netstandard2.1 and execute on .NET10. Locally they passed 42 C1 and 27
-C2 assertions, six/four compiled causal controls, and each suite's twelve
-caller guards/seven in-memory seam removals. Animation discovery passed 62
-tests, including both new profile producers. These defaults **do not** load
-original281 motion or qualify the actual-data factory. Local preflight runs
-used fresh `--output` children to preserve earlier receipts. The existing original
-CI campaigns deliberately retain the legacy69-pin/443-file preparation and
-historical entry semantics; they are not promoted to current281 acceptance.
+These preflights compile actual pure production code separately as
+C#7.3/SDK netstandard2.1 and execute on .NET10. Their default asset-free modes
+do **not** load original281 motion or qualify the actual-data factory.
+
+**The existing workflow remains legacy69/443 and failed**, not correct current-
+engine caller coverage. Run39044339868 passed earlier scoped inventory/C
+oracle/numeric-adapter stages, then failed B1's public contact caller because
+the157 library lacked `TIE1C_A`. Later stages were skipped, not passed.
+The workflow and its CI guard are unchanged by this documentation update;
+they do not prepare StageA extra9 or the StageB successor. Historical69/443
+inventory is retained as history, not relabelled current-generation success.
+Local scoped C1 B1 evidence from before the later source changes also does not
+establish full C1 playability or current global qualification.
 
 ### Explicit original-data preparation and package checks
 
@@ -101,6 +110,16 @@ python3 -B tests/presentation/c2-runtime/run.py "${C2_ARGS[@]}" \
   --output tests/presentation/c2-runtime/.artifacts/local-original
 python3 -B tests/presentation/c2-runtime/mutations.py "${C2_ARGS[@]}" \
   --output tests/presentation/c2-runtime/.artifacts/local-original-mutants
+
+# Successor package checks retain all old-nine inputs and add BOTH new roots.
+python3 -B tests/presentation/c2-runtime/run.py "${C2_ARGS[@]}" \
+  --m1-inputs "$C2_M1_INPUTS" \
+  --m1-impact "$CONTACT_ROOT/impact281-m1/impact-presentation.json" \
+  --output tests/presentation/c2-runtime/.artifacts/local-m1-original
+python3 -B tests/presentation/c2-runtime/mutations.py "${C2_ARGS[@]}" \
+  --m1-inputs "$C2_M1_INPUTS" \
+  --m1-impact "$CONTACT_ROOT/impact281-m1/impact-presentation.json" \
+  --output tests/presentation/c2-runtime/.artifacts/local-m1-original-mutants
 ```
 
 Use new ignored output children to preserve earlier receipts. Fixture `--reuse`
@@ -110,25 +129,65 @@ legacy animation and old SAFN. C2 adds the **separate 288-file** canonical produ
 closure via `--c2-inputs`; there is no invented281 fixture schema or promoted
 default. Actual package mode requires **all six** flags together, verifies real
 data and canonical identities, and never substitutes the asset-free checks.
+StageA derives extra9 through the existing generic exporter with tracked
+`tools/animation/c2_sequences.json`, not an ignored Core catalog/bundle.
+StageB requires `--profile contact281-c2-m1` on **both**
+`tools/animation/prepare_c2_profile.py` and `prepare_c2_impact.py`.
+The callback is `b0c02e55...`, fourteen bindings; the new482-site catalog is
+`2fee43a7...`. The [full preparation commands and exact hashes](../docs/build.md#offline-preparation-with-explicitly-supplied-inputs)
+preserve old-nine defaults, old-six SAFN, ONE7538 and all animation bytes.
 The [Contact272 suite](presentation/contact-runtime/README.md) documents its
 distinct six-flag actual-data mode; do not reuse C2 flag names there.
 
-### Original-source campaigns and reference-only APIs
+### Local-data-only full-M1 prerequisite and hard gate
 
-The original-C runner needs GCC/Clang and exact pinned originals. For the
-current numeric/host adapter, first generate its real corpus/receipt:
+**This does not work from a clean checkout alone and is not a green-CI recipe.**
+First supply all strict original/data roots above, including the834-file base,
+unchanged old-six SAFN and explicit M1 successor288. Additionally supply a
+**user-provided exact reviewed 12,000-host replay**, in recorded `commands`
+JSON or per-host command JSONL, with every original contiguous host/command.
+No tracked input-only fixture, exporter or pinned acquisition currently supplies
+it. Do not use an ignored authoring path as a checkout default, regenerate
+commands from changed simulation state, or introduce a new policy/seed/vector.
 
 ```sh
-python3 -B tests/source-oracles/run.py --source-root "$ORIGINAL_SOURCE" --full-matrix
-python3 -B tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json \
-  --full-kernel --input-profile contact272 --fixture-manifest "$FIXTURE272" \
-  --c2-inputs "$C2_INPUTS" --output tests/parity/.artifacts/local-current281
-python3 -B tests/movement-callers/canonical.py \
+REVIEWED_REPLAY="/absolute/path/to/user-supplied/exact-reviewed-12000-commands.jsonl"
+test -f "$REVIEWED_REPLAY"
+python3 -B tests/movement-callers/run.py \
+  --source-root "$ORIGINAL_SOURCE" --input-profile contact272 \
   --fixture-manifest "$FIXTURE272" --sound-functions "$SAFN" \
-  --c2-inputs "$C2_INPUTS" --source-root "$ORIGINAL_SOURCE" \
-  --output tests/movement-callers/.artifacts/local-current281
+  --c2-m1-inputs "$C2_M1_INPUTS" --replay-commands "$REVIEWED_REPLAY" \
+  --output tests/movement-callers/.artifacts/local-m1-full
 ```
 
+Here `--input-profile contact272` identifies the strict base-fixture schema,
+not a C1 factory substitute. The M1 sidecar selects the actual
+`SourceC2Composition.CreateM1Simulation`, real geometry, two original bank
+draws before AI and old SAFN before wake. Original three cache/eight caller
+controls and the full final baseline remain required. The after2299 same-
+actor/same-instance two-ordinal/two-real15-pose R_SKIP check is still a hard
+gate; zero remains **UNMET**, not the old scoped window or full PASS.
+
+The source-derived snap fix waits for actual `hike_ball` instead of
+request-time Live. Its generation-scoped focused receipt does not resolve
+original `bc_adjust[6]`: the runtime-stack table has only six ints, and after
+six blocks the source computes index6. No approved corrected semantics or
+matching target runtime evidence defines that read. Strict failure must
+remain; do not add a row/clamp/default, evade the input or accept the boundary
+as a passing full smoke. Public R_SKIP remains zero. Full M1/CI/PR21 merge
+are blocked; no replay or new exploration was run for these docs.
+
+The parent-autonomous `PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE` before original
+`bearing(me,-1)` remains separately disclosed, with no captured explicit user
+approval and no target-memory/instruction/ABI claim. It does not authorize a
+similar policy for `bc_adjust[6]`.
+
+<a id="original-source-campaigns-and-reference-only-apis"></a>
+
+### Other original-source modes and reference-only APIs
+
+The original-C runner needs GCC/Clang and explicit pinned originals; numeric
+and historical modes are scoped in [parity/README.md](parity/README.md).
 `SAFN` is the unchanged4a557304 payload in the fixture. The
 [contact runner](contact/README.md) additionally needs explicit operand,
 camera, exact original13 movement/original14 route roots and the separately
@@ -149,13 +208,17 @@ python3 -B tests/presentation/c2-runtime/api_compile.py \
   --unity-editor-data "$UNITY_EDITOR_DATA"
 ```
 
-This existing optional command compiles all current 99 runtime/13 separate
+This existing optional command inventories runtime and separate
 Editor sources in five C#7.3/actual netstandard2.1 API shapes with
 warnings-as-errors and before/after source hashes. CI does not presume those
 references exist. No Editor/activation/import/native/WebGL execution follows
-from compilation. The recorded all112/zero-diagnostic result and 963 actual
-package assertions/14 controls are prior owner evidence, not newly executed
-here. Full M1, all16 rows and DSP/browser acceptance remain open; see the
+from compilation. Systems390f's API/package evidence predates SnapHike and
+earlier e46 counts belong to an older generation. The separate current
+post-snap6752 report now qualifies all five archived API profiles, package
+1,577/17 controls, named B1 C1/old-nine modes, snap421/3 and binding251/19.
+It excludes the seven mutable Frontend paths and does not rerun older full
+contact/VM/P1/full-kernel/geometry-history campaigns. No compile or campaign
+was executed for this documentation-only update. Full M1, all16 rows and DSP/browser acceptance remain open; see the
 [current limits and autonomous portability disclosure](../docs/source-parity.md#current-contactc2-boundary).
 
 ## Core suite

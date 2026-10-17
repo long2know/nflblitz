@@ -30,6 +30,9 @@ internal static partial class Program
         internal SourceMovementCameraFrame Camera;
         internal SourceVector3[] Joints;
         internal string Pose;
+        internal long Instance;
+        internal int Ordinal;
+        internal string Sequence;
     }
 
     private sealed class CanonicalWitness
@@ -87,7 +90,10 @@ internal static partial class Program
                 "canonical actual call contains the exact live post-player pose, not post-contact resampling");
             Check(joints.Count == 15, "canonical observer records all15 actual returned joints");
             samples.Add(new CanonicalSample { View = view, Root = root, Camera = camera,
-                Joints = joints.ToArray(), Pose = Pose(view) });
+                Joints = joints.ToArray(), Pose = Pose(view),
+                Instance = game.Model.Players[view.Id].AnimationState.Primary.InstanceId,
+                Ordinal = game.Model.Players[view.Id].AnimationState.Primary.FrameOrdinal,
+                Sequence = game.Model.Players[view.Id].AnimationState.Primary.SequenceName });
             Calls++;
             Check(simulation.Model.SourceRandomDraws == draws && simulation.Model.SourceRandomCallIndex == cursor,
                 "canonical observer writes only test buffers and never draws or changes the source cursor");
@@ -158,6 +164,236 @@ internal static partial class Program
                 ContactFrames, DisplacedActors, additionalGeometryCalls = 0,
                 reference = "offline captured-view pose sampling/matrix arithmetic; not an independent original-C geometry oracle" };
         }
+
+        internal CanonicalSample Captured(int actor) { return samples.SingleOrDefault(s => s.View.Id == actor); }
+    }
+
+    private static SourceCommand ReplaySourceCommand(JsonElement value)
+    {
+        if (!value.GetProperty("IsSpecified").GetBoolean()) return default(SourceCommand);
+        JsonElement selection = value.GetProperty("Play");
+        SourcePlaySelection play = !selection.GetProperty("IsSpecified").GetBoolean() ? default(SourcePlaySelection)
+            : new SourcePlaySelection(selection.GetProperty("PlaySymbol").GetString(),
+                (SourcePlaybookKind)selection.GetProperty("Playbook").GetInt32(),
+                selection.GetProperty("SlotIndex").GetInt32(), selection.GetProperty("PageIndex").GetInt32(),
+                selection.GetProperty("Pool").ValueKind == JsonValueKind.Null ? (SourcePlayPool?)null :
+                    (SourcePlayPool)selection.GetProperty("Pool").GetInt32(),
+                selection.GetProperty("PoolIndex").GetInt32());
+        return new SourceCommand((SourceAction)value.GetProperty("Action").GetInt32(), play,
+            value.GetProperty("TargetPlayerId").GetInt32(), (SourcePatOption)value.GetProperty("PatChoice").GetInt32(),
+            value.GetProperty("KickoffChoice").ValueKind == JsonValueKind.Null ? (SourceKickoffType?)null :
+                (SourceKickoffType)value.GetProperty("KickoffChoice").GetInt32(),
+            value.GetProperty("AudibleSlot").GetInt32(),
+            value.GetProperty("OffenseFlipped").ValueKind == JsonValueKind.Null ? (bool?)null :
+                value.GetProperty("OffenseFlipped").GetBoolean());
+    }
+
+    private static PlayerCommand ReplayPublicCommand(JsonElement value)
+    {
+        JsonElement move = value.GetProperty("Move"), stations = value.GetProperty("StationInputs");
+        SourceInputFrame frame = null;
+        if (stations.ValueKind != JsonValueKind.Null)
+            frame = new SourceInputFrame(stations.GetProperty("Stations").EnumerateArray().Select(input =>
+                new SourceStationInput(input.GetProperty("StationId").GetInt32(), input.GetProperty("StickX").GetInt32(),
+                    input.GetProperty("StickZ").GetInt32(), (SourceButtons)input.GetProperty("Held").GetInt32(),
+                    (SourceButtons)input.GetProperty("Pressed").GetInt32(), (SourceButtons)input.GetProperty("Released").GetInt32(),
+                    ReplaySourceCommand(input.GetProperty("Command")))).ToArray());
+        return new PlayerCommand(new FieldVector(move.GetProperty("X").GetSingle(), move.GetProperty("Z").GetSingle()),
+            value.GetProperty("Turbo").GetBoolean(), (InputAction)value.GetProperty("Action").GetInt32(),
+            (PlayId)value.GetProperty("Play").GetInt32(), value.GetProperty("TargetPlayerId").GetInt32(),
+            ReplaySourceCommand(value.GetProperty("Source")), frame);
+    }
+
+    private static PlayerCommand[] ReadPublicReplay(string path)
+    {
+        var commands = new List<PlayerCommand>();
+        if (Path.GetExtension(path) == ".jsonl")
+        {
+            foreach (string line in File.ReadLines(path))
+                using (JsonDocument row = JsonDocument.Parse(line))
+                {
+                    Check(row.RootElement.GetProperty("host").GetInt32() == commands.Count,
+                        "M1 replay preserves every original recorded host, without added/rebased wakes");
+                    commands.Add(ReplayPublicCommand(row.RootElement.GetProperty("command")));
+                }
+        }
+        else
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(path)))
+                foreach (JsonElement row in document.RootElement.GetProperty("commands").EnumerateArray())
+                {
+                    Check(row.GetProperty("host").GetInt32() == commands.Count,
+                        "M1 replay preserves every original recorded host, without added/rebased wakes");
+                    commands.Add(ReplayPublicCommand(row.GetProperty("command")));
+                }
+        Check(commands.Count == 12000, "M1 replay requires the entire immutable original12000 command vector");
+        return commands.ToArray();
+    }
+
+    private static bool m1ReplayPositive;
+    private static object m1ReplayEvidence;
+
+    private static void M1CompleteReplay(string replayPath, bool observed, bool historical)
+    {
+        Check(real.IsC2Profile && real.IsC2M1Profile != historical,
+            "M1 full public loop explicitly selects real successor factory, never bare272 or proxy constructor");
+        PlayerCommand[] commands = ReadPublicReplay(replayPath);
+        int[] rawVector = { 0, 1, 2, 3, 17, 31, 127, 257, 4096, 65537, 104729, 1234567,
+            2147483645, 2147483646, 2147483647 };
+        int rawCursor = 0;
+        SourceInjectedRandom shared = null;
+        GameSimulation game = Create(camera: false, random: seed => shared = new SourceInjectedRandom(
+            site => rawVector[rawCursor++ % rawVector.Length],
+            new SourceRandomProvenance("source-sound-smoke/raw-vector-v1",
+                "Explicit repeated raw vector shared by ALL sites, not target libc PRNG",
+                "canonical281 actual composition entry", SourceRandomEvidence.ExternalUnverified)));
+        Check(shared.Trace[0].Raw == 0 && shared.Trace[1].Raw == 1 &&
+            shared.Trace[0].Site.SourceIdentity.Contains("InitGameProc:556") &&
+            shared.Trace[1].Site.SourceIdentity.Contains("InitGameProc:560"),
+            "M1 replay actual two bank draws precede original AI on the same provider");
+        var witness = new CanonicalWitness(game, observed);
+        if (observed) CanonicalCacheCapture.Observer = witness.Capture;
+        game.SourceCameraHeadingProvider = (snapshot, tick) => {
+            int heading = FullKernelInputs.SetControlledMovementCamera(game, snapshot, tick);
+            witness.Camera(tick); return heading;
+        };
+        var options = new JsonSerializerOptions { IncludeFields = true };
+        var firstPoses = new Dictionary<string, Tuple<long, int, string>>();
+        var poses = new List<object>();
+        var phaseCounts = new Dictionary<string, int>();
+        var actionCounts = new Dictionary<string, int>();
+        object firstNewCallback = null, positive = null, failure = null;
+        Exception firstFailure = null;
+        int completed = 0, rSkipFrames = 0;
+        Action<Dictionary<string, int>, string> count = (values, key) => {
+            int prior; values.TryGetValue(key, out prior); values[key] = prior + 1;
+        };
+        string streamPath = Path.Combine(outputRoot, "m1-public-replay.jsonl");
+        using (var stream = new StreamWriter(streamPath, false, new UTF8Encoding(false)))
+        {
+            for (int host = 0; host < commands.Length; host++)
+            {
+                long before = game.SourceTick;
+                PlayerCommand command = commands[host];
+                try { game.Step(command); witness.Complete(before); }
+                catch (Exception error)
+                {
+                    firstFailure = error;
+                    failure = new { host, before, game.SourceTick, command, error = error.ToString(),
+                        actual = CanonicalObservation(game, host, rawCursor, null), allSharedRawDraws = shared.Trace };
+                    File.WriteAllText(Path.Combine(outputRoot, "first-m1-kernel-fault.json"),
+                        JsonSerializer.Serialize(failure, options));
+                }
+                SourceSoundVmDispatch[] dispatches = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
+                object sounds = dispatches.Select(item => new {
+                    item.Status, item.Detail, item.RandomContext, item.HasOriginalAnimationCue,
+                    original = item.HasOriginalAnimationCue ? item.OriginalCue : null,
+                    c2Context = CanonicalSoundContext(item.C2Context),
+                    randomDraws = item.Result == null ? null : item.Result.RandomDraws,
+                    calls = item.Result == null ? null : item.Result.Calls.Select(call => new {
+                        call.Bank, call.PlaylistId, call.Volume, call.Pan, call.PriorityWord, call.SubcallOrder,
+                        call.CalleeSourceSite, call.HasOriginalAnimationCue,
+                        original = call.HasOriginalAnimationCue ? call.OriginalCue : null,
+                        c2Context = CanonicalSoundContext(call.C2Context) }).ToArray()
+                }).ToArray();
+                foreach (SourceSoundVmDispatch dispatch in dispatches)
+                    if (dispatch.HasOriginalAnimationCue && new[] { 6373, 6401, 6428, 6480, 6508 }
+                        .Contains(dispatch.OriginalCue.Context.SourceLine) && firstNewCallback == null)
+                        firstNewCallback = new { host, game.SourceTick, dispatch.OriginalCue,
+                            dispatch.Status, c2 = CanonicalSoundContext(dispatch.C2Context),
+                            firstNewRawOrder = dispatch.Result == null || dispatch.Result.RandomDraws.Count == 0
+                                ? (long?)null : dispatch.Result.RandomDraws[0].Order };
+                if (game.SourceTick != before && failure == null)
+                    foreach (ActorState actor in game.Model.Players)
+                    {
+                        SourceAnimationLayerState layer = actor.AnimationState.Primary;
+                        if (layer.SequenceName != "R_SKIP") continue;
+                        rSkipFrames++;
+                        if (game.SourceTick <= 2299 || !layer.IsSpecified || layer.SourceTick != game.SourceTick) continue;
+                        ISourceAnimationClip clip = library.GetClip("R_SKIP");
+                        Check(layer.FrameOrdinal >= 0 && layer.FrameOrdinal < clip.SelectedSourceFrames.Count,
+                            "M1 real R_SKIP selected ordinal is valid after2299");
+                        PlayerView view = GameSnapshot.SourcePlayerView(actor, game.SourceTick, true);
+                        var joints = Enumerable.Range(0, 15).Select(j => game.Model.SourceCameraJoints[actor.Id, j]).ToArray();
+                        if (observed)
+                        {
+                            CanonicalSample sample = witness.Captured(actor.Id);
+                            Check(sample != null && sample.Instance == layer.InstanceId &&
+                                sample.Sequence == "R_SKIP" && sample.Ordinal == layer.FrameOrdinal &&
+                                sample.Joints.Where((joint, index) => !SameBits(joint, joints[index])).Count() == 0,
+                                "M1 R_SKIP exact real PRE-contact instance/ordinal/all15 cache joints retained");
+                            view = sample.View;
+                        }
+                        Check(game.Model.SourceCameraJointTick == game.SourceTick &&
+                            joints.All(j => !float.IsNaN(j.X) && !float.IsInfinity(j.X) &&
+                                !float.IsNaN(j.Y) && !float.IsInfinity(j.Y) && !float.IsNaN(j.Z) && !float.IsInfinity(j.Z)),
+                            "M1 actual R_SKIP current15 joints are finite; no extra geometry calls");
+                        SourceEvaluatedPose local = SourceActorPoseSampler.Evaluate(library, real.ReferencePivots, view, view, 1f);
+                        string localPose = JsonSerializer.Serialize(local.Joints.Select(j => j.Position).ToArray(), options);
+                        poses.Add(new { host, game.SourceTick, actor = actor.Id, layer.InstanceId,
+                            ordinal = layer.FrameOrdinal, selected = clip.SelectedSourceFrames[layer.FrameOrdinal],
+                            real15Joints = joints, real15LocalPose = local.Joints.Select(j => j.Position).ToArray(), view });
+                        string key = actor.Id + "/" + layer.InstanceId;
+                        Tuple<long, int, string> first;
+                        if (!firstPoses.TryGetValue(key, out first))
+                            firstPoses[key] = Tuple.Create(game.SourceTick, layer.FrameOrdinal, localPose);
+                        else if (game.SourceTick > first.Item1 && layer.FrameOrdinal != first.Item2 && localPose != first.Item3)
+                        {
+                            m1ReplayPositive = true;
+                            positive = new { actor = actor.Id, layer.InstanceId, firstTick = first.Item1,
+                                secondTick = game.SourceTick, firstOrdinal = first.Item2, secondOrdinal = layer.FrameOrdinal };
+                        }
+                    }
+                ISourceMatchState state = (ISourceMatchState)game.State;
+                count(phaseCounts, state.Phase + "/" + state.Match.Phase);
+                count(actionCounts, command.Source.IsSpecified ? command.Source.Action.ToString() : command.Action.ToString());
+                string fullHash = CanonicalHash(JsonSerializer.SerializeToUtf8Bytes(
+                    CanonicalObservation(game, host, rawCursor, sounds), options));
+                // Only the declared payload identity is omitted from this comparison projection;
+                // complete actual state/hash and every raw draw are retained separately.
+                object gameplay = new { game.State, game.SourceEvents, game.ContactEvents, game.C2Events,
+                    game.Model.SourceFlags, game.Model.SourceLastResult, game.Model.SourceRules,
+                    game.Model.SourceResultView, game.C2State.Taunted, game.C2State.AnnouncerBank,
+                    game.C2State.TauntBank, game.C2State.EndEpoch, game.C2State.ResultPending,
+                    game.C2State.WhistleProcesses, game.C2State.BankEpoch,
+                    actors = game.Model.Players.Select(a => new { a.Id, a.Position, a.Velocity, a.Height,
+                        a.Facing, a.TargetFacing, a.SourceMode, a.SourceJob, a.SourceTarget, a.SourceRawFlags,
+                        a.SourceControllerStation, a.AnimationState.Primary.InstanceId,
+                        a.AnimationState.Primary.ScriptSymbol, a.AnimationState.Primary.SequenceName,
+                        a.AnimationState.Primary.FrameOrdinal }).ToArray(), cache = JointBits(game) };
+                stream.WriteLine(JsonSerializer.Serialize(new { host, beforeSourceTick = before, game.SourceTick,
+                    command, applied = game.Model.SourceCurrentInput, game.State.Phase, game.State.PlayNumber,
+                    state.Match, game.State.Ball, actors = game.State.Players,
+                    game.SourceEvents, game.C2Events, sounds, rawCursor,
+                    fullActualStateEventCacheHash = fullHash,
+                    gameplayPrefixHash = CanonicalHash(JsonSerializer.SerializeToUtf8Bytes(gameplay, options)) }, options));
+                completed++;
+                if (failure != null) break;
+            }
+        }
+        CanonicalCacheCapture.Observer = null;
+        m1ReplayEvidence = new {
+            schema = "source-C2-M1-real-factory-public-replay/v1", observed, historical,
+            profile = historical ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.C2M1StableId,
+            sourceData = real.C2Data.PayloadSha256, replayFileSha256 = CanonicalHash(File.ReadAllBytes(replayPath)),
+            factory = historical ? "REAL SourceC2Composition.CreateSimulation" : "REAL SourceC2Composition.CreateM1Simulation",
+            completedHosts = completed, game.SourceTick, rawVector, rawCursor, rSkipFrames, positive,
+            firstNewCallback, failure, phaseCounts, actionCounts, cache = witness.Summary(),
+            originalPublicVectorRetainedWithoutStateConditionedRegeneration = true,
+            sourceAudioDSPOrTargetRngOrFullGameAccepted = false };
+        File.WriteAllText(Path.Combine(outputRoot, "m1-replay-result.json"), JsonSerializer.Serialize(m1ReplayEvidence, options));
+        File.WriteAllText(Path.Combine(outputRoot, "m1-all-raw-draws.json"), JsonSerializer.Serialize(shared.Trace, options));
+        File.WriteAllText(Path.Combine(outputRoot, "m1-R_SKIP-real-poses.json"), JsonSerializer.Serialize(poses, options));
+        if (firstFailure != null) throw firstFailure;
+        Check(failure == null, "M1 actual source replay stopped at first software fault; never rescue/skip a wake");
+        Check(completed == 12000 && shared.Trace.Count == rawCursor,
+            "M1 full immutable12000 replay retains every input and source draw");
+        if (observed)
+            Check(witness.Calls == witness.Frames * 14 && witness.CurrentRows == witness.Frames * 210 &&
+                witness.ReferenceRows == witness.CurrentRows && witness.PreviousRows > 0 &&
+                witness.ContactFrames > 0 && witness.DisplacedActors > 0,
+                "M1 full actual-factory strict CURRENT/PREV14x15 witness includes every contact actor");
+        if (!historical)
+            Check(m1ReplayPositive, "M1 full public R_SKIP gate requires after2299 same-instance two ordinals and two real15 poses");
     }
 
     private static string CanonicalHash(byte[] bytes)

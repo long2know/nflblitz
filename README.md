@@ -7,18 +7,25 @@ not a finished or whole-game-parity recreation.
 
 ## Checked-in source versus the recorded live player
 
-The checked-in **Contact/C2 source increment** is a bounded portable-source and
-resource-binding milestone, **not a new playable build or whole-game acceptance**.
-The absent/empty runtime selector still chooses C1
-`original-teams-contact272` (**272 clips / 24,892 selected frames**).
-`original-teams-contact281-c2` (**281 clips / 26,230 frames**) is explicit opt-in:
-`?actors=source&sourceprofile=original-teams-contact281-c2`.
-Conflicting built/URL selections and missing or mismatched resources fail
-visibly; there is no automatic promotion or old-asset fallback.
+**Blocked source increment, October 17, 2026:** Contact/C2 and the explicit
+StageB M1 binding successor are portable-source/resource work, **not a new
+playable build, green CI or whole-game acceptance**. Current post-snap
+defined-domain QA qualifies only the named
+[B1, snap, binding, package and API surfaces](docs/source-parity.md#current-post-snap-defined-domain-qa);
+broader generation qualification remains blocked.
 
-Both profiles require real, pinned animation/team/impact/HUD/match/movement/DIP
-inputs. C2 additionally requires its own callback JSON, ONE7538 hit SAFN and
-**477-site** impact catalog, retaining the separate unchanged six-binding SAFN.
+| Runtime selection | Resource identity |
+| --- | --- |
+| Absent/empty selector | C1 `original-teams-contact272`, 272 clips / 24,892 selected frames |
+| Explicit old-nine C2 | `original-teams-contact281-c2`, 281 clips / 26,230 frames, nine callback bindings / 477 impact sites |
+| Explicit M1 successor | `original-teams-contact281-c2-m1`, the same 281 animation bytes, fourteen callback bindings / 482 impact sites |
+
+The opt-ins use `?actors=source&sourceprofile=<resource identity>`.
+Conflicting built/URL selections and missing or mismatched resources fail
+visibly; the default is not promoted and old assets are not fallbacks.
+All profiles require real, pinned animation/team/impact/HUD/match/movement/DIP
+inputs. Old-nine and M1 callback/service identities are separate; both retain
+the unchanged six-binding SAFN and ONE7538 hit payload.
 See the [current preparation and resource contract](docs/build.md#current-contactc2-source-mode-resources)
 and [strict-input versus asset-free checks](tests/README.md#current-contactc2-gates).
 Historical 56/117/156/157/272 identities remain distinct; preserving them does
@@ -27,6 +34,23 @@ Nonempty sound output without a real DSP consumer fails visibly—**nothing is
 claimed played**. Source/pure/reference-API checks are not native import, game
 pixels, a Unity build or browser proof. Three legitimate Editor attempts exited
 198 **before import** because headless entitlement was unavailable.
+
+The source-derived snap fix keeps Source57 in PreSnap until the actual
+`hike_ball` animation callback, rather than declaring Live at the snap request.
+It removes the earlier dummy-holder timing fault, not the remaining
+qualification blockers:
+
+- A preserved public vector reaches original **`bc_adjust[6]`** after six
+  successful blocks. The function-local array has only six elements; no
+  corrected semantics or matching target runtime evidence is approved.
+  Strict failure remains—no clamp, guessed row or boundary-as-PASS.
+- The required positive public **R_SKIP witness remains zero**. Full M1 and
+  all sixteen parity rows remain OPEN.
+- The unchanged workflow still uses **legacy69/443** preparation and failed
+  run39044339868; it is not current-generation qualification. Clean CI also
+  lacks tracked acquisition of the exact reviewed 12,000 public commands.
+  [Full-M1 commands require a user-supplied local replay](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
+  PR21 remains blocked/unmerged, not a completed main/whole-game increment.
 
 **Portability disclosure:** the parent autonomously selected a narrow
 no-eligible-candidate return before original `maybe_taunt` calls
@@ -59,12 +83,16 @@ described by the packaging recipe.
    in an approved, isolated candidate using explicit pinned original inputs:
    - Prepare [Contact272 from the unchanged true157 base](tools/animation/README.md#c1-production-successor-explicit-contact272).
      The base retains `R_SKIP`'s qualified converter-state replay, not a guessed
-     missing-hand pose. For C2, explicitly supply the pinned nine-clip bundle
-     and use the [canonical281 and impact producers](tools/animation/README.md#explicit-c2-production281-generation).
-     These commands do not retrieve original data or manufacture absent bundles.
+     missing-hand pose. StageA's tracked metadata-only
+     `tools/animation/c2_sequences.json` drives the existing exporter for the
+     exact extra9 bundle; its three WANs are already in the strict78 closure.
+     Use the [canonical281 and impact producers](tools/animation/README.md#explicit-c2-production281-generation);
+     M1 requires explicit `--profile contact281-c2-m1` on both producers.
+     An omitted producer profile still means old-nine C2, not runtime C1.
    - Prepare/import [all 31 original teams and the selected profile's impact data](tools/assets/README.md),
      including actual rosters, model/skin/uniform/BCD-number bindings. Use the
-     matching Contact272 or Contact281C2 importer, never a relabeled 157 resource.
+     matching Contact272, Contact281C2 or Contact281C2M1 importer, never a
+     relabeled 157 resource.
    - Prepare the [original HUD/cabinet data](tools/interface/README.md), then
      [package the HUD and match services](tools/interface/packaging.md) with the
      actual P1 catalog and an explicitly chosen, SHA-pinned configuration,
@@ -99,16 +127,19 @@ described by the packaging recipe.
    ```
 
    The existing wrapper calls ordinary `WebGlBuild.Build`, retaining the C1
-   default; it has no C2 selector flag. Explicitly select the installed C2
+   default; it has no C2/M1 selector flag. Explicitly select the installed C2
    resources by URL below, or use the separately documented future fixed-C2
-   Editor entrypoint. Host mode preserves the caller's `HOME`/`XDG_*`
+   or M1 Editor entrypoint. These are future licensed operations, not current
+   build evidence. Host mode preserves the caller's `HOME`/`XDG_*`
    activation environment.
    Serving builds the static runtime image locally and runs in the foreground;
    Ctrl-C stops it. See [build, activation and generation proof](docs/build.md).
 4. For a newly built ordinary candidate, `http://127.0.0.1:8080/?actors=source` **requires**
    the complete Contact272 resources. Explicit C2 uses
    `http://127.0.0.1:8080/?actors=source&sourceprofile=original-teams-contact281-c2`
-   and its complete, separately keyed C2 resources. Missing or
+   and its complete, separately keyed old-nine resources. M1 instead requires
+   `http://127.0.0.1:8080/?actors=source&sourceprofile=original-teams-contact281-c2-m1`
+   and its fourteen-binding/482-site resources. Missing or
    invalid inputs show `SOURCE MODE ERROR`; no generic font, matching-uniform,
    static-player or graybox substitute is installed.
    `http://127.0.0.1:8080/?actors=graybox` explicitly selects LegacyBaseline60Hz.
@@ -118,15 +149,16 @@ described by the packaging recipe.
 
 The resource set is necessary, not a finished-game guarantee: original audio/FX
 consumers remain unbound and fail explicitly when reached. Do not bind noops,
-silence or fake clicks. Canonical M1 observed 12,000 host/11,400 source ticks but
-**zero `R_SKIP` frames**; the required multi-ordinal/pose witness remains open.
+silence or fake clicks. Recorded public windows have **zero positive R_SKIP
+witnesses**; the required same-instance multi-ordinal/real-pose gate remains open.
 B1's FIFO compatibility and unfiltered raw99-at-every-site positive catch are
 separately declared controlled inputs, not unchanged original trajectories or
 target PRNG. The seed1 standing-BatDown negative remains. See the
 [current evidence and limits](docs/source-parity.md#current-contactc2-boundary).
 
-For interactive editing, open `Assets/Scenes/Boot.unity`. Never run concurrent
-editors/imports/builds against the same project and `Library/`.
+For a future authorized, licensed interactive session, open
+`Assets/Scenes/Boot.unity`. Never run concurrent editors/imports/builds against
+the same project and `Library/`.
 
 ### Controls
 
@@ -234,12 +266,12 @@ coverage is separate from animation/browser acceptance.
   game, original audio/FX consumers and representative hardware performance
   remain unqualified. Pure/API success is not new pixels or a fresh deployment.
 
-Current component evidence includes all 61 Contact/C2 causal controls,
-34,570 kernel assertions, 963 actual package assertions/14 compiled controls,
-and all five actual archived Unity6000.3.24 C#7.3/.NET Standard2.1 reference
-profiles over 112 sources (99 runtime/13 separate Editor), zero diagnostics.
-These are recorded source/component results, not full-M1, native/DSP,
-all-sixteen-row or new playable-build acceptance.
+Component receipts in the ledger are dated and source-generation-specific.
+The October 17, 2026 post-snap defined-domain report qualifies the named current
+surfaces, not older full contact/VM/P1/full-kernel or geometry-history campaigns.
+Its fingerprint excludes the five docs, workflow and CI guard; it does not
+qualify those mutable paths or hosted CI. Full-M1/CI acceptance, native/DSP
+and new playable-build evidence remain blocked.
 
 The [source-parity ledger](docs/source-parity.md) records the pinned references,
 provenance boundary and exact evidence limits. Original inputs, converted art,

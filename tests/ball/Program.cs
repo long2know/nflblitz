@@ -20,6 +20,12 @@ internal static class Program
         try
         {
             string c2Inputs = null;
+            string c2M1Inputs = null;
+            if (args.Length >= 2 && args[args.Length - 2] == "--c2-m1-inputs")
+            {
+                c2M1Inputs = args[args.Length - 1];
+                args = args.Take(args.Length - 2).ToArray();
+            }
             if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
             {
                 c2Inputs = args[args.Length - 1];
@@ -28,15 +34,23 @@ internal static class Program
             if (args.Length != 3 && args.Length != 4)
                 throw new ArgumentException("BallChecks actual-fixture.json original-C-case-directory all|native|caller|sentinel|geometry");
             FullKernelInputs real = FullKernelInputs.Load(args[0], soundFunctionsPath: args.Length == 4 ? args[3] : null,
-                c2InputsPath: c2Inputs);
+                c2InputsPath: c2Inputs, c2M1InputsPath: c2M1Inputs);
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["canonical_B1_animation_manifest"] = real.Animations.InventorySha256;
             result["production_contact272_selected"] = real.IsContactProfile;
             string section = args[2];
-            if (section != "all" && section != "native" && section != "caller" && section != "sentinel" && section != "geometry" && section != "flip-fifo")
+            if (section != "all" && section != "native" && section != "caller" && section != "sentinel" && section != "geometry" && section != "flip-fifo" && section != "snap-hike")
                 throw new ArgumentException("Unknown bounded ball section.");
             if (section == "flip-fifo")
                 result["caller_assertions"] = SourceCallerChecks.RunFlipOnly(real, args[1]);
+            if (section == "snap-hike")
+            {
+                FullKernelInputs timingReal = FullKernelInputs.Load(args[0], movementLibrary: true,
+                    soundFunctionsPath: args.Length == 4 ? args[3] : null,
+                    c2InputsPath: c2Inputs, c2M1InputsPath: c2M1Inputs);
+                result["caller_assertions"] = SourceCallerChecks.RunSnapHikeOnly(timingReal, args[1]);
+                result["source_correct_snap_hike_case"] = true;
+            }
             if (section == "all" || section == "sentinel")
                 result["sentinel_assertions"] = SentinelChecks.Run(real, args[1]);
             if (section == "all" || section == "native")
@@ -45,7 +59,8 @@ internal static class Program
             {
                 // Historical callers use157, numeric controls117; the explicit new fixture selects production272.
                 FullKernelInputs movementReal = FullKernelInputs.Load(args[0], movementLibrary: true,
-                    soundFunctionsPath: args.Length == 4 ? args[3] : null, c2InputsPath: c2Inputs);
+                    soundFunctionsPath: args.Length == 4 ? args[3] : null,
+                    c2InputsPath: c2Inputs, c2M1InputsPath: c2M1Inputs);
                 result["caller_runtime_animation_manifest"] = movementReal.Animations.InventorySha256;
                 result["caller_assertions"] = SourceCallerChecks.Run(movementReal, args[1]);
             }

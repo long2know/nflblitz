@@ -20,6 +20,7 @@
     <Compile Include="Controlled.cs" />
     <Compile Include="InputAndStation.cs" />
     <Compile Include="Canonical.cs" />
+    <Compile Include="SnapHikeChecks.cs" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
   <Import Project="../parity/FullKernelSources.props" />

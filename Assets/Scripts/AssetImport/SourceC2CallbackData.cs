@@ -45,9 +45,11 @@ namespace Blitz.AssetImport
     {
         public const string Schema = "original-source-c2-callback-data/v1";
         public const string EntryProfile = "OriginalRelease57Hz-C2-InitSoundBanks-v1";
+        public const string M1Profile = "OriginalRelease57Hz-C2-M1-InitSoundBanks-v1";
         private readonly Dictionary<string, ReadOnlyCollection<int>> speechTables;
         private readonly Dictionary<int, SourceC2SoundCallTemplate> soundCalls;
         public string PayloadSha256 { get; }
+        public string Profile { get; }
         public string AnimationManifestSha256 { get; }
         public string LegacyAnimationInventorySha256 { get; }
         public string ExtraAnimationInventorySha256 { get; }
@@ -59,12 +61,12 @@ namespace Blitz.AssetImport
         public string PlayerGitBlob { get { return "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c"; } }
         public string SoundsGitBlob { get { return "f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9"; } }
 
-        private SourceC2CallbackData(string hash, string inventory, string legacy, string extra,
+        private SourceC2CallbackData(string hash, string profile, string inventory, string legacy, string extra,
             SourceAudioFunctionData hit, List<SourceC2VmBinding> bindings,
             Dictionary<string, ReadOnlyCollection<int>> tables, string[] announcer, string[] taunt,
             List<SourceC2SoundCallTemplate> calls)
         {
-            PayloadSha256 = hash; AnimationManifestSha256 = inventory;
+            PayloadSha256 = hash; Profile = profile; AnimationManifestSha256 = inventory;
             LegacyAnimationInventorySha256 = legacy; ExtraAnimationInventorySha256 = extra;
             HitExtensionData = hit; Bindings = bindings.AsReadOnly(); speechTables = tables;
             AnnouncerBanks = Array.AsReadOnly(announcer); TauntBanks = Array.AsReadOnly(taunt);
@@ -109,7 +111,10 @@ namespace Blitz.AssetImport
             string hash = RosterGuard.Sha256(bytes);
             RosterGuard.Require(hash == trustedSha256, "C2 payload SHA256 mismatch.");
             RosterObject root = RosterJson.Object(RosterJson.Parse(bytes), "C2");
-            Exact(root, "schema", Schema); Exact(root, "profile", EntryProfile);
+            Exact(root, "schema", Schema);
+            string profile = root.Text("profile");
+            RosterGuard.Require(profile == EntryProfile || profile == M1Profile, "Unknown explicit C2 binding profile.");
+            bool m1 = profile == M1Profile;
             RosterObject source = root.Object("source");
             Exact(source, "repository", "historicalsource/nflblitz2000");
             Exact(source, "revision", "89f840d58d152a2a9f230cb8d0cdffbd554c8ded");
@@ -190,22 +195,26 @@ namespace Blitz.AssetImport
             for (int n = 0; n < scripts.Length; n++)
                 RosterGuard.Require(scripts[n] == expected[n], "C2 script closure/order mismatch.");
             object[] rawBindings = root.Array("vm_bindings");
-            RosterGuard.Require(rawBindings.Length == 9, "C2 requires all eight speech and one hit ANI_CODE sites.");
-            int[] lines = { 3144, 3169, 3194, 3219, 3307, 7568, 7538, 7459, 7484 };
-            int[] arguments = { -2, -2, -2, -1, -3, 16, 70, 47, 47 };
+            RosterGuard.Require(rawBindings.Length == (m1 ? 14 : 9),
+                "C2 requires its exact nine or explicit M1 fourteen source bindings, never implicit promotion.");
+            string[] bindingScripts = { "taunt_1_anim", "taunt_2_anim", "taunt_3_anim", "taunt_4_anim",
+                "m_laugh1_anim", "m_qbwhat_anim", "m_qbfite_anim", "m_mscat1_anim", "m_mscat2_anim",
+                "r_histep_anim", "r_skip_anim", "r_hihand_anim", "r_bktau2_anim", "r_ezsprint_anim" };
+            int[] lines = { 3144, 3169, 3194, 3219, 3307, 7568, 7538, 7459, 7484, 6373, 6401, 6428, 6480, 6508 };
+            int[] arguments = { -2, -2, -2, -1, -3, 16, 70, 47, 47, -4, -4, -4, -4, -5 };
             var bindings = new List<SourceC2VmBinding>();
             for (int n = 0; n < rawBindings.Length; n++)
             {
                 RosterObject binding = RosterJson.Object(rawBindings[n], "C2.vm_bindings");
                 string function = n == 6 ? "get_hit_snd" : "taunt_speech";
                 SourceC2SoundFunctionKind kind = n == 6 ? SourceC2SoundFunctionKind.HitFunctionExtension : SourceC2SoundFunctionKind.TauntSpeech;
-                Exact(binding, "path", "plyrseq.c"); Exact(binding, "script", expected[n]);
+                Exact(binding, "path", "plyrseq.c"); Exact(binding, "script", bindingScripts[n]);
                 Exact(binding, "function", function); Exact(binding, "kind", kind.ToString());
                 binding.ExactInteger("line", lines[n]);
                 int[] args = binding.Integers("arguments", 3, -5, 70);
                 RosterGuard.Require(args[0] == arguments[n] && args[1] == 0 && args[2] == 0, "C2 ANI_CODE argument tuple changed.");
                 binding.Done();
-                bindings.Add(new SourceC2VmBinding(expected[n], function, kind, lines[n], arguments[n]));
+                bindings.Add(new SourceC2VmBinding(bindingScripts[n], function, kind, lines[n], arguments[n]));
             }
             RosterObject producer = root.Object("end_producer_sites");
             producer.ExactInteger("whistle_qcreate_line", 5948); producer.ExactInteger("pid", 0);
@@ -214,7 +223,7 @@ namespace Blitz.AssetImport
             producer.ExactInteger("emit_line", 6018); producer.ExactInteger("celebrate_line", 6007);
             producer.ExactInteger("celebrate_time", 60); producer.Done();
             root.Done();
-            return new SourceC2CallbackData(hash, inventory, legacy, extra, hitExtensionData, bindings,
+            return new SourceC2CallbackData(hash, profile, inventory, legacy, extra, hitExtensionData, bindings,
                 speech, announcer, taunt, callTemplates);
         }
 

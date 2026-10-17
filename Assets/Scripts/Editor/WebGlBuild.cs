@@ -29,16 +29,20 @@ namespace Blitz.Editor
         public static void PrepareContact281C2Project()
         { PrepareProfile(SourceTeamResourceProfile.Contact281C2); }
 
+        public static void PrepareContact281C2M1Project()
+        { PrepareProfile(SourceTeamResourceProfile.Contact281C2M1); }
+
         private static void PrepareProfile(SourceTeamResourceProfile profile)
         {
+            if (profile.UsesC2Data) SourceTeamResourceProfile.SelectRuntimeProfile(null, profile.StableId);
             if (Application.unityVersion != EditorVersion)
                 throw new BuildFailedException("Use the pinned Unity " + EditorVersion + " editor, not " + Application.unityVersion + ".");
             FixedStepBridgeChecks.Verify();
             HudTypographyChecks.Verify();
-            if (profile.IsContact281C2)
+            if (profile.UsesC2Data)
             {
-                SourceInterfaceServices services = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.C2ResourceKey);
-                if (services == null || !services.Profile.IsContact281C2)
+                SourceInterfaceServices services = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKeyFor(profile));
+                if (services == null || services.Profile.StableId != profile.StableId)
                     throw new BuildFailedException("Explicit C2 build requires actual canonical281/C2 services, not a stock/272 fallback.");
                 profile.RequireLibrary(services.Animations);
                 SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
@@ -46,7 +50,8 @@ namespace Blitz.Editor
                     throw new BuildFailedException("Explicit C2 build requires its actual canonical team/template resources.");
                 SourcePlayerRig template = teams.Template;
                 profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(template));
-                if (services.C2Data.PayloadSha256 != SourceInterfacePackagePlan.C2CallbackSha256)
+                if (services.C2Data.PayloadSha256 != (profile.IsContact281C2M1 ?
+                    SourceInterfacePackagePlan.C2M1CallbackSha256 : SourceInterfacePackagePlan.C2CallbackSha256))
                     throw new BuildFailedException("Explicit C2 build callback data changed.");
             }
             ConfigurePlayer();
@@ -61,6 +66,9 @@ namespace Blitz.Editor
 
         public static void BuildContact281C2()
         { BuildProfile(SourceTeamResourceProfile.Contact281C2); }
+
+        public static void BuildContact281C2M1()
+        { BuildProfile(SourceTeamResourceProfile.Contact281C2M1); }
 
         private static void BuildProfile(SourceTeamResourceProfile profile)
         {
@@ -178,7 +186,7 @@ namespace Blitz.Editor
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             GameObject root = new GameObject("NFL Blitz 2000 / runtime");
             BlitzRuntime runtime = root.AddComponent<BlitzRuntime>();
-            if (profile.IsContact281C2) runtime.ConfigureSourceResourceProfile(profile.StableId);
+            if (profile.UsesC2Data) runtime.ConfigureSourceResourceProfile(profile.StableId);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
                 throw new BuildFailedException("Failed to persist " + ScenePath + ".");
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

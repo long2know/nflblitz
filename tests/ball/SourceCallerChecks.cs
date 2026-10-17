@@ -50,6 +50,13 @@ internal static class SourceCallerChecks
         return assertions;
     }
 
+    internal static int RunSnapHikeOnly(FullKernelInputs real, string originalCases)
+    {
+        oracleRoot = originalCases;
+        RawSnapAndPass(real);
+        return assertions;
+    }
+
     private static PlayerCommand[] PendingPackets(GameSimulation game)
     {
         return ((Queue<PlayerCommand>)typeof(GameSimulation).GetField("pendingSourceActions",
@@ -772,30 +779,60 @@ internal static class SourceCallerChecks
             "active M1 post-BeginTick latched fresh B survives complete between-wake tap with held zero");
         Check(qb.SourceOldButtons == SourceDroneButtons.None && qb.SourceButtonHistory[0] == SourceDroneButtons.None,
             "active M1 latched tap does not rewrite physical held-button history");
-        Check(game.State.Phase == GamePhase.LiveBall, "complete B press/release actually snaps despite Held=0");
-        SourceGameEvent[] snaps = game.SourceEvents.Where(e => e.Type == SourceEventType.Snapped).ToArray();
-        Check(snaps.Length == 1 && snaps[0].SourceTick == tick + 1 && game.SourceTick == tick + 1
-            && game.Model.SourceHikeCounterAtSnap == beforeHike - 1 && game.Model.SourceHikeCounterAtSnap > 0,
-            "fresh raw B causes exactly one manual Snapped event on the first executed source wake, not auto-hike");
+        long requestTick = game.SourceTick;
+        bool originalRequestBoundary = requestTick == tick + 1 && game.State.Phase == GamePhase.PreSnap
+            && (game.Model.SourceFlags & SourceGameFlags.HikingBall) != 0
+            && game.Model.CarrierId == game.Model.OffenseOffset + 1
+            && !game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped)
+            && game.Model.SourceHikeCounterAtSnap == beforeHike - 1 && game.Model.SourceHikeCounterAtSnap > 0;
         Check(noTap.SourceTick == tick + 1 && noTap.State.Phase == GamePhase.PreSnap
             && noTap.Model.PreSnapTicksRemaining == beforeHike - 1
             && !noTap.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
             "negative public no-tap control stays pre-snap at identical source wake and positive countdown");
+        int requestedNewButtons = (int)qb.SourceNewButtons, requestedHeldButtons = (int)qb.SourceButtons;
+        int requestedOldButtons = (int)qb.SourceOldButtons, requestedHistory = (int)qb.SourceButtonHistory[0];
+        int requestNoTapCountdown = noTap.Model.PreSnapTicksRemaining;
+        int streamTicks = SourceAnimationPrograms.Get("center_snap_anim").Instructions
+            .Single(i => i.Op == SourceAnimationOp.Stream && i.A == 21 && i.B == 4).B;
+        int deliveryHosts = (SliceRules.TicksPerSecond * streamTicks - game.Model.SourceClockRemainder
+            + SourceTiming.DefaultTicksPerSecond - 1) / SourceTiming.DefaultTicksPerSecond;
+        bool checkedConsumedPress = false;
+        for (int host = 0; host < deliveryHosts; host++)
+        {
+            long beforeSource = game.SourceTick;
+            pairedStep(Raw(SourceButtons.None));
+            if (!checkedConsumedPress && game.SourceTick > beforeSource)
+            {
+                Check(qb.SourceNewButtons == SourceDroneButtons.None && qb.SourceButtons == SourceDroneButtons.None,
+                    "active M1 latched fresh B is consumed once on the next executed neutral source wake");
+                Check(!game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
+                    "consumed raw snap edge does not replay a second source Snapped event");
+                checkedConsumedPress = true;
+            }
+        }
+        Check(game.State.Phase == GamePhase.LiveBall,
+            "complete B tap starts the original center stream and real HikeBall eventually enters Live despite Held=0");
+        SourceGameEvent[] snaps = game.SourceEvents.Where(e => e.Type == SourceEventType.Snapped).ToArray();
+        Check(originalRequestBoundary && snaps.Length == 1 && snaps[0].SourceTick == requestTick + streamTicks
+            && game.SourceTick == requestTick + streamTicks && game.Model.TargetPlayerId == quarterback,
+            "fresh B requests at first executed wake; exactly one Snapped event belongs to original21/4 HikeBall opcode");
         File.WriteAllText(Path.Combine(oracleRoot, "raw-B-input-causality.json"),
             JsonSerializer.Serialize(new {
                 schema = "actual-M1-public-fresh-press-causality/v1",
                 state_mutation_used = false, station = 3, source_before = tick, source_after = game.SourceTick,
                 countdown_before = beforeHike, actual_manual_hike_counter = game.Model.SourceHikeCounterAtSnap,
-                actual_new_buttons = (int)qb.SourceNewButtons, actual_held_buttons = (int)qb.SourceButtons,
-                actual_old_buttons = (int)qb.SourceOldButtons,
-                actual_physical_history0 = (int)qb.SourceButtonHistory[0],
+                actual_new_buttons = requestedNewButtons, actual_held_buttons = requestedHeldButtons,
+                actual_old_buttons = requestedOldButtons,
+                actual_physical_history0 = requestedHistory, original_snap_request_tick = requestTick,
+                original_center_stream_source_ticks = streamTicks,
+                source_correct_hike_history = true,
+                old_immediate_Source57_Live_contract_replaced_not_Legacy60 = true,
                 actual_snap_source_ticks = snaps.Select(e => e.SourceTick).ToArray(),
                 no_tap_source_tick = noTap.SourceTick, no_tap_phase = noTap.State.Phase.ToString(),
-                no_tap_countdown = noTap.Model.PreSnapTicksRemaining,
+                no_tap_countdown = requestNoTapCountdown,
                 no_tap_snap_events = noTap.SourceEvents.Count(e => e.Type == SourceEventType.Snapped),
                 original_player_blob = "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c"
             }, new JsonSerializerOptions { WriteIndented = true }));
-        bool checkedConsumedPress = false;
         for (int host = 0; game.Model.CarrierId != quarterback && host < 100; host++)
         {
             long beforeSource = game.SourceTick;

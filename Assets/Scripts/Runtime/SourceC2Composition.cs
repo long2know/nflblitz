@@ -15,9 +15,36 @@ namespace Blitz.Runtime
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1)
         {
-            SourceTeamResourceProfile.Contact281C2.RequireLibrary(animations);
+            return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,
+                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
+                c2Bootstrap, randomFactory, seed);
+        }
+
+        public static GameSimulation CreateM1Simulation(ISourceAnimationLibrary animations,
+            IReadOnlyList<SourceVector3> referencePivots, SourcePlaybook playbook,
+            SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
+            SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
+            SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
+            Func<int, ISourceRandom> randomFactory = null, int seed = 1)
+        {
+            return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,
+                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
+                c2Bootstrap, randomFactory, seed);
+        }
+
+        private static GameSimulation CreateChecked(SourceTeamResourceProfile profile, ISourceAnimationLibrary animations,
+            IReadOnlyList<SourceVector3> referencePivots, SourcePlaybook playbook,
+            SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
+            SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
+            SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
+            Func<int, ISourceRandom> randomFactory, int seed)
+        {
+            profile.RequireLibrary(animations);
             if (c2Bootstrap == null || c2Bootstrap.EntryKind != SourceC2EntryKind.OriginalProgramBootSoundBanks ||
-                c2Bootstrap.Data.PayloadSha256 != SourceInterfacePackagePlan.C2CallbackSha256 ||
+                c2Bootstrap.Data.PayloadSha256 != (profile.IsContact281C2M1
+                    ? SourceInterfacePackagePlan.C2M1CallbackSha256 : SourceInterfacePackagePlan.C2CallbackSha256) ||
+                c2Bootstrap.Data.Profile != (profile.IsContact281C2M1
+                    ? SourceC2CallbackData.M1Profile : SourceC2CallbackData.EntryProfile) ||
                 c2Bootstrap.Data.AnimationManifestSha256 != SourceTeamResourceProfile.C2AnimationSha256 ||
                 c2Bootstrap.Data.HitExtensionData.PayloadSha256 != SourceInterfacePackagePlan.C2HitSha256)
                 throw new SourceInterfaceException("C2 requires its explicit original sound-bank entry/bootstrap BEFORE constructor bank draws and initial AI.");

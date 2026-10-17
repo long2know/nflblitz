@@ -1,5 +1,57 @@
 # Fresh Contact281C2 production binding checks
 
+## Explicit C2-M1 successor package qualification
+
+This suite also accepts the **separate** fourteen-binding M1 successor, while
+retaining every old-nine/C1 assertion and all14 previous compiled controls:
+
+```sh
+ARGS=(
+  --inputs .squad/.scratch/contact281-m1-stageB/old-nine-reproduced
+  --old272 .squad/.scratch/SourceData/contact-kernel272/contact-animation
+  --fixture .squad/.scratch/SourceData/contact-kernel272/legacy-fixture.json
+  --impact .squad/.scratch/contact281-m1-stageB/old-nine-impact/impact-presentation.json
+  --old-impact .squad/.scratch/contact-profile/impact272/impact-presentation.json
+  --hud .squad/.scratch/SourceData/contact-presentation-reference/hud
+  --m1-inputs .squad/.scratch/contact281-m1-stageB/m1-inputs
+  --m1-impact .squad/.scratch/contact281-m1-stageB/m1-impact/impact-presentation.json
+)
+python3 -B tests/presentation/c2-runtime/run.py "${ARGS[@]}" \
+  --output tests/presentation/c2-runtime/.artifacts/contact281-m1-final-actual
+python3 -B tests/presentation/c2-runtime/mutations.py "${ARGS[@]}" \
+  --output tests/presentation/c2-runtime/.artifacts/contact281-m1-final-mutants
+```
+
+These are package/factory and bounded direct-VM checks, **not** public-M1
+input probes. They read actual b0c02e55 JSON and482-site2fee43a7 catalog,
+exercise `CreateM1Simulation` with the SAME e874 library and pre-AI bank
+bootstrap, reject both cross-generation readers/factories/catalogs, compare
+all477 old sites, and execute all five real running-taunt ANI sites with
+chance9/10. They check root chance100, conditional index3, exact native
+callee519/524, unchanged raw bank/volume/pan/priority and one FIFO/zero-output
+branch. Actual raw recording is not DSP/audio-device playback.
+
+Three additional compiled controls break the M1 reader, factory generation
+or new6373 site in isolated copies; live Core4 hashes are never modified.
+The suite asserts explicit M1 URL/build admission and rejects an M1 URL
+against a pinned old-nine build. Parent authorized only the single shared
+guard addition after the holder diagnosis went idle; no proxy selector or
+factory bypass is installed.
+The frozen current holder/int_receiver5590 fault and zero R_SKIP public
+windows remain unresolved and are not relabeled as package failure or
+gameplay acceptance.
+
+For fresh current112 Unity reference output without overwriting old evidence:
+
+```sh
+python3 -B tests/presentation/c2-runtime/api_compile.py \
+  --unity-editor-data /data/source/mahjong-unity/artifacts/test-results/unity-u2-archive-route/6000.3.24f1/Editor/Data \
+  --output tests/presentation/c2-runtime/.artifacts/contact281-m1-final-api
+```
+
+Choose a NEW output each run. This executes only the existing compiler
+against archived references, never an Editor or native build.
+
 This is a new package/factory/transport suite, not the old53566-assertion
 presentation result relabeled. It uses actual frozen Core APIs, source data
 and interpreted animation programs; no Unity stubs or alternate decoder.

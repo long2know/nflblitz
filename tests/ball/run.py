@@ -22,6 +22,7 @@ from kernel_sources import production_paths, canonical_hashes, C2_ANIMATION_SHA
 
 EXPECTED = {"sentinel_assertions": 36, "native_ball_assertions": 470666,
             "caller_assertions": 18017, "geometry_caller_assertions": 32}
+CONTACT272_CALLER_ASSERTIONS = 18018  # 17980 +14 FlipCases +23 RawSnapAndPass +1 inventory; no C2 additions.
 FIFO_ADDED_ASSERTIONS = 44
 C2_CALLER_ASSERTIONS = 18062  # 17980 +14 +23 +1 retained inventory +44 NEW compatibility checks.
 GEOMETRY_ADDED_ASSERTIONS = 9
@@ -104,6 +105,8 @@ def require_baseline(code, summary, section, animation_sha=None):
         section, section + "_assertions")
     required = dict(EXPECTED) if section == "all" else (
         {"caller_assertions": 58} if section == "flip-fifo" else {field: EXPECTED[field]})
+    if animation_sha == CONTACT_ANIMATION_SHA and section in ("all", "caller"):
+        required["caller_assertions"] = CONTACT272_CALLER_ASSERTIONS
     if animation_sha == C2_ANIMATION_SHA and section in ("all", "caller"):
         required["caller_assertions"] = C2_CALLER_ASSERTIONS
     if animation_sha == C2_ANIMATION_SHA and section in ("all", "geometry"):
@@ -113,6 +116,11 @@ def require_baseline(code, summary, section, animation_sha=None):
             or summary.get("full_gameplay_parity_claimed") is not False
             or any(summary.get(key) != value for key, value in required.items())):
         raise RuntimeError("Expected exact nonempty actual-source ball assertion inventory.")
+    if animation_sha == CONTACT_ANIMATION_SHA and (
+            summary.get("production_contact272_selected") is not True
+            or summary.get("caller_added_FIFO_assertions") != 0
+            or summary.get("geometry_added_profile_assertions") != 0):
+        raise RuntimeError("Contact272 requires its actual explicit profile without C2 compatibility/profile additions.")
     if animation_sha == C2_ANIMATION_SHA and section in ("all", "caller", "flip-fifo") and (
             summary.get("caller_added_FIFO_assertions") != FIFO_ADDED_ASSERTIONS):
         raise RuntimeError("Canonical FIFO compatibility checks must be separate additions, not omitted old caller assertions.")

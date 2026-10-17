@@ -70,6 +70,7 @@ def main():
     parser.add_argument("--base272", type=Path, required=True)
     parser.add_argument("--extra9", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--profile", choices=("contact281-c2", "contact281-c2-m1"), default="contact281-c2")
     args = parser.parse_args()
     output = args.output.absolute()
     if output.exists() or not output.is_relative_to(ROOT / ".squad/.scratch") or output == ROOT / ".squad/.scratch":
@@ -78,11 +79,13 @@ def main():
     command = ["python3", "-B", str(ROOT / "tools/animation/prepare_c2_profile.py"),
                "--source-root", str(args.source_root.absolute()), "--base-bundle", str(args.base272.absolute()),
                "--extra-bundle", str(args.extra9.absolute()), "--destination", str(output / "inputs")]
+    if args.profile != "contact281-c2":
+        command += ["--profile", args.profile]
     process = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=180)
     (output / "producer.log").write_text(process.stdout + process.stderr)
     if process.returncode:
         raise RuntimeError("Existing canonical C2 producer failed; no duplicate encoder or invented input schema.")
-    inputs = canonical_hashes(output / "inputs")
+    inputs = canonical_hashes(output / "inputs", args.profile)
     commands, original = prepare_original_oracles(args.source_root, args.process_root, output / "native")
     receipt = {"schema": "source-canonical281-QA-preparation/v1", "status": "passed",
                "commands": [command, *commands], "canonical288_sha256": inputs, "original_C": original,

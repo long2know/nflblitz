@@ -54,18 +54,19 @@ internal static partial class Program
     private static uint Bits(float number) { return unchecked((uint)BitConverter.SingleToInt32Bits(number)); }
     private static float Float(string number) { return BitConverter.Int32BitsToSingle(unchecked((int)uint.Parse(number))); }
 
-    private static void Load(string manifest, string artifacts, string soundFunctions, string canonicalInputs = null)
+    private static void Load(string manifest, string artifacts, string soundFunctions, string canonicalInputs = null,
+        string m1Inputs = null)
     {
         inputManifest = manifest;
         inputArtifacts = artifacts;
         real = FullKernelInputs.Load(manifest, movementLibrary: true, soundFunctionsPath: soundFunctions,
-            c2InputsPath: canonicalInputs);
-        bool actual = canonicalInputs == null
+            c2InputsPath: canonicalInputs, c2M1InputsPath: m1Inputs);
+        bool actual = canonicalInputs == null && m1Inputs == null
             ? real.IsContactProfile && real.Animations.InventorySha256 == FullKernelInputs.ContactAnimationSha256
                 && real.Animations.SequenceNames.Count == 272 && real.Animations.FrameCount == 24892
             : real.IsC2Profile && real.Animations.InventorySha256 == SourceTeamResourceProfile.C2AnimationSha256
                 && real.Animations.SequenceNames.Count == 281 && real.Animations.FrameCount == 26230;
-        Check(actual, canonicalInputs == null
+        Check(actual, canonicalInputs == null && m1Inputs == null
             ? "current C1 generation loads actual production272, never a merged157 adapter or relabeled old fixture"
             : "current canonical281 generation loads every actual clip/frame with exact production pins, never a272 alias");
         legacy157 = FullKernelInputs.Load(manifest, movementLibrary: true, soundFunctionsPath: soundFunctions,
@@ -231,9 +232,10 @@ internal static partial class Program
             bool movementBearing = args.Length == 6 && args[2] == "movement-bearing";
             bool routeTarget = args.Length == 6 && args[2] == "route-target";
             bool c2 = args.Length == 8 && (args[2] == "c2" || args[2] == "c2-natural");
-            if (args.Length != 5 && !heading && !movementBearing && !routeTarget && !c2) throw new ArgumentException("contact272-fixture.json artifacts inputs|emit|verify|kernel|sound-short|heading-boundary|movement-bearing|route-target|c2|c2-natural output-directory sound-functions.safn [original-source-root] [c2-inputs] [explicit-c2-original-oracle]");
+            bool m1Sound = args.Length == 9 && args[2] == "c2-m1-sound";
+            if (args.Length != 5 && !heading && !movementBearing && !routeTarget && !c2 && !m1Sound) throw new ArgumentException("contact272-fixture.json artifacts inputs|emit|verify|kernel|sound-short|heading-boundary|movement-bearing|route-target|c2|c2-natural|c2-m1-sound output-directory sound-functions.safn [original-source-root] [c2-inputs] [explicit-c2-original-oracle] [old-nine-inputs]");
             output = Path.GetFullPath(args[3]); Directory.CreateDirectory(output);
-            Load(args[0], args[1], args[4], canonicalInputs);
+            Load(args[0], args[1], args[4], canonicalInputs, m1Sound ? args[6] : null);
             if (args[2] == "emit" || args[2] == "verify")
                 using (JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(args[1], "native/receipt.json"))))
                     sequenceNames = document.RootElement.GetProperty("sequence_names").EnumerateArray().Select(v => v.GetString()).ToArray();
@@ -247,13 +249,15 @@ internal static partial class Program
             else if (movementBearing) MovementBearingBoundaryChecks(args[5]);
             else if (routeTarget) RouteTargetFacingBoundaryChecks(args[5]);
             else if (c2) C2CallbackChecks(args[5], args[6], args[7], args[2] == "c2-natural");
+            else if (m1Sound) C2M1SoundChecks(args[6], args[7], args[8]);
             else throw new ArgumentException("Unknown source contact test layer.");
             result["status"] = "passed"; result["assertions"] = assertions;
             result["source_programs"] = programs.Count;
             result["source_instructions"] = programs.Values.Sum(rows => rows.Length);
             result["base157_sha256"] = legacy157.Animations.InventorySha256;
             result["production272_sha256"] = FullKernelInputs.ContactAnimationSha256;
-            result["production_profile"] = real.IsC2Profile ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.ContactStableId;
+            result["production_profile"] = real.IsC2M1Profile ? SourceTeamResourceProfile.C2M1StableId
+                : real.IsC2Profile ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.ContactStableId;
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_clips"] = real.Animations.SequenceNames.Count;
             result["actual_animation_frames"] = real.Animations.FrameCount;
@@ -269,7 +273,7 @@ internal static partial class Program
             result["emitted_segment_cases"] = emittedSegmentCases;
             result["verified_detector_cases"] = verifiedDetectorCases;
             result["verified_segment_cases"] = verifiedSegmentCases;
-            if (c2) AddC2Result(result);
+            if (c2 || m1Sound) AddC2Result(result);
             if (args[2] == "kernel")
             {
                 File.WriteAllLines(Path.Combine(output, "actual-kernel-puppet-inputs.tsv"), puppetInputs);

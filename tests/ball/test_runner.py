@@ -34,14 +34,30 @@ class BallRunnerGuards(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     RUNNER.require_baseline(0, {"status": "passed"}, section)
 
-    def test_new272_requires_actual_library_identity_without_rewriting_old_counts(self):
+    def test_current272_requires_exact_retained_count_and_actual_profile_without_rewriting_history(self):
         row = dict(self.summary(), canonical_B1_animation_manifest=RUNNER.CONTACT_ANIMATION_SHA,
-                   caller_runtime_animation_manifest=RUNNER.CONTACT_ANIMATION_SHA)
+                   caller_runtime_animation_manifest=RUNNER.CONTACT_ANIMATION_SHA,
+                   caller_assertions=RUNNER.CONTACT272_CALLER_ASSERTIONS,
+                   production_contact272_selected=True,
+                   caller_added_FIFO_assertions=0, geometry_added_profile_assertions=0)
+        self.assertEqual(18017, RUNNER.EXPECTED["caller_assertions"])
+        self.assertEqual(17980 + 14 + 23 + 1, RUNNER.CONTACT272_CALLER_ASSERTIONS)
         RUNNER.require_baseline(0, row, "all", RUNNER.CONTACT_ANIMATION_SHA)
+        RUNNER.require_baseline(0, row, "caller", RUNNER.CONTACT_ANIMATION_SHA)
+        for field, value in (
+                ("caller_assertions", 18017), ("caller_assertions", 18019),
+                ("caller_assertions", 0), ("caller_assertions", RUNNER.C2_CALLER_ASSERTIONS),
+                ("production_contact272_selected", False), ("production_contact272_selected", None),
+                ("caller_added_FIFO_assertions", 44), ("geometry_added_profile_assertions", 9)):
+            with self.subTest(field=field, value=value), self.assertRaises(RuntimeError):
+                RUNNER.require_baseline(0, dict(row, **{field: value}), "all", RUNNER.CONTACT_ANIMATION_SHA)
         for field in ("canonical_B1_animation_manifest", "caller_runtime_animation_manifest"):
-            changed = dict(row, **{field: "old157-is-not272"})
-            with self.subTest(field=field), self.assertRaises(RuntimeError):
-                RUNNER.require_baseline(0, changed, "all", RUNNER.CONTACT_ANIMATION_SHA)
+            for wrong_profile in ("old157-is-not272", RUNNER.C2_ANIMATION_SHA):
+                changed = dict(row, **{field: wrong_profile})
+                with self.subTest(field=field, profile=wrong_profile), self.assertRaises(RuntimeError):
+                    RUNNER.require_baseline(0, changed, "all", RUNNER.CONTACT_ANIMATION_SHA)
+        with self.assertRaises(RuntimeError):
+            RUNNER.require_baseline(0, row, "all", RUNNER.C2_ANIMATION_SHA)
 
     def test_canonical281_keeps_all_old_ball_counts_and_requires_actual_complete_identity(self):
         row = dict(self.summary(), canonical_B1_animation_manifest=RUNNER.C2_ANIMATION_SHA,
@@ -51,6 +67,13 @@ class BallRunnerGuards(unittest.TestCase):
                    geometry_caller_assertions=32 + RUNNER.GEOMETRY_ADDED_ASSERTIONS,
                    geometry_added_profile_assertions=RUNNER.GEOMETRY_ADDED_ASSERTIONS)
         RUNNER.require_baseline(0, row, "all", RUNNER.C2_ANIMATION_SHA)
+        for field, value in (("caller_assertions", 18017), ("caller_assertions", 18018),
+                             ("caller_assertions", RUNNER.C2_CALLER_ASSERTIONS + 1),
+                             ("caller_added_FIFO_assertions", 0),
+                             ("geometry_caller_assertions", 32),
+                             ("geometry_added_profile_assertions", 0)):
+            with self.subTest(field=field, value=value), self.assertRaises(RuntimeError):
+                RUNNER.require_baseline(0, dict(row, **{field: value}), "all", RUNNER.C2_ANIMATION_SHA)
         for field in ("canonical_B1_animation_manifest", "caller_runtime_animation_manifest"):
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 RUNNER.require_baseline(0, dict(row, **{field: RUNNER.CONTACT_ANIMATION_SHA}),

@@ -15,6 +15,16 @@ BASE_SHA = "9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9"
 EXTRA_SHA = "3e69a29f11c15c5d318f486824b1a3bba1f9489905e20d4c9ce76742af7a8c5f"
 ANIMATION_SHA = "e87401c8cf3e348cc2d9c7255a1f18f43e41b1694ff7dff45c4bf025a5ecce4f"
 DATA_SHA = "9d2cb7ac5d92c3c2178fc1970a68ccad778fb7d319513b1787fe3ba3fe905f99"
+M1_DATA_SHA = "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a"
+PROFILE = "contact281-c2"
+M1_PROFILE = "contact281-c2-m1"
+ENTRY_PROFILE = "OriginalRelease57Hz-C2-InitSoundBanks-v1"
+M1_ENTRY_PROFILE = "OriginalRelease57Hz-C2-M1-InitSoundBanks-v1"
+RUNNING_BINDINGS = (
+    ("r_histep_anim", 6373, -4), ("r_skip_anim", 6401, -4),
+    ("r_hihand_anim", 6428, -4), ("r_bktau2_anim", 6480, -4),
+    ("r_ezsprint_anim", 6508, -5),
+)
 HIT_SHA = "bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904"
 SOURCE_PINS = {
     "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
@@ -42,7 +52,24 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def prepare(source_root, base_root, extra_root, destination, reuse=False):
+def running_bindings(lines):
+    bindings = []
+    for script, line, argument in RUNNING_BINDINGS:
+        start = next(i for i, text in enumerate(lines) if text.strip() == script + ":")
+        stop = next(i for i in range(start + 1, len(lines))
+                    if re.fullmatch(r"\s*\.globl\s+\w+\s*", lines[i]))
+        require(start < line - 1 < stop and lines[line - 2].strip() == ".byte\tANI_CODE",
+                "Original running-taunt ANI_CODE is outside its actual cyclic script.")
+        require(re.fullmatch(r"\.word\s+taunt_speech," + str(argument) + r",0,0",
+                             lines[line - 1].strip()) is not None,
+                "Original running-taunt callback tuple changed.")
+        bindings.append({"path": "plyrseq.c", "script": script, "function": "taunt_speech",
+                         "kind": "TauntSpeech", "line": line, "arguments": [argument, 0, 0]})
+    return bindings
+
+
+def prepare(source_root, base_root, extra_root, destination, reuse=False, profile=PROFILE):
+    require(profile in (PROFILE, M1_PROFILE), "Select one explicit C2 data generation.")
     source_root, base_root, extra_root, destination = (
         selected._absolute(p) for p in (source_root, base_root, extra_root, destination))
     for p in (source_root, base_root, extra_root, destination):
@@ -94,6 +121,8 @@ def prepare(source_root, base_root, extra_root, destination, reuse=False):
         bindings.append({"path": "plyrseq.c", "script": script, "function": match[1],
                          "kind": "HitFunctionExtension" if match[1] == "get_hit_snd" else "TauntSpeech",
                          "line": line, "arguments": [int(match[n]) for n in (2, 3, 4)]})
+    if profile == M1_PROFILE:
+        bindings.extend(running_bindings(seq))
     hit = next(b for b in bindings if b["kind"] == "HitFunctionExtension")
     extension = json.loads(json.dumps(old))
     extension["bindings"] = [{k: v for k, v in hit.items() if k != "kind"}]
@@ -126,7 +155,8 @@ def prepare(source_root, base_root, extra_root, destination, reuse=False):
                            "line": line, "playlist_source": playlists[i], "volume": v3 if i == 6 else v4,
                            "pan": 127, "priority": p4 if i in (3, 6) else p5 if i > 6 else p3})
     data = {
-        "schema": "original-source-c2-callback-data/v1", "profile": "OriginalRelease57Hz-C2-InitSoundBanks-v1",
+        "schema": "original-source-c2-callback-data/v1",
+        "profile": M1_ENTRY_PROFILE if profile == M1_PROFILE else ENTRY_PROFILE,
         "source": {"repository": "historicalsource/nflblitz2000",
                    "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
                    "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7", "blobs": SOURCE_PINS,
@@ -150,7 +180,8 @@ def prepare(source_root, base_root, extra_root, destination, reuse=False):
                                "celebrate_line": 6007, "celebrate_time": 60},
     }
     data_bytes = audio.canonical(data)
-    require((sha(union_bytes), sha(data_bytes), sha(hit_bytes)) == (ANIMATION_SHA, DATA_SHA, HIT_SHA),
+    expected_data = M1_DATA_SHA if profile == M1_PROFILE else DATA_SHA
+    require((sha(union_bytes), sha(data_bytes), sha(hit_bytes)) == (ANIMATION_SHA, expected_data, HIT_SHA),
             "Canonical C2 byte identity differs; stop, never rebaseline frozen source data.")
     outputs.update({"animation281/export-inventory.json": union_bytes, "c2-callback-data.json": data_bytes,
                     "m-qbfite-hit-extension.safn": hit_bytes,
@@ -172,7 +203,7 @@ def prepare(source_root, base_root, extra_root, destination, reuse=False):
     require(all(selected._read_bytes(source_root / n, len(raw)) == raw for n, raw in sources.items()),
             "Pinned original inputs changed during preparation.")
     return {"schema": "source-c2-production-preparation/v1", "animation_manifest_sha256": ANIMATION_SHA,
-            "c2_data_sha256": DATA_SHA, "hit_extension_sha256": HIT_SHA, "clips": 281,
+            "c2_data_sha256": expected_data, "hit_extension_sha256": HIT_SHA, "clips": 281,
             "selected_frames": 26230, "files": len(outputs), "reused": reuse,
             "output_sha256": {n: sha(b) for n, b in outputs.items()}}
 
@@ -182,9 +213,12 @@ def main():
     for name in ("source-root", "base-bundle", "extra-bundle", "destination"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--reuse", action="store_true")
+    parser.add_argument("--profile", choices=(PROFILE, M1_PROFILE), default=PROFILE,
+                        help="Old nine-binding output remains the default; M1 running-taunt successor is explicit.")
     args = parser.parse_args()
     try:
-        print(json.dumps(prepare(args.source_root, args.base_bundle, args.extra_bundle, args.destination, args.reuse), indent=2))
+        print(json.dumps(prepare(args.source_root, args.base_bundle, args.extra_bundle, args.destination,
+                                 args.reuse, args.profile), indent=2))
         return 0
     except (ValueError, OSError, KeyError, StopIteration) as error:
         print("error: " + str(error), file=sys.stderr)

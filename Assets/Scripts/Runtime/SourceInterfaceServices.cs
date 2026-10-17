@@ -79,6 +79,7 @@ namespace Blitz.Runtime
     {
         public const string ResourceKey = SourceInterfacePackagePlan.ContactServicesResourceKey;
         public const string C2ResourceKey = SourceInterfacePackagePlan.C2ServicesResourceKey;
+        public const string C2M1ResourceKey = SourceInterfacePackagePlan.C2M1ServicesResourceKey;
         public const string HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey;
         public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
         public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
@@ -125,6 +126,7 @@ namespace Blitz.Runtime
         public static string ResourceKeyFor(SourceTeamResourceProfile profile)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
+            if (profile.IsContact281C2M1) return C2M1ResourceKey;
             if (profile.IsContact281C2) return C2ResourceKey;
             if (profile.IsContact272) return ResourceKey;
             throw new SourceInterfaceException("Select an explicit C1/C2 services generation; historical profiles are not aliases.");
@@ -133,15 +135,18 @@ namespace Blitz.Runtime
         {
             get
             {
-                if (!Profile.IsContact281C2) throw new SourceInterfaceException("Historical services have no implicit C2 bank-entry bootstrap.");
+                if (!Profile.UsesC2Data) throw new SourceInterfaceException("Historical services have no implicit C2 bank-entry bootstrap.");
                 if (c2Data == null)
                 {
-                    TextAsset callbacks = Resources.Load<TextAsset>(SourceInterfacePackagePlan.C2CallbackResourceKey);
+                    string callbackKey = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
+                        SourceInterfacePackagePlan.C2CallbackResourceKey;
+                    TextAsset callbacks = Resources.Load<TextAsset>(callbackKey);
                     TextAsset hit = Resources.Load<TextAsset>(SourceInterfacePackagePlan.C2HitResourceKey);
                     if (callbacks == null || hit == null || !ReferenceEquals(callbacks, originalC2Callbacks) ||
                         !ReferenceEquals(hit, originalC2HitExtension))
                         throw new SourceInterfaceException("C2 services require the SAME canonical JSON/ONE7538 extension assets; copied/old resources are not aliases.");
-                    c2Data = SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hit.bytes);
+                    c2Data = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hit.bytes) :
+                        SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hit.bytes);
                 }
                 return c2Data;
             }
@@ -247,6 +252,16 @@ namespace Blitz.Runtime
                 soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
         }
 
+        public void InitializeContact281C2M1(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA, TextAsset callbacks, TextAsset hitExtension)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact281C2M1, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
+        }
+
         private void InitializeProfile(SourceTeamResourceProfile profile, SourceAnimationLibraryAsset animationAsset,
             SourceHudAsset hud, TextAsset playbookText, SourceMatchConfiguration configuration,
             SourcePresentationSettings actualPresentation, bool enableNativeGamepads, TextAsset movementBootstrapText,
@@ -264,11 +279,13 @@ namespace Blitz.Runtime
             if (soundVmFunctions == null || trustedSoundVmSHA != GameSimulation.SourceSoundVmDataSha256)
                 throw new SourceInterfaceException("The original sound VM needs explicit SAFN bytes and the frozen Core content pin.");
             resourceProfile = profile.StableId;
-            if (profile.IsContact281C2)
+            if (profile.UsesC2Data)
             {
                 if (callbacks == null || hitExtension == null)
                     throw new SourceInterfaceException("C2 initialization requires actual canonical callback JSON and ONE7538 extension.");
-                SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hitExtension.bytes);
+                if (profile.IsContact281C2M1)
+                    SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hitExtension.bytes);
+                else SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hitExtension.bytes);
                 originalC2Callbacks = callbacks; originalC2HitExtension = hitExtension;
             }
             originalSoundVmFunctions = soundVmFunctions; soundVmFunctionsSha256 = trustedSoundVmSHA;
@@ -313,7 +330,7 @@ namespace Blitz.Runtime
 
         public GameSimulation CreateSimulation(SourcePlayerRig prefab)
         {
-            if (!Profile.IsContact272 && !Profile.IsContact281C2)
+            if (!Profile.IsContact272 && !Profile.UsesC2Data)
                 throw new SourceInterfaceException("This engine requires explicit Contact272 or Contact281C2 services. Historical157 resources are not silently upgraded or routed to old contact physics.");
             Validate();
             if (prefab == null) throw new SourceInterfaceException("Source match geometry needs the actual imported player reference rig.");
@@ -326,10 +343,13 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("Contact272 services must use the SAME canonical team template/rig, not another profile or a copied asset.");
             Profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(prefab));
             Debug.LogWarning("Original source services use explicit ExternalUnverified legacy-LCG preview RNG when no oracle factory is supplied. Historical libc/scheduler/audio draw parity is NOT established.");
-            if (Profile.IsContact281C2)
+            if (Profile.UsesC2Data)
             {
                 SourceC2Bootstrap bootstrap = SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);
                 Debug.LogWarning("Explicit C2 original sound-bank entry consumes announcer then taunt draws BEFORE initial AI. Pre-boundary boot RNG and old golden trajectories are not claimed equivalent.");
+                if (Profile.IsContact281C2M1)
+                    return SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),
+                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
                 return SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),
                     teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
             }
@@ -356,7 +376,7 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("The explicit M1 bootstrap pin changed after configuration.");
             if (SoundVmData.PayloadSha256 != GameSimulation.SourceSoundVmDataSha256)
                 throw new SourceInterfaceException("The immutable source sound-function data pin changed.");
-            if (profile.IsContact281C2 && C2Data.AnimationManifestSha256 != profile.AnimationSha256)
+            if (profile.UsesC2Data && C2Data.AnimationManifestSha256 != profile.AnimationSha256)
                 throw new SourceInterfaceException("C2 bootstrap data and actual animation profile differ.");
             ISourceAnimationLibrary actual = originalAnimations.Load();
             profile.RequireLibrary(actual);

@@ -465,4 +465,10 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--snap-hike-only" in sys.argv:
+        import canonical
+        sys.exit(canonical.snap_hike_main(sys.argv[1:]))
+    if "--c2-m1-inputs" in sys.argv:
+        import canonical
+        sys.exit(canonical.m1_main(sys.argv[1:]))
     sys.exit(main())
