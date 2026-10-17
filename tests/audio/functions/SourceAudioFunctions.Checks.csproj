@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../..</BlitzSourceRoot>
+    <AudioDataSource Condition="'$(AudioDataSource)' == ''">$(MSBuildThisFileDirectory)../../../Assets/Scripts/AssetImport/SourceAudioFunctionData.cs</AudioDataSource>
+    <AudioFunctionsSource Condition="'$(AudioFunctionsSource)' == ''">$(MSBuildThisFileDirectory)../../../Assets/Scripts/Presentation/SourceAudioFunctions.cs</AudioFunctionsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Contracts/**/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceRandom.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceMatchFlow.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceClock.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceMatchRules.cs" />
+    <Compile Include=".artifacts/ActualCoreSupport.cs" />
+    <Compile Include="$(AudioDataSource);$(AudioFunctionsSource);Program.cs" />
+  </ItemGroup>
+</Project>

@@ -230,6 +230,20 @@ compilation requires explicit `--unity-editor-data`. Decoded original samples
 and an isolated one-shot adapter do not implement source sound-selection RNG,
 DSP3 mixing or game-audio playback.
 
+The separate [original actor sound selectors](../tools/audio/FUNCTIONS.md)
+preserve `get_hit_snd` and `grnd_hit_snd` call parameters, lazy state reads and
+the caller's shared source RNG. Their asset-free SDK command is:
+
+```sh
+python3 tests/audio/functions/run.py
+```
+
+This default covers 33 synthetic reader/API checks, not the original-C oracle.
+The linked recipe explicitly prepares pinned original inputs for the 15,912-case
+oracle and fourteen production-source mutants. Synchronous VM integration,
+target PRNG qualification and DSP3/audio playback remain separate requirements;
+post-host selection and silent/no-op consumers are not substitutes.
+
 ## Unity metadata
 
 No editor or third-party Python package is needed:
