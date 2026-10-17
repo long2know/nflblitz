@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes
 
 EXPECTED = {"sentinel_assertions": 36, "native_ball_assertions": 470666,
-            "caller_assertions": 18002, "geometry_caller_assertions": 32}
+            "caller_assertions": 18017, "geometry_caller_assertions": 32}
 MUTATIONS = (
     ("pelvis-strict14", "SourceCatchRules.cs", "Distance(ball, pelvis) < 14f", "Distance(ball, pelvis) <= 14f", "native", "original standard_catch case", 1),
     ("wrist-strict5", "SourceCatchRules.cs", "Distance(ball, leftWrist) < 5f", "Distance(ball, leftWrist) <= 5f", "native", "original standard_catch case", 1),
@@ -32,8 +32,9 @@ MUTATIONS = (
     ("focus-edge-flush", "GameSimulation.cs", "pendingSourceActions.Clear();", "/* isolated mutation: queue not cleared */", "geometry", "focus flush actually removes", 1),
     ("raw-released-latch", "GameSimulation.cs", "released[input.StationId] |= input.Released;",
      "/* isolated mutation: queued release discarded */", "caller", "complete between-wake press/release", 1),
-    ("raw-new-pressed", "SourcePlayerDriver.cs", "actor.SourceNewButtons |= (SourceDroneButtons)(int)input.Pressed;",
-     "/* isolated mutation: ignore latched press */", "caller", "complete B press/release actually snaps", 1),
+    ("raw-new-pressed", "SourceMovementIntegration.cs", "state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;",
+     "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
+     "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1),
     ("source-transform-wake", "GameSimulation.Source.cs", "if (SourceStationInputTransform != null)",
      "if (SourceStationInputTransform != null && Model.SourceTick % 2 == 0)", "caller", "ordered raw drain transforms exactly once", 1),
     ("off-flip-real-lineup", "GameSimulation.Source.cs",
@@ -67,7 +68,8 @@ MUTATIONS = (
 def source_files():
     return [path for directory in ("Contracts", "Gameplay", "AssetImport")
             for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))] + [
-                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs",
+                ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"]
 
 
 def hashes(paths):
@@ -97,6 +99,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, required=True, help="Exact pinned original C/header inputs, not production C#.")
     parser.add_argument("--fixture-manifest", type=Path, required=True)
+    parser.add_argument("--sound-functions", type=Path, help="Explicit frozen SAFN input for synchronous source VM sound.")
     parser.add_argument("--section", choices=("all", "sentinel", "native", "caller", "geometry"), default="all")
     parser.add_argument("--no-mutations", action="store_true", help="Focused author check only; not the complete CI proof.")
     args = parser.parse_args()
@@ -107,7 +110,7 @@ def main():
     original = args.source_root.resolve()
     native_root = ARTIFACTS / "native"
     before = hashes(source_files())
-    fixture_before = fixture_hashes(fixture)
+    fixture_before = fixture_hashes(fixture, args.sound_functions)
     original_before = {name: hashlib.sha256((original / name).read_bytes()).hexdigest() for name in PINS}
     snapshot = {path.relative_to(ROOT).as_posix(): path.read_bytes() for path in source_files()}
     if before != {name: hashlib.sha256(data).hexdigest() for name, data in snapshot.items()}:
@@ -132,6 +135,8 @@ def main():
                    "-p:BaseIntermediateOutputPath=" + str(build_root / "obj") + "/",
                    "-p:BaseOutputPath=" + str(build_root / "bin") + "/",
                    "--", str(fixture), str(native_root), section]
+        if args.sound_functions is not None:
+            command.append(str(args.sound_functions.resolve()))
         evidence["commands"].append(command)
         process = subprocess.run(command, cwd=ROOT, env=environment, text=True, capture_output=True, timeout=240)
         text = process.stdout + process.stderr
@@ -175,7 +180,7 @@ def main():
                     raise
                 row["offending_field_assertion_rejected"] = True
                 print("PASS actual-source mutant: " + name + " -> " + summary["failed_assertion"])
-                if hashes(source_files()) != before or fixture_hashes(fixture) != fixture_before:
+                if hashes(source_files()) != before or fixture_hashes(fixture, args.sound_functions) != fixture_before:
                     raise RuntimeError("Actual shared sources/real inputs changed during isolated mutations.")
         code, final, text = execute("final-baseline", args.section, ROOT)
         evidence["final_baseline"], evidence["final_baseline_exit_code"] = final, code
@@ -190,7 +195,7 @@ def main():
             shutil.rmtree(workspace)
         evidence["isolated_source_and_build_trees_removed"] = not workspace.exists()
         evidence["production_sha256_after"] = hashes(source_files())
-        evidence["real_input_sha256_after"] = fixture_hashes(fixture)
+        evidence["real_input_sha256_after"] = fixture_hashes(fixture, args.sound_functions)
         evidence["original_sha256_after"] = {name: hashlib.sha256((original / name).read_bytes()).hexdigest() for name in PINS}
         stable = (before == evidence["production_sha256_after"] and fixture_before == evidence["real_input_sha256_after"]
                   and original_before == evidence["original_sha256_after"])

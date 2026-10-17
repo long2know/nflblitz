@@ -106,6 +106,7 @@ namespace Blitz.Gameplay
         internal bool SourceCapturedControlBlock;
         internal bool SourceReturnedFromMovementMode;
         internal int SourceImmediateGeneralRuns;
+        internal int? SourceHitPartnerId;
 
         internal ActorState(int id)
         {
@@ -189,6 +190,7 @@ namespace Blitz.Gameplay
         internal int SourceRandomCallIndex;
         internal int SourceDispatchOrdinal;
         internal int SourcePresentationOrder;
+        internal string SourceCurrentPlayerBank;
         internal readonly uint[] SourceAnimationUniqueMasks = new uint[6];
         internal SourcePlaybook SourcePlaybook;
         internal SourcePlayDefinition SourceOffensePlay;

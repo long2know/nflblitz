@@ -53,7 +53,8 @@ jobs:
   core-and-tooling:
     name: Core inventory and build-tool units (no Unity)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # PR19 took17m36; added sound gates measured6m28 locally. Keep every check.
+    timeout-minutes: 30
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
@@ -115,7 +116,7 @@ jobs:
       - name: Fetch verified real source-kernel inputs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tests/parity/fetch_inputs.py --download --output .squad/.scratch/SourceData/source-kernel-original
+        run: python3 tests/parity/fetch_inputs.py --download --cache tests/source-oracles/.artifacts/original --output .squad/.scratch/SourceData/source-kernel-original
       - name: Prepare original animation geometry roster and playbook services
         run: python3 tests/parity/prepare_inputs.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/SourceData/source-kernel
       - name: Test real-input fixture and ball-runner failure gates
@@ -123,6 +124,7 @@ jobs:
           python3 tests/parity/test_inputs.py
           python3 tests/ball/test_runner.py
           python3 tests/movement-callers/test_runner.py
+          python3 tests/audio/vm/test_runner.py
       - name: Compare source gameplay and host adapter
         run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
       - name: Compare original ball and ordered source callers
@@ -159,9 +161,19 @@ jobs:
           python3 tests/audio/functions/run.py
       - name: Compare original actor sound selectors and source mutants
         run: |
-          python3 tools/audio/fetch_function_inputs.py --download --destination tools/audio/.artifacts/source/nflblitz2000
+          python3 tools/audio/fetch_function_inputs.py --source-root .squad/.scratch/SourceData/source-kernel-original --destination tools/audio/.artifacts/source/nflblitz2000
           python3 tools/audio/prepare_functions.py --name publication-original
           python3 tests/audio/functions/run.py --original tools/audio/.artifacts/functions/publication-original --reproduce publication-repeat --mutate
+      - name: Compare synchronous original sound VM and source mutants
+        run: python3 -B tests/audio/vm/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json --functions .squad/.scratch/SourceData/source-kernel/audio-functions --source-root .squad/.scratch/SourceData/source-kernel-original --mutations
+      - name: Test resolved sound Runtime and actual Core batches
+        run: |
+          python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
+          python3 -B tests/audio/runtime/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel/audio-functions/sound-functions.safn
+      - name: Test explicit sound resources and resolved consumer without Unity
+        run: |
+          python3 -B tests/presentation/sound-runtime/run.py
+          python3 -B tests/presentation/sound-runtime/mutations.py
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references

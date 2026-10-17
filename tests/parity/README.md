@@ -107,15 +107,28 @@ python3 tests/parity/test_inputs.py
 Alternatively supply your own complete exact source root (including the pinned
 recursive `tree.json`). `fetch_inputs.py` offers explicit read-only cache and
 individual verified-file overrides; wrong blob bytes cannot become fixtures.
-Its 65-blob union includes the complete original-C camera-oracle dependencies,
-not only the animation/gameplay inputs.
+Its69-blob union preserves all65 prior original-C camera/gameplay inputs, reuses
+the existing four-pin sound helper, and adds only `Game.c`/`mainproc.c` for
+actual sound bank/pointer initialization provenance.
 Preparation invokes the permanent `tools/animation/prepare_player_sequences.py`
 with `ball_sequences.json`, `tools/playbooks/convert.py`, and
 `tools/rosters/export_rosters.py`, the separate movement156/complete157 recipes,
-the runtime-only movement exporter, and the existing original pose/header reader.
+the runtime-only movement exporter, the unchanged `tools/audio/prepare_functions.py`
+SAFN1 producer, and the existing original pose/header reader.
 No ignored Primary-worktree helper, absolute machine path, copied stand-in,
 source artwork in Git, or Unity import is needed. All generated inputs remain
 ignored in this checkout. Existing fixtures require explicit read-only `--reuse`.
+
+The prepared443-file inventory includes `audio-functions/sound-functions.safn`,
+its exact audit manifest and unchanged original C include. The mandatory SAFN
+identity is `4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
+`FullKernelInputs.Create` binds the real typed data before the first executed
+source wake; a missing datum is not muted or replaced. The existing explicit
+`--sound-functions` override remains supported with the same pin and
+before/after byte guards. No waveform/player/DSP functionality is implied.
+The separate117/156/157 animation identities and the332 host-adapter assertions
+are unchanged. See [`../audio/vm/README.md`](../audio/vm/README.md) for actual
+synchronous sound/original-C/mutation commands.
 
 The canonical loaded animation manifest is pinned to
 `f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274`,

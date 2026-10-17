@@ -25,6 +25,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs"
              Link="AssetImport/%(Filename)%(Extension)" />
   </ItemGroup>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" />
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Contracts/GameplayContracts.cs')"
            Text="Actual GameplayContracts.cs is required; tests never substitute contract definitions." />

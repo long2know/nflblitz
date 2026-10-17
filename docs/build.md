@@ -20,6 +20,18 @@ incompatibility is a separate issue, not permission to change versions.
 
 ## Pinned toolchain and external activation
 
+The next **sound-runtime candidate** uses
+`BlitzSourceInterface/original-movement157-soundvm-match-services`, not the
+published M1 service key. All157 animation/team/HUD/movement/DIP identities below
+remain unchanged. Add canonical `SourceData/sound-functions-safn1-4a557304`,
+exact1983 bytes/SHA256
+`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`,
+via the [explicit sound packaging recipe](../tools/interface/packaging.md).
+The ten-argument initializer requires the existing eight M1 inputs plus actual
+SAFN TextAsset/trusted pin. Actual M1 construction precedes immutable Core
+binding, and binding precedes the first executing57 wake. Old M1/B1 services are
+not aliased. This new SoundVM transport has no main/live deployment proof.
+
 - Unity **6000.3.24f1**, WebGL support, Linux amd64 editor image:
   `unityci/editor:ubuntu-6000.3.24f1-webgl-3.2.2@sha256:f3c6661a8c5bc975df168f114eb3882766546b2ad09765664f5b2bb186857ddb`.
 - Runtime-only image:
@@ -658,6 +670,7 @@ python3 -B tests/interface/run.py
 python3 -B tests/interface/stage_followup.py
 python3 -B tests/presentation/run.py
 python3 -B tests/interface/movement_bootstrap.py
+python3 -B tests/audio/runtime/run.py
 ```
 
 See [core/metadata](../tests/README.md), [asset](../tests/assets/README.md) and

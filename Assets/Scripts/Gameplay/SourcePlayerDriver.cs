@@ -330,6 +330,7 @@ namespace Blitz.Gameplay
         {
             ActorState attacker = model.Players[attackerId];
             ActorState victim = model.Players[victimId];
+            SourceContactDriver.RecordCollision(attacker, victim);
             attacker.Facing = Heading(PlayerSimulation.Subtract(victim.Position, attacker.Position));
             attacker.TargetFacing = attacker.Facing;
             attacker.Action = ActorAction.Contact;

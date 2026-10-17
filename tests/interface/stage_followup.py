@@ -19,7 +19,7 @@ HUD = "Assets/Scripts/Presentation/PlayHud.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 SERVICES = "Assets/Scripts/Runtime/SourceInterfaceServices.cs"
 LIVE_OVERRIDES = (RUNTIME, HUD)
-REQUIRED_OWNED_UI = (RUNTIME, HUD, BRIDGE)
+REQUIRED_OWNED_UI = (RUNTIME, HUD, BRIDGE, "Assets/Scripts/Runtime/SourceSoundVmTransport.cs")
 BASE_SHA = "419a8b2d53abbaaa59008f23040e940e0466d0612fb2cb7e6f648ad77526e986"
 TEAM_SHA = "c433c1ab2af939c6ef78776436b2fb5ab4c1676f26d53c2a01d390b954e20405"
 ARTIFACTS = ROOT / "tests/interface/.artifacts/stage-followup"
@@ -40,6 +40,7 @@ OWNED_UI = (
     "Assets/Scripts/Runtime/SourceHudWebViewport.cs",
     "Assets/Scripts/Runtime/SourceInterfacePresentation.cs",
     "Assets/Scripts/Runtime/SourceInterfaceServices.cs",
+    "Assets/Scripts/Runtime/SourceSoundVmTransport.cs",
 )
 PROJECTS = ("InterfaceModel.csproj", "InterfaceChecks.csproj", "UnityAPICompile.csproj")
 
@@ -159,9 +160,9 @@ def validate_runtime(source):
             "configure/register before exposing Core's executing-source callback")
     source_block = awake[awake.index("playCamera=newPlayCamera(transform,prefab);"):awake.index("hud=gameObject.AddComponent<PlayHud>();")]
     require("if(IsSourceProfile){" in source_block, "source camera registration must not activate in explicit legacy")
-    require("SourcePresentationCueRaised+=playCamera.ConsumeSourceCue;" in source_block
-            and awake.count("SourcePresentationCueRaised+=playCamera.ConsumeSourceCue;") == 1,
-            "Team owns the single source cue subscription")
+    require("SourcePresentationCueRaised+=ConsumeSourcePresentationCue;" in source_block
+            and awake.count("SourcePresentationCueRaised+=ConsumeSourcePresentationCue;") == 1,
+            "Runtime owns one resolved-versus-generic source cue route")
     require(awake.count("AfterHostStep+=playCamera.ObserveSourceHostStep;") == 1,
             "Team owns the single host lifecycle subscription")
     require(awake.count("bridge.SourcePresentationCueRaised+=OnSourcePresentationCue;") == 1
@@ -198,7 +199,7 @@ def validate_runtime(source):
             and code.count("ForwardInitialSourcePresentationCues();") == 2,
             "constructor/restart initial cue batches must use the same once-only transport")
     destroy = compact(method(source, "OnDestroy"))
-    require(destroy.count("SourcePresentationCueRaised-=playCamera.ConsumeSourceCue;") == 1
+    require(destroy.count("SourcePresentationCueRaised-=ConsumeSourcePresentationCue;") == 1
             and destroy.count("AfterHostStep-=playCamera.ObserveSourceHostStep;") == 1,
             "source stage subscriptions must be removed once on destruction")
     require("SourceHeading1024" not in code and "AdvanceSourceCameraAtStage" not in code
@@ -232,12 +233,32 @@ def validate_runtime(source):
             "M1 activation must select the explicit157 team/resource profile, not old B1 resources")
     require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake,
             "Core/geometry/Team/renderer must share the actual canonical157 animation instance")
-    return 23
+    require(awake.count("bridge.AfterSimulationStep+=OnAfterSimulationStep;") == 1
+            and awake.count("bridge.AfterSourcePresentation+=CompleteSourceSoundBatch;") == 1
+            and awake.count("bridge.Restarted+=ResetSourceSoundTransport;") == 1,
+            "sound drain/end-batch/restart lifecycle must be connected once before wakes")
+    drain = compact(method(source, "OnAfterSimulationStep"))
+    require(drain.count("simulation.TakeSourceSoundVmDispatches()") == 1 and "soundTransport.Drain(batch);" in drain
+            and drain.index("soundTransport.Drain(batch);") < drain.index("SourceSoundVmDispatchRaised"),
+            "every per-Step sound drain must retain the batch before observation")
+    route = compact(method(source, "ConsumeSourcePresentationCue"))
+    require("callback.Kind!=SourcePresentationCueKind.PlayerDownCallback" in route
+            and "soundTransport.TakeForCue(callback)" in route
+            and "dispatch.Status==SourceSoundVmStatus.Resolved" in route
+            and "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);return;" in route
+            and route.count("playCamera.ConsumeSourceCue(cue);") == 1,
+            "paired resolved sounds must bypass generic callbacks once; Unsupported/PlayerDown are not replayed as sound")
+    require("SourcePresentationCueObserved" in cue and cue.index("observed(cue);") < cue.index("handler(cue);"),
+            "raw cues must remain observable before a real-output/unsupported failure")
+    require("OnAfterSimulationStep();" in initial and initial.index("OnAfterSimulationStep();")
+            < initial.index("foreach(SourcePresentationCuecueinbatch.Cues)") and "CompleteSourceSoundBatch();" in initial,
+            "initial/restart cue batches need the same drain-before-cue protocol")
+    return 28
 
 
 def validate_services(source):
     code = compact(uncomment(source))
-    require('ResourceKey="BlitzSourceInterface/original-movement157-match-services"' in code
+    require('ResourceKey="BlitzSourceInterface/original-movement157-soundvm-match-services"' in code
             and 'ExpandedAnimationSha256="f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e"' in code,
             "M1 services need distinct157 resource identity and exact converter-replay manifest")
     require("rosters:teams.Rosters,presentation:PresentationSettings,movementData:MovementData,movementSettings:MovementSettings)" in code,
@@ -263,12 +284,23 @@ def validate_services(source):
             and "newSourceCatchGeometry(animations,pivots)" in code
             and "prefab.GetUnityReferencePivot(i)" in code,
             "M1 requires per-prefab157 rosters and same actual animation/15-pivot geometry")
-    require("TextAssetmovementBootstrapText,stringtrustedMovementBootstrapSha256)" in code,
-            "M1 importer must have the explicit eight-argument initializer rather than a default bootstrap")
+    require("TextAssetmovementBootstrapText,stringtrustedMovementBootstrapSha256," in code
+            and "TextAssetsoundVmFunctions,stringtrustedSoundVmSHA)" in code,
+            "sound profile must retain M1 prefix plus explicit SAFN bytes/pin")
     require("Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.MovementAnimationResourceKey)" in code
             and "!ReferenceEquals(originalAnimations,canonical)" in code,
             "matching157 hashes on an arbitrary serialized asset must not bypass canonical Resource identity")
-    return 9
+    create = compact(method(source, "CreateSimulation"))
+    require("actual.BindSourceSoundVmData(SoundVmData);" in create and
+            create.index("newGameSimulation(") < create.index("actual.BindSourceSoundVmData(SoundVmData);") <
+            create.index("returnactual;"), "immutable sound data must bind after actual M1 construction before any bridge wake")
+    require('SoundVmFunctionsResourceKey="SourceData/sound-functions-safn1-4a557304"' in code
+            and "Resources.Load<TextAsset>(SoundVmFunctionsResourceKey)" in code
+            and "!ReferenceEquals(originalSoundVmFunctions,canonical)" in code
+            and "originalSoundVmFunctions.bytes.Length!=1983" in code
+            and "SourceAudioFunctionData.Read(originalSoundVmFunctions.bytes,GameSimulation.SourceSoundVmDataSha256)" in code,
+            "SAFN must use the canonical original1983-byte TextAsset and Core trusted4a557 pin, not a resource alias")
+    return 11
 
 
 def validate_hud_scope(source):
@@ -290,10 +322,10 @@ def assert_compile_inventory(compiled, expected_owned):
 
 class CallerGuards(unittest.TestCase):
     def test_actual_caller(self):
-        self.assertEqual(validate_runtime((SOURCE_ROOT / RUNTIME).read_text()), 23)
+        self.assertEqual(validate_runtime((SOURCE_ROOT / RUNTIME).read_text()), 28)
 
     def test_actual_movement_services(self):
-        self.assertEqual(validate_services((SOURCE_ROOT / SERVICES).read_text()), 9)
+        self.assertEqual(validate_services((SOURCE_ROOT / SERVICES).read_text()), 11)
 
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
@@ -317,7 +349,7 @@ class CallerGuards(unittest.TestCase):
             ("no-consumed-check", "simulation.SourceCameraHeadingSampleTick != source.SourceTick", "false"),
             ("silent-legacy", 'if (!ExplicitGraybox(Application.absoluteURL))', "if (false)"),
             ("resource-tolerance", "if (sourceServices == null)", "if (false)"),
-            ("missing-unsubscribe", "SourcePresentationCueRaised -= playCamera.ConsumeSourceCue;", ""),
+            ("missing-unsubscribe", "SourcePresentationCueRaised -= ConsumeSourcePresentationCue;", ""),
             ("guessed-raw-mode", "state => simulation.SourceCameraRawGameMode", "state => (int)state.Phase"),
             ("missing-raster", "playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution);", ""),
             ("stale-frame", "playCamera.RequireSourceCameraAtTick(executingSourceTick)",
@@ -342,6 +374,10 @@ class CallerGuards(unittest.TestCase):
              "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);\n"
              "simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(\n"
              "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);"),
+            ("missing-sound-drain", "bridge.AfterSimulationStep += OnAfterSimulationStep;", ""),
+            ("resolved-generic-replay", "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);",
+             "playCamera.ConsumeSourceCue(dispatch.OriginalCue);"),
+            ("sound-restart-leak", "bridge.Restarted += ResetSourceSoundTransport;", ""),
         ]
         for name, old, new in mutants:
             with self.subTest(name=name):
@@ -368,6 +404,8 @@ class CallerGuards(unittest.TestCase):
             ("legacy-team-resource", "SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)",
              "SourcePlayerProvider.ResolveRequiredTeamPresentation()"),
             ("hash-only-animation-alias", "!ReferenceEquals(originalAnimations, canonical)", "false"),
+            ("missing-SAFN-binding", "actual.BindSourceSoundVmData(SoundVmData);", ""),
+            ("SAFN-resource-alias", "!ReferenceEquals(originalSoundVmFunctions, canonical)", "false"),
         )
         for name, old, new in mutants:
             with self.subTest(name=name):
@@ -400,7 +438,7 @@ class CallerGuards(unittest.TestCase):
 
     def test_clean_checkout_owns_complete_UI_and_projects(self):
         expected = expected_owned_sources(SOURCE_ROOT)
-        self.assertEqual(len(expected), 16)
+        self.assertEqual(len(expected), 17)
         assert_compile_inventory(dict(expected), expected)
 
     def test_explicit_snapshot_roots_fail_closed(self):
@@ -677,7 +715,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     report = {"schema": "source-interface-stage-followup-checks/v2", "status": "failed",
-              "source_profile": "original-movement157",
+              "source_profile": "original-movement157-soundvm",
               "whole_game_parity_claimed": False, "native_editor_browser_executed": False}
     try:
         args.source_root = args.source_root.resolve(strict=True)
@@ -688,9 +726,9 @@ def main(argv=None):
             dependency_bytes(args.dependency_overlay, args.dependency_overlay_sha256)
         result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(CallerGuards))
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
-        report.update(guard_contracts=32, rejected_actual_source_guard_mutants=24,
-                      rejected_actual_service_guard_mutants=9,
-                      hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=6,
+        report.update(guard_contracts=39, rejected_actual_source_guard_mutants=27,
+                      rejected_actual_service_guard_mutants=11,
+                      hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=8,
                       root_overlay_project_negative_guards=11, guard_tests=result.testsRun,
                       source_mode="explicit-protected-snapshots" if snapshot else "current-release-checkout",
                       implicit_protected_state_required=False,
@@ -701,8 +739,8 @@ def main(argv=None):
         if args.unity_editor_data:
             report["actual_Unity_API"] = compile_actual(args.unity_editor_data.resolve(strict=True), args)
         report["status"] = "passed"
-        print(json.dumps({"status": "passed", "guard_contracts": 32, "rejected_guard_mutants": 33,
-                          "hud_scope_mutants": 1, "owned_inventory_mutants": 6,
+        print(json.dumps({"status": "passed", "guard_contracts": 39, "rejected_guard_mutants": 38,
+                          "hud_scope_mutants": 1, "owned_inventory_mutants": 8,
                           "actual_Unity_API_compiled": args.unity_editor_data is not None, "native_claimed": False}))
         return 0
     except (AssertionError, OSError, ValueError, ET.ParseError, subprocess.SubprocessError) as error:

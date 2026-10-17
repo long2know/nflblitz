@@ -1,5 +1,48 @@
 # Original HUD and cabinet preparation
 
+## Current synchronous sound-VM candidate
+
+The sound-runtime candidate extends the published movement157 layer without
+changing its animation/team/HUD/movement/bootstrap/DIP identities. Its services
+are a **new** resource:
+`BlitzSourceInterface/original-movement157-soundvm-match-services`.
+The canonical SAFN `TextAsset` key is
+`SourceData/sound-functions-safn1-4a557304`, exact1983 bytes/SHA256
+`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
+Use the [sound packaging entrypoint](packaging.md), including its three explicit
+sound-root/data/hash arguments; original inputs/generated assets remain ignored.
+
+The ten-argument services initializer retains the eight M1 arguments, then
+requires `TextAsset soundVmFunctions,string trustedSoundVmSHA`. Serialized
+`originalSoundVmFunctions`/`soundVmFunctionsSha256` must reference the canonical
+resource, not merely matching bytes at another key. Actual M1 construction is
+followed by `BindSourceSoundVmData(SoundVmData)` before the first executing57
+wake. Old M1/B1 service identities are not relabeled or silently upgraded.
+
+Core resolves exactly six source sound sites **inside ANI_CODE**, on its same
+RNG stream. `TakeSourceSoundVmDispatches` is drained after each host Step and
+before raw presentation cues, including catch-up/skips/partial-failure unwind.
+The same `OriginalCue` pairs once; paired Resolved records replace the generic
+callback path. Legitimate offscreen Resolved0 is handled normally. Unsupported,
+direct speech and other FX remain explicit; MissingInput retains partial
+calls/offsets and faults until Restart. No post-host selector/RNG/player_down
+replay is installed.
+
+`ISourceSoundVmOutputConsumer` accepts already-resolved full raw words only.
+No real output implementation is bound: nonempty calls **fail visibly**, never
+silence/noop/fakeclick/isolated-one-shot/Unity gain-pan approximation. See
+[compiled transport/real Core tests](../../tests/audio/runtime/README.md).
+
+All8 public PM/DM images and original CRC deployment wrapping are verified, not
+missing. Exact DSP playback remains unqualified: historical TARGET_SYS/localset/
+build identity and the matching legitimate32768-byte `sound102.u95` bootstrap
+(Seattle ADSP2115, SHA1 `db80aa4a645804a4574b07b9f34dec6b6b64190d`) or
+`vegassio.bin` (Vegas ADSP2104, SHA1 `f6e8405cfa604528c0224401bc374a6df9caccef`)
+are not established. A pinball sample decoder is not a full DCS2 board runner.
+No target substitution or playback claim is made.
+
+## Retained HUD/cabinet producer
+
 This offline producer reads explicitly supplied, Git-blob-verified archives:
 
 - `historicalsource/nflblitz2000` revision

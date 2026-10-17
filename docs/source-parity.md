@@ -27,6 +27,28 @@ published test fixture.
 
 ## Current movement157 bootstrap boundary
 
+### Next synchronous SoundVM runtime boundary
+
+Movement157 is published in PR19; this next sound-runtime candidate is not yet
+main/live evidence. Original SAFN data is canonically pinned/bound before the
+first source wake. Exactly six original ANI_CODE sites select synchronously
+using Core's same stream; Runtime never selects or draws RNG after the host.
+Each Step drains FIFO before raw cues, pairs the exact OriginalCue once and
+routes paired Resolved records instead of the generic callback. Resolved0 is
+legitimate. Unsupported/unpaired callbacks remain explicit; MissingInput retains
+partial calls/offsets and requires Restart, without rewind or retry.
+
+The [typed raw-output contract](../tests/audio/runtime/README.md) preserves Bank,
+PlaylistId/full unsigned Volume/Pan/PriorityWord/callee/context. No actual output
+consumer is bound, so nonempty calls fail visibly rather than pretend played.
+All8 PM/DM images and CRC deployment wrapping are verified, not missing. Exact
+playback still needs historical TARGET_SYS/localset/build identity, matching
+legitimate32768-byte Seattle ADSP2115 `sound102.u95` (SHA1
+`db80aa4a645804a4574b07b9f34dec6b6b64190d`) or Vegas ADSP2104 `vegassio.bin`
+(`f6e8405cfa604528c0224401bc374a6df9caccef`), and qualified full DCS2 board
+execution. The pinball decoder is not that board runner. No alternate target,
+Unity gain/pan/priority approximation, silence/noop or audible proof is inferred.
+
 The [complete animation producer](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip)
 pins the new157 manifest
 `f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`

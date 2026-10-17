@@ -7,6 +7,18 @@ not a finished or whole-game-parity recreation.
 
 ## Checked-in source versus the recorded live player
 
+This **sound-runtime candidate** extends movement157 (published as PR19); its
+new SoundVM binding/transport is not yet a main/live-game increment. It requires
+the distinct services key
+`BlitzSourceInterface/original-movement157-soundvm-match-services` and canonical
+`SourceData/sound-functions-safn1-4a557304`: exact1983-byte SAFN/SHA256
+`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
+The [sound resource/transport contract](tools/interface/README.md#current-synchronous-sound-vm-candidate)
+binds immutable data before the first source wake. Core selects at six original
+ANI_CODE sites; Runtime drains/pairs once before raw cue handling. Legitimate
+zero calls are not missing output. Nonempty calls with no real DSP consumer
+fail visibly—**nothing is claimed played**. Direct speech/other FX stay open.
+
 The checked-in **movement157 + Team + HUD/cabinet** composition extends the frozen
 B1/final117 layer with mandatory original movement data/settings and a same-tick
 pure source-camera frame. It requires the distinct **157-clip** library/team
@@ -57,6 +69,9 @@ described by the packaging recipe.
      `original-source-movement-bootstrap/v1` file: explicit field0..6,
      three team masks0..3, global speed/violence booleans and original
      DIP512×256 or512×384. Browser dimensions are not source resolution.
+     For this next sound profile, use the explicit sound packaging entrypoint
+     and ten-argument initializer with canonical SAFN bytes/pin; an old M1
+     eight-argument resource is not silently upgraded.
    - Import the [original world](tools/environments/README.txt) separately when
      requiring `environment=source`.
 
@@ -164,6 +179,7 @@ python3 -B tests/interface/run.py
 python3 -B tests/interface/stage_followup.py
 python3 -B tests/presentation/run.py
 python3 -B tests/interface/movement_bootstrap.py
+python3 -B tests/audio/runtime/run.py
 ```
 
 See [core/metadata coverage](tests/README.md), [asset regressions](tests/assets/README.md),

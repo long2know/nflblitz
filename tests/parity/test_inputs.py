@@ -21,7 +21,7 @@ class RealInputGuards(unittest.TestCase):
 
     def test_combined_actual_source_pin_inventory_has_no_conflicts(self):
         pins = fetch_inputs.input_pins()
-        self.assertEqual(65, len(pins))
+        self.assertEqual(69, len(pins))
         self.assertEqual("5744c51f30b625b9f80b92388ab49ff0ebc5bb2c", pins["player.c"])
         self.assertEqual("15b49474fb55e8bac280b6515fcf7bf59cdf8664", pins["nfl.c"])
         self.assertEqual(24, sum(name.lower().endswith(".wan") for name in pins))
@@ -37,6 +37,22 @@ class RealInputGuards(unittest.TestCase):
         pins = fetch_inputs.input_pins()
         for name, pin in fetch_inputs.CAMERA_INPUTS.items():
             self.assertEqual(pin, pins[name], name)
+
+    def test_sound_inputs_reuse_the_exact_four_pin_acquirer_and_actual_state_producers(self):
+        pins = fetch_inputs.input_pins()
+        sound = fetch_inputs.sound_function_pins()
+        self.assertEqual({"sounds.c", "include/sndcalls.h", "include/player.h", "plyrseq.c"}, set(sound))
+        self.assertEqual({"Game.c", "mainproc.c"}, set(fetch_inputs.SOUND_STATE_INPUTS))
+        for name, pin in {**sound, **fetch_inputs.SOUND_STATE_INPUTS}.items():
+            self.assertEqual(pin, pins[name], name)
+
+    def test_sound_payload_audit_and_original_include_have_explicit_nonalias_pins(self):
+        self.assertEqual("4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280",
+                         prepare_inputs.SOUND_SHA)
+        self.assertEqual("db9e2f18fb6c62147843250ddd80c36712360a46193ab02ef23a96ab48224096",
+                         prepare_inputs.SOUND_INCLUDE_SHA)
+        self.assertEqual("4601c44212825a87b5b8c46c15dd91cccc58ad84e7e22e40d696a16afa5cab40",
+                         prepare_inputs.SOUND_AUDIT_SHA)
 
     def test_git_blob_pin_is_not_plain_file_sha1(self):
         self.assertEqual("d670460b4b4aece5915caf5c68d12f560a9fe3e4",

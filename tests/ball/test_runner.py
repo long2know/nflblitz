@@ -62,6 +62,19 @@ class BallRunnerGuards(unittest.TestCase):
                 self.assertEqual(occurrences, path.read_bytes().count(anchor.encode()))
                 self.assertNotEqual(anchor, replacement)
 
+    def test_fresh_press_mutant_targets_active_post_begin_tick_state_merge(self):
+        row = next(item for item in RUNNER.MUTATIONS if item[0] == "raw-new-pressed")
+        self.assertEqual("SourceMovementIntegration.cs", row[1])
+        self.assertEqual("state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;", row[2])
+        self.assertIn("post-BeginTick latched fresh B", row[5])
+        source = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_text()
+        begin = source.index("private void UpdateSourceMovementPlayers(")
+        tick = source.index("state = SourceMovement.BeginTick(", begin)
+        merge = source.index(row[2], tick)
+        apply = source.index("ApplySourceMovement(actor, state);", merge)
+        self.assertLess(tick, merge)
+        self.assertLess(merge, apply)
+
 
 if __name__ == "__main__":
     unittest.main()

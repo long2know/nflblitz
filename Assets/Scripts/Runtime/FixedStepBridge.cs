@@ -52,6 +52,9 @@ namespace Blitz.Runtime
         public event Action<SourcePresentationCue> SourcePresentationCueRaised;
         public event Action<IGameState> BeforeHostStep;
         public event Action<IGameState> AfterHostStep;
+        public event Action AfterSimulationStep;
+        public event Action AfterSourcePresentation;
+        public event Action Restarted;
 
         public static Action BindSourceInputReset(IGameSimulation simulation)
         {
@@ -108,8 +111,16 @@ namespace Blitz.Runtime
                 SourceInputFrame input = nextHostInput == null ? null : nextHostInput();
                 if (nextHostInput != null && input == null)
                     throw new InvalidOperationException("The source cabinet producer returned no input frame.");
-                simulation.Step(new PlayerCommand(move, turbo, edge.Action, edge.Play, edge.TargetPlayerId,
-                    stationInputs: input));
+                try
+                {
+                    simulation.Step(new PlayerCommand(move, turbo, edge.Action, edge.Play, edge.TargetPlayerId,
+                        stationInputs: input));
+                }
+                finally
+                {
+                    Action drained = AfterSimulationStep;
+                    if (drained != null) drained();
+                }
                 ISourceGameState sourceBefore = entry as ISourceGameState;
                 ISourceGameState sourceAfter = State as ISourceGameState;
                 if (sourceAfter == null || sourceBefore == null || sourceAfter.SourceTick > sourceBefore.SourceTick)
@@ -146,6 +157,8 @@ namespace Blitz.Runtime
                         if (handler != null) handler(cue);
                     }
                 }
+                Action complete = AfterSourcePresentation;
+                if (complete != null) complete();
                 Action<IGameState> after = AfterHostStep;
                 if (after != null) after(State);
                 if (State.Phase != entryPhase)
@@ -174,6 +187,8 @@ namespace Blitz.Runtime
             ClearTransientInput();
             simulation.Restart(1);
             previousState = State;
+            Action restarted = Restarted;
+            if (restarted != null) restarted();
         }
 
         private static bool AcceptsAction(IGameState state, InputAction action)

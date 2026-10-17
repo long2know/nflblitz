@@ -1,5 +1,32 @@
 # Source-stage caller: movement157 and retained B1 history
 
+## Next synchronous SoundVM runtime
+
+The sound-runtime candidate retains the M1 camera/data invariants below and
+adds mandatory canonical SAFN binding, per-Step finally-drain, exact OriginalCue
+pairing and one resolved-versus-generic callback route. Data is bound after the
+real M1 constructor and before the first executing57 wake. Raw observation
+precedes consumer failure. Resolved0 is legitimate; nonempty output has no real
+consumer and fails explicitly, never a muted/Unity-audio substitute.
+
+The complete current API inventory contains **all17 owned files**, including
+the new pure `Runtime/SourceSoundVmTransport.cs`, existing `BlitzRuntime`,
+`PlayHud` and `FixedStepBridge`. Actual Unity6000.3.24 Editor/WebGL profiles
+compile **89 runtime sources**, warnings as errors, with exact owned source
+hashes. Omission/hash mutants now explicitly include the new transport helper.
+There are38 separate Runtime/service structural mutants, eight inventory
+mutants and the retained HUD-scope/explicit-input guards.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/audio/runtime/run.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/stage_followup.py \
+  --verify-clean-checkout --unity-editor-data "$UNITY_EDITOR_DATA"
+```
+
+See [compiled transport/real Core cases](../audio/runtime/README.md).
+No source selector/RNG/PlayerDown replay or native/DSP/audible claim is made.
+The next sound binding is not relabeled as published M1/B1 evidence.
+
 ## Current M1 composition and complete API checks
 
 The current isolated movement157 source requires explicit pinned movement data,

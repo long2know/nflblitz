@@ -25,6 +25,12 @@ internal static partial class Program
     private static bool mutationRun;
     private static string outputRoot;
     private static bool missingRSkip;
+    private static long smokeSourceTick;
+    private static int smokeRSkipFrames;
+    private static int smokeCacheAssertions;
+    private static int smokeSoundDispatches;
+    private static int smokeSoundDraws;
+    private static bool smokeRSkipAdvanced;
 
     private static void Check(bool value, string identity)
     {
@@ -40,12 +46,13 @@ internal static partial class Program
         };
         try
         {
-            if (args.Length != 3 || !new[] { "bounded", "complete", "controlled" }.Contains(args[2]))
+            if (args.Length != 3 && args.Length != 4 || !new[] { "bounded", "complete", "controlled" }.Contains(args[2]))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled");
             outputRoot = Path.GetFullPath(args[1]);
             Directory.CreateDirectory(outputRoot);
             mutationRun = args[2] == "controlled";
-            real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded");
+            real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded",
+                soundFunctionsPath: args.Length == 4 ? args[3] : null);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
             result["real_input_fixture_sha256"] = real.ManifestSha256;
@@ -69,6 +76,13 @@ internal static partial class Program
             result["actual_Core_post_VM_physics_cases"] = physicsCases.Count;
             result["actual_Core_LEAPATT_operand_bytes"] = 36;
             result["known_R_SKIP_asset_missing"] = missingRSkip;
+            result["public_smoke_trace"] = "source-sound-smoke/raw-vector-v1";
+            result["public_smoke_source_tick"] = smokeSourceTick;
+            result["public_smoke_R_SKIP_frames_after2299"] = smokeRSkipFrames;
+            result["public_smoke_cache_assertions"] = smokeCacheAssertions;
+            result["public_smoke_resolved_sound_dispatches"] = smokeSoundDispatches;
+            result["public_smoke_sound_random_draws"] = smokeSoundDraws;
+            result["public_smoke_R_SKIP_instance_advanced"] = smokeRSkipAdvanced;
             if (args[2] == "complete" && missingRSkip)
                 throw new MovementCallerAssertion("Actual original R_SKIP is missing; full publication smoke is not qualified.");
             result["status"] = missingRSkip ? "bounded-passed" : "passed";
@@ -127,10 +141,26 @@ internal static partial class Program
         game.Step(default(PlayerCommand));
         try { game.Step(default(PlayerCommand)); } catch (InvalidOperationException e) { failed = e.Message.Contains("cambot"); }
         Check(failed, "missing actual executing camera fails, no original-profile legacy fallback");
-        game = Create();
+        int[] rawVector = { 0, 1, 2, 3, 17, 31, 127, 257, 4096, 65537, 104729, 1234567,
+            2147483645, 2147483646, 2147483647 };
+        int rawCursor = 0;
+        SourceInjectedRandom shared = null;
+        game = Create(random: seed => shared = new SourceInjectedRandom(
+            site => rawVector[rawCursor++ % rawVector.Length],
+            new SourceRandomProvenance("source-sound-smoke/raw-vector-v1",
+                "Explicit repeated raw test vector shared by ALL sites, never target libc PRNG",
+                "unfiltered public M1157 + synchronous original sound", SourceRandomEvidence.ExternalUnverified)));
         var events = new List<object>();
+        var rSkipSamples = new List<object>();
+        var rSkipOrdinals = new HashSet<int>();
+        var soundDispatches = new List<object>();
         int deadWait = 0, stableCacheAssertions = 0, rSkipPoseObservations = 0;
-        for (int host = 0; host < 2500; host++)
+        int firstRSkipActor = -1, firstRSkipOrdinal = -1;
+        long firstRSkipInstance = -1, firstRSkipTick = -1;
+        bool rSkipAdvanced = false;
+        const int maximumHosts = 12000;
+        int hostTicks = 0, resolvedSound = 0, soundDraws = 0;
+        for (int host = 0; host < maximumHosts; host++)
         {
             GamePhase beforePhase = game.State.Phase;
             long beforeSourceTick = game.SourceTick;
@@ -152,15 +182,58 @@ internal static partial class Program
                 if (error.Message.Contains("missing clip R_SKIP"))
                 {
                     missingRSkip = true;
-                    Check(game.SourceTick == 2299, "exact unfiltered original R_SKIP156 asset-stop diagnostic");
+                    Check(real.Animations.InventorySha256 == FullKernelInputs.MovementSelectedSha256,
+                        "only the explicit selected156 control may report an actual unfiltered missing R_SKIP");
                     break;
                 }
                 throw;
             }
             foreach (SourceGameEvent item in game.SourceEvents)
                 events.Add(new { item.SourceTick, item.Type, item.ActorPlayerId, item.TargetPlayerId });
+            hostTicks++;
+            foreach (SourceSoundVmDispatch item in game.TakeSourceSoundVmDispatches().Dispatches)
+            {
+                if (item.Status == SourceSoundVmStatus.Resolved)
+                {
+                    resolvedSound++;
+                    soundDraws += item.Result.RandomCalls;
+                }
+                soundDispatches.Add(new { tick = item.OriginalCueContext.SourceTick,
+                    actor = item.OriginalCueContext.ActorPlayerId, item.Status,
+                    draws = item.Result == null ? 0 : item.Result.RandomCalls });
+            }
             rSkipPoseObservations += game.Model.Players.Count(actor =>
                 actor.AnimationState.Primary.SequenceName == "R_SKIP");
+            if (game.SourceTick > 2299 && game.SourceTick > beforeSourceTick)
+                foreach (ActorState actor in game.Model.Players)
+                {
+                    SourceAnimationLayerState layer = actor.AnimationState.Primary;
+                    if (layer.SequenceName != "R_SKIP" || !layer.IsSpecified || layer.SourceTick != game.SourceTick)
+                        continue;
+                    ISourceAnimationClip actual = library.GetClip("R_SKIP");
+                    Check(actual != null && layer.FrameOrdinal >= 0
+                        && layer.FrameOrdinal < actual.SelectedSourceFrames.Count,
+                        "post-gap unfiltered R_SKIP VM uses an actual selected ordinal from the real157 library");
+                    IReadOnlyList<SourceVector3> pose = geometry.CameraJoints(
+                        GameSnapshot.SourcePlayerView(actor, game.SourceTick, true),
+                        game.SourceActorWorldPosition(actor.Id), game.Model.SourceMovementCamera);
+                    Check(pose.Count == 15 && pose.All(joint => !float.IsNaN(joint.X) && !float.IsInfinity(joint.X)
+                        && !float.IsNaN(joint.Y) && !float.IsInfinity(joint.Y)
+                        && !float.IsNaN(joint.Z) && !float.IsInfinity(joint.Z)),
+                        "post-gap actual R_SKIP fifteen-bone poses execute through real production geometry");
+                    rSkipOrdinals.Add(layer.FrameOrdinal);
+                    if (firstRSkipActor < 0)
+                    {
+                        firstRSkipActor = actor.Id; firstRSkipInstance = layer.InstanceId;
+                        firstRSkipOrdinal = layer.FrameOrdinal; firstRSkipTick = game.SourceTick;
+                    }
+                    else if (actor.Id == firstRSkipActor && layer.InstanceId == firstRSkipInstance
+                        && game.SourceTick > firstRSkipTick && layer.FrameOrdinal != firstRSkipOrdinal)
+                        rSkipAdvanced = true;
+                    rSkipSamples.Add(new { tick = game.SourceTick, actor = actor.Id, layer.ScriptSymbol,
+                        layer.InstanceId, ordinal = layer.FrameOrdinal, selected = actual.SelectedSourceFrames[layer.FrameOrdinal],
+                        root = game.SourceActorWorldPosition(actor.Id), joints = pose });
+                }
             if (beforePhase == GamePhase.DeadBall && game.State.Phase == GamePhase.DeadBall
                 && game.SourceTick > beforeSourceTick && game.Model.SourceCameraJointTick == game.SourceTick)
                 foreach (ActorState actor in game.Model.Players)
@@ -177,18 +250,41 @@ internal static partial class Program
                         stableCacheAssertions++;
                     }
                 }
+            if (game.SourceTick >= 2375 && rSkipAdvanced && rSkipOrdinals.Count >= 2 && stableCacheAssertions >= 35910
+                && resolvedSound > 0 && soundDraws > 0)
+                break;
             if (game.State.Phase == GamePhase.GameOver) break;
         }
+        smokeSourceTick = game.SourceTick;
+        smokeRSkipFrames = rSkipOrdinals.Count;
+        smokeCacheAssertions = stableCacheAssertions;
+        smokeSoundDispatches = resolvedSound;
+        smokeSoundDraws = soundDraws;
+        smokeRSkipAdvanced = rSkipAdvanced;
         Save("smoke-events.json", JsonSerializer.Serialize(new { events, source_tick = game.SourceTick,
             missing_R_SKIP = missingRSkip, actual_R_SKIP_pose_observations = rSkipPoseObservations,
-            complete_smoke = !missingRSkip && game.SourceTick > 2299 && rSkipPoseObservations > 0 }));
+            complete_smoke = !missingRSkip && game.SourceTick > 2299 && rSkipAdvanced && rSkipOrdinals.Count >= 2 }));
+        Save("sound-aware-smoke.json", JsonSerializer.Serialize(new {
+            schema = "source-sound-aware-M1-smoke/v1", trace = "source-sound-smoke/raw-vector-v1",
+            rawVector, rawCursor, hostTicks, maximumHosts, sourceTick = game.SourceTick,
+            stableCacheAssertions, resolvedSound, soundDraws, rSkipSamples, rSkipAdvanced, soundDispatches,
+            actualSharedRawDraws = shared.Trace.Count,
+            tauntDraws = shared.Trace.Where(draw => draw.Site.SourceIdentity == "player.c:standard_run:taunt").ToArray(),
+            stateMutation = false, siteBasedRandomFiltering = false,
+            targetPrngCameraDspOrWholeMatchClaimed = false }));
         Check(game.SourceTick > 500, "actual whole Core M1 caller/physics survives representative source time");
         Check(missingRSkip || game.Model.SourceCameraJointTick == game.SourceTick || game.State.Phase == GamePhase.PlaySelect,
             "actual post-player camera cache generated every executing gameplay wake");
         Check(stableCacheAssertions >= 210, "actual no-contact source wake compares all14x15 real cached post-physics joints");
         if (!missingRSkip)
-            Check(game.SourceTick > 2299 && rSkipPoseObservations > 0,
+        {
+            Check(game.SourceTick > 2299 && rSkipPoseObservations > 0 && rSkipAdvanced && rSkipOrdinals.Count >= 2,
                 "complete actual original-input smoke passes previous2299 stop and executes real R_SKIP poses");
+            Check(stableCacheAssertions >= 35910,
+                "sound-aware smoke retains at least the prior171 complete14x15 post-player cache frames");
+            Check(resolvedSound > 0 && soundDraws > 0,
+                "public M1 smoke executes bound original sound synchronously on the same shared raw stream");
+        }
     }
 
     private static void RawMovementCampaign()

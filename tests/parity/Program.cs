@@ -203,7 +203,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        if (args.Length != (HostAdapterChecks.Enabled ? 3 : 2))
+        if (HostAdapterChecks.Enabled ? args.Length != 3 && args.Length != 4 : args.Length != 2)
         {
             Console.Error.WriteLine("Usage: ParityChecks original-C-cases.json synthetic-contract-traces.json [actual-fixture.json in full-kernel mode]");
             return 2;
@@ -235,7 +235,8 @@ internal static class Program
             foreach (string required in new[] { "classify", "spot", "clock", "clock_pair", "field", "world", "discard", "onside" })
                 Check("nonempty production comparison group " + required, Compared.ContainsKey(required) && Compared[required] > 0);
             int beforeContracts = assertions;
-            FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2]) : null;
+            FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2],
+                soundFunctionsPath: args.Length == 4 ? args[3] : null) : null;
             ContractChecks.Run(args[1], fullKernelInputs);
             int contractAssertions = assertions - beforeContracts;
             Check("nonzero contract assertions", contractAssertions >= 60);

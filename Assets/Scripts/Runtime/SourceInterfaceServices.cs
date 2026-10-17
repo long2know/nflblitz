@@ -77,7 +77,8 @@ namespace Blitz.Runtime
 
     public sealed class SourceInterfaceServices : ScriptableObject
     {
-        public const string ResourceKey = "BlitzSourceInterface/original-movement157-match-services";
+        public const string ResourceKey = "BlitzSourceInterface/original-movement157-soundvm-match-services";
+        public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
         public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
         public const string PlaybookSha256 = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3";
         [SerializeField] private SourceAnimationLibraryAsset originalAnimations;
@@ -102,6 +103,8 @@ namespace Blitz.Runtime
         [SerializeField] private bool nativeGamepadsEnabled;
         [SerializeField] private TextAsset originalMovementBootstrap = null;
         [SerializeField] private string movementBootstrapSha256 = null;
+        [SerializeField] private TextAsset originalSoundVmFunctions = null;
+        [SerializeField] private string soundVmFunctionsSha256 = null;
         private ISourceAnimationLibrary animations;
         private SourcePlaybook playbook;
         private SourceInterfaceMovementData movementRuntime;
@@ -109,6 +112,7 @@ namespace Blitz.Runtime
         private SourceMovementRuntimeData movementData;
         private SourceInterfaceMovementBootstrap movementBootstrap;
         private SourceMovementSettings movementSettings;
+        private SourceAudioFunctionData soundVmData;
 
         public SourceHudAsset Hud { get { Validate(); return originalHud; } }
         public bool NativeGamepadsEnabled { get { return nativeGamepadsEnabled; } }
@@ -147,18 +151,44 @@ namespace Blitz.Runtime
                 return movementSettings;
             }
         }
+        public SourceAudioFunctionData SoundVmData
+        {
+            get
+            {
+                if (soundVmData == null)
+                {
+                    TextAsset canonical = Resources.Load<TextAsset>(SoundVmFunctionsResourceKey);
+                    if (originalSoundVmFunctions == null || canonical == null ||
+                        !ReferenceEquals(originalSoundVmFunctions, canonical) ||
+                        soundVmFunctionsSha256 != GameSimulation.SourceSoundVmDataSha256 ||
+                        originalSoundVmFunctions.bytes.Length != 1983)
+                        throw new SourceInterfaceException("Source sound VM requires the canonical1983-byte SHA-pinned SAFN resource at Resources/" +
+                            SoundVmFunctionsResourceKey + ". Old M1 services, muted selection or post-host RNG are not substitutes.");
+                    soundVmData = SourceAudioFunctionData.Read(originalSoundVmFunctions.bytes, GameSimulation.SourceSoundVmDataSha256);
+                }
+                return soundVmData;
+            }
+        }
         public SourcePresentationSettings PresentationSettings
         { get { return new SourcePresentationSettings(designatedHomeSide, stationHeads, pupBigBall); } }
 
         public void Initialize(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
             SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads = false)
         {
-            throw new SourceInterfaceException("This M1 resource needs explicit SHA-pinned movement settings/source-DIP data. Use the eight-argument Initialize; a B1/117 resource is not an M1 fallback.");
+            throw new SourceInterfaceException("This sound-VM resource needs explicit SHA-pinned movement/source-DIP and SAFN data. Use the ten-argument Initialize; old B1/M1 resources are not silently upgraded.");
         }
 
         public void Initialize(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
             SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
             TextAsset movementBootstrapText, string trustedMovementBootstrapSha256)
+        {
+            throw new SourceInterfaceException("This sound-VM resource requires explicit canonical SAFN bytes/pin. Use the ten-argument Initialize; old M1 resources are not silently upgraded.");
+        }
+
+        public void Initialize(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA)
         {
             if (configuration == null || actualPresentation == null)
                 throw new ArgumentNullException(configuration == null ? nameof(configuration) : nameof(actualPresentation));
@@ -168,6 +198,9 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("An explicit pinned M1 movement/source-DIP bootstrap is required.");
             SourceInterfaceMovementBootstrap actualBootstrap =
                 SourceInterfaceMovementBootstrap.Read(movementBootstrapText.bytes, trustedMovementBootstrapSha256);
+            if (soundVmFunctions == null || trustedSoundVmSHA != GameSimulation.SourceSoundVmDataSha256)
+                throw new SourceInterfaceException("The original sound VM needs explicit SAFN bytes and the frozen Core content pin.");
+            originalSoundVmFunctions = soundVmFunctions; soundVmFunctionsSha256 = trustedSoundVmSHA;
             originalMovementBootstrap = movementBootstrapText; movementBootstrapSha256 = trustedMovementBootstrapSha256;
             movementBootstrap = actualBootstrap;
             originalAnimations = animationAsset; originalHud = hud; originalPlaybook = playbookText;
@@ -218,9 +251,11 @@ namespace Blitz.Runtime
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, pivots);
             SourceTeamPresentationAsset teams = SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab);
             Debug.LogWarning("Original source services use explicit ExternalUnverified legacy-LCG preview RNG when no oracle factory is supplied. Historical libc/scheduler/audio draw parity is NOT established.");
-            return new GameSimulation(animations, geometry, playbook, Configuration(), null, 1,
+            var actual = new GameSimulation(animations, geometry, playbook, Configuration(), null, 1,
                 rosters: teams.Rosters, presentation: PresentationSettings,
                 movementData: MovementData, movementSettings: MovementSettings);
+            actual.BindSourceSoundVmData(SoundVmData);
+            return actual;
         }
 
         private void Validate()
@@ -239,6 +274,8 @@ namespace Blitz.Runtime
             SourceInterfaceMovementBootstrap bootstrap = MovementBootstrap;
             if (bootstrap.ContentSha256 != movementBootstrapSha256)
                 throw new SourceInterfaceException("The explicit M1 bootstrap pin changed after configuration.");
+            if (SoundVmData.PayloadSha256 != GameSimulation.SourceSoundVmDataSha256)
+                throw new SourceInterfaceException("The immutable source sound-function data pin changed.");
             ISourceAnimationLibrary actual = originalAnimations.Load();
             SourcePlaybook book;
             using (var reader = new StringReader(originalPlaybook.text)) book = SourcePlaybook.LoadConverted(reader);

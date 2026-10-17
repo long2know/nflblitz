@@ -3,6 +3,7 @@
 import argparse
 import base64
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -25,6 +26,18 @@ CAMERA_INPUTS = {
     "lib/ani3d/ANIM.C": "97d7856d67a432937e249be274ef67a9ad354dc1",
     "lib/ani3d/pipe3D.c": "0966ecaf0d7eef7d9c635a97899a421ce1eeea41",
 }
+SOUND_STATE_INPUTS = {
+    "Game.c": "a005a9b44f032080f3dd6341dd4f5eb6104d9cd7",
+    "mainproc.c": "ab10aa4eb5a1f181bef598faea6def3c2c96c12c",
+}
+
+
+def sound_function_pins():
+    spec = importlib.util.spec_from_file_location(
+        "source_kernel_sound_inputs", ROOT / "tools/audio/fetch_function_inputs.py")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    return helper.input_pins()
 
 
 def blob_sha1(data):
@@ -75,6 +88,10 @@ def input_pins():
     for name, pin in original["blobs"].items():
         add(name, pin)
     for name, pin in CAMERA_INPUTS.items():
+        add(name, pin)
+    for name, pin in sound_function_pins().items():
+        add(name, pin)
+    for name, pin in SOUND_STATE_INPUTS.items():
         add(name, pin)
     return dict(sorted(pins.items()))
 

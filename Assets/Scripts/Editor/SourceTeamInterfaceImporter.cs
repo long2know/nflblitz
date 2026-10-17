@@ -15,6 +15,7 @@ namespace Blitz.Editor
         public const string HudAssetSuffix = "/Resources/BlitzSourceInterface/original-interface.asset";
         public const string ServicesAssetSuffix = "/Resources/BlitzSourceInterface/original-match-services.asset";
         public const string MovementServicesAssetSuffix = "/Resources/BlitzSourceInterface/original-movement157-match-services.asset";
+        public const string SoundVmServicesAssetSuffix = "/Resources/BlitzSourceInterface/original-movement157-soundvm-match-services.asset";
         public const string ShaderName = "Hidden/Blitz/SourceHud";
 
         public static void ImportFromCommandLine()
@@ -29,11 +30,25 @@ namespace Blitz.Editor
             Import(PlanFromMovement157Arguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
         }
 
+        public static void ImportSoundVmFromCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            Import(PlanFromSoundVmArguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
+        }
+
         public static SourceInterfacePackagePlan PlanFromArguments(string[] args)
         { return PlanFromArguments(args, false); }
 
         public static SourceInterfacePackagePlan PlanFromMovement157Arguments(string[] args)
         { return PlanFromArguments(args, true); }
+
+        public static SourceInterfacePackagePlan PlanFromSoundVmArguments(string[] args)
+        {
+            return SourceInterfacePackagePlan.WithSourceSoundVm(PlanFromMovement157Arguments(args),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceSoundVmRoot"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceSoundVmData"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceSoundVmSha256"));
+        }
 
         private static SourceInterfacePackagePlan PlanFromArguments(string[] args, bool movement157)
         {
@@ -74,6 +89,8 @@ namespace Blitz.Editor
                 SourceInterfaceServices.PlaybookSha256 != SourceInterfacePackagePlan.PlaybookSha256 ||
                 SourceInterfaceServices.ResourceKey != plan.SelectedServicesResourceKey)
                 throw new SourceInterfaceException("Explicit package/consumer profile differs. B1 history is not a157 alias; use the matching importer/consumer checkout.");
+            if (plan.HasSoundVm && SourceInterfaceServices.SoundVmFunctionsResourceKey != SourceInterfacePackagePlan.SoundVmFunctionsResourceKey)
+                throw new SourceInterfaceException("SoundVM data consumer/import identity differs; no old-profile alias.");
             if (FindUniqueResourcePath("SourceInterfaceServices", plan.SelectedServicesResourceKey) != null)
                 throw new SourceInterfaceException("The selected immutable match-services resource already exists; no overwrite or duplicate key.");
             SourceInterfacePackagePlan.RequireHudShaderSource(Path.GetDirectoryName(Application.dataPath));
@@ -100,6 +117,7 @@ namespace Blitz.Editor
                 SourceTeamInterfaceChecks.VerifyHudBindings(plan, hud, false, out bytes, out pixels);
             }
             TextAsset existingMovement = null;
+            TextAsset existingSoundVm = null;
             if (profile.IsMovement157)
             {
                 string path = FindUniqueResourcePath("TextAsset", SourceInterfaceMovementData.ResourceKey);
@@ -108,6 +126,16 @@ namespace Blitz.Editor
                     existingMovement = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
                     if (existingMovement == null) throw new SourceInterfaceException("Movement resource is not an actual TextAsset.");
                     SourceInterfaceMovementData.Read(existingMovement.bytes, SourceInterfaceMovementData.ContentSha256);
+                }
+            }
+            if (plan.HasSoundVm)
+            {
+                string soundPath = FindUniqueResourcePath("TextAsset", SourceInterfacePackagePlan.SoundVmFunctionsResourceKey);
+                if (soundPath != null)
+                {
+                    existingSoundVm = AssetDatabase.LoadAssetAtPath<TextAsset>(soundPath);
+                    if (existingSoundVm == null) throw new SourceInterfaceException("Actual SoundVM SAFN1 resource is not a TextAsset.");
+                    SourceInterfacePackagePlan.ReadSoundVmFunctions(existingSoundVm.bytes, SourceInterfacePackagePlan.SoundVmFunctionsSha256);
                 }
             }
             var output = new AuthorizedAssetRoot(Path.GetDirectoryName(Application.dataPath));
@@ -130,6 +158,7 @@ namespace Blitz.Editor
             TextAsset bookText = WriteText(output, resource + "/playbook.bytes", plan.CopyPlaybook());
             WriteText(output, resource + "/configuration.json", plan.CopyConfiguration());
             TextAsset bootstrapText = null;
+            TextAsset soundVmText = existingSoundVm;
             if (profile.IsMovement157)
             {
                 if (existingMovement == null)
@@ -139,8 +168,18 @@ namespace Blitz.Editor
                 }
                 bootstrapText = WriteText(output, resource + "/movement-bootstrap.json", plan.CopyBootstrap());
             }
+            if (plan.HasSoundVm && soundVmText == null)
+            {
+                Folder(output, destination + "/Resources/SourceData");
+                soundVmText = WriteText(output, destination + "/Resources/" +
+                    SourceInterfacePackagePlan.SoundVmFunctionsResourceKey + ".bytes", plan.CopySoundVmFunctions());
+            }
             var services = ScriptableObject.CreateInstance<SourceInterfaceServices>();
-            if (profile.IsMovement157)
+            if (plan.HasSoundVm)
+                services.Initialize(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
+                    plan.Configuration.NativeGamepadsEnabled, bootstrapText, plan.BootstrapSha256,
+                    soundVmText, SourceInterfacePackagePlan.SoundVmFunctionsSha256);
+            else if (profile.IsMovement157)
                 services.Initialize(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
                     plan.Configuration.NativeGamepadsEnabled, bootstrapText, plan.BootstrapSha256);
             else
@@ -149,7 +188,7 @@ namespace Blitz.Editor
             output.NewPath(servicesPath); AssetDatabase.CreateAsset(services, servicesPath);
             AssetDatabase.SaveAssets();
             SourceTeamInterfaceChecks.VerifySaved(plan, destination, false);
-            Debug.Log("PASS saved explicit " + profile.StableId + " HUD/services Resources. Shared identical HUD/movement bytes " +
+            Debug.Log("PASS saved explicit " + plan.SelectedServicesResourceKey + " HUD/services Resources. Shared identical HUD/movement/SAFN bytes " +
                 "are reused, not overwritten. Import/save is not framebuffer/native-game/browser proof; raw/generated data stays ignored.");
             return services;
         }

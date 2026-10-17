@@ -18,9 +18,9 @@ internal static class Program
         };
         try
         {
-            if (args.Length != 3)
+            if (args.Length != 3 && args.Length != 4)
                 throw new ArgumentException("BallChecks actual-fixture.json original-C-case-directory all|native|caller|sentinel|geometry");
-            FullKernelInputs real = FullKernelInputs.Load(args[0]);
+            FullKernelInputs real = FullKernelInputs.Load(args[0], soundFunctionsPath: args.Length == 4 ? args[3] : null);
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["canonical_B1_animation_manifest"] = real.Animations.InventorySha256;
             string section = args[2];
@@ -33,7 +33,8 @@ internal static class Program
             if (section == "all" || section == "caller")
             {
                 // These public callers now execute M1 scripts; keep their explicit157 identity separate from B1's117.
-                FullKernelInputs movementReal = FullKernelInputs.Load(args[0], movementLibrary: true);
+                FullKernelInputs movementReal = FullKernelInputs.Load(args[0], movementLibrary: true,
+                    soundFunctionsPath: args.Length == 4 ? args[3] : null);
                 result["caller_runtime_animation_manifest"] = movementReal.Animations.InventorySha256;
                 result["caller_assertions"] = SourceCallerChecks.Run(movementReal, args[1]);
             }

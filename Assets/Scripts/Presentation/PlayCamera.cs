@@ -163,6 +163,12 @@ namespace Blitz.Presentation
             SourcePlayback.Execute(new SourcePresentationCueBatch(new[] { cue }));
         }
 
+        internal void ConsumeResolvedSourceSound(Blitz.Gameplay.SourceSoundVmDispatch dispatch,
+            System.Action<Blitz.Gameplay.SourceSoundVmDispatch> actualRawOutputConsumer = null)
+        {
+            SourcePlayback.ConsumeResolvedSourceSound(dispatch, actualRawOutputConsumer);
+        }
+
         internal void ObserveSourceHostStep(IGameState state)
         {
             if (!sourceStageDriven) return;

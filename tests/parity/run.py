@@ -20,7 +20,8 @@ ARTIFACTS = SUITE / ".artifacts"
 def source_files():
     return [path for directory in ("Contracts", "Gameplay", "AssetImport")
             for path in sorted((ROOT / "Assets/Scripts" / directory).glob("*.cs"))] + [
-                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs",
+                ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"]
 
 
 def hashes(paths):
@@ -40,11 +41,12 @@ def main():
     parser.add_argument("--cases", type=Path, required=True)
     parser.add_argument("--full-kernel", action="store_true", help="Also compile and exercise the actual source-profile host adapter.")
     parser.add_argument("--fixture-manifest", type=Path, help="Explicit pinned real-input fixture.json, required with --full-kernel.")
+    parser.add_argument("--sound-functions", type=Path, help="Explicit frozen SAFN input for actual source VM execution.")
     args = parser.parse_args()
     if args.full_kernel and args.fixture_manifest is None:
         parser.error("--full-kernel requires --fixture-manifest; synthetic/geometry fallbacks are forbidden.")
     fixture_path = args.fixture_manifest.resolve() if args.fixture_manifest is not None else None
-    fixture_before = fixture_hashes(fixture_path) if args.full_kernel else None
+    fixture_before = fixture_hashes(fixture_path, args.sound_functions) if args.full_kernel else None
     case_path = args.cases.resolve()
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     mode = "full-kernel" if args.full_kernel else "focused"
@@ -86,6 +88,8 @@ def main():
         command += ["--", str(case_path), str(SUITE / "fixtures/synthetic-contract-traces.json")]
         if args.full_kernel:
             command.append(str(fixture_path))
+            if args.sound_functions is not None:
+                command.append(str(args.sound_functions.resolve()))
         commands.append(command)
         process = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=180)
         text = process.stdout + process.stderr
@@ -161,7 +165,7 @@ def main():
         evidence["isolated_validation_build_removed"] = not validation_build.exists()
         evidence["production_sha256_after"] = hashes(source_files())
         evidence["production_hashes_unchanged"] = evidence["production_sha256_after"] == before
-        evidence["real_input_sha256_after"] = fixture_hashes(fixture_path) if args.full_kernel else None
+        evidence["real_input_sha256_after"] = fixture_hashes(fixture_path, args.sound_functions) if args.full_kernel else None
         evidence["real_input_hashes_unchanged"] = evidence["real_input_sha256_after"] == fixture_before
         stable = evidence["production_hashes_unchanged"] and evidence["real_input_hashes_unchanged"]
         if not stable:

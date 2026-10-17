@@ -254,6 +254,28 @@ data without the test-only `Responses` fixture; its output stays ignored.
 
 ## Original audio packages
 
+### Next synchronous sound Runtime
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/audio/runtime/run.py
+```
+
+See [Runtime transport/actual Core tests](audio/runtime/README.md) for explicit
+original157 fixture/SAFN and real Unity6.3 API options. The asset-free default
+compiles production Core/bridge/transport, tests exact FIFO/cue/order/zero versus
+Unsupported/missing-consumer/partial-fault/restart semantics, and rejects
+sixteen compiled actual-source mutants. Optional real Core cases execute the
+unchanged VM with named test state; they are not a public full-match claim.
+No post-host selector, fake audio player or real DSP consumer is installed.
+
+All8 PM/DM images and CRC deployment wrapping exist and are verified. The
+remaining playback boundary is exact historical target/build identity, matched
+legitimate Seattle/Vegas bootstrap bytes and full DCS2 board qualification—not
+missing PM/DM images or sample-decoder success. Nonempty output still fails
+explicitly without a real consumer; all sixteen parity rows remain OPEN.
+
+### Retained offline decoder/reader
+
 The separate [`audio`](../tools/audio/README.md) preparation/reader layer has an
 asset-free regression command:
 
