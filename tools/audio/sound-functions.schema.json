@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pinned original sound-function audit manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "blobs", "bank", "onscreen_flag", "line_mode", "drone_station", "human", "drone", "tables", "sites", "bindings", "source_inputs", "rights", "payload_sha256", "producer_sha256", "pins_sha256", "unchanged_function_sha256", "oracle_include_sha256"],
+  "properties": {
+    "schema": {"const": "source-audio-functions/v1"},
+    "blobs": {"type": "object", "additionalProperties": {"$ref": "#/$defs/blob"}},
+    "bank": {"type": "string", "minLength": 1, "maxLength": 512},
+    "onscreen_flag": {"$ref": "#/$defs/int"},
+    "line_mode": {"$ref": "#/$defs/int"},
+    "drone_station": {"$ref": "#/$defs/int"},
+    "human": {"$ref": "#/$defs/branch"},
+    "drone": {"$ref": "#/$defs/branch"},
+    "tables": {"type": "array", "minItems": 1, "maxItems": 32, "items": {
+      "type": "object", "additionalProperties": false, "required": ["name", "line", "values", "declaration"],
+      "properties": {
+        "name": {"type": "string"}, "line": {"type": "integer", "minimum": 1},
+        "values": {"type": "array", "minItems": 1, "maxItems": 1024, "items": {"type": "integer", "minimum": 1}},
+        "declaration": {"type": "string", "description": "Original source; local/ignored only"}
+      }
+    }},
+    "sites": {"type": "array", "minItems": 17, "maxItems": 17, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "function", "line", "table", "argument_index", "volume_mode", "volume", "pan", "priority_mode", "priority"],
+      "properties": {
+        "role": {"type": "string"}, "function": {"enum": ["get_hit_snd", "grnd_hit_snd"]},
+        "line": {"type": "integer", "minimum": 1}, "table": {"type": "string"},
+        "argument_index": {"type": "integer", "minimum": -1, "maximum": 2},
+        "volume_mode": {"type": "integer", "minimum": 0, "maximum": 1},
+        "volume": {"$ref": "#/$defs/byte"}, "pan": {"$ref": "#/$defs/byte"},
+        "priority_mode": {"type": "integer", "minimum": 0, "maximum": 2},
+        "priority": {"$ref": "#/$defs/word"}
+      }
+    }},
+    "bindings": {"type": "array", "minItems": 6, "maxItems": 6, "items": {
+      "type": "object", "additionalProperties": false, "required": ["path", "script", "function", "line", "arguments"],
+      "properties": {
+        "path": {"const": "plyrseq.c"}, "script": {"type": "string"},
+        "function": {"enum": ["get_hit_snd", "grnd_hit_snd"]},
+        "line": {"type": "integer", "minimum": 1},
+        "arguments": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/int"}}
+      }
+    }},
+    "source_inputs": {"type": "object", "additionalProperties": {
+      "type": "object", "required": ["git_blob", "sha256", "bytes"],
+      "properties": {"git_blob": {"$ref": "#/$defs/blob"}, "sha256": {"$ref": "#/$defs/hash"}, "bytes": {"type": "integer", "minimum": 1}}
+    }},
+    "rights": {"type": "string"}, "payload_sha256": {"$ref": "#/$defs/hash"},
+    "producer_sha256": {"$ref": "#/$defs/hash"}, "pins_sha256": {"$ref": "#/$defs/hash"},
+    "unchanged_function_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+    "oracle_include_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "int": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647},
+    "byte": {"type": "integer", "minimum": 0, "maximum": 255},
+    "word": {"type": "integer", "minimum": 0, "maximum": 65535},
+    "branch": {
+      "type": "object", "additionalProperties": false, "required": ["volume", "primary_priority", "secondary_priority"],
+      "properties": {"volume": {"$ref": "#/$defs/byte"}, "primary_priority": {"$ref": "#/$defs/word"}, "secondary_priority": {"$ref": "#/$defs/word"}}
+    }
+  }
+}
