@@ -20,9 +20,12 @@ actual `hike_ball` stream callback; request-time Live/holder assignment is not
 the source contract. That source-derived fix does not define the remaining
 original six-int automatic-array `bc_adjust[6]` read. No corrected semantics
 or matching target runtime evidence is approved; strict failure remains.
-Positive public R_SKIP is still zero, and clean CI lacks acquisition of the
-exact reviewed 12,000-command input-only replay. The unchanged workflow remains
-legacy69/443 and failed, not current-generation qualification.
+Positive public R_SKIP is still zero. Clean CI now prepares the tracked exact
+12,000-command input-only replay without any source-state regeneration, plus
+strict Contact272 and explicit M1 data. Historical69/443 numeric controls remain
+separate; the source callers no longer use the old157 library as their closure.
+The last hosted legacy-input run failed, and the corrected actual full-M1 gate
+remains required, not an accepted source boundary or scoped substitute.
 [Current post-snap defined-domain QA](source-parity.md#current-post-snap-defined-domain-qa)
 qualifies the named B1, snap, running-binding, package and archived-API surfaces
 only; its fingerprint excludes all seven mutable Frontend paths. It is not

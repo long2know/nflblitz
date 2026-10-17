@@ -256,17 +256,26 @@ runtime evidence defines the value. Strict failure remains; no seventh row,
 clamp, default, skipped collision or expected-boundary PASS is authorized.
 
 The positive public R_SKIP witness remains zero. Full M1, CI and PR21 merge
-are blocked. The unchanged existing workflow
-still prepares legacy69/443 inputs and failed run39044339868 at a current
-contact caller's missing `TIE1C_A`; subsequent stages were skipped, not passed.
-It does not yet wire this StageA/StageB recipe or qualify the latest engine.
+are blocked. Hosted run39070002791 used legacy69/443 inputs and failed at a
+current contact caller's missing `TIE1C_A`; subsequent stages were skipped,
+not passed. The correction now explicitly fetches the78-pin profile, retains
+the exact443 historical fixture, and derives the separate strict834 current
+fixture, extra9, old-nine288 and fourteen-binding M1/482-site generation.
+B1 and dependent sound callers use the explicit current fixture; the short
+numeric/adapter and157 camera controls retain their labelled historical inputs.
 
-The full-M1 runner additionally requires a **user-supplied exact reviewed
-12,000-command local replay**. No tracked input-only fixture/exporter or
-acquisition mechanism provides it on a clean hosted runner. See the
-[local-data-only full-M1 command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
-These preparation instructions are not a complete clean-CI recipe or a green
-hosted-run claim. Historical component counts and Systems' pre-Snap API
+The full-M1 replay-input edge is now reproducible without the ignored mixed
+artifact. The tracked input-only
+`tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz` expands through
+the strict versioned preparer to the exact12,000 public commands. The gzip is
+43,395 bytes instead of4,494,350 bytes of repeated canonical JSONL; it contains
+only public `host`/`command` rows, no game snapshots, RNG/seeds, geometry or
+audio observations. See the
+[exact preparation and required full-M1 command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
+The gate uses actual M1 composition and unchanged controls/assertions.
+This fixes CI input preparation, **not** the remaining source/witness failure:
+no full replay was run locally and no green hosted result is claimed.
+Historical component counts and Systems' pre-Snap API
 receipts remain tied to their recorded generations.
 
 The separate October 17, 2026 post-snap defined-domain QA report records
@@ -969,10 +978,10 @@ assertions**, zero failures. The **35 C-only geometry cases** are not production
 comparisons. Clock/local-state wakes/discard, result classification, exact
 spotting/dispatch/clamp, field conversion and CPU onside are covered; later
 result-switch/PAT/kick/period callers and full gameplay are not certified.
-The unchanged CI retains these legacy69/443 original-data steps and failed
-run39044339868; later skipped stages are not passing results. Its declared
-asset-free checks do not make it current-generation caller qualification or
-a complete StageA/StageB/full-M1 recipe.
+CI retains this explicitly legacy numeric/short-adapter comparison alongside
+the separate current834 caller fixture and explicit M1 sidecar. The earlier
+legacy-input hosted failure is not a passing result; the corrected preparation
+and required full-M1 invocation are not evidence of a green hosted campaign.
 
 Build/hosting tooling validation (the optional `--docker` case uses a labeled,
 non-playable fixture):

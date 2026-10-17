@@ -28,8 +28,9 @@ remain **OPEN**.
 see the [exact report and scope](../docs/source-parity.md#current-post-snap-defined-domain-qa).
 Only those results are current. Other campaign counts below belong to their
 dated source/data generations, not automatically the latest StageB/SnapHike source.
-The earlier October17 asset-free executions preceded that source; no suite or
-campaign was rerun for this documentation-only continuation. Pure tests, actual
+The CI/input correction has separate fixture/schema/workflow units and bounded
+preparation/caller validation; those are not reruns of the broader QA campaigns.
+No full-M1 replay is authorized for this correction. Pure tests, actual
 Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
@@ -45,6 +46,7 @@ python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
 python3 -B tests/parity/test_contact_inputs.py
 python3 -B tests/contact/test_runner.py
 python3 -B tests/movement-callers/test_canonical.py
+python3 -B tests/movement-callers/test_public_replay.py -q
 python3 -B -m unittest discover -s tools/animation/tests
 python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null
 python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null
@@ -68,13 +70,15 @@ These preflights compile actual pure production code separately as
 C#7.3/SDK netstandard2.1 and execute on .NET10. Their default asset-free modes
 do **not** load original281 motion or qualify the actual-data factory.
 
-**The existing workflow remains legacy69/443 and failed**, not correct current-
-engine caller coverage. Run39044339868 passed earlier scoped inventory/C
-oracle/numeric-adapter stages, then failed B1's public contact caller because
-the157 library lacked `TIE1C_A`. Later stages were skipped, not passed.
-The workflow and its CI guard are unchanged by this documentation update;
-they do not prepare StageA extra9 or the StageB successor. Historical69/443
-inventory is retained as history, not relabelled current-generation success.
+**The last hosted legacy-input run39070002791 failed** because B1's public
+contact caller reached `TIE1C_A`, absent from its157 library. Later stages were
+skipped, not passed. The corrected workflow explicitly prepares strict78/834
+Contact272 and StageA extra9/old-nine/StageB M1 data. B1/VM/Runtime callers use
+the current fixture and explicit profile where supported. Historical69/443
+numeric/short-adapter and157-camera comparisons remain separately identified.
+The exact tracked public fixture is audited/prepared before the actual full-M1
+gate; fixture/workflow failure guards run early, not after that blocked gate.
+No new green hosted run is claimed. Historical69/443 inventory is not relabelled.
 Local scoped C1 B1 evidence from before the later source changes also does not
 establish full C1 playability or current global qualification.
 
@@ -139,26 +143,45 @@ preserve old-nine defaults, old-six SAFN, ONE7538 and all animation bytes.
 The [Contact272 suite](presentation/contact-runtime/README.md) documents its
 distinct six-flag actual-data mode; do not reuse C2 flag names there.
 
-### Local-data-only full-M1 prerequisite and hard gate
+<a id="local-data-only-full-m1-prerequisite-and-hard-gate"></a>
 
-**This does not work from a clean checkout alone and is not a green-CI recipe.**
-First supply all strict original/data roots above, including the834-file base,
-unchanged old-six SAFN and explicit M1 successor288. Additionally supply a
-**user-provided exact reviewed 12,000-host replay**, in recorded `commands`
-JSON or per-host command JSONL, with every original contiguous host/command.
-No tracked input-only fixture, exporter or pinned acquisition currently supplies
-it. Do not use an ignored authoring path as a checkout default, regenerate
-commands from changed simulation state, or introduce a new policy/seed/vector.
+### Exact public replay preparation and required full-M1 gate
+
+The checkout now contains one input-only fixture,
+`movement-callers/fixtures/canonical-public-12000.jsonl.gz`. Its decoded rows use
+the existing `ReadPublicReplay` JSONL schema and contain only all12,000 original
+contiguous `host` IDs and public `command` fields. Standard deterministic gzip
+avoids4.49MB of repeated JSON without introducing a game/input policy.
+The strict versioned preparer verifies public field sets/types, count/order,
+canonical content and both payload/container hashes. It never runs the game,
+reads the mixed source artifact in CI, or regenerates commands from current state.
+
+Supply or explicitly fetch/derive the pinned originals and data roots above:
+the834 base, unchanged old-six SAFN and explicit M1 successor288. No original
+art/motion/audio is supplied by the fixture. Input preparation is reproducible;
+**full qualification remains blocked and is not a green hosted-run claim**.
 
 ```sh
-REVIEWED_REPLAY="/absolute/path/to/user-supplied/exact-reviewed-12000-commands.jsonl"
-test -f "$REVIEWED_REPLAY"
+REVIEWED_REPLAY=".squad/.scratch/SourceData/m1-public-12000.jsonl"
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --fixture tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz \
+  --output "$REVIEWED_REPLAY"
 python3 -B tests/movement-callers/run.py \
   --source-root "$ORIGINAL_SOURCE" --input-profile contact272 \
   --fixture-manifest "$FIXTURE272" --sound-functions "$SAFN" \
   --c2-m1-inputs "$C2_M1_INPUTS" --replay-commands "$REVIEWED_REPLAY" \
   --output tests/movement-callers/.artifacts/local-m1-full
 ```
+
+The decoded public SHA-256 is
+`a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6`;
+the43,395-byte tracked gzip SHA-256 is
+`7ffc168a44fe7599982b7ab369ec63194b2dda1d3fccd3688121f4b3f8d20fd4`.
+Its author-only `export --source <exact reviewed mixed artifact>` mode checks
+the original2a028f90... identity before projecting commands. That30MB mixed
+artifact, private snapshots/RNG/sound observations and source data remain ignored,
+are not copied wholesale, and are not needed by CI. See the
+[fixture audit and authoring contract](movement-callers/README.md#tracked-exact-public-replay-input).
 
 Here `--input-profile contact272` identifies the strict base-fixture schema,
 not a C1 factory substitute. The M1 sidecar selects the actual
@@ -217,9 +240,22 @@ earlier e46 counts belong to an older generation. The separate current
 post-snap6752 report now qualifies all five archived API profiles, package
 1,577/17 controls, named B1 C1/old-nine modes, snap421/3 and binding251/19.
 It excludes the seven mutable Frontend paths and does not rerun older full
-contact/VM/P1/full-kernel/geometry-history campaigns. No compile or campaign
-was executed for this documentation-only update. Full M1, all16 rows and DSP/browser acceptance remain open; see the
+contact/VM/P1/full-kernel/geometry-history campaigns. The documentation-only
+evidence update did not rerun that qualification, and the bounded CI/input
+validation below does not rerun the archived APIs or full QA. Full M1, all16
+rows and DSP/browser acceptance remain open; see the
 [current limits and autonomous portability disclosure](../docs/source-parity.md#current-contactc2-boundary).
+
+### Bounded CI/input correction validation
+
+The separate input/CI follow-up runs only focused public-fixture/export/schema,
+workflow and existing input/semantic-gate guards, fresh strict preparation using
+qualified read-only caches, and a narrow C1 B1 caller baseline/final. The local
+caller invocation adds `--section caller --no-mutations` for that bounded
+input-root proof only; **the hosted B1 command retains its complete old20
+controls/final**, and the actual full-M1 command remains required.
+No full-M1 public replay, new input policy/seed search, gameplay/API change,
+Unity/native-game/DSP/browser operation or green hosted campaign is performed.
 
 ## Core suite
 

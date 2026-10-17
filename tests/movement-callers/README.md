@@ -1,5 +1,50 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Tracked exact public replay input
+
+`fixtures/canonical-public-12000.jsonl.gz` contains only the unchanged12,000
+recorded public `host`/`command` rows, not source/game observations. Its decoded
+canonical JSONL is4,494,350 bytes; deterministic standard gzip (empty filename,
+mtime0, level9) is43,395 bytes. No new policy, seed, state-derived command
+generator, compression dependency or gameplay abstraction is introduced.
+
+| Identity | SHA-256 |
+| --- | --- |
+| Exact public JSONL | `a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6` |
+| Tracked gzip | `7ffc168a44fe7599982b7ab369ec63194b2dda1d3fccd3688121f4b3f8d20fd4` |
+| Authoring-only reviewed mixed artifact | `2a028f90b9b8f9342fe67546c2fb4424d2ccc045bfcdef9363e5e4d20f5360d1` |
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py verify
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --fixture tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz \
+  --output .squad/.scratch/SourceData/m1-public-12000.jsonl
+python3 -B tests/movement-callers/test_public_replay.py -q
+```
+
+`source-public-replay-inputs/v1` validates exactly12000 contiguous hosts, public
+fields at every depth, JSON types/finite values, unique JSON keys, canonical
+identity and gzip hash. Missing/corrupt data never falls back to simulation.
+Private actor/model/geometry/pose/phase snapshots, RNG draws/state/seeds,
+sound/audio observations and original data cannot be fixture fields.
+Tests mutate the actual fixture to reject extra fields, missing/duplicate/
+reordered hosts, count and valid-public-command/hash changes.
+
+For an explicitly authorized author-only re-export, supply the exact reviewed
+mixed artifact; it remains ignored and is never copied wholesale:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py export \
+  --source "$EXACT_REVIEWED_MIXED_ARTIFACT"
+```
+
+This projects only the already-recorded commands and verifies the fixed source
+and public identities; it does not regenerate them from CURRENT game state.
+An existing different destination is never overwritten. CI only prepares the
+tracked fixture, so it does not need this mixed artifact or a private cache.
+The actual full-M1 gate below remains required; valid input preparation does
+not turn `bc_adjust[6]`, zero R_SKIP or any unrelated exception into PASS.
+
 ## Current281 canonical entry and honest coverage boundary
 
 The commands/results below this section are historical117/156/157/272
@@ -464,12 +509,14 @@ bank draws before AI, and unchanged SAFN before wake. It cannot use the old
 `SourceCacheWitness` proxy constructor.
 
 ```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --output .squad/.scratch/SourceData/m1-public-12000.jsonl
 python3 -B tests/movement-callers/run.py \
   --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
   --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
   --sound-functions "$UNCHANGED_OLD6_SAFN" \
   --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
-  --replay-commands "$EXACT_SAVED_12000_PUBLIC_COMMANDS" \
+  --replay-commands .squad/.scratch/SourceData/m1-public-12000.jsonl \
   --output .squad/.scratch/m1-successor-full-qualification
 ```
 

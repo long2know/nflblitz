@@ -46,11 +46,13 @@ qualification blockers:
   Strict failure remains—no clamp, guessed row or boundary-as-PASS.
 - The required positive public **R_SKIP witness remains zero**. Full M1 and
   all sixteen parity rows remain OPEN.
-- The unchanged workflow still uses **legacy69/443** preparation and failed
-  run39044339868; it is not current-generation qualification. Clean CI also
-  lacks tracked acquisition of the exact reviewed 12,000 public commands.
-  [Full-M1 commands require a user-supplied local replay](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
-  PR21 remains blocked/unmerged, not a completed main/whole-game increment.
+- Hosted run39070002791 used legacy69/443 data and failed on missing
+  `TIE1C_A`. The CI/input correction now prepares strict78/834 Contact272,
+  StageA extra9 and explicit StageB M1 inputs, plus the
+  [tracked exact12,000-command public fixture](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
+  Historical numeric comparisons remain explicitly legacy. The actual full-M1
+  gate stays required and nonzero on source faults or unmet R_SKIP; no new
+  green hosted run or full replay is claimed. PR21 remains blocked/unmerged.
 
 **Portability disclosure:** the parent autonomously selected a narrow
 no-eligible-candidate return before original `maybe_taunt` calls

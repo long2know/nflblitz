@@ -107,14 +107,20 @@ after2299 same-actor/same-instance advancement across two selected ordinals
 with two real fifteen-bone poses. A controlled VM/timing fixture, elapsed
 ticks or an expected undefined boundary cannot substitute for that witness.
 
-The unchanged required workflow still fetches/prepares **legacy69/443** data.
-Run39044339868 failed at a current contact caller's missing `TIE1C_A`; later
-stages were skipped, not passed. This is not current-generation qualification.
-The actual successor full-M1 runner also requires the exact reviewed12,000
-public commands, whose **input-only fixture/acquisition is not tracked**.
-Its [command is local-data-only](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate),
-not a clean-checkout recipe. No exporter, regenerated policy, gate skip or
-allow-failure was added. Full M1/CI and PR21 merge remain blocked; the defined-
+Hosted run39070002791 used **legacy69/443** data and failed at a current contact
+caller's missing `TIE1C_A`; later stages were skipped, not passed. The CI/input
+correction now derives strict78/834 Contact272, tracked StageA extra9 and the
+explicit StageB successor. Historical numeric inputs remain separate.
+The tracked input-only public fixture/preparer supplies the exact reviewed
+12,000 commands to the [required full-M1 invocation](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
+Its public JSONL identity is
+`a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6`.
+Only the original recorded `host`/public `command` projection was exported;
+no current-state policy, RNG/seed data, game observations or original payload
+is in the fixture. No full replay was run for this correction. The full gate
+still rejects source exceptions and unmet R_SKIP, retains all three cache/
+eight caller controls/final baseline, and has no skip/allow-failure.
+Full M1/CI and PR21 merge remain blocked; the defined-
 domain component QA below is not full-generation acceptance. All sixteen
 parity rows, native, DSP, supported Unity
 entitlement and whole-game/playable-build acceptance remain OPEN.
@@ -149,12 +155,12 @@ covers 112 C# sources, 123 metadata, 96 immutable test dependencies and 1,418
 explicit inputs. **It excludes all seven mutable Frontend paths**:
 the five public docs, `.github/workflows/game-build.yml` and
 `tests/audio/runtime/test_ci.py`. It does not qualify these docs, the unchanged
-failed workflow, clean-CI acquisition or PR21 merge.
+new CI configuration, public-input preparer/fixture or PR21 merge.
 
 Older full contact/VM/P1/full-kernel and geometry-history reports were **not
 reexecuted** by this bounded campaign and must not be relabelled current.
-`bc_adjust[6]`, zero positive public R_SKIP, missing exact12,000-command
-input-only acquisition, full M1/CI, Unity import/native/DSP/new-build and all
+`bc_adjust[6]`, zero positive public R_SKIP, full M1/CI qualification,
+Unity import/native/DSP/new-build and all
 sixteen parity blockers remain unchanged.
 
 ### Historical pre-StageB component evidence, not current qualification
