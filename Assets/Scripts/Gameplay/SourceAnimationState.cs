@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Blitz.Contracts;
 
 namespace Blitz.Gameplay
@@ -96,6 +97,7 @@ namespace Blitz.Gameplay
     {
         private readonly ISourceAnimationLibrary library;
         private readonly int actorId;
+        private readonly IReadOnlyDictionary<string, SourceAnimationProgram> programExtension;
         private SourceAnimationProgram program;
         private ISourceAnimationClip clip;
         private int pc;
@@ -123,11 +125,18 @@ namespace Blitz.Gameplay
         internal Action<ActorState> BeforeInstruction;
         internal Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> Presentation;
         internal Func<ActorState, string, int, int, int, int> MovementCode;
+        internal Action<ActorState, string, int, int, int> C2VoidCode;
         internal Action<ActorState, SourceAnimationInstruction> MovementLeap;
+        internal Action<ActorState> PuppetPosition;
+        internal Func<ActorState, int> HitHeading;
+        internal Func<ActorState, int> GroundTime;
+        internal Action<Exception> FailureReported;
         private int turnHack;
+        private string failedExecution;
 
         internal int FrameOrdinal { get; private set; } = -1;
         internal uint Mode { get; private set; }
+        internal SourceAnimationCodeReturnEvidence CodeReturnEvidence { get; private set; }
         internal long InstanceId { get; private set; }
         internal long SourceTick { get { return lastAdvanceTick; } }
         internal int VariableFrame = -1;
@@ -138,10 +147,12 @@ namespace Blitz.Gameplay
         internal bool IsUninterruptible { get { return (Mode & SourceAnimationModes.Uninterruptible) != 0; } }
         internal bool IsEnded { get { return (Mode & SourceAnimationModes.End) != 0; } }
 
-        internal SourceAnimationLayerState(ISourceAnimationLibrary library, int actorId, bool secondary)
+        internal SourceAnimationLayerState(ISourceAnimationLibrary library, int actorId, bool secondary,
+            IReadOnlyDictionary<string, SourceAnimationProgram> programExtension = null)
         {
             this.library = library ?? throw new ArgumentNullException(nameof(library));
             this.actorId = actorId;
+            this.programExtension = programExtension;
             Mode = secondary ? SourceAnimationModes.Secondary : 0;
         }
 
@@ -169,11 +180,13 @@ namespace Blitz.Gameplay
             InstanceId = other.InstanceId;
             lastAdvanceTick = other.lastAdvanceTick;
             Mode = other.Mode | SourceAnimationModes.Secondary | SourceAnimationModes.TwoPart;
+            CodeReturnEvidence = other.CodeReturnEvidence;
         }
 
         internal void Change(string symbol, ActorState actor, long tick, Func<int, int> random,
             SourceJointPose actualOrigin = null, int headingCorrection = 0)
         {
+            if (failedExecution != null) throw Failure("original VM execution failed; Restart is required: " + failedExecution);
             SourceJointPose origin = actualOrigin ?? EvaluatePose();
             if (origin != null)
                 origin = SourcePoseMath.Turn(origin, headingCorrection);
@@ -194,6 +207,20 @@ namespace Blitz.Gameplay
         }
 
         internal void Advance(ActorState actor, long tick, Func<int, int> random)
+        {
+            if (failedExecution != null) throw Failure("original VM execution failed; Restart is required: " + failedExecution);
+            try { AdvanceChecked(actor, tick, random); }
+            catch (InvalidOperationException error) { ReportFailure(error); throw; }
+            catch (NotSupportedException error) { ReportFailure(error); throw; }
+        }
+
+        private void ReportFailure(Exception error)
+        {
+            failedExecution = error.Message;
+            if (FailureReported != null) FailureReported(error);
+        }
+
+        private void AdvanceChecked(ActorState actor, long tick, Func<int, int> random)
         {
             if (program == null || tick == lastAdvanceTick)
                 return;
@@ -244,7 +271,8 @@ namespace Blitz.Gameplay
             var sample = new SourceAnimationSample(SequenceName, clip.SelectedSourceFrames[FrameOrdinal],
                 clip.SelectedSourceFrames[nextOrdinal], Fraction());
             return new SourceAnimationLayer(ScriptSymbol, InstanceId, sample, Mode, mask,
-                transitionTicks > 0 ? transitionFrom : null, TransitionFraction(), SourcePoseMath.Facing(facing));
+                transitionTicks > 0 ? transitionFrom : null, TransitionFraction(), SourcePoseMath.Facing(facing),
+                CodeReturnEvidence);
         }
 
         internal void ClearLowModes()
@@ -256,6 +284,14 @@ namespace Blitz.Gameplay
         internal void RemoveMode(uint mode) { Mode &= ~mode; }
         internal void SetMovementMode(uint mode) { Mode = mode; }
         internal void SetMovementTurnHack(int value) { turnHack = value; }
+
+        internal SourceVector3 SelectedRoot(ActorState actor)
+        {
+            if (FrameOrdinal < 0)
+                throw Failure("set_puppet_pos has no selected victim frame; the original negative-index input is undefined");
+            SourceVector3 root = Frame(FrameOrdinal).ScaledRoot;
+            return new SourceVector3(root.X * actor.ModelScale, root.Y * actor.ModelScale, root.Z * actor.ModelScale);
+        }
 
         private float Fraction()
         {
@@ -328,7 +364,7 @@ namespace Blitz.Gameplay
                     BeginInterpolation(actor, i);
                     break;
                 case SourceAnimationOp.Stream:
-                    BeginStream(actor, i.A, i.B == -1 ? GroundTicks(actor) : i.B, false);
+                    BeginStream(actor, i.A, i.B == -1 ? GroundTime == null ? GroundTicks(actor) : GroundTime(actor) : i.B, false);
                     break;
                 case SourceAnimationOp.StreamToEnd:
                     int frames = clip.SelectedSourceFrames.Count - 1 - FrameOrdinal;
@@ -356,25 +392,51 @@ namespace Blitz.Gameplay
                 case SourceAnimationOp.BranchIfHasBall:
                     if (HasBall(actor, random))
                     {
-                        program = RequireProgram(i.Text);
-                        pc = 0;
-                        InstanceId = ++actor.AnimationSerial;
+                        if (i.Text == null) pc = i.A;
+                        else
+                        {
+                            program = RequireProgram(i.Text);
+                            pc = 0;
+                            InstanceId = ++actor.AnimationSerial;
+                        }
                     }
                     break;
                 case SourceAnimationOp.BranchIfNotHasBall:
-                    if (!HasBall(actor, random)) pc = i.A;
+                    if (!HasBall(actor, random))
+                    {
+                        if (i.Target == null) pc = i.A;
+                        else { program = RequireProgram(i.Target); pc = 0; }
+                    }
                     break;
                 case SourceAnimationOp.CameraCue:
                 case SourceAnimationOp.ShakerCue:
                     break;
                 case SourceAnimationOp.PresentationCallback:
                     if (i.Text == "grnd_hit_snd") signals |= SourceAnimationSignal.GroundContact;
+                    if (C2VoidCode != null && (i.Text == "taunt_speech" ||
+                        i.Text == "get_hit_snd" && i.SourceLine == 7538 && ScriptSymbol == "m_qbfite_anim"))
+                        CodeReturnEvidence = SourceAnimationCodeReturnEvidence.VoidOpaque;
                     break;
                 case SourceAnimationOp.MovementCode:
                 case SourceAnimationOp.MovementBranchNonzero:
                 case SourceAnimationOp.MovementBranchZero:
+                    if (C2VoidCode != null && (i.Text == "maybe_taunt" || i.Text == "maybe_qb_mad"
+                        || i.Text == "maybe_receiver_mad"))
+                    {
+                        if (i.Op != SourceAnimationOp.MovementCode)
+                            throw Failure("conditional ANI_CODE queries the opaque return of original void " + i.Text);
+                        C2VoidCode(actor, i.Text, i.A, i.B, i.C);
+                        CodeReturnEvidence = SourceAnimationCodeReturnEvidence.VoidOpaque;
+                        break;
+                    }
                     if (MovementCode == null) throw Failure("Original movement callback is unbound: " + i.Text);
                     int returned = MovementCode(actor, i.Text, i.A, i.B, i.C);
+                    if (C2VoidCode != null && i.Text == "face_carrier")
+                    {
+                        CodeReturnEvidence = SourceAnimationCodeReturnEvidence.KnownInt;
+                        if (returned == 0) Mode |= SourceAnimationModes.Zero;
+                        else Mode &= ~SourceAnimationModes.Zero;
+                    }
                     if (i.Op != SourceAnimationOp.MovementCode
                         && (i.Op == SourceAnimationOp.MovementBranchNonzero ? returned != 0 : returned == 0))
                     {
@@ -415,6 +477,10 @@ namespace Blitz.Gameplay
                     break;
                 case SourceAnimationOp.FacingVelocity:
                     actor.SourceVelocity = Rotate(0f, i.X, actor.Facing, actor.SourceDirections);
+                    break;
+                case SourceAnimationOp.HitFacingVelocity:
+                    if (HitHeading == null) throw Failure("unbound actual collided-player facing");
+                    actor.SourceVelocity = Rotate(0f, i.X, HitHeading(actor), actor.SourceDirections);
                     break;
                 case SourceAnimationOp.Friction:
                     actor.SourceFriction = i.X;
@@ -490,6 +556,8 @@ namespace Blitz.Gameplay
                 case SourceAnimationOp.JumpProgram:
                     program = RequireProgram(i.Text);
                     pc = i.BranchPc >= 0 ? i.BranchPc : i.A;
+                    if (i.Text.StartsWith("get_up_", StringComparison.Ordinal))
+                        actor.Action = ActorAction.GetUp;
                     break;
                 case SourceAnimationOp.BranchSlowerSpin:
                     if (actor.SourceSpinCount > 2)
@@ -645,6 +713,12 @@ namespace Blitz.Gameplay
 
         private void ApplyRoot(ActorState actor, SourceVector3 root, float anchorY)
         {
+            if ((Mode & 0x00800000u) != 0)
+            {
+                if (PuppetPosition == null) throw Failure("unbound original puppet position");
+                PuppetPosition(actor);
+                return;
+            }
             if ((Mode & SourceAnimationModes.Secondary) != 0)
                 return;
             var scaled = new SourceVector3(root.X * actor.ModelScale, root.Y * actor.ModelScale,
@@ -663,6 +737,11 @@ namespace Blitz.Gameplay
                 SourcePlayerDriver.MoveSourceY(actor, actor.SourceRoot.Y - anchorY * actor.ModelScale);
             }
             actor.SourceRoot = scaled;
+            if ((Mode & 0x00400000u) != 0)
+            {
+                if (PuppetPosition == null) throw Failure("unbound original puppeteer position");
+                PuppetPosition(actor);
+            }
         }
 
         private ISourceAnimationClip RequireClip(string name)
@@ -687,7 +766,7 @@ namespace Blitz.Gameplay
 
         private SourceAnimationProgram RequireProgram(string symbol)
         {
-            try { return SourceAnimationPrograms.Get(symbol); }
+            try { return SourceAnimationPrograms.Get(symbol, programExtension); }
             catch (NotSupportedException e)
             {
                 throw new NotSupportedException(Diagnostic("unported source script " + symbol), e);
@@ -759,7 +838,7 @@ namespace Blitz.Gameplay
             float b = actor.SourceVerticalVelocity;
             float c = SourcePlayerDriver.WorldPosition(actor).Y;
             float discriminant = b * b - 4f * a * c;
-            float squareRoot = (float)Math.Sqrt(Math.Max(0f, discriminant));
+            float squareRoot = (float)Math.Sqrt(discriminant);
             float first = (-b + squareRoot) / (2f * a);
             float second = (-b - squareRoot) / (2f * a);
             int ticks = 1;
@@ -776,10 +855,11 @@ namespace Blitz.Gameplay
         internal bool TwoPart { get { return (Secondary.Mode & SourceAnimationModes.TwoPart) != 0; } }
         internal AnimationSelectionEvidence Evidence = AnimationSelectionEvidence.Approximate;
 
-        internal SourceAnimationState(ISourceAnimationLibrary library, int actorId)
+        internal SourceAnimationState(ISourceAnimationLibrary library, int actorId,
+            IReadOnlyDictionary<string, SourceAnimationProgram> programExtension = null)
         {
-            Primary = new SourceAnimationLayerState(library, actorId, false);
-            Secondary = new SourceAnimationLayerState(library, actorId, true);
+            Primary = new SourceAnimationLayerState(library, actorId, false, programExtension);
+            Secondary = new SourceAnimationLayerState(library, actorId, true, programExtension);
         }
 
         internal void SetScriptSelector(Func<string, ActorState, Func<int, int>, string> selector)
@@ -808,6 +888,18 @@ namespace Blitz.Gameplay
             Primary.MovementCode = Secondary.MovementCode = code;
             Primary.MovementLeap = Secondary.MovementLeap = leap;
         }
+
+        internal void BindContactExecution(Action<ActorState> puppetPosition, Func<ActorState, int> hitHeading,
+            Func<ActorState, int> groundTime, Action<Exception> failed)
+        {
+            Primary.PuppetPosition = Secondary.PuppetPosition = puppetPosition;
+            Primary.HitHeading = Secondary.HitHeading = hitHeading;
+            Primary.GroundTime = Secondary.GroundTime = groundTime;
+            Primary.FailureReported = Secondary.FailureReported = failed;
+        }
+
+        internal void BindC2VoidExecution(Action<ActorState, string, int, int, int> code)
+        { Primary.C2VoidCode = Secondary.C2VoidCode = code; }
 
         internal bool Busy
         {

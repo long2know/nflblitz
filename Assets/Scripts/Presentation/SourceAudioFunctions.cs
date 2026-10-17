@@ -47,7 +47,17 @@ namespace Blitz.Presentation
 
     public sealed class SourceAudioResolvedOriginalSoundCall
     {
-        public SourceCallbackCue OriginalCue { get; }
+        private readonly SourceCallbackCue originalCue;
+        public bool HasOriginalAnimationCue { get { return originalCue != null; } }
+        public SourceC2SoundContext C2Context { get; }
+        public SourceCallbackCue OriginalCue
+        {
+            get
+            {
+                if (originalCue == null) throw new InvalidOperationException("Native original sound call has no animation cue or actor.");
+                return originalCue;
+            }
+        }
         public SourcePresentationContext OriginalCueContext { get { return OriginalCue.Context; } }
         public SourceAudioCalleeSite CalleeSourceSite { get; }
         public int SubcallOrder { get; }
@@ -60,8 +70,16 @@ namespace Blitz.Presentation
         internal SourceAudioResolvedOriginalSoundCall(SourceCallbackCue cue, SourceAudioCalleeSite site,
             int order, string bank, int id, uint volume, uint pan, uint priority, int randomCalls)
         {
-            OriginalCue = cue; CalleeSourceSite = site; SubcallOrder = order; Bank = bank;
+            originalCue = cue; CalleeSourceSite = site; SubcallOrder = order; Bank = bank;
             PlaylistId = id; Volume = volume; Pan = pan; PriorityWord = priority; RandomCalls = randomCalls;
+        }
+        internal SourceAudioResolvedOriginalSoundCall(SourceC2SoundContext context, SourceAudioCalleeSite site,
+            int order, string bank, int id, uint volume, uint pan, uint priority, int randomCalls)
+        {
+            C2Context = context ?? throw new ArgumentNullException(nameof(context));
+            originalCue = context.HasOriginalAnimationCue ? context.OriginalAnimationCue : null;
+            CalleeSourceSite = site; SubcallOrder = order; Bank = bank; PlaylistId = id;
+            Volume = volume; Pan = pan; PriorityWord = priority; RandomCalls = randomCalls;
         }
     }
 

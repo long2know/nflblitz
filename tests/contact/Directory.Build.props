@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == ''">$(MSBuildThisFileDirectory).artifacts/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(MSBuildThisFileDirectory).artifacts/bin/</BaseOutputPath>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

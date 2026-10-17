@@ -18,6 +18,13 @@ namespace Blitz.Presentation
         public const string MovementAnimationResourceKey = SourceTeamResourceProfile.MovementAnimationKey;
         public const string MovementImpactResourceKey = "BlitzSourcePlayers/original-teams-movement157/impact-library";
         public const string MovementAnimationManifestSha256 = SourceTeamResourceProfile.MovementAnimationSha256;
+        public const string ContactTeamPresentationResourceKey = "BlitzSourcePlayers/original-teams-contact272/team-presentation";
+        public const string ContactAnimationResourceKey = SourceTeamResourceProfile.ContactAnimationKey;
+        public const string ContactImpactResourceKey = "BlitzSourcePlayers/original-teams-contact272/impact-library";
+        public const string ContactAnimationManifestSha256 = SourceTeamResourceProfile.ContactAnimationSha256;
+        public const string C2TeamPresentationResourceKey = "BlitzSourcePlayers/original-teams-contact281-c2/team-presentation";
+        public const string C2AnimationResourceKey = SourceTeamResourceProfile.C2AnimationKey;
+        public const string C2ImpactResourceKey = "BlitzSourcePlayers/original-teams-contact281-c2/impact-library";
 
         public static SourceTeamPresentationAsset ResolveRequiredTeamPresentation()
         { return ResolveRequiredTeamPresentation(SourceTeamResourceProfile.B1Final117); }
@@ -51,7 +58,9 @@ namespace Blitz.Presentation
             if (asset == null)
                 throw new InvalidOperationException("Original impact camera/effect catalog is missing at Resources/" +
                     profile.ImpactResourceKey + "; no generic tackle presentation is substituted.");
-            return asset.Load();
+            SourceCinematicLibrary library = asset.Load();
+            profile.RequireImpact(library);
+            return library;
         }
 
         internal static SourcePlayerRig ResolveActorMode()
@@ -60,6 +69,12 @@ namespace Blitz.Presentation
         internal static SourcePlayerRig ResolveActorMode(bool movement157)
         {
             SourceTeamResourceProfile profile = movement157 ? SourceTeamResourceProfile.Movement157 : SourceTeamResourceProfile.B1Final117;
+            return ResolveActorMode(profile);
+        }
+
+        internal static SourcePlayerRig ResolveActorMode(SourceTeamResourceProfile profile)
+        {
+            if (profile == null) throw new ArgumentNullException(nameof(profile));
             string mode = RequestedMode(Application.absoluteURL);
             if (mode == "graybox")
             {

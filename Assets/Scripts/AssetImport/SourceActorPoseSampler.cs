@@ -8,6 +8,11 @@ namespace Blitz.AssetImport
     {
         public static bool CanInterpolate(PlayerView previous, PlayerView current)
         {
+            SourceActorContactView before = previous.Source.Contact, after = current.Source.Contact;
+            if (ContactActive(before) || ContactActive(after) || before.IsSpecified != after.IsSpecified ||
+                before.PuppetReleaseSourceTick != after.PuppetReleaseSourceTick ||
+                previous.Animation.Action == ActorAction.Contact || current.Animation.Action == ActorAction.Contact)
+                return false;
             long difference = current.Animation.SourceTick - previous.Animation.SourceTick;
             double x = current.Position.X - previous.Position.X, z = current.Position.Z - previous.Position.Z;
             return previous.Id == current.Id && previous.Animation.IsSpecified && current.Animation.IsSpecified &&
@@ -15,6 +20,12 @@ namespace Blitz.AssetImport
                 difference >= 0 && difference <= 2 && x * x + z * z < 100 &&
                 !float.IsNaN(previous.Height) && !float.IsInfinity(previous.Height) &&
                 !(current.Animation.Action == ActorAction.PreSnap && previous.Animation.Action != ActorAction.PreSnap);
+        }
+
+        private static bool ContactActive(SourceActorContactView contact)
+        {
+            return contact.IsSpecified && (contact.PuppetPlayerId >= 0 || contact.AttackMode != 0 ||
+                contact.HitPartnerPlayerId.HasValue && contact.HitPartnerPlayerId.Value >= 0);
         }
 
         public static SourceEvaluatedPose Evaluate(ISourceAnimationLibrary library,

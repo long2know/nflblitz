@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
+using System.Text.Json;
 using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Gameplay;
@@ -9,14 +11,24 @@ using Blitz.Gameplay;
 internal static class GeometryCallerChecks
 {
     private static int assertions;
+    private static int addedProfileAssertions;
+    private static string output;
+    private static readonly Dictionary<string, object> profiles = new Dictionary<string, object>();
+    internal static int AddedProfileAssertions { get { return addedProfileAssertions; } }
+    private static void ProfileCheck(bool condition, string identity)
+    {
+        addedProfileAssertions++;
+        Check(condition, "two-profile catch: " + identity);
+    }
     private static void Check(bool condition, string identity)
     {
         assertions++;
         if (!condition) throw new BallAssertionFailure("GEOMETRY CALLER ASSERTION: " + identity);
     }
 
-    internal static int Run(FullKernelInputs real)
+    internal static int Run(FullKernelInputs real, string evidenceRoot = null)
     {
+        output = evidenceRoot;
         var actor = new ActorState(3) { Role = ActorRole.Quarterback, Action = ActorAction.Idle,
             ModelScale = real.Rosters.GetTeam(0).Players[3].ModelScale, Facing = 0 };
         actor.AnimationState = new SourceAnimationState(real.Animations, actor.Id);
@@ -72,17 +84,27 @@ internal static class GeometryCallerChecks
                 if ((signal & SourceAnimationSignal.ReleaseBall) != 0) releaseTicks.Add(tick);
             });
         Check(releaseTicks.SequenceEqual(new[] { 11 }), "real planted throw invokes release once at source offset10");
+        // The original contact script dereferences pobj_hit and player_down changes the real match phase.
+        GameSimulation down = BallTestFactory.Create(real);
+        down.Model.Phase = GamePhase.LiveBall;
+        down.Model.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Normal);
+        down.Model.CarrierId = 4;
+        down.Model.BallKind = SourceBallKind.Pass;
+        down.Model.SourceTick = 100;
+        actor = down.Model.Players[4];
+        actor.SourceMode = SourceActorMode.Receiver;
         actor.Action = ActorAction.Fall;
-        actor.SourceIsCarrier = true; actor.SourcePlayOver = false;
+        SourcePlayerDriver.SetSourcePosition(actor, default(SourceVector3));
+        SourceContactDriver.RecordCollision(actor, down.Model.Players[7]);
         actor.AnimationState.FullBody("h_front1_anim", actor, 100, n => 0, AnimationSelectionEvidence.SourceVerified);
         for (int tick = 100; tick <= 700; tick++)
-            actor.AnimationState.Advance(actor, tick, n => 0, signal =>
-            {
-                if ((signal & SourceAnimationSignal.PlayerDown) != 0) actor.SourcePlayOver = true;
-            });
+        {
+            down.Model.SourceTick = tick;
+            actor.AnimationState.Advance(actor, tick, n => 0);
+        }
         Check(actor.AnimationState.Primary.ScriptSymbol == "m_wob_fu_anim" && actor.SourceLateHittable,
             "actual H_FRONT1 player_down callback precedes original90percent carrier wobble branch; no forced getup");
-        var focus = real.Create(7);
+        var focus = BallTestFactory.Create(real, 7);
         focus.Model.SourceRules = new SourceRulesState(0, 0, 1, 40, 70);
         focus.Model.LineOfScrimmage = 40f; focus.Model.FirstDownLine = 70f;
         focus.Model.Phase = GamePhase.PlaySelect; focus.Model.SourceBeginPlayInitialized = false;
@@ -114,7 +136,69 @@ internal static class GeometryCallerChecks
             new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
             new[] { new SourceStationConfiguration(0, TeamId.Home, 3),
                     new SourceStationConfiguration(1, TeamId.Away, 10) }, TeamId.Home, SourceCaptainSlot.First);
-        var game = real.Create(configuration: configuration);
+        if (real.IsC2Profile)
+        {
+            GameSimulation negative = CatchFixture(real, configuration);
+            CheckDefaultStandingBatDown(real, negative);
+        }
+        Func<int, ISourceRandom> raw99 = seed => new SourceInjectedRandom(site => 99,
+            new SourceRandomProvenance("source-catch-controller/raw99-all-sites/v1",
+                "Parent-approved controlled UNFILTERED raw99 at EVERY site, including both bootstrap draws",
+                "DIFFERENT test input, NOT default seed/natural history or target PRNG", SourceRandomEvidence.ExternalUnverified));
+        var game = CatchFixture(real, configuration, real.IsC2Profile ? raw99 : null);
+        ActorState catcher = game.Model.Players[11];
+        if (real.IsC2Profile)
+        {
+            ProfileCheck(((SourceInjectedRandom)game.SourceRandomService).Trace.All(draw => draw.Raw == 99) &&
+                ((SourceInjectedRandom)game.SourceRandomService).Trace.Take(2).All(draw => draw.Site.BoundOrModulus == 2) &&
+                game.SourceRandomService.Provenance.Evidence == SourceRandomEvidence.ExternalUnverified,
+                "positive profile is named unfiltered raw99 INCLUDING bootstrap, never site-filtered/target PRNG");
+            profiles["raw99PositiveBefore"] = CatchSnapshot(game);
+        }
+        Invoke(game, "TrySourceCatch", catcher);
+        Invoke(game, "Publish");
+        Check(game.Model.CarrierId == 11, "actual original-pose catch caller establishes new carrier");
+        Check(game.State.Ball.Control.ControllerStationId == 1 && game.State.Ball.Control.ControllerPlayerId == 11,
+            "actual catch caller transfers human controller immediately at possession tick0");
+        Check(game.State.Ball.Control.PossessionTicks == 0 && !game.State.Ball.Control.PossessionCreditEligible
+            && game.State.Ball.Control.LastPossession == TeamId.Home,
+            "actual catch caller keeps immediate ownership independent of uncredited last_pos");
+        Check(game.SourceEvents.Any(e => e.Type == SourceEventType.ControllerChanged && e.ActorPlayerId == 11 && e.StationId == 1),
+            "actual immediate controller reassignment emits independent station/actor identity");
+        if (real.IsC2Profile) profiles["raw99PositiveAfterCatch"] = CatchSnapshot(game);
+        SourceBallControlView retained = game.State.Ball.Control;
+        game.Model.SourceTick = 1017;
+        Invoke(game, "SourceCarrierControl", catcher);
+        Invoke(game, "Publish");
+        Check(game.State.Ball.Control.ControllerPlayerId == 11 && game.State.Ball.Control.PossessionTicks == 17
+            && !game.State.Ball.Control.PossessionCreditEligible && game.State.Ball.Control.LastPossession == TeamId.Home,
+            "actual CONTROL_TIME17 preserves ownership without possession credit");
+        game.Model.SourceTick = 1018;
+        Invoke(game, "SourceCarrierControl", catcher);
+        Invoke(game, "Publish");
+        Check(game.State.Ball.Control.ControllerPlayerId == 11 && game.State.Ball.Control.PossessionTicks == 18
+            && game.State.Ball.Control.PossessionCreditEligible && game.State.Ball.Control.LastPossession == TeamId.Away,
+            "actual CONTROL_TIME18 credits possession without delaying ownership");
+        Check(retained.PossessionTicks == 0 && retained.LastPossession == TeamId.Home,
+            "retained actual catch snapshot is detached from later possession credit");
+        if (real.IsC2Profile)
+        {
+            ProfileCheck(((SourceInjectedRandom)game.SourceRandomService).Trace.All(draw => draw.Raw == 99),
+                "all positive catch/sound/AI draws retain the declared same unfiltered raw99 provider");
+            profiles["raw99PositiveCredit18"] = CatchSnapshot(game);
+            File.WriteAllText(Path.Combine(output, "catch-two-profiles.json"), JsonSerializer.Serialize(new {
+                schema = "source-current281-catch-two-profiles/v1", profiles, addedProfileAssertions,
+                originalGeometryAssertionsRetained = 32, negativeDefaultSeed1Preserved = true,
+                positiveRaw99IsDifferentDeclaredInput = true, sourceFixtureGeometryFlagsTimingUnchanged = true,
+                targetPrngNativeOrGameAcceptance = false
+            }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+        }
+    }
+
+    private static GameSimulation CatchFixture(FullKernelInputs real, SourceMatchConfiguration configuration,
+        Func<int, ISourceRandom> randomFactory = null)
+    {
+        var game = BallTestFactory.Create(real, configuration: configuration, randomFactory: randomFactory);
         game.Model.Phase = GamePhase.LiveBall;
         game.Model.SourceRules = new SourceRulesState(0, 0, 1, 20, 50);
         game.Model.Possession = TeamId.Home;
@@ -136,31 +220,65 @@ internal static class GeometryCallerChecks
         catcher.AnimationState.FullBody("qb_stance_anim", catcher, 1000, n => 0, AnimationSelectionEvidence.SourceVerified);
         SourceVector3 wrist = real.Geometry.WorldJoint(GameSnapshot.SourcePlayerView(catcher, 1000), 7);
         SourceBallDriver.SetPosition(game.Model, wrist);
-        Invoke(game, "TrySourceCatch", catcher);
+        return game;
+    }
+
+    private static object CatchSnapshot(GameSimulation game)
+    {
+        ActorState actor = game.Model.Players[11];
+        return new { game.SourceTick, game.Model.Phase, game.Model.CarrierId, game.Model.TargetPlayerId,
+            game.Model.ThrowerId, game.Model.BallKind, game.Model.BallMode, game.Model.SourceBallFlags,
+            game.Model.SourceBallPosition, game.Model.SourceBallVelocity, game.Model.SourceBallVerticalVelocity,
+            game.Model.SourceFlags, game.Model.PassTicksElapsed, game.Model.PassTicksTotal, game.Model.SourceRules,
+            game.Model.SourceTeamFire, game.Model.SourceNoInterceptions, game.C2State, game.SourceEvents,
+            actor.NoCatchTicks, actor.SourceHandicap, actor.SourceControllerStation,
+            actorWorld = SourcePlayerDriver.WorldPosition(actor), mode = actor.AnimationState.Primary.Mode,
+            allRawDraws = ((SourceInjectedRandom)game.SourceRandomService).Trace.ToArray() };
+    }
+
+    private static void CheckDefaultStandingBatDown(FullKernelInputs real, GameSimulation game)
+    {
+        ActorState actor = game.Model.Players[11];
+        var geometry = (SourceCatchGeometry)typeof(GameSimulation).GetField("sourceGeometry",
+            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(game);
+        object actualLibrary = typeof(SourceCatchGeometry).GetField("library",
+            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(geometry);
+        ProfileCheck(ReferenceEquals(actualLibrary, real.Animations) &&
+            real.Animations.SequenceNames.Count == 281 && real.ReferencePivots.Length == 15,
+            "negative retains REAL composition sealed geometry/SAME281 library and15 actual pivots");
+        SourceVector3 ball = game.Model.SourceBallPosition;
+        SourceVector3 left = geometry.WorldJoint(GameSnapshot.SourcePlayerView(actor, 1000), 7);
+        SourceVector3 pelvis = geometry.WorldJoint(GameSnapshot.SourcePlayerView(actor, 1000), 0);
+        ProfileCheck(Distance(ball, left) == 0f && Distance(ball, pelvis) < 14f &&
+            SourceCatchRules.ModeEligible(game.Model, actor, n => { throw new InvalidOperationException("Unexpected admission draw"); }),
+            "negative real-pose admission passes leftDistance0 and pelvis<14, not a failed catch-distance guard");
+        ProfileCheck(game.SourceTick == 1000 && game.Model.PassTicksElapsed == 45 && actor.SourceHandicap == 5 &&
+            SourcePlayerDriver.WorldPosition(actor).Y == 0f && actor.AnimationState.Primary.Mode == 0 &&
+            actor.NoCatchTicks == 0 && game.Model.SourceFlags == 0 && game.Model.SourceBallFlags == 0,
+            "negative preserves exact standing0/handicap5/mode0/flags0/source1000/pass45 fixture");
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        ProfileCheck(random.Trace.Count == 47, "default seed1 has first explicit47-draw pre-catch witness, not an old golden");
+        profiles["defaultSeed1Before"] = CatchSnapshot(game);
+        Invoke(game, "TrySourceCatch", actor);
         Invoke(game, "Publish");
-        Check(game.Model.CarrierId == 11, "actual original-pose catch caller establishes new carrier");
-        Check(game.State.Ball.Control.ControllerStationId == 1 && game.State.Ball.Control.ControllerPlayerId == 11,
-            "actual catch caller transfers human controller immediately at possession tick0");
-        Check(game.State.Ball.Control.PossessionTicks == 0 && !game.State.Ball.Control.PossessionCreditEligible
-            && game.State.Ball.Control.LastPossession == TeamId.Home,
-            "actual catch caller keeps immediate ownership independent of uncredited last_pos");
-        Check(game.SourceEvents.Any(e => e.Type == SourceEventType.ControllerChanged && e.ActorPlayerId == 11 && e.StationId == 1),
-            "actual immediate controller reassignment emits independent station/actor identity");
-        SourceBallControlView retained = game.State.Ball.Control;
-        game.Model.SourceTick = 1017;
-        Invoke(game, "SourceCarrierControl", catcher);
-        Invoke(game, "Publish");
-        Check(game.State.Ball.Control.ControllerPlayerId == 11 && game.State.Ball.Control.PossessionTicks == 17
-            && !game.State.Ball.Control.PossessionCreditEligible && game.State.Ball.Control.LastPossession == TeamId.Home,
-            "actual CONTROL_TIME17 preserves ownership without possession credit");
-        game.Model.SourceTick = 1018;
-        Invoke(game, "SourceCarrierControl", catcher);
-        Invoke(game, "Publish");
-        Check(game.State.Ball.Control.ControllerPlayerId == 11 && game.State.Ball.Control.PossessionTicks == 18
-            && game.State.Ball.Control.PossessionCreditEligible && game.State.Ball.Control.LastPossession == TeamId.Away,
-            "actual CONTROL_TIME18 credits possession without delaying ownership");
-        Check(retained.PossessionTicks == 0 && retained.LastPossession == TeamId.Home,
-            "retained actual catch snapshot is detached from later possession credit");
+        SourceRandomDraw[] draws = random.Trace.Skip(47).ToArray();
+        ProfileCheck(draws.Length == 4 && draws[0].Raw == 11234812 && draws[0].Value == 12 &&
+            draws[0].Site.SourceTick == 1000 && draws[0].Site.Process == "game_proc_after_lineup" &&
+            draws[0].Site.ActorId == -1 && draws[0].Site.ProcessOrder == 24 && draws[0].Site.CallIndex == 0 &&
+            draws.Select(d => d.Site.BoundOrModulus).SequenceEqual(new[] { 100, 12, 12, 10 }) &&
+            draws.Select(d => d.Value).SequenceEqual(new[] { 12, 3, 8, 4 }),
+            "standing-inclusive AIR BATDOWN first draw12<20 precedes exact genuine bobble12/12/10 draws");
+        ProfileCheck(game.Model.CarrierId == -1 && actor.NoCatchTicks == 20 &&
+            game.Model.TargetPlayerId == -1 && game.Model.ThrowerId == 11 &&
+            game.Model.BallKind == SourceBallKind.Bobble && (int)game.Model.BallKind == 6 &&
+            game.Model.SourceBallFlags == (SourceBallFlags)0x10 && game.Model.SourceBallVerticalVelocity == -.6f,
+            "default-seed standing BatDown retains carrier-1/noCatch20/realBobble6/target-1/thrower11/flags10/VY-0.6");
+        ProfileCheck(game.SourceEvents.Count(e => e.Type == SourceEventType.PassDeflected && e.ActorPlayerId == 11) == 1 &&
+            !game.SourceEvents.Any(e => e.Type == SourceEventType.PassCaught || e.Type == SourceEventType.ControllerChanged) &&
+            !game.Model.SourceTeamFire[0] && !game.Model.SourceTeamFire[1] && !game.Model.SourceNoInterceptions &&
+            !game.C2State.ResultPending && game.Model.SourceFlags == (SourceGameFlags)0x10,
+            "default negative publishes genuine PassDeflected, never forced Catch/controller transfer or pending result");
+        profiles["defaultSeed1After"] = CatchSnapshot(game);
     }
 
     private static void Invoke(GameSimulation game, string name, params object[] arguments)

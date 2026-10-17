@@ -66,17 +66,23 @@ namespace Blitz.Gameplay
         public int FastTurboTeamMask { get; }
         public int RunOutOfBoundsTeamMask { get; }
         public bool ViolencePowerup { get; }
+        public int BlockTeamMask { get; }
+        public int BlitzersTeamMask { get; }
 
         public SourceMovementSettings(int fieldIndex, int infiniteTurboTeamMask, bool speedPowerup,
-            int fastTurboTeamMask, int runOutOfBoundsTeamMask, bool violencePowerup)
+            int fastTurboTeamMask, int runOutOfBoundsTeamMask, bool violencePowerup,
+            int blockTeamMask = 0, int blitzersTeamMask = 0)
         {
             if (fieldIndex < 0 || fieldIndex >= 7) throw new ArgumentOutOfRangeException(nameof(fieldIndex));
             if ((infiniteTurboTeamMask & ~3) != 0) throw new ArgumentOutOfRangeException(nameof(infiniteTurboTeamMask));
             if ((fastTurboTeamMask & ~3) != 0) throw new ArgumentOutOfRangeException(nameof(fastTurboTeamMask));
             if ((runOutOfBoundsTeamMask & ~3) != 0) throw new ArgumentOutOfRangeException(nameof(runOutOfBoundsTeamMask));
+            if ((blockTeamMask & ~3) != 0) throw new ArgumentOutOfRangeException(nameof(blockTeamMask));
+            if ((blitzersTeamMask & ~3) != 0) throw new ArgumentOutOfRangeException(nameof(blitzersTeamMask));
             FieldIndex = fieldIndex; InfiniteTurboTeamMask = infiniteTurboTeamMask;
             SpeedPowerup = speedPowerup; FastTurboTeamMask = fastTurboTeamMask;
             RunOutOfBoundsTeamMask = runOutOfBoundsTeamMask; ViolencePowerup = violencePowerup;
+            BlockTeamMask = blockTeamMask; BlitzersTeamMask = blitzersTeamMask;
         }
     }
 
@@ -733,6 +739,8 @@ namespace Blitz.Gameplay
 
         private int SourceMovementAnimationCode(ActorState actor, string function, int argument0, int argument1, int argument2)
         {
+            int contact = SourceContactAnimationCode(actor, function, argument0);
+            if (contact >= 0) return contact;
             if (function == "set_flag" || function == "clear_flag")
             {
                 SourceMovementState flags = CaptureSourceMovement(actor);

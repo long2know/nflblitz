@@ -45,6 +45,9 @@ def fixture_hashes(manifest_path, sound_functions=None):
     manifest_path = Path(manifest_path)
     root = manifest_path.parent
     manifest = json.loads(manifest_path.read_bytes())
+    if manifest.get("schema") == "source-contact-kernel-real-inputs/v1":
+        from contact_inputs import fixture_hashes as contact_hashes
+        return contact_hashes(manifest_path, sound_functions)
     if manifest.get("schema") != "source-kernel-real-inputs/v1" or manifest.get("source_revision") != REVISION:
         raise ValueError("Wrong real-input fixture schema/revision.")
     paths = [manifest_path]

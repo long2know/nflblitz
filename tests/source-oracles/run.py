@@ -11,8 +11,12 @@ from oracle import Oracle, SUITE
 from test_oracle import run_tests
 
 
-def generate(source_root, full_matrix=False, compiler=None):
-    oracle = Oracle(source_root, compiler=compiler)
+def generate(source_root, full_matrix=False, compiler=None, output=None):
+    artifacts = Path(output).absolute() if output is not None else SUITE / ".artifacts"
+    if output is not None and (not artifacts.is_relative_to(SUITE / ".artifacts") or artifacts.exists()):
+        raise ValueError("Use a new ignored original-C output child; preserve historical receipts.")
+    artifacts.mkdir(parents=True, exist_ok=True)
+    oracle = Oracle(source_root, artifacts=artifacts / "run", compiler=compiler)
     groups = run_tests(oracle)
     rows = inputs(full_matrix)
     if not rows or len({row["id"] for row in rows}) != len(rows):
@@ -24,8 +28,6 @@ def generate(source_root, full_matrix=False, compiler=None):
         stderr.append(oracle.last_stderr)
         for row, expected in zip(batch, output):
             row["expected"] = expected
-    artifacts = SUITE / ".artifacts"
-    artifacts.mkdir(exist_ok=True)
     corpus = {
         "schema": "original-c-oracle-cases/v1",
         "manifest": oracle.manifest(),
@@ -58,5 +60,6 @@ if __name__ == "__main__":
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--full-matrix", action="store_true")
     parser.add_argument("--compiler")
+    parser.add_argument("--output", type=Path, help="New ignored child output; preserve historical original-C receipts.")
     args = parser.parse_args()
-    generate(args.source_root, args.full_matrix, args.compiler)
+    generate(args.source_root, args.full_matrix, args.compiler, args.output)

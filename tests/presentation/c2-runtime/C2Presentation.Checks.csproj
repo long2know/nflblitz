@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+  <Import Project="Sources.props" />
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="M1Checks.cs" />
+    <Compile Include="$(BlitzSourceRoot)tests/parity/FullKernelInputs.cs" />
+  </ItemGroup>
+</Project>

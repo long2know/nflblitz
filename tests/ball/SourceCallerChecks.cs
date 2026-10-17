@@ -12,6 +12,13 @@ internal static class SourceCallerChecks
 {
     private static int assertions;
     private static string oracleRoot;
+    private static int fifoAssertions;
+    internal static int AddedFifoAssertions { get { return fifoAssertions; } }
+    private static void FifoCheck(bool condition, string identity)
+    {
+        fifoAssertions++;
+        Check(condition, "FIFO compatibility: " + identity);
+    }
     private static void Check(bool condition, string identity)
     {
         assertions++;
@@ -35,11 +42,153 @@ internal static class SourceCallerChecks
             new SourceStationInput(3, x, z, held, pressed, released, command) }));
     }
 
+    internal static int RunFlipOnly(FullKernelInputs real, string originalCases)
+    {
+        oracleRoot = originalCases;
+        var settings = new SourcePresentationSettings(TeamId.Away, new[] { -1, 3, 19, -1 }, -2);
+        FlipCases(() => BallTestFactory.Create(real, configuration: Configuration(), presentation: settings));
+        return assertions;
+    }
+
+    internal static int RunSnapHikeOnly(FullKernelInputs real, string originalCases)
+    {
+        oracleRoot = originalCases;
+        RawSnapAndPass(real);
+        return assertions;
+    }
+
+    private static PlayerCommand[] PendingPackets(GameSimulation game)
+    {
+        return ((Queue<PlayerCommand>)typeof(GameSimulation).GetField("pendingSourceActions",
+            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(game)).ToArray();
+    }
+
+    private static bool SameSourceCommand(SourceCommand first, SourceCommand second)
+    {
+        return JsonSerializer.Serialize(first) == JsonSerializer.Serialize(second);
+    }
+
+    private static object FifoState(GameSimulation game)
+    {
+        return new { game.State.Tick, game.SourceTick, game.Model.SourceClockRemainder,
+            phase = game.Model.Phase.ToString(), game.Model.SourceOffenseFlipped,
+            published = ((ISourceMatchState)game.State).Match.OffenseFlipped,
+            actualInput = game.Model.SourceCurrentInput, queue = PendingPackets(game),
+            game.SourceEvents, game.C2Events,
+            allSharedRawDraws = ((SourceInjectedRandom)game.SourceRandomService).Trace.ToArray() };
+    }
+
+    private static bool SamePacket(PlayerCommand actual, PlayerCommand expected)
+    {
+        return actual.Action == expected.Action && actual.Play == expected.Play &&
+            actual.TargetPlayerId == expected.TargetPlayerId && SameSourceCommand(actual.Source, expected.Source);
+    }
+
+    private static int DeliverMenuPacket(GameSimulation game, PlayerCommand target, List<object> history,
+        string label, bool alreadyQueued = false)
+    {
+        PlayerCommand[] prior = PendingPackets(game);
+        PlayerCommand[] expected = alreadyQueued ? prior : prior.Concat(new[] { target }).ToArray();
+        FifoCheck(expected.Length > 0 && SamePacket(expected[expected.Length - 1], target) &&
+            (!alreadyQueued || expected.Length == 1), "known menu target is exact and submitted ONCE, never replaced or resubmitted");
+        int remainder = game.Model.SourceClockRemainder;
+        int bound = (60 * expected.Length - remainder + 56) / 57;
+        int delivered = 0;
+        for (int host = 0; host < bound; host++)
+        {
+            PlayerCommand[] queuedBefore = PendingPackets(game);
+            FifoCheck(queuedBefore.Length == (host == 0 && !alreadyQueued ? prior.Length : expected.Length - delivered) &&
+                queuedBefore.Select((packet, index) => SamePacket(packet, expected[delivered + index])).All(equal => equal),
+                "menu queue before host exactly preserves every known predecessor/target tuple");
+            long source = game.SourceTick;
+            int nextRemainder = remainder + 57;
+            bool executes = nextRemainder >= 60;
+            game.Step(host == 0 && !alreadyQueued ? target : default(PlayerCommand));
+            if (executes)
+            {
+                FifoCheck(game.SourceTick == source + 1 &&
+                    SamePacket(game.Model.SourceCurrentInput, expected[delivered]),
+                    "every executed menu wake delivers EXACT oldest predecessor or saved target packet");
+                delivered++; nextRemainder -= 60;
+            }
+            else FifoCheck(game.SourceTick == source,
+                "57/60 skipped host retains the exact pending menu packets without fictitious delivery");
+            PlayerCommand[] after = PendingPackets(game);
+            FifoCheck(game.Model.SourceClockRemainder == nextRemainder &&
+                after.Length == expected.Length - delivered &&
+                after.Select((packet, index) => SamePacket(packet, expected[delivered + index])).All(equal => equal),
+                "menu queue after host exactly preserves order/count/content; no drop/filter/reorder");
+            history.Add(new { scope = "NEW-source-synchronized-menu-history", label, host, bound,
+                alreadyQueued, targetSubmittedThisHost = host == 0 && !alreadyQueued, delivered,
+                expectedThisWake = executes ? (PlayerCommand?)expected[delivered - 1] : null,
+                state = FifoState(game) });
+            remainder = nextRemainder;
+        }
+        FifoCheck(delivered == expected.Length && PendingPackets(game).Length == 0 &&
+            SamePacket(game.Model.SourceCurrentInput, target),
+            "finite queue/clock-derived observation stops EXACTLY at saved target, not desired phase/result polling");
+        return bound;
+    }
+
+    private static int OneNextSourceWake(GameSimulation game, PlayerCommand command = default(PlayerCommand))
+    {
+        long before = game.SourceTick;
+        game.Step(command);
+        int hosts = 1;
+        if (game.SourceTick == before) { game.Step(default(PlayerCommand)); hosts++; }
+        FifoCheck(game.SourceTick == before + 1, "observe exactly one next actually executed57Hz wake, never retry-until-green");
+        return hosts;
+    }
+
+    private static void EmptyAndOrderedMenuCompatibility(GameSimulation game, List<object> history)
+    {
+        foreach (bool flip in new[] { false, true })
+        {
+            FifoCheck(PendingPackets(game).Length == 0, "empty-queue precondition for each nullable false/true edge");
+            var command = new SourceCommand(SourceAction.None, offenseFlipped: flip);
+            OneNextSourceWake(game, new PlayerCommand(source: command));
+            FifoCheck(SameSourceCommand(game.Model.SourceCurrentInput.Source, command) &&
+                PendingPackets(game).Length == 0 && game.Model.Phase == GamePhase.PlaySelect &&
+                game.Model.SourceOffenseFlipped == flip && ((ISourceMatchState)game.State).Match.OffenseFlipped == flip,
+                "empty-queue specified None flip is delivered on FIRST executed wake for " + flip);
+            history.Add(new { scope = "NEW-empty-queue-menu-history", flip, state = FifoState(game) });
+        }
+        int idleHosts = 0;
+        while (game.Model.SourceClockRemainder != 0 && idleHosts < 20)
+        { game.Step(default(PlayerCommand)); idleHosts++; }
+        FifoCheck(game.Model.SourceClockRemainder == 0 && PendingPackets(game).Length == 0 &&
+            game.Model.Phase == GamePhase.PlaySelect,
+            "public57/60 idle alignment enqueues no unadorned None packet or starvation");
+        long source = game.SourceTick;
+        var first = new SourceCommand(SourceAction.None, offenseFlipped: false);
+        var second = new SourceCommand(SourceAction.None, offenseFlipped: true);
+        game.Step(new PlayerCommand(source: first));
+        PlayerCommand[] pending = PendingPackets(game);
+        FifoCheck(game.SourceTick == source && pending.Length == 1 && SameSourceCommand(pending[0].Source, first),
+            "first distinct menu packet is retained across a genuine skipped host wake");
+        game.Step(new PlayerCommand(source: second));
+        pending = PendingPackets(game);
+        FifoCheck(game.SourceTick == source + 1 && SameSourceCommand(game.Model.SourceCurrentInput.Source, first) &&
+            pending.Length == 1 && SameSourceCommand(pending[0].Source, second) &&
+            !game.Model.SourceOffenseFlipped && ((ISourceMatchState)game.State).Match.OffenseFlipped == false,
+            "two distinct queued menu packets deliver OLDEST first and retain the exact newer packet");
+        history.Add(new { scope = "NEW-two-packet-order-history", idleHosts, first, second, state = FifoState(game) });
+        OneNextSourceWake(game);
+        FifoCheck(SameSourceCommand(game.Model.SourceCurrentInput.Source, second) && PendingPackets(game).Length == 0 &&
+            game.Model.SourceOffenseFlipped && ((ISourceMatchState)game.State).Match.OffenseFlipped == true,
+            "second distinct menu packet is delivered exactly once on the next executed wake");
+        OneNextSourceWake(game);
+        FifoCheck(!game.Model.SourceCurrentInput.Source.IsSpecified && PendingPackets(game).Length == 0 &&
+            game.Model.SourceOffenseFlipped,
+            "unadorned None never starves a menu packet and consumed flip is not redelivered");
+        history.Add(new { scope = "NEW-exact-once-no-starvation-history", state = FifoState(game) });
+    }
+
     internal static int Run(FullKernelInputs real, string originalCases)
     {
         oracleRoot = originalCases;
         var settings = new SourcePresentationSettings(TeamId.Away, new[] { -1, 3, 19, -1 }, -2);
-        Func<GameSimulation> create = () => real.Create(configuration: Configuration(), presentation: settings);
+        Func<GameSimulation> create = () => BallTestFactory.Create(real, configuration: Configuration(), presentation: settings);
         var game = create();
         var inputs = new List<SourceStationInput>();
         var inputTicks = new List<long>();
@@ -160,6 +309,9 @@ internal static class SourceCallerChecks
         int gateCases = GateCases(real);
         int receiverCases = ReceiverCases();
         int vmCases = VmCases(real);
+        File.WriteAllText(Path.Combine(oracleRoot, "actual-caller-before-public-flow.json"),
+            JsonSerializer.Serialize(new { status = "partial-not-complete-caller",
+                gateCases, receiverCases, vmCases, assertions }));
         FlipCases(create);
         RawSnapAndPass(real);
         Check(gateCases == 800 && receiverCases == 12544 && vmCases == 4, "complete original caller inventory");
@@ -216,11 +368,12 @@ internal static class SourceCallerChecks
             var provenance = new SourceRandomProvenance("source-caller-oracle", "injected original-C recorded inputs",
                 "deterministic raw roll=" + t[3], SourceRandomEvidence.ExternalUnverified);
             var random = new SourceInjectedRandom(site => site.BoundOrModulus == 100 ? t[3] : 37, provenance);
-            var game = real.Create(configuration: Configuration(), randomFactory: seed => random);
+            var game = BallTestFactory.Create(real, configuration: Configuration(), randomFactory: seed => random);
             game.Model.Phase = t[0] != 0 ? GamePhase.LiveBall : GamePhase.DeadBall;
             game.Model.CarrierId = t[2] != 0 ? 4 : 3;
             ActorState actor = game.Model.Players[4];
             actor.SourceHelmetPopped = t[1] != 0;
+            SourceContactDriver.RecordCollision(actor, game.Model.Players[7]);
             var observed = new List<SourceAnimationInstruction>();
             Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> production =
                 actor.AnimationState.Primary.Presentation;
@@ -263,11 +416,12 @@ internal static class SourceCallerChecks
         int count = 0;
         foreach (string script in new[] { "fall_04", "h_front1_anim", "t_dshoul_anim", "c_dive_for_ball_anim" })
         {
-            var game = real.Create(configuration: Configuration());
+            var game = BallTestFactory.Create(real, configuration: Configuration());
             game.Model.Phase = GamePhase.DeadBall;
             game.Model.CarrierId = script == "h_front1_anim" ? 3 : 4;
             ActorState actor = game.Model.Players[4];
             actor.SourceHelmetPopped = false;
+            SourceContactDriver.RecordCollision(actor, game.Model.Players[7]);
             var observed = new List<Tuple<long, int, string, int, string, int, int, Tuple<int>>>();
             Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> production =
                 actor.AnimationState.Primary.Presentation;
@@ -333,14 +487,152 @@ internal static class SourceCallerChecks
         var lineups = new Dictionary<GameSimulation, SourceVector3[]>();
         foreach (GameSimulation game in new[] { normal, flipped })
         {
+            var previousInstruction = new Dictionary<int, object>();
+            bool invalidHeadingSaved = false;
+            foreach (ActorState actor in game.Model.Players)
+                foreach (SourceAnimationLayerState layer in new[] { actor.AnimationState.Primary, actor.AnimationState.Secondary })
+                {
+                    SourceAnimationLayerState observedLayer = layer;
+                    Action<ActorState> actual = observedLayer.BeforeInstruction;
+                    observedLayer.BeforeInstruction = executing =>
+                    {
+                        actual(executing);
+                        if (!invalidHeadingSaved && (executing.Facing < 0 || executing.Facing > 1023))
+                        {
+                            previousInstruction.TryGetValue(executing.Id, out object previous);
+                            File.WriteAllText(Path.Combine(oracleRoot, "first-invalid-heading-producer.json"),
+                                JsonSerializer.Serialize(new {
+                                    status = "observed-invalid-AI-boundary-heading-not-normalized",
+                                    sourceTick = game.SourceTick, executing.Id, executing.Facing, executing.TargetFacing,
+                                    previousActualInstruction = previous, observedLayer.ScriptSymbol,
+                                    observedLayer.SequenceName, observedLayer.FrameOrdinal,
+                                    stateMutation = false, RNGDrawsAdded = 0
+                                }, new JsonSerializerOptions { WriteIndented = true }));
+                            invalidHeadingSaved = true;
+                        }
+                        var program = (SourceAnimationProgram)typeof(SourceAnimationLayerState).GetField("program",
+                            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(observedLayer);
+                        int pc = (int)typeof(SourceAnimationLayerState).GetField("pc",
+                            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(observedLayer) - 1;
+                        SourceAnimationInstruction instruction = program.Instructions[pc];
+                        previousInstruction[executing.Id] = new {
+                            sourceTick = game.SourceTick, observedLayer.ScriptSymbol, pc,
+                            op = instruction.Op.ToString(), instruction.A, instruction.SourceLine,
+                            facingBefore = executing.Facing, targetFacingBefore = executing.TargetFacing
+                        };
+                    };
+                }
             for (int tick = 0; game.State.Phase != GamePhase.PlaySelect && tick < 5000; tick++)
-                game.Step(game.State.Phase == GamePhase.DeadBall
-                    ? new PlayerCommand(action: InputAction.Continue) : default(PlayerCommand));
+            {
+                var priorActors = game.Model.Players.Select(actor => new {
+                    actor.Id, actor.Facing, actor.TargetFacing, actor.SourceMode,
+                    actor.AnimationState.Primary.ScriptSymbol, actor.AnimationState.Primary.SequenceName,
+                    actor.AnimationState.Primary.FrameOrdinal
+                }).ToArray();
+                var priorContact = game.ContactEvents.ToArray();
+                long priorSourceTick = game.SourceTick;
+                PlayerCommand command = game.State.Phase == GamePhase.DeadBall
+                    ? new PlayerCommand(action: InputAction.Continue) : default(PlayerCommand);
+                try { game.Step(command); }
+                catch (Exception error)
+                {
+                    File.WriteAllText(Path.Combine(oracleRoot, "first-public-caller-failure.json"),
+                        JsonSerializer.Serialize(new {
+                            schema = "source-contact-B1-public-caller-failure/v1", status = "failed",
+                            scenario = "FlipCases/unfiltered-public-kickoff-before-playselect",
+                            host = tick, sourceTick = game.SourceTick, priorSourceTick,
+                            phase = game.Model.Phase.ToString(), exception = error.ToString(), command,
+                            game.Model.SourceAnimationFailure, game.Model.SourceRandomProcess,
+                            game.Model.SourceRandomActor, game.Model.SourceRandomProcessOrder, game.Model.SourceRandomCallIndex,
+                            priorActors, priorContact,
+                            actors = game.Model.Players.Select(actor => new {
+                                actor.Id, actor.Facing, actor.TargetFacing, actor.SourceMode,
+                                actor.SourceHitPartnerId, actor.SourcePuppetLinkId, actor.SourcePosition, actor.SourceRoot,
+                                actor.AnimationState.Primary.ScriptSymbol, actor.AnimationState.Primary.SequenceName,
+                                actor.AnimationState.Primary.FrameOrdinal, actor.AnimationState.Primary.InstanceId,
+                                next_program_counter = typeof(SourceAnimationLayerState).GetField("pc",
+                                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(actor.AnimationState.Primary)
+                            }).ToArray(),
+                            allSharedRawDraws = ((SourceInjectedRandom)game.SourceRandomService).Trace.Select(draw => new {
+                                draw.Order, draw.Raw, draw.Value, draw.Site.SourceTick, draw.Site.Process,
+                                draw.Site.ActorId, draw.Site.ProcessOrder, draw.Site.CallIndex,
+                                draw.Site.SourceIdentity, draw.Site.BoundOrModulus
+                            }).ToArray(),
+                            stateMutation = false, targetPrngOrWholeMatchClaimed = false
+                        }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+                    throw;
+                }
+            }
             Check(game.State.Phase == GamePhase.PlaySelect, "public actual kickoff flow reaches source play selection");
         }
         long flipTick = flipped.SourceTick;
+        PlayerCommand[] pendingBeforeFlip = PendingPackets(flipped);
+        object beforeFlipOnly = new {
+            flipped.State.Tick, flipped.SourceTick, phase = flipped.Model.Phase.ToString(),
+            flipped.Model.SourceMatchPhase, flipped.Model.SourceOffenseFlipped,
+            published = ((ISourceMatchState)flipped.State).Match,
+            flipped.Model.SourceRules, flipped.C2State, flipped.Model.SourceCurrentInput
+        };
         flipped.Step(new PlayerCommand(source: new SourceCommand(SourceAction.None, offenseFlipped: true)));
         if (flipped.SourceTick == flipTick) flipped.Step(default(PlayerCommand));
+        if (!flipped.SourceC2Enabled && ((ISourceMatchState)flipped.State).Match.OffenseFlipped != true)
+            File.WriteAllText(Path.Combine(oracleRoot, "first-flip-only-command-failure.json"),
+                JsonSerializer.Serialize(new {
+                    schema = "source-current281-B1-flip-only-failure/v1",
+                    failedAssertion = "specified None flip-only command is a real retained menu edge",
+                    beforeFlipOnly, flipTick,
+                    unchangedSubmittedCommand = new PlayerCommand(source: new SourceCommand(SourceAction.None, offenseFlipped: true)),
+                    after = new {
+                        flipped.State.Tick, flipped.SourceTick, phase = flipped.Model.Phase.ToString(),
+                        flipped.Model.SourceMatchPhase, flipped.Model.SourceOffenseFlipped,
+                        published = ((ISourceMatchState)flipped.State).Match,
+                        flipped.Model.SourceRules, flipped.C2State, flipped.Model.SourceCurrentInput,
+                        flipped.Model.SourceRandomProcess, flipped.Model.SourceRandomActor,
+                        flipped.Model.SourceRandomProcessOrder, flipped.Model.SourceRandomCallIndex,
+                        flipped.SourceEvents, flipped.ContactEvents, flipped.C2Events,
+                        allSharedRawDraws = ((SourceInjectedRandom)flipped.SourceRandomService).Trace
+                    },
+                    traceOnly = true, commandAssertionOrVectorChanged = false
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+        if (flipped.SourceC2Enabled)
+        {
+            var savedFlip = new SourceCommand(SourceAction.None, offenseFlipped: true);
+            PlayerCommand[] queue = PendingPackets(flipped);
+            FifoCheck(flipTick == 438 && pendingBeforeFlip.Length == 1 &&
+                pendingBeforeFlip[0].Action == InputAction.Continue && !pendingBeforeFlip[0].Source.IsSpecified &&
+                flipped.SourceTick == 439 && flipped.Model.SourceCurrentInput.Action == InputAction.Continue &&
+                !flipped.Model.SourceCurrentInput.Source.IsSpecified && flipped.Model.Phase == GamePhase.PlaySelect &&
+                !flipped.Model.SourceOffenseFlipped && ((ISourceMatchState)flipped.State).Match.OffenseFlipped == false &&
+                queue.Length == 1 && SameSourceCommand(queue[0].Source, savedFlip),
+                "canonical source439 delivers older Continue while exact specified flip remains intact FIFO head");
+            SourceRandomDraw[] prefix = ((SourceInjectedRandom)flipped.SourceRandomService).Trace.ToArray();
+            string rows = string.Join("\n", prefix.Select(draw => string.Join("|", new[] {
+                draw.Order.ToString(), draw.Raw.ToString(), draw.Value.ToString(), draw.Site.SourceTick.ToString(),
+                draw.Site.Process, draw.Site.ActorId.ToString(), draw.Site.ProcessOrder.ToString(),
+                draw.Site.CallIndex.ToString(), draw.Site.SourceIdentity, draw.Site.BoundOrModulus.ToString() })));
+            string prefixSha;
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+                prefixSha = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(rows))).Replace("-", "").ToLowerInvariant();
+            FifoCheck(prefix.Length == 134 &&
+                prefixSha == "913231dc9d3f40ce902a05a19619a9d5b2872bd7ee563f35d70810ac2f00a976",
+                "unchanged old134 raw/site/order prefix precedes the explicitly NEW drain-observation extension");
+            var history = new List<object> { new { scope = "UNCHANGED-134-draw-prefix-at439", state = FifoState(flipped) } };
+            int drainHosts = DeliverMenuPacket(flipped, new PlayerCommand(source: savedFlip), history,
+                "known-head-flip-after-unchanged134-prefix", alreadyQueued: true);
+            FifoCheck(flipped.SourceTick == 440 && SameSourceCommand(flipped.Model.SourceCurrentInput.Source, savedFlip) &&
+                PendingPackets(flipped).Length == 0 && flipped.Model.Phase == GamePhase.PlaySelect &&
+                flipped.Model.SourceOffenseFlipped && ((ISourceMatchState)flipped.State).Match.OffenseFlipped == true,
+                "NEW known-head drain observes actual source440 exact flip/empty queue/model AND published true");
+            history.Add(new { scope = "NEW-one-known-head-drain-NOT-original-vector", drainHosts, state = FifoState(flipped) });
+            EmptyAndOrderedMenuCompatibility(flipped, history);
+            File.WriteAllText(Path.Combine(oracleRoot, "flip-source-synchronized-compatibility.json"),
+                JsonSerializer.Serialize(new {
+                    schema = "source-current281-B1-FIFO-compatibility/v1",
+                    originalPrefixDraws = 134, prefixSha, originalSource439 = beforeFlipOnly, actual440 = history[1],
+                    history, addedFifoAssertions = fifoAssertions, separatelyExtendedCompatibilityHistory = true,
+                    originalCompleteVectorOrTargetSchedulerClaimed = false, queueOrRngStateMutation = false
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+        }
         Check(((ISourceMatchState)flipped.State).Match.OffenseFlipped == true,
             "specified None flip-only command is a real retained menu edge");
         Action<GameSimulation, bool> pick = (game, flip) =>
@@ -354,6 +646,21 @@ internal static class SourceCallerChecks
             };
             var command = new PlayerCommand(source: new SourceCommand(SourceAction.SelectPlay,
                 new SourcePlaySelection("play_spider", SourcePlaybookKind.Offense), offenseFlipped: flip));
+            if (game.SourceC2Enabled)
+            {
+                var delivery = new List<object>();
+                DeliverMenuPacket(game, command, delivery, "saved-offense-play-spider");
+                var defense = new PlayerCommand(source: new SourceCommand(SourceAction.SelectPlay,
+                    new SourcePlaySelection("play_safe_cover", SourcePlaybookKind.Defense)));
+                DeliverMenuPacket(game, defense, delivery, "saved-defense-play-safe-cover");
+                File.WriteAllText(Path.Combine(oracleRoot, flip ? "flipped-menu-delivery.json" : "normal-menu-delivery.json"),
+                    JsonSerializer.Serialize(new {
+                        schema = "source-current281-menu-delivery/v1", flip,
+                        NEW_sourceSynchronizedCompatibilityHistory = true, unchangedCompleteOriginalVector = false,
+                        noQueueStateRngMutationOrPhasePolling = true, delivery, final = FifoState(game)
+                    }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+                return;
+            }
             long source = game.SourceTick;
             game.Step(command);
             if (game.SourceTick == source) game.Step(default(PlayerCommand));
@@ -369,6 +676,15 @@ internal static class SourceCallerChecks
         Check(((ISourceMatchState)flipped.State).Match.OffenseFlipped == true
             && ((ISourceMatchState)normal.State).Match.OffenseFlipped == false,
             "nullable command becomes actual published source off_flip");
+        if (normal.State.Phase != GamePhase.PreSnap || flipped.State.Phase != GamePhase.PreSnap)
+            File.WriteAllText(Path.Combine(oracleRoot, "first-post-FIFO-lineup-failure.json"),
+                JsonSerializer.Serialize(new {
+                    schema = "source-current281-B1-post-FIFO-lineup-failure/v1",
+                    failedAssertion = "source original play selection drives actual lineups",
+                    assertions, fifoAssertions, normal = FifoState(normal), flipped = FifoState(flipped),
+                    originalPickCodeAndRemainingMirroredAssertionsUnchanged = true,
+                    noFurtherWakeOrQueueAdaptation = true
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
         Check(normal.State.Phase == GamePhase.PreSnap && flipped.State.Phase == GamePhase.PreSnap,
             "source original play selection drives actual lineups " + normal.State.Phase + "/" + flipped.State.Phase
                 + " kind=" + normal.Model.SourceRules.PlayType);
@@ -402,8 +718,8 @@ internal static class SourceCallerChecks
         SourceMatchConfiguration original = Configuration();
         var config = new SourceMatchConfiguration(original.Profile, original.StationLayout,
             original.HomeTeam, original.AwayTeam, original.Stations, TeamId.Away, original.Captain);
-        var game = real.Create(configuration: config);
-        var noTap = real.Create(configuration: config);
+        var game = BallTestFactory.Create(real, configuration: config);
+        var noTap = BallTestFactory.Create(real, configuration: config);
         Action<PlayerCommand> pairedStep = command => { game.Step(command); noTap.Step(command); };
         Action<PlayerCommand> pairedWake = command =>
         {
@@ -463,30 +779,60 @@ internal static class SourceCallerChecks
             "active M1 post-BeginTick latched fresh B survives complete between-wake tap with held zero");
         Check(qb.SourceOldButtons == SourceDroneButtons.None && qb.SourceButtonHistory[0] == SourceDroneButtons.None,
             "active M1 latched tap does not rewrite physical held-button history");
-        Check(game.State.Phase == GamePhase.LiveBall, "complete B press/release actually snaps despite Held=0");
-        SourceGameEvent[] snaps = game.SourceEvents.Where(e => e.Type == SourceEventType.Snapped).ToArray();
-        Check(snaps.Length == 1 && snaps[0].SourceTick == tick + 1 && game.SourceTick == tick + 1
-            && game.Model.SourceHikeCounterAtSnap == beforeHike - 1 && game.Model.SourceHikeCounterAtSnap > 0,
-            "fresh raw B causes exactly one manual Snapped event on the first executed source wake, not auto-hike");
+        long requestTick = game.SourceTick;
+        bool originalRequestBoundary = requestTick == tick + 1 && game.State.Phase == GamePhase.PreSnap
+            && (game.Model.SourceFlags & SourceGameFlags.HikingBall) != 0
+            && game.Model.CarrierId == game.Model.OffenseOffset + 1
+            && !game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped)
+            && game.Model.SourceHikeCounterAtSnap == beforeHike - 1 && game.Model.SourceHikeCounterAtSnap > 0;
         Check(noTap.SourceTick == tick + 1 && noTap.State.Phase == GamePhase.PreSnap
             && noTap.Model.PreSnapTicksRemaining == beforeHike - 1
             && !noTap.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
             "negative public no-tap control stays pre-snap at identical source wake and positive countdown");
+        int requestedNewButtons = (int)qb.SourceNewButtons, requestedHeldButtons = (int)qb.SourceButtons;
+        int requestedOldButtons = (int)qb.SourceOldButtons, requestedHistory = (int)qb.SourceButtonHistory[0];
+        int requestNoTapCountdown = noTap.Model.PreSnapTicksRemaining;
+        int streamTicks = SourceAnimationPrograms.Get("center_snap_anim").Instructions
+            .Single(i => i.Op == SourceAnimationOp.Stream && i.A == 21 && i.B == 4).B;
+        int deliveryHosts = (SliceRules.TicksPerSecond * streamTicks - game.Model.SourceClockRemainder
+            + SourceTiming.DefaultTicksPerSecond - 1) / SourceTiming.DefaultTicksPerSecond;
+        bool checkedConsumedPress = false;
+        for (int host = 0; host < deliveryHosts; host++)
+        {
+            long beforeSource = game.SourceTick;
+            pairedStep(Raw(SourceButtons.None));
+            if (!checkedConsumedPress && game.SourceTick > beforeSource)
+            {
+                Check(qb.SourceNewButtons == SourceDroneButtons.None && qb.SourceButtons == SourceDroneButtons.None,
+                    "active M1 latched fresh B is consumed once on the next executed neutral source wake");
+                Check(!game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
+                    "consumed raw snap edge does not replay a second source Snapped event");
+                checkedConsumedPress = true;
+            }
+        }
+        Check(game.State.Phase == GamePhase.LiveBall,
+            "complete B tap starts the original center stream and real HikeBall eventually enters Live despite Held=0");
+        SourceGameEvent[] snaps = game.SourceEvents.Where(e => e.Type == SourceEventType.Snapped).ToArray();
+        Check(originalRequestBoundary && snaps.Length == 1 && snaps[0].SourceTick == requestTick + streamTicks
+            && game.SourceTick == requestTick + streamTicks && game.Model.TargetPlayerId == quarterback,
+            "fresh B requests at first executed wake; exactly one Snapped event belongs to original21/4 HikeBall opcode");
         File.WriteAllText(Path.Combine(oracleRoot, "raw-B-input-causality.json"),
             JsonSerializer.Serialize(new {
                 schema = "actual-M1-public-fresh-press-causality/v1",
                 state_mutation_used = false, station = 3, source_before = tick, source_after = game.SourceTick,
                 countdown_before = beforeHike, actual_manual_hike_counter = game.Model.SourceHikeCounterAtSnap,
-                actual_new_buttons = (int)qb.SourceNewButtons, actual_held_buttons = (int)qb.SourceButtons,
-                actual_old_buttons = (int)qb.SourceOldButtons,
-                actual_physical_history0 = (int)qb.SourceButtonHistory[0],
+                actual_new_buttons = requestedNewButtons, actual_held_buttons = requestedHeldButtons,
+                actual_old_buttons = requestedOldButtons,
+                actual_physical_history0 = requestedHistory, original_snap_request_tick = requestTick,
+                original_center_stream_source_ticks = streamTicks,
+                source_correct_hike_history = true,
+                old_immediate_Source57_Live_contract_replaced_not_Legacy60 = true,
                 actual_snap_source_ticks = snaps.Select(e => e.SourceTick).ToArray(),
                 no_tap_source_tick = noTap.SourceTick, no_tap_phase = noTap.State.Phase.ToString(),
-                no_tap_countdown = noTap.Model.PreSnapTicksRemaining,
+                no_tap_countdown = requestNoTapCountdown,
                 no_tap_snap_events = noTap.SourceEvents.Count(e => e.Type == SourceEventType.Snapped),
                 original_player_blob = "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c"
             }, new JsonSerializerOptions { WriteIndented = true }));
-        bool checkedConsumedPress = false;
         for (int host = 0; game.Model.CarrierId != quarterback && host < 100; host++)
         {
             long beforeSource = game.SourceTick;

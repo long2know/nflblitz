@@ -77,11 +77,15 @@ namespace Blitz.Runtime
 
     public sealed class SourceInterfaceServices : ScriptableObject
     {
-        public const string ResourceKey = "BlitzSourceInterface/original-movement157-soundvm-match-services";
+        public const string ResourceKey = SourceInterfacePackagePlan.ContactServicesResourceKey;
+        public const string C2ResourceKey = SourceInterfacePackagePlan.C2ServicesResourceKey;
+        public const string C2M1ResourceKey = SourceInterfacePackagePlan.C2M1ServicesResourceKey;
+        public const string HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey;
         public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
         public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
         public const string PlaybookSha256 = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3";
         [SerializeField] private SourceAnimationLibraryAsset originalAnimations;
+        [SerializeField] private string resourceProfile = null;
         [SerializeField] private SourceHudAsset originalHud;
         [SerializeField] private TextAsset originalPlaybook;
         [SerializeField] private int homeTeamIndex;
@@ -105,6 +109,8 @@ namespace Blitz.Runtime
         [SerializeField] private string movementBootstrapSha256 = null;
         [SerializeField] private TextAsset originalSoundVmFunctions = null;
         [SerializeField] private string soundVmFunctionsSha256 = null;
+        [SerializeField] private TextAsset originalC2Callbacks = null;
+        [SerializeField] private TextAsset originalC2HitExtension = null;
         private ISourceAnimationLibrary animations;
         private SourcePlaybook playbook;
         private SourceInterfaceMovementData movementRuntime;
@@ -113,7 +119,38 @@ namespace Blitz.Runtime
         private SourceInterfaceMovementBootstrap movementBootstrap;
         private SourceMovementSettings movementSettings;
         private SourceAudioFunctionData soundVmData;
+        private SourceC2CallbackData c2Data;
 
+        public SourceTeamResourceProfile Profile
+        { get { return resourceProfile == null ? SourceTeamResourceProfile.Movement157 : SourceTeamResourceProfile.FromStableId(resourceProfile); } }
+        public static string ResourceKeyFor(SourceTeamResourceProfile profile)
+        {
+            if (profile == null) throw new ArgumentNullException(nameof(profile));
+            if (profile.IsContact281C2M1) return C2M1ResourceKey;
+            if (profile.IsContact281C2) return C2ResourceKey;
+            if (profile.IsContact272) return ResourceKey;
+            throw new SourceInterfaceException("Select an explicit C1/C2 services generation; historical profiles are not aliases.");
+        }
+        public SourceC2CallbackData C2Data
+        {
+            get
+            {
+                if (!Profile.UsesC2Data) throw new SourceInterfaceException("Historical services have no implicit C2 bank-entry bootstrap.");
+                if (c2Data == null)
+                {
+                    string callbackKey = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
+                        SourceInterfacePackagePlan.C2CallbackResourceKey;
+                    TextAsset callbacks = Resources.Load<TextAsset>(callbackKey);
+                    TextAsset hit = Resources.Load<TextAsset>(SourceInterfacePackagePlan.C2HitResourceKey);
+                    if (callbacks == null || hit == null || !ReferenceEquals(callbacks, originalC2Callbacks) ||
+                        !ReferenceEquals(hit, originalC2HitExtension))
+                        throw new SourceInterfaceException("C2 services require the SAME canonical JSON/ONE7538 extension assets; copied/old resources are not aliases.");
+                    c2Data = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hit.bytes) :
+                        SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hit.bytes);
+                }
+                return c2Data;
+            }
+        }
         public SourceHudAsset Hud { get { Validate(); return originalHud; } }
         public bool NativeGamepadsEnabled { get { return nativeGamepadsEnabled; } }
         public ISourceAnimationLibrary Animations { get { Validate(); return animations; } }
@@ -190,6 +227,47 @@ namespace Blitz.Runtime
             TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
             TextAsset soundVmFunctions, string trustedSoundVmSHA)
         {
+            InitializeProfile(SourceTeamResourceProfile.Movement157, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA);
+        }
+
+        public void InitializeContact272(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact272, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA);
+        }
+
+        public void InitializeContact281C2(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA, TextAsset callbacks, TextAsset hitExtension)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact281C2, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
+        }
+
+        public void InitializeContact281C2M1(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA, TextAsset callbacks, TextAsset hitExtension)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact281C2M1, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
+        }
+
+        private void InitializeProfile(SourceTeamResourceProfile profile, SourceAnimationLibraryAsset animationAsset,
+            SourceHudAsset hud, TextAsset playbookText, SourceMatchConfiguration configuration,
+            SourcePresentationSettings actualPresentation, bool enableNativeGamepads, TextAsset movementBootstrapText,
+            string trustedMovementBootstrapSha256, TextAsset soundVmFunctions, string trustedSoundVmSHA,
+            TextAsset callbacks = null, TextAsset hitExtension = null)
+        {
             if (configuration == null || actualPresentation == null)
                 throw new ArgumentNullException(configuration == null ? nameof(configuration) : nameof(actualPresentation));
             if (animations != null || configuration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
@@ -200,6 +278,16 @@ namespace Blitz.Runtime
                 SourceInterfaceMovementBootstrap.Read(movementBootstrapText.bytes, trustedMovementBootstrapSha256);
             if (soundVmFunctions == null || trustedSoundVmSHA != GameSimulation.SourceSoundVmDataSha256)
                 throw new SourceInterfaceException("The original sound VM needs explicit SAFN bytes and the frozen Core content pin.");
+            resourceProfile = profile.StableId;
+            if (profile.UsesC2Data)
+            {
+                if (callbacks == null || hitExtension == null)
+                    throw new SourceInterfaceException("C2 initialization requires actual canonical callback JSON and ONE7538 extension.");
+                if (profile.IsContact281C2M1)
+                    SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hitExtension.bytes);
+                else SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hitExtension.bytes);
+                originalC2Callbacks = callbacks; originalC2HitExtension = hitExtension;
+            }
             originalSoundVmFunctions = soundVmFunctions; soundVmFunctionsSha256 = trustedSoundVmSHA;
             originalMovementBootstrap = movementBootstrapText; movementBootstrapSha256 = trustedMovementBootstrapSha256;
             movementBootstrap = actualBootstrap;
@@ -242,41 +330,56 @@ namespace Blitz.Runtime
 
         public GameSimulation CreateSimulation(SourcePlayerRig prefab)
         {
+            if (!Profile.IsContact272 && !Profile.UsesC2Data)
+                throw new SourceInterfaceException("This engine requires explicit Contact272 or Contact281C2 services. Historical157 resources are not silently upgraded or routed to old contact physics.");
             Validate();
             if (prefab == null) throw new SourceInterfaceException("Source match geometry needs the actual imported player reference rig.");
             if (prefab.JointCount != SourceTiming.JointCount)
                 throw new SourceInterfaceException("Source catch geometry needs all fifteen actual imported reference pivots.");
             var pivots = new SourceVector3[SourceTiming.JointCount];
             for (int i = 0; i < pivots.Length; i++) pivots[i] = prefab.GetUnityReferencePivot(i);
-            ISourceActorGeometry geometry = new SourceCatchGeometry(animations, pivots);
             SourceTeamPresentationAsset teams = SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab);
+            if (prefab.StableId != Profile.StableId || !ReferenceEquals(prefab, teams.Template))
+                throw new SourceInterfaceException("Contact272 services must use the SAME canonical team template/rig, not another profile or a copied asset.");
+            Profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(prefab));
             Debug.LogWarning("Original source services use explicit ExternalUnverified legacy-LCG preview RNG when no oracle factory is supplied. Historical libc/scheduler/audio draw parity is NOT established.");
-            var actual = new GameSimulation(animations, geometry, playbook, Configuration(), null, 1,
-                rosters: teams.Rosters, presentation: PresentationSettings,
-                movementData: MovementData, movementSettings: MovementSettings);
-            actual.BindSourceSoundVmData(SoundVmData);
-            return actual;
+            if (Profile.UsesC2Data)
+            {
+                SourceC2Bootstrap bootstrap = SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);
+                Debug.LogWarning("Explicit C2 original sound-bank entry consumes announcer then taunt draws BEFORE initial AI. Pre-boundary boot RNG and old golden trajectories are not claimed equivalent.");
+                if (Profile.IsContact281C2M1)
+                    return SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),
+                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
+                return SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),
+                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
+            }
+            return SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),
+                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData);
         }
 
         private void Validate()
         {
             if (animations != null) return;
+            SourceTeamResourceProfile profile = Profile;
             SourceAnimationLibraryAsset canonical = Resources.Load<SourceAnimationLibraryAsset>(
-                SourcePlayerProvider.MovementAnimationResourceKey);
+                profile.AnimationResourceKey);
             if (canonical == null || !ReferenceEquals(originalAnimations, canonical))
-                throw new SourceInterfaceException("M1 services must reference the SAME canonical157 animation asset at Resources/" +
-                    SourcePlayerProvider.MovementAnimationResourceKey + "; matching hashes on another asset are not aliases.");
-            if (originalAnimations == null || originalAnimations.InventorySha256 != ExpandedAnimationSha256 ||
+                throw new SourceInterfaceException("Source services must reference the SAME canonical " + profile.ClipCount + " animation asset at Resources/" +
+                    profile.AnimationResourceKey + "; matching hashes on another asset are not aliases.");
+            if (originalAnimations == null || originalAnimations.InventorySha256 != profile.AnimationSha256 ||
                 originalHud == null || originalPlaybook == null ||
                 AuthorizedAssetRoot.Sha256(originalPlaybook.bytes) != PlaybookSha256)
                 throw new SourceInterfaceException("Source mode requires Resources/" + ResourceKey +
-                    " with the NEW pinned157 library, actual converted playbook and original HUD. Immutable56/117/156 libraries, ignored raw files and runtime network loading are not substitutes.");
+                    " with its explicit " + profile.ClipCount + "-clip library, actual converted playbook and original HUD. Historical libraries, ignored raw files and runtime network loading are not substitutes.");
             SourceInterfaceMovementBootstrap bootstrap = MovementBootstrap;
             if (bootstrap.ContentSha256 != movementBootstrapSha256)
                 throw new SourceInterfaceException("The explicit M1 bootstrap pin changed after configuration.");
             if (SoundVmData.PayloadSha256 != GameSimulation.SourceSoundVmDataSha256)
                 throw new SourceInterfaceException("The immutable source sound-function data pin changed.");
+            if (profile.UsesC2Data && C2Data.AnimationManifestSha256 != profile.AnimationSha256)
+                throw new SourceInterfaceException("C2 bootstrap data and actual animation profile differ.");
             ISourceAnimationLibrary actual = originalAnimations.Load();
+            profile.RequireLibrary(actual);
             SourcePlaybook book;
             using (var reader = new StringReader(originalPlaybook.text)) book = SourcePlaybook.LoadConverted(reader);
             originalHud.Load(); Configuration();

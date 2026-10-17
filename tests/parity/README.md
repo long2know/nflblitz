@@ -130,6 +130,50 @@ The separate117/156/157 animation identities and the332 host-adapter assertions
 are unchanged. See [`../audio/vm/README.md`](../audio/vm/README.md) for actual
 synchronous sound/original-C/mutation commands.
 
+## Explicit Contact272 + Sound generation
+
+`tests/parity/prepare_contact_inputs.py --profile contact272` prepares the new
+`source-contact-kernel-real-inputs/v1` schema from explicit read-only inputs:
+the frozen443-file Sound fixture (`8167196e…8876`), the **production**
+Contact272 bundle (`9cae962b…ede9`), the separate115 reference
+(`907e2d36…5fcd`) and the Contact272 impact catalog (`738d712b…f23a`).
+The new fixture has834 pinned files; the original fixture bytes, all old data
+entries and identities are retained. This is preparation, not regression acceptance.
+See [`../contact/README.md`](../contact/README.md) for the full commands.
+
+The original `FullKernelInputs.Load` signature prefix/defaults are unchanged for
+legacy fixtures: canonical117, explicit movement157 and explicit selected156.
+The new schema selects the actual typed production272 library for numeric,
+adapter, ball, movement and Sound campaigns. Geometry is constructed with that
+same instance and all15 imported pivots; SAFN is bound before any executing wake.
+`legacyAnimationLibrary: true` names the old117/157 control explicitly.
+`selectedMovementLibrary: true` still selects the known156 negative control,
+never272 with rewritten counts. No union adapter masquerades as a resource.
+
+All current-generation runners require explicit `--input-profile contact272`
+alongside `--fixture-manifest`; forgetting that selection rejects the new schema
+instead of using a hidden legacy/Primary fallback. The legacy default remains
+available for historical diagnostics, not new-generation acceptance. Example:
+
+```sh
+python3 -B tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json \
+  --full-kernel --input-profile contact272 \
+  --fixture-manifest .squad/.scratch/SourceData/contact-kernel272/fixture.json
+python3 -B -m unittest discover -s tests/parity -p 'test_*.py'
+```
+
+The new original-input acquisition profile preserves all69 pins exactly and adds
+only the three actual C1 ANI operands and six required contact WAN files. It
+checks every78 canonical path against the reconstructed complete tree and each
+Git blob identity. Case changes, extras, omissions, changed clip bytes or selected
+indices, and metadata-only fixtures fail. Guard tests are not gameplay evidence.
+
+Full campaigns require a frozen production generation and complete original/input
+maps before and after execution. Existing exact counts remain requirements until
+a concrete source-causal delta is measured and documented; switching profile
+does not authorize dropping cases, R_SKIP, public raw traces or accepting an
+unsupported C2 producer as green. No Unity Editor/browser/device/DSP runs occur.
+
 The canonical loaded animation manifest is pinned to
 `f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274`,
 not historical `18af…`/`2baec…` identities. C# readers inspect original metadata,

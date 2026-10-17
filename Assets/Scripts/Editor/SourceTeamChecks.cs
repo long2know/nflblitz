@@ -25,6 +25,15 @@ namespace Blitz.Editor
         public static void VerifyMovement157FromCommandLine()
         { VerifyProfile(SourceTeamResourceProfile.Movement157); }
 
+        public static void VerifyContact272FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Contact272); }
+
+        public static void VerifyContact281C2FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Contact281C2); }
+
+        public static void VerifyContact281C2M1FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Contact281C2M1); }
+
         private static void VerifyProfile(SourceTeamResourceProfile profile)
         {
             assertions = vertices = indices = rgbaBytes = 0;
@@ -39,7 +48,9 @@ namespace Blitz.Editor
             SourceAnimationLibraryAsset animations = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
             Check(animations != null, "actual persisted explicit animation Resources");
             Equal(animations.InventorySha256, profile.AnimationSha256, "actual immutable animation profile manifest identity");
-            Equal(AssetDatabase.GetAssetPath(animations), profile.AnimationAssetPath, "actual saved animation Resources path/profile");
+            SourceTeamInterfaceImporter.RequireAnimationProfileAsset(profile, animations);
+            Check(ReferenceEquals(Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey), animations),
+                "actual unique canonical animation Resources path/profile");
             ISourceAnimationLibrary animationLibrary = animations.Load();
             SourceAnimationLibrary actualLibrary = animationLibrary as SourceAnimationLibrary;
             Check(actualLibrary != null, "actual typed animation library");
