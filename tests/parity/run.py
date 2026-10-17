@@ -19,7 +19,8 @@ ARTIFACTS = SUITE / ".artifacts"
 
 def source_files():
     return [path for directory in ("Contracts", "Gameplay", "AssetImport")
-            for path in sorted((ROOT / "Assets/Scripts" / directory).glob("*.cs"))]
+            for path in sorted((ROOT / "Assets/Scripts" / directory).glob("*.cs"))] + [
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
 
 
 def hashes(paths):

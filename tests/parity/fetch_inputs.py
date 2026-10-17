@@ -44,6 +44,15 @@ def input_pins():
     animation = json.loads((ROOT / "tools/animation/ball_sequences.json").read_bytes())
     for clip in animation["clips"]:
         add(clip["source_path"], clip["source_git_blob_sha1"])
+    movement_catalog = json.loads((ROOT / "tools/animation/movement_sequences.json").read_bytes())
+    for clip in movement_catalog["clips"]:
+        add(clip["source_path"], clip["source_git_blob_sha1"])
+    complete = json.loads((ROOT / "tools/animation/movement_complete_sequences.json").read_bytes())
+    for reference in complete["code_references"]:
+        add(reference["path"], reference["git_blob_sha1"])
+    movement = json.loads((ROOT / "tools/movement/recipe.json").read_bytes())
+    for name, pin in movement["inputs"].items():
+        add(name, pin)
     playbook = json.loads((ROOT / "tools/playbooks/recipe.json").read_bytes())
     for entry in playbook["inputs"].values():
         add(entry["path"], entry["blob_sha1"])

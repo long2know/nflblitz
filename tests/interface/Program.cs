@@ -467,6 +467,7 @@ internal static class Program
         try
         {
             Layout(); SyntheticFont(); InputBuffer(SyntheticTables()); Bridge(); Presentation();
+            MovementBootstrapChecks.Run(Check);
             if (args.Length > 0) Actual(args[0], args.Length > 1 && args[1] != "-" ? args[1] : null);
             if (args.Length > 2) Movement(args[2]);
             Console.WriteLine(JsonSerializer.Serialize(new { schema = "source-interface-checks/v1", status = "passed",

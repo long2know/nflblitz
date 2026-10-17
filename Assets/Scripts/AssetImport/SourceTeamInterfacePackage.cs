@@ -2,11 +2,56 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using Blitz.Contracts;
 using Blitz.Gameplay;
 
 namespace Blitz.AssetImport
 {
+    public sealed class SourceTeamResourceProfile
+    {
+        public const string MovementStableId = "original-teams-movement157";
+        public const string MovementAnimationKey = "SourceData/local-plyr266-movement157-f0ae9395";
+        public const string MovementAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
+        public static readonly SourceTeamResourceProfile B1Final117 = new SourceTeamResourceProfile(
+            "original-teams", "BlitzSourcePlayers/original-teams/animation-library",
+            SourceInterfacePackagePlan.AnimationSha256, 117, 10288, false);
+        public static readonly SourceTeamResourceProfile Movement157 = new SourceTeamResourceProfile(
+            MovementStableId, MovementAnimationKey, MovementAnimationSha256, 157, 13490, true);
+
+        public string StableId { get; }
+        public string AnimationResourceKey { get; }
+        public string AnimationSha256 { get; }
+        public int ClipCount { get; }
+        public int FrameCount { get; }
+        public bool IsMovement157 { get; }
+        public string TeamResourceKey { get { return "BlitzSourcePlayers/" + StableId + "/team-presentation"; } }
+        public string ImpactResourceKey { get { return "BlitzSourcePlayers/" + StableId + "/impact-library"; } }
+        public string Destination { get { return "Assets/Imported/" + StableId; } }
+        public string TeamResourceFolder { get { return Destination + "/Resources/BlitzSourcePlayers/" + StableId; } }
+        public string AnimationAssetPath { get { return Destination + "/Resources/" + AnimationResourceKey + ".asset"; } }
+
+        private SourceTeamResourceProfile(string stableId, string animationKey, string hash, int clips, int frames, bool movement)
+        {
+            StableId = stableId; AnimationResourceKey = animationKey; AnimationSha256 = hash;
+            ClipCount = clips; FrameCount = frames; IsMovement157 = movement;
+        }
+
+        public static SourceTeamResourceProfile FromStableId(string stableId)
+        {
+            if (stableId == B1Final117.StableId) return B1Final117;
+            if (stableId == Movement157.StableId) return Movement157;
+            throw new SourceInterfaceException("Unknown original team resource profile; no117/157 key alias: " + stableId);
+        }
+
+        public void RequireInventory(string manifestSha256, int clips, int frames)
+        {
+            if (manifestSha256 != AnimationSha256 || clips != ClipCount || frames != FrameCount)
+                throw new SourceInterfaceException("Original " + StableId + " requires its exact " + ClipCount +
+                    "-clip/" + FrameCount + "-frame manifest; old or future inventories are not aliases.");
+        }
+    }
+
     public sealed class SourceInterfacePackageConfiguration
     {
         public SourceMatchConfiguration Match { get; }
@@ -34,28 +79,74 @@ namespace Blitz.AssetImport
         public const string AnimationSha256 = "f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274";
         public const string HudResourceKey = "BlitzSourceInterface/original-interface";
         public const string ServicesResourceKey = "BlitzSourceInterface/original-match-services";
+        public const string MovementServicesResourceKey = "BlitzSourceInterface/original-movement157-match-services";
         public const string HudShaderPath = "Assets/Scripts/Presentation/SourceHud.shader";
         public const string HudShaderSha256 = "d43a25cb309f2a6ae511aecbbc39c5272c8b784d7e782fc794d2eed33a2a0369";
         private readonly byte[] manifest, playbook, configuration;
+        private readonly byte[] movement, bootstrap;
         public SourceInterfaceData Hud { get; }
         public SourcePlaybook Playbook { get; }
         public SourceInterfacePackageConfiguration Configuration { get; }
         public ReadOnlyCollection<SourceInterfacePackageTexture> Textures { get; }
         public string ConfigurationSha256 { get; }
+        public SourceTeamResourceProfile Profile { get; }
+        public SourceInterfaceMovementData MovementRuntime { get; }
+        public SourceInterfaceMovementBootstrap MovementBootstrap { get; }
+        public string BootstrapSha256 { get; }
+        public string SelectedServicesResourceKey
+        { get { return Profile.IsMovement157 ? MovementServicesResourceKey : ServicesResourceKey; } }
 
         private SourceInterfacePackagePlan(byte[] manifest, byte[] book, byte[] config, string configHash,
             SourceInterfaceData hud, SourcePlaybook playbook, SourceInterfacePackageConfiguration configuration,
-            SourceInterfacePackageTexture[] textures)
+            SourceInterfacePackageTexture[] textures, SourceTeamResourceProfile profile = null,
+            byte[] movement = null, byte[] bootstrap = null, string bootstrapHash = null)
         {
             this.manifest = (byte[])manifest.Clone(); this.playbook = (byte[])book.Clone();
             this.configuration = (byte[])config.Clone(); ConfigurationSha256 = configHash;
             Hud = hud; Playbook = playbook; Configuration = configuration;
             Textures = Array.AsReadOnly(textures);
+            Profile = profile ?? SourceTeamResourceProfile.B1Final117;
+            if (Profile.IsMovement157)
+            {
+                if (movement == null || bootstrap == null)
+                    throw new SourceInterfaceException("Movement157 packaging requires actual movement data and explicit bootstrap bytes.");
+                this.movement = (byte[])movement.Clone(); this.bootstrap = (byte[])bootstrap.Clone();
+                MovementRuntime = SourceInterfaceMovementData.Read(this.movement, SourceInterfaceMovementData.ContentSha256);
+                MovementBootstrap = SourceInterfaceMovementBootstrap.Read(this.bootstrap, bootstrapHash);
+                BootstrapSha256 = bootstrapHash;
+            }
         }
 
         public byte[] CopyManifest() { return (byte[])manifest.Clone(); }
         public byte[] CopyPlaybook() { return (byte[])playbook.Clone(); }
         public byte[] CopyConfiguration() { return (byte[])configuration.Clone(); }
+        public byte[] CopyMovement()
+        {
+            Require(Profile.IsMovement157, "A B1 package has no implicit movement data.");
+            return (byte[])movement.Clone();
+        }
+        public byte[] CopyBootstrap()
+        {
+            Require(Profile.IsMovement157, "A B1 package has no inferred movement settings/DIP bootstrap.");
+            return (byte[])bootstrap.Clone();
+        }
+
+        public static SourceInterfacePackagePlan CreateMovement157(string hudRoot, string manifestPath, string expectedHudHash,
+            string playbookRoot, string playbookPath, string expectedPlaybookHash,
+            string configurationRoot, string configurationPath, string expectedConfigurationHash,
+            string movementRoot, string movementPath, string expectedMovementHash,
+            string bootstrapRoot, string bootstrapPath, string expectedBootstrapHash)
+        {
+            Require(expectedMovementHash == SourceInterfaceMovementData.ContentSha256,
+                "Movement157 packaging requires the actual pinned runtime movement data, not test Responses.");
+            SourceInterfacePackagePlan shared = Create(hudRoot, manifestPath, expectedHudHash,
+                playbookRoot, playbookPath, expectedPlaybookHash, configurationRoot, configurationPath, expectedConfigurationHash);
+            byte[] movement = new AuthorizedAssetRoot(movementRoot).ReadBytes(movementPath, 128 * 1024);
+            byte[] bootstrap = new AuthorizedAssetRoot(bootstrapRoot).ReadBytes(bootstrapPath, 64 * 1024);
+            return new SourceInterfacePackagePlan(shared.CopyManifest(), shared.CopyPlaybook(), shared.CopyConfiguration(),
+                expectedConfigurationHash, shared.Hud, shared.Playbook, shared.Configuration, shared.Textures.ToArray(),
+                SourceTeamResourceProfile.Movement157, movement, bootstrap, expectedBootstrapHash);
+        }
 
         public static SourceInterfacePackagePlan Create(string hudRoot, string manifestPath, string expectedHudHash,
             string playbookRoot, string playbookPath, string expectedPlaybookHash,
@@ -148,7 +239,7 @@ namespace Blitz.AssetImport
         public static void RequireOutputIdentity(string assetPath, string resourceKey)
         {
             AuthorizedAssetRoot.ValidateRelativePath(assetPath);
-            Require((resourceKey == HudResourceKey || resourceKey == ServicesResourceKey) &&
+            Require((resourceKey == HudResourceKey || resourceKey == ServicesResourceKey || resourceKey == MovementServicesResourceKey) &&
                 assetPath.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
                 assetPath.EndsWith("/Resources/" + resourceKey + ".asset", StringComparison.Ordinal),
                 "Generated original resource must remain ignored under Assets/Imported with its exact Resources identity.");

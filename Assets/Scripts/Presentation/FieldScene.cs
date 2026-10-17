@@ -64,7 +64,7 @@ namespace Blitz.Presentation
             if (sourcePrefab != null && animations == null)
                 throw new InvalidOperationException("Source field actors require the original animation library; static pose fallback is disabled.");
             if (sourcePrefab != null)
-                sourceTeams = new SourceTeamPresenter(SourcePlayerProvider.ResolveRequiredTeamPresentation());
+                sourceTeams = new SourceTeamPresenter(SourcePlayerProvider.ResolveRequiredTeamPresentation(sourcePlayerPrefab));
             SourceEnvironmentProvider sourceWorld = SourceEnvironmentProvider.ResolveWorldMode();
             root = new GameObject(sourceWorld == null ? "Explicit graybox field" : "Original source environment").transform;
             root.SetParent(parent, false);

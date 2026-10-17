@@ -109,7 +109,7 @@ namespace Blitz.Gameplay
                     new SourceActorPresentationView(SourceActorFlags(actor), (int)actor.SourceMode)));
         }
 
-        private static int SourceActorFlags(ActorState actor)
+        internal static int SourceActorFlags(ActorState actor)
         {
             const int tracked = 0x01 | 0x08 | 0x200 | 0x800 | 0x1000 | 0x2000
                 | 0x20000 | 0x80000 | 0x200000 | 0x800000;

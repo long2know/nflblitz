@@ -70,6 +70,35 @@ MUTATIONS = (
      "float decoded = BitConverter.ToSingle(BitConverter.GetBytes(bits), 0);",
      "float decoded = bits;", "runtime movement constant exact binary32 bits"),
 )
+BOOTSTRAP_MUTATIONS = (
+    ("bootstrap-content-pin", "AssetImport/SourceInterfaceMovementData.cs",
+     "if (RosterGuard.Sha256(detached) != trustedContentSha256)", "if (detached.Length < 0)", "bootstrap content pin is mandatory"),
+    ("bootstrap-field", "AssetImport/SourceInterfaceMovementData.cs",
+     'FieldIndex = root.Integer("field_index", 0, 6);',
+     'FieldIndex = root.Integer("field_index", 0, 6) == 0 ? 0 : 1;', "bootstrap retains selected field index"),
+    ("bootstrap-infinite-mask", "AssetImport/SourceInterfaceMovementData.cs",
+     'InfiniteTurboTeamMask = root.Integer("infinite_turbo_team_mask", 0, 3);',
+     'InfiniteTurboTeamMask = root.Integer("infinite_turbo_team_mask", 0, 3) & 1;', "bootstrap retains both infinite-turbo team bits"),
+    ("bootstrap-fast-mask", "AssetImport/SourceInterfaceMovementData.cs",
+     'FastTurboTeamMask = root.Integer("fast_turbo_team_mask", 0, 3);',
+     'FastTurboTeamMask = root.Integer("fast_turbo_team_mask", 0, 3) & 1;', "bootstrap retains both fast-turbo team bits"),
+    ("bootstrap-bounds-mask", "AssetImport/SourceInterfaceMovementData.cs",
+     'RunOutOfBoundsTeamMask = root.Integer("run_out_of_bounds_team_mask", 0, 3);',
+     'RunOutOfBoundsTeamMask = root.Integer("run_out_of_bounds_team_mask", 0, 3) & 1;', "bootstrap retains both out-of-bounds team bits"),
+    ("bootstrap-global-speed", "AssetImport/SourceInterfaceMovementData.cs",
+     'SpeedPowerup = root.Boolean("speed_powerup");', 'SpeedPowerup = !root.Boolean("speed_powerup");',
+     "bootstrap speed powerup remains global"),
+    ("bootstrap-violence", "AssetImport/SourceInterfaceMovementData.cs",
+     'ViolencePowerup = root.Boolean("violence_powerup");', 'ViolencePowerup = !root.Boolean("violence_powerup");',
+     "bootstrap violence powerup remains explicit"),
+    ("bootstrap-raster", "AssetImport/SourceInterfaceMovementData.cs",
+     'VerticalResolution = vertical;', 'VerticalResolution = 384;', "bootstrap retains exact explicit source DIP raster"),
+    ("bootstrap-browser-dimensions", "AssetImport/SourceInterfaceMovementData.cs",
+     'HorizontalResolution = root.Integer("source_hres", 512, 512);',
+     'HorizontalResolution = root.Integer("source_hres", 1, int.MaxValue);', "bootstrap rejects non-original DIP"),
+    ("bootstrap-unknown-members", "AssetImport/SourceInterfaceMovementData.cs",
+     'root.Done();', '', "bootstrap rejects unknown or fixture-only fields"),
+)
 
 
 def require(condition, message):
@@ -87,6 +116,8 @@ def main(argv=None):
     parser.add_argument("--source-root", type=Path, help="Explicit pinned nflblitz2000 inputs for original C table/scan oracle.")
     parser.add_argument("--tools-root", type=Path, help="Explicit pinned midwayvideo inputs.")
     parser.add_argument("--mutations", action="store_true", help="Reject all thirteen real production-source mutants; requires actual inputs.")
+    parser.add_argument("--bootstrap-mutations", action="store_true",
+                        help="Reject ten actual production M1 bootstrap mutants without original assets or Unity.")
     parser.add_argument("--movement", type=Path, help="Explicit pinned runtime-safe tools/movement payload; never the test Responses export.")
     parser.add_argument("--unity-managed", type=Path, help="Actual Editor/Data/Managed/UnityEngine directory; compile owned adapters, no Editor launch.")
     args = parser.parse_args(argv)
@@ -109,7 +140,7 @@ def main(argv=None):
     contents = {path.relative_to(ROOT).as_posix(): path.read_bytes() for path in paths}
     result = {"schema": "source-interface-regressions/v1", "status": "failed", "commands": [], "mutations": [],
               "profile": "Actual production C#7.3/netstandard2.1 model, warnings-as-errors; net10.0 runner.",
-              "original_inputs_supplied": args.source_root is not None,
+              "original_inputs_supplied": args.source_root is not None, "bootstrap_mutations": [],
               "unity_editor_native_build_browser_or_hosting_executed": False,
               "whole_game_parity_claimed": False, "source_sha256": before}
     baseline = None
@@ -147,7 +178,8 @@ def main(argv=None):
                 target.write_text(text.replace(old, new), encoding="utf-8")
             project_root = source_root / "tests/interface"
             project_root.mkdir(parents=True, exist_ok=True)
-            for name in ("Program.cs", "InterfaceChecks.csproj", "InterfaceModel.csproj", "Directory.Build.props", "UnityAPICompile.csproj"):
+            for name in ("Program.cs", "MovementBootstrapChecks.cs", "InterfaceChecks.csproj", "InterfaceModel.csproj",
+                         "Directory.Build.props", "UnityAPICompile.csproj"):
                 shutil.copyfile(SUITE / name, project_root / name)
             build = ["dotnet", "build", str(project_root / "InterfaceChecks.csproj"),
                      "--configuration", "Release", "--verbosity", "quiet",
@@ -194,12 +226,18 @@ def main(argv=None):
             for mutation in MUTATIONS:
                 summary, _ = execute(mutation[0], mutation)
                 result["mutations"].append({"id": mutation[0], "offending_assertion": summary["failed_assertion"], "status": "rejected"})
+        if args.bootstrap_mutations:
+            for mutation in BOOTSTRAP_MUTATIONS:
+                summary, _ = execute(mutation[0], mutation)
+                result["bootstrap_mutations"].append({"id": mutation[0], "offending_assertion": summary["failed_assertion"], "status": "rejected"})
         final, _ = execute("final-baseline")
         require(final == baseline, "Baseline and final assertion artifacts changed.")
         require(fingerprint(paths) == before, "Live production source changed during the isolated interface tests.")
         result.update(status="passed", baseline_and_final_equal=True, production_hashes_unchanged=True)
         print(json.dumps({"status": "passed", "assertions": baseline["assertions"], "actual_assertions": baseline["actual_assertions"],
-                          "rejected_mutants": len(result["mutations"]), "editor_or_browser_executed": False}))
+                          "rejected_mutants": len(result["mutations"]),
+                          "rejected_bootstrap_mutants": len(result["bootstrap_mutations"]),
+                          "editor_or_browser_executed": False}))
         return 0
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         result["error"] = str(error)

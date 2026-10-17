@@ -4,6 +4,51 @@ using System.Collections.ObjectModel;
 
 namespace Blitz.AssetImport
 {
+    public sealed class SourceInterfaceMovementBootstrap
+    {
+        public const string Schema = "original-source-movement-bootstrap/v1";
+        public string ContentSha256 { get; }
+        public int FieldIndex { get; }
+        public int InfiniteTurboTeamMask { get; }
+        public bool SpeedPowerup { get; }
+        public int FastTurboTeamMask { get; }
+        public int RunOutOfBoundsTeamMask { get; }
+        public bool ViolencePowerup { get; }
+        public float HorizontalResolution { get; }
+        public float VerticalResolution { get; }
+
+        private SourceInterfaceMovementBootstrap(RosterObject root, string contentSha256)
+        {
+            if (root.Text("schema") != Schema)
+                throw new SourceInterfaceException("Unknown original movement bootstrap schema.");
+            FieldIndex = root.Integer("field_index", 0, 6);
+            InfiniteTurboTeamMask = root.Integer("infinite_turbo_team_mask", 0, 3);
+            SpeedPowerup = root.Boolean("speed_powerup");
+            FastTurboTeamMask = root.Integer("fast_turbo_team_mask", 0, 3);
+            RunOutOfBoundsTeamMask = root.Integer("run_out_of_bounds_team_mask", 0, 3);
+            ViolencePowerup = root.Boolean("violence_powerup");
+            HorizontalResolution = root.Integer("source_hres", 512, 512);
+            int vertical = root.Integer("source_vres", 256, 384);
+            if (vertical != 256 && vertical != 384)
+                throw new SourceInterfaceException("Original source DIP video mode must be explicit 512x256 or 512x384, never browser dimensions.");
+            VerticalResolution = vertical;
+            root.Done();
+            ContentSha256 = contentSha256;
+        }
+
+        public static SourceInterfaceMovementBootstrap Read(byte[] bytes, string trustedContentSha256)
+        {
+            RosterGuard.Hex(trustedContentSha256, 64, "explicit movement bootstrap SHA256");
+            if (bytes == null || bytes.Length < 2 || bytes.Length > 16384)
+                throw new SourceInterfaceException("Missing or changed SHA-pinned original movement settings/DIP bootstrap.");
+            byte[] detached = (byte[])bytes.Clone();
+            if (RosterGuard.Sha256(detached) != trustedContentSha256)
+                throw new SourceInterfaceException("Missing or changed SHA-pinned original movement settings/DIP bootstrap.");
+            return new SourceInterfaceMovementBootstrap(
+                RosterJson.Object(RosterJson.Parse(detached), "movement bootstrap"), trustedContentSha256);
+        }
+    }
+
     public sealed class SourceInterfaceDefenseRow
     {
         public ReadOnlyCollection<float> Line { get; }

@@ -57,7 +57,8 @@ namespace Blitz.AssetImport
                 Hex(entry.sha256, 64, "decoded clip SHA256");
                 Hex(entry.source_git_blob_sha1, 40, "source WAN Git blob");
                 AuthorizedAssetRoot.ValidateRelativePath(entry.source_path);
-                SourceAnimationClip clip = ReadClip(readClipBytes(entry.path), entry.path, entry.sha256);
+                SourceAnimationClip clip = ReadClip(readClipBytes(entry.path), entry.path, entry.sha256,
+                    entry.converter_replay);
                 Require(clip.SequenceName == entry.runtime_name && clip.SourcePath == entry.source_path &&
                     clip.SourceGitBlobSha1 == entry.source_git_blob_sha1 &&
                     clip.SourceFrameCount == entry.source_frames && clip.SelectedSourceFrames.Count == entry.selected_frames &&
@@ -76,6 +77,12 @@ namespace Blitz.AssetImport
 
         public static SourceAnimationClip ReadClip(byte[] bytes, string relativeLabel, string expectedDecodedSha256)
         {
+            return ReadClip(bytes, relativeLabel, expectedDecodedSha256, null);
+        }
+
+        private static SourceAnimationClip ReadClip(byte[] bytes, string relativeLabel,
+            string expectedDecodedSha256, ConverterReplay qualification)
+        {
             AuthorizedAssetRoot.ValidateRelativePath(relativeLabel);
             Hex(expectedDecodedSha256, 64, "expected decoded clip SHA256");
             Require(bytes != null && bytes.Length >= 2 && bytes.Length <= 8 * 1024 * 1024,
@@ -83,10 +90,14 @@ namespace Blitz.AssetImport
             Require(bytes != null && AuthorizedAssetRoot.Sha256(bytes) == expectedDecodedSha256,
                 relativeLabel + ": decoded clip SHA256 does not match its explicit content pin.");
             Document doc = Deserialize<Document>(bytes, relativeLabel, 8 * 1024 * 1024);
-            Require(doc != null && doc.schema == "original-wan-clip/v1" && doc.provenance != null &&
+            bool replay = qualification != null;
+            string schema = replay ? "original-wan-converter-replay-clip/v1" : "original-wan-clip/v1";
+            Require(doc != null && doc.schema == schema && doc.provenance != null &&
                 doc.sequence != null && doc.format != null && doc.root_translation != null &&
                 doc.validation != null && doc.joints != null && doc.frames != null && doc.record_layout != null,
-                relativeLabel + ": expected complete original-wan-clip/v1.");
+                relativeLabel + ": expected complete " + schema + " with explicit inventory qualification.");
+            Require(replay || doc.converter_replay == null,
+                relativeLabel + ": converter replay must not be hidden in an ordinary selected clip.");
             Provenance provenance = doc.provenance;
             Require(provenance.repository == "historicalsource/nflblitz2000" && provenance.commit == SourceRevision &&
                 provenance.content_pin_verified && provenance.byte_length > 0 && provenance.byte_length <= 64 * 1024 * 1024,
@@ -107,6 +118,8 @@ namespace Blitz.AssetImport
                 relativeLabel + ": unsupported original WAN matrix format.");
             Sequence sequence = doc.sequence;
             Identifier(sequence.runtime_name, "sequence");
+            Require((sequence.animation_flags & 0x4000) != 0 && (sequence.animation_flags & ~0x4001U) == 0,
+                relativeLabel + ": unsupported or unselected original animation flags.");
             Require(!string.IsNullOrEmpty(sequence.authoring_name) && sequence.authoring_name.Length <= 128 &&
                 sequence.limb_count == SourceTiming.JointCount && doc.joints.Length == SourceTiming.JointCount &&
                 sequence.source_frame_count > 0 && sequence.source_frame_count <= 4096 &&
@@ -120,6 +133,9 @@ namespace Blitz.AssetImport
                 (long)sequence.chunk_byte_offset + 8 + sequence.chunk_payload_bytes == sequence.chunk_end_byte_offset &&
                 sequence.chunk_end_byte_offset <= provenance.byte_length,
                 relativeLabel + ": invalid source matrix chunk bounds.");
+            SourceAnimationReplay replayProvenance = replay
+                ? VerifyReplay(qualification, doc.converter_replay, provenance, sequence, relativeLabel)
+                : null;
             for (int i = 0; i < SourceTiming.JointCount; i++)
             {
                 Joint joint = doc.joints[i];
@@ -128,12 +144,14 @@ namespace Blitz.AssetImport
                     (i == 0 ? !joint.parent_index.HasValue : joint.parent_index == SourceAnimationSkeleton.ParentIndices[i]),
                     relativeLabel + ": original fbplyr_skel name/index/limb/parent mismatch at joint " + i + ".");
             }
-            Require(doc.record_layout.Length == 17, relativeLabel + ": expected flags/root/fifteen original matrix records.");
+            Require(doc.record_layout.Length == (replay ? 16 : 17),
+                relativeLabel + ": expected the exact actual original matrix record set.");
             long previousEnd = (long)sequence.chunk_byte_offset + 8;
             for (int i = 0; i < doc.record_layout.Length; i++)
             {
                 Record record = doc.record_layout[i];
                 int id = i == 0 ? -1 : i == 1 ? -2 : i - 1;
+                if (replay && id >= 5) id++;
                 int stride = i == 0 ? 4 : i == 1 ? 12 : 48;
                 Require(record != null && record.id == id && record.count == sequence.source_frame_count &&
                     record.stride == stride && record.record_offset >= previousEnd &&
@@ -189,7 +207,53 @@ namespace Blitz.AssetImport
             }
             return new SourceAnimationClip(sequence.runtime_name, provenance.path, provenance.git_blob_sha1,
                 provenance.sha256, expectedDecodedSha256, sequence.animation_flags, sequence.source_frame_count,
-                sequence.selected_source_frame_indices, frames);
+                sequence.selected_source_frame_indices, frames, replayProvenance);
+        }
+
+        private static SourceAnimationReplay VerifyReplay(ConverterReplay expected, ConverterReplay actual,
+            Provenance provenance, Sequence sequence, string label)
+        {
+            Require(actual != null && expected.policy == actual.policy &&
+                expected.missing_source_limb_id == actual.missing_source_limb_id &&
+                expected.retained_authoring_name == actual.retained_authoring_name &&
+                expected.retained_chunk_number == actual.retained_chunk_number &&
+                expected.retained_chunk_byte_offset == actual.retained_chunk_byte_offset &&
+                expected.retained_chunk_end_byte_offset == actual.retained_chunk_end_byte_offset &&
+                expected.retained_animation_flags == actual.retained_animation_flags &&
+                expected.retained_source_frame_count == actual.retained_source_frame_count &&
+                expected.retained_record_offset == actual.retained_record_offset &&
+                expected.retained_data_offset == actual.retained_data_offset &&
+                expected.retained_stride == actual.retained_stride &&
+                expected.frame_mapping == actual.frame_mapping &&
+                expected.source_reference_path == actual.source_reference_path &&
+                expected.source_reference_git_blob_sha1 == actual.source_reference_git_blob_sha1 &&
+                expected.source_reference_symbol == actual.source_reference_symbol &&
+                expected.shipped_binary_verified == actual.shipped_binary_verified,
+                label + ": clip and inventory converter-state qualifications disagree.");
+            Require(provenance.path == "anim/misc99.wan" &&
+                provenance.git_blob_sha1 == "256acb7ddb838627312193ae19db66abd18ac146" &&
+                provenance.sha256 == "d401a4ca3d27e435136b75170efc8644f19e8904900988c9bd8aff694883804a" &&
+                sequence.runtime_name == "R_SKIP" && sequence.authoring_name == "r_skip" &&
+                sequence.animation_flags == 0x4000 && sequence.chunk_reference == 0 &&
+                sequence.chunk_number == 13 && sequence.chunk_byte_offset == 2868026 &&
+                sequence.chunk_end_byte_offset == 2916402 && sequence.source_frame_count == 70 &&
+                sequence.selected_frame_count == 70 &&
+                actual.policy == "wan2seq-retained-limb/v1" && actual.missing_source_limb_id == 5 &&
+                actual.retained_authoring_name == "Huffrun2" && actual.retained_chunk_number == 12 &&
+                actual.retained_chunk_byte_offset == 2801562 && actual.retained_chunk_end_byte_offset == 2868026 &&
+                actual.retained_animation_flags == 0x4000 && actual.retained_source_frame_count == 90 &&
+                actual.retained_record_offset == 2820414 && actual.retained_data_offset == 2820422 &&
+                actual.retained_stride == 48 && actual.frame_mapping == "same-authoring-index" &&
+                actual.source_reference_path == "plyrseq.c" &&
+                actual.source_reference_git_blob_sha1 == "28cef0d1082f2b0c9241930fdc8886de4c8f5438" &&
+                actual.source_reference_symbol == "r_skip_anim" && !actual.shipped_binary_verified,
+                label + ": converter-state replay is qualified only for the audited pinned R_SKIP omission.");
+            return new SourceAnimationReplay(actual.policy, actual.missing_source_limb_id,
+                actual.retained_authoring_name, actual.retained_chunk_number, actual.retained_chunk_byte_offset,
+                actual.retained_chunk_end_byte_offset, actual.retained_source_frame_count,
+                actual.retained_record_offset, actual.retained_data_offset, actual.retained_stride,
+                actual.retained_animation_flags, actual.frame_mapping, actual.source_reference_path,
+                actual.source_reference_git_blob_sha1, actual.source_reference_symbol);
         }
 
         private static T Deserialize<T>(byte[] bytes, string label, int maximumBytes)
@@ -254,6 +318,7 @@ namespace Blitz.AssetImport
             [DataMember(IsRequired = true)] public int source_frames { get; set; }
             [DataMember(IsRequired = true)] public int source_first { get; set; }
             [DataMember(IsRequired = true)] public int source_last { get; set; }
+            [DataMember] public ConverterReplay converter_replay { get; set; }
         }
         [DataContract] private sealed class Document
         {
@@ -266,6 +331,7 @@ namespace Blitz.AssetImport
             [DataMember(IsRequired = true)] public Frame[] frames { get; set; }
             [DataMember(IsRequired = true)] public Record[] record_layout { get; set; }
             [DataMember(IsRequired = true)] public Validation validation { get; set; }
+            [DataMember] public ConverterReplay converter_replay { get; set; }
         }
         [DataContract] private sealed class Provenance
         {
@@ -305,6 +371,7 @@ namespace Blitz.AssetImport
             [DataMember(IsRequired = true)] public int source_frame_count { get; set; }
             [DataMember(IsRequired = true)] public int selected_frame_count { get; set; }
             [DataMember(IsRequired = true)] public int chunk_number { get; set; }
+            [DataMember] public int chunk_reference { get; set; }
             [DataMember(IsRequired = true)] public int chunk_byte_offset { get; set; }
             [DataMember(IsRequired = true)] public int chunk_payload_bytes { get; set; }
             [DataMember(IsRequired = true)] public int chunk_end_byte_offset { get; set; }
@@ -353,6 +420,56 @@ namespace Blitz.AssetImport
             [DataMember(IsRequired = true)] public double max_quaternion_norm_error { get; set; }
             [DataMember(IsRequired = true)] public double min_adjacent_source_quaternion_dot { get; set; }
         }
+        [DataContract] private sealed class ConverterReplay
+        {
+            [DataMember(IsRequired = true)] public string policy { get; set; }
+            [DataMember(IsRequired = true)] public int missing_source_limb_id { get; set; }
+            [DataMember(IsRequired = true)] public string retained_authoring_name { get; set; }
+            [DataMember(IsRequired = true)] public int retained_chunk_number { get; set; }
+            [DataMember(IsRequired = true)] public int retained_chunk_byte_offset { get; set; }
+            [DataMember(IsRequired = true)] public int retained_chunk_end_byte_offset { get; set; }
+            [DataMember(IsRequired = true)] public uint retained_animation_flags { get; set; }
+            [DataMember(IsRequired = true)] public int retained_source_frame_count { get; set; }
+            [DataMember(IsRequired = true)] public int retained_record_offset { get; set; }
+            [DataMember(IsRequired = true)] public int retained_data_offset { get; set; }
+            [DataMember(IsRequired = true)] public int retained_stride { get; set; }
+            [DataMember(IsRequired = true)] public string frame_mapping { get; set; }
+            [DataMember(IsRequired = true)] public string source_reference_path { get; set; }
+            [DataMember(IsRequired = true)] public string source_reference_git_blob_sha1 { get; set; }
+            [DataMember(IsRequired = true)] public string source_reference_symbol { get; set; }
+            [DataMember(IsRequired = true)] public bool shipped_binary_verified { get; set; }
+        }
+    }
+
+    public sealed class SourceAnimationReplay
+    {
+        public string Policy { get; private set; }
+        public int MissingSourceLimbId { get; private set; }
+        public string RetainedAuthoringName { get; private set; }
+        public int RetainedChunkNumber { get; private set; }
+        public int RetainedChunkByteOffset { get; private set; }
+        public int RetainedChunkEndByteOffset { get; private set; }
+        public int RetainedSourceFrameCount { get; private set; }
+        public int RetainedRecordOffset { get; private set; }
+        public int RetainedDataOffset { get; private set; }
+        public int RetainedStride { get; private set; }
+        public uint RetainedAnimationFlags { get; private set; }
+        public string FrameMapping { get; private set; }
+        public string SourceReferencePath { get; private set; }
+        public string SourceReferenceGitBlobSha1 { get; private set; }
+        public string SourceReferenceSymbol { get; private set; }
+        public bool ShippedBinaryVerified { get { return false; } }
+
+        internal SourceAnimationReplay(string policy, int limb, string name, int chunk, int start, int end,
+            int frames, int record, int data, int stride, uint flags, string mapping, string path,
+            string blob, string symbol)
+        {
+            Policy = policy; MissingSourceLimbId = limb; RetainedAuthoringName = name;
+            RetainedChunkNumber = chunk; RetainedChunkByteOffset = start; RetainedChunkEndByteOffset = end;
+            RetainedSourceFrameCount = frames; RetainedRecordOffset = record; RetainedDataOffset = data;
+            RetainedStride = stride; RetainedAnimationFlags = flags; FrameMapping = mapping;
+            SourceReferencePath = path; SourceReferenceGitBlobSha1 = blob; SourceReferenceSymbol = symbol;
+        }
     }
 
     public sealed class SourceAnimationClip : ISourceAnimationClip
@@ -367,13 +484,16 @@ namespace Blitz.AssetImport
         public string DecodedSha256 { get; private set; }
         public uint SourceFlags { get; private set; }
         public int SourceFrameCount { get; private set; }
+        public SourceAnimationReplay ConverterReplay { get; private set; }
         public IReadOnlyList<int> SelectedSourceFrames { get { return selected; } }
 
         internal SourceAnimationClip(string name, string path, string blob, string sourceHash, string decodedHash,
-            uint flags, int sourceCount, int[] selectedFrames, SourceAnimationFrame[] data)
+            uint flags, int sourceCount, int[] selectedFrames, SourceAnimationFrame[] data,
+            SourceAnimationReplay converterReplay = null)
         {
             SequenceName = name; SourcePath = path; SourceGitBlobSha1 = blob; SourceSha256 = sourceHash;
             DecodedSha256 = decodedHash; SourceFlags = flags; SourceFrameCount = sourceCount;
+            ConverterReplay = converterReplay;
             selected = Array.AsReadOnly((int[])selectedFrames.Clone());
             frames = new Dictionary<int, SourceAnimationFrame>();
             foreach (SourceAnimationFrame frame in data) frames.Add(frame.SourceFrame, frame);

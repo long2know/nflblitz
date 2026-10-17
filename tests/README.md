@@ -1,12 +1,32 @@
-# First-playable regression evidence
+# Regression evidence: legacy and source B1
 
-These tests compile the **actual** `Assets/Scripts/Contracts/**/*.cs` and
+The core suites compile the **actual** `Assets/Scripts/Contracts/**/*.cs` and
 `Assets/Scripts/Gameplay/**/*.cs`, including the actual pure
 `Assets/Scripts/AssetImport/*.cs` dependencies used by the source runtime.
 There is no replacement simulation, Unity
 assembly, public debug command, reflection-based field editing, or historical
 source/asset import. Assertions target the bounded slice in
 `docs/architecture.md` and `docs/source-parity.md`, **not whole-game parity**.
+
+The checked-in movement157/Team/HUD source is distinct from the recorded live56
+browser player and frozen B1/canonical117 source. Fresh source mode needs
+[complete157 animation](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip),
+[all31-team/impact resources](../tools/assets/README.md),
+[original HUD data](../tools/interface/README.md) and
+[explicit match-service packaging](../tools/interface/packaging.md).
+Teams/rosters, stations/possession/captain, designated home side, station heads
+and power-up values are operator-supplied, not inferred defaults. Mandatory
+M1 data/settings and explicit original DIP raster are additional pinned inputs.
+`?actors=graybox` preserves legacy controls; source uses
+[raw cabinet bindings](../README.md#source-cabinet-controls) and rejects missing
+resources or unbound original audio/FX instead of substituting them.
+All sixteen [full-parity rows](../docs/source-parity.md#full-source-completion-matrix--executable-acceptance)
+remain **OPEN**.
+
+Counts below are recorded owner evidence, **not new suite executions for this
+documentation update**. Pure tests, actual Unity-reference API compilation,
+native import/pixels, a Unity-built player and browser-observed gameplay are
+different evidence layers.
 
 ## Core suite
 
@@ -120,6 +140,99 @@ mutations. See [`parity/README.md`](parity/README.md) for the full-kernel
 factory command: it requires an explicit real-input manifest and retains all
 existing host/source adapter assertions. Neither suite is all-row/full-match,
 original-platform RNG/scheduler, native-build or browser qualification.
+
+The frozen B1 campaign records **488,736 assertions / twenty rejected actual
+production mutants**, retaining 156 legacy cases. It uses the actual canonical117
+library, real fifteen-pivot catch geometry, P1 playbook and team rosters, not a
+single-player56 fixture or invented joint positions.
+
+## Original HUD/cabinet, stage caller and team/impact presentation
+
+### Current movement157 runtime gate
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
+# Optional complete real engine APIs and actual movement-data composition:
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py \
+  --unity-editor-data "$UNITY_EDITOR_DATA" \
+  --movement tools/movement/.artifacts/source-movement-runtime.json
+```
+
+The default is current-checkout/asset-free: **33,921 pure assertions / ten
+compiled bootstrap source mutants**, plus33 separate structural Runtime/service
+mutants and complete-owned-file/clean-checkout guards. It validates all selected
+fields, team masks, global power booleans and both original DIP modes without
+inventing defaults.
+
+The actual-data option executes the actual production Runtime assembly's pure
+composition helper: **10,941 assertions / four compiled Runtime mutants** for
+every real89c790 friction/Line/Back/acceleration/plow value and original settings.
+Both actual Unity6000.3.24 C#7.3/.NET Standard2.1 API profiles compile **85 runtime
+sources including all16 owned UI**, zero diagnostics. No fake Unity types,
+native engine objects or copied test factory are used.
+
+Actual Runtime calls these helpers and injects mandatory M1 data/settings.
+Its existing pre-player callback samples the real source camera, requires the
+same executing tick's pure frame, then injects position/all12 matrix floats/
+original DIP into Core before returning the heading. Raw game mode, restart,
+focus, one cue owner and one host lifecycle are guarded. This is not a new
+native/browser/full-M1 qualification; QA/Team source campaigns remain separate.
+The selected, uncompressed `R_SKIP` is now supplied through exact named original
+converter-state replay, not the old mistaken unselected-asset stop.
+
+### Retained B1/Team/HUD evidence
+
+These independent asset-free commands compile real production sources without
+launching an Editor or requiring original art:
+
+```sh
+python3 -B tests/interface/run.py
+python3 -B tests/interface/stage_followup.py
+python3 -B tests/presentation/run.py
+python3 -B tests/presentation/interface-packaging/run.py \
+  --b1-root . --ui-root . --team-root .
+```
+
+The three packaging roots explicitly name the same coherent, stable checkout;
+there is no implicit Primary/hot-M1 or ignored-snapshot fallback.
+See [HUD/cabinet checks](interface/README.md),
+[complete-owned-UI stage/API checks](interface/STAGE.md),
+[team/impact checks](presentation/README.md), and the
+[packaging inputs/API commands](../tools/interface/packaging.md#sourcepureapi-checks-without-launching-an-editor)
+for explicit original-data and real Unity-reference modes. Original-data tests
+require the pinned local inputs; they do not silently replace them with mocks.
+
+| Recorded layer | Passing evidence | Limit |
+| --- | --- | --- |
+| Team/impact | **680,731 assertions / 14 production mutants**; all 31 teams, 20 heads, 86 texture identities | Source/data/host-functional camera proof, not native uniforms, impact-game pixels or target MIPS/scheduler parity. |
+| Base HUD/cabinet | **16,215 assertions / 13 production mutants**, nine converter/four interop tests; 381 images/six fonts/104 planes | Original glyph/layout/state/raw49/focus/CSS-DPR model checks, not a newly rendered browser HUD or generated Composit/Texus pixel identity. |
+| Complete-owned-UI stage caller | **80 runtime sources including all 16 owned UI**, zero diagnostics for actual Unity 6000.3.24 C# 7.3/.NET Standard 2.1 `UNITY_EDITOR` and `UNITY_WEBGL`; 21 caller/scope/inventory guards | Includes `BlitzRuntime`, `PlayHud` and `FixedStepBridge`; runtime-with-defines is not separate Editor-assembly proof. |
+| B1 packaging | **107 actual-data assertions / 18 production mutants**; later integrated **82 runtime / separate 5 Editor** API snapshot, zero diagnostics | No asset import/save/reload, GPU atlas pixels, fresh game build or browser proof. |
+
+The earlier three-adapter `UnityAPICompile.csproj` did not include the existing
+Runtime/HUD files; its historical green result is not the complete-owned-UI proof.
+The later stage inventory closes that omission. Separate-assembly packaging
+validation additionally includes the parent **visibility-only public
+`DecodeUtf8` repair** and **four explicit serialized-null initializers**.
+The old internal-access and CS0649 reports are resolved for the target 6000.3.24
+API; the frozen recipe notes retain their pre-repair history. There are no fake
+Unity APIs, warning suppressions or removed methods.
+
+Those API checks do not start Unity. Two archived 6000.3.24 and one
+installed 6000.6.5 native attempts exited 198 before import because of
+licensing404/missing headless entitlement. Installed 6000.6.5 also has a separate
+frozen-Team `GetInstanceID` incompatibility; the target remains 6000.3.24f1.
+No new native/game/browser/performance evidence is inferred. Old live56 evidence
+is retained in [build history](../docs/build.md#continuous-animation-evidence--october-16-2026),
+not reused as new Team/HUD captures.
+
+The stage caller registers the real pre-actor camera producer before the first
+wake and forwards each ordered cue once, including catch-up steps. This bounded
+semantic B1 lifecycle does not close all raw normal/kickoff/gopher camera modes.
+Original actual audio/FX consumers remain unbound and fail explicitly; no silence,
+fake-click or noop consumer is evidence. M1/156 animation/camera/settings
+injection was **not** part of that frozen B1 resource composition. Current
+movement157 source wiring is recorded separately above.
 
 ## Original movement and evasion helpers
 

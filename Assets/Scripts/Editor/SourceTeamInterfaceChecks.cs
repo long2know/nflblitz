@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Blitz.AssetImport;
 using Blitz.Contracts;
+using Blitz.Gameplay;
 #if UNITY_EDITOR
 using System.Globalization;
 using System.IO;
@@ -58,6 +59,23 @@ namespace Blitz.Editor
         private static void Require(bool condition, string message)
         { if (!condition) throw new SourceInterfaceException(message); }
 
+        public static void MovementEquals(SourceInterfaceMovementBootstrap expected,
+            SourceInterfaceMovementBootstrap actual, SourceMovementSettings settings)
+        {
+            Require(expected != null && actual != null && settings != null &&
+                expected.ContentSha256 == actual.ContentSha256 &&
+                expected.FieldIndex == actual.FieldIndex && expected.InfiniteTurboTeamMask == actual.InfiniteTurboTeamMask &&
+                expected.SpeedPowerup == actual.SpeedPowerup && expected.FastTurboTeamMask == actual.FastTurboTeamMask &&
+                expected.RunOutOfBoundsTeamMask == actual.RunOutOfBoundsTeamMask &&
+                expected.ViolencePowerup == actual.ViolencePowerup &&
+                expected.HorizontalResolution == actual.HorizontalResolution && expected.VerticalResolution == actual.VerticalResolution,
+                "Saved explicit M1 bootstrap/settings/original DIP changed or were inferred.");
+            Require(settings.FieldIndex == expected.FieldIndex && settings.InfiniteTurboTeamMask == expected.InfiniteTurboTeamMask &&
+                settings.SpeedPowerup == expected.SpeedPowerup && settings.FastTurboTeamMask == expected.FastTurboTeamMask &&
+                settings.RunOutOfBoundsTeamMask == expected.RunOutOfBoundsTeamMask &&
+                settings.ViolencePowerup == expected.ViolencePowerup, "Saved actual M1 team masks/global powerups changed.");
+        }
+
 #if UNITY_EDITOR
         public static void VerifyFromCommandLine()
         {
@@ -77,34 +95,126 @@ namespace Blitz.Editor
             VerifySaved(plan, "Assets/Imported/" + id, false);
         }
 
+        public static void VerifyMovement157FromCommandLine()
+        { VerifyMovement157(true); }
+
+        public static void VerifyMovement157BindingsFromCommandLine()
+        { VerifyMovement157(false); }
+
+        private static void VerifyMovement157(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromMovement157Arguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
         public static void VerifySaved(SourceInterfacePackagePlan plan, string destination, bool requireAtlasPixels)
         {
             if (plan == null) throw new ArgumentNullException(nameof(plan));
-            string hudPath = destination + SourceTeamInterfaceImporter.HudAssetSuffix;
-            string servicesPath = destination + SourceTeamInterfaceImporter.ServicesAssetSuffix;
-            SourceInterfacePackagePlan.RequireOutputIdentity(hudPath, SourceInterfacePackagePlan.HudResourceKey);
-            SourceInterfacePackagePlan.RequireOutputIdentity(servicesPath, SourceInterfacePackagePlan.ServicesResourceKey);
+            SourceTeamResourceProfile profile = plan.Profile;
+            string servicesPath = destination + SourceTeamInterfaceImporter.ServicesSuffix(plan);
+            SourceInterfacePackagePlan.RequireOutputIdentity(servicesPath, plan.SelectedServicesResourceKey);
             SourceInterfacePackagePlan.RequireHudShaderSource(Path.GetDirectoryName(Application.dataPath));
-            SourceHudAsset hud = AssetDatabase.LoadAssetAtPath<SourceHudAsset>(hudPath);
+            SourceHudAsset hud = Resources.Load<SourceHudAsset>(SourceHudAsset.ResourceKey);
             SourceInterfaceServices services = AssetDatabase.LoadAssetAtPath<SourceInterfaceServices>(servicesPath);
             Require(hud != null && services != null, "Actual persisted original HUD/services assets are missing.");
-            Require(Resources.Load<SourceHudAsset>(SourceHudAsset.ResourceKey) == hud &&
-                Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKey) == services,
-                "Actual Resources lookup resolves another asset/key; duplicate original-interface resources are not permitted.");
-            hud.Load();
+            Require(SourceInterfaceServices.ResourceKey == plan.SelectedServicesResourceKey &&
+                Resources.Load<SourceInterfaceServices>(plan.SelectedServicesResourceKey) == services &&
+                SourceTeamInterfaceImporter.FindUniqueResourcePath("SourceInterfaceServices", plan.SelectedServicesResourceKey) == servicesPath,
+                "Actual services Resources lookup/profile differs or is duplicated.");
             ConfigurationEquals(plan.Configuration, services.Configuration(), services.PresentationSettings,
                 services.NativeGamepadsEnabled);
             Require(ReferenceEquals(services.Hud, hud), "Saved services refer to a different original HUD.");
-            SourceAnimationLibraryAsset animation = Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.TeamAnimationResourceKey);
-            Require(animation != null && animation.InventorySha256 == SourceInterfacePackagePlan.AnimationSha256 &&
-                ReferenceEquals(animation.Load(), services.Animations), "Saved services do not reuse the SAME final117 animation library.");
+            SourceAnimationLibraryAsset animation = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
+            Require(animation != null && animation.InventorySha256 == profile.AnimationSha256 &&
+                AssetDatabase.GetAssetPath(animation) == profile.AnimationAssetPath &&
+                ReferenceEquals(animation.Load(), services.Animations), "Saved services do not reuse the SAME explicit animation profile/library.");
+            SourceAnimationLibrary actualLibrary = animation.Load() as SourceAnimationLibrary;
+            Require(actualLibrary != null, "Saved actual typed animation library is missing.");
+            profile.RequireInventory(animation.InventorySha256, actualLibrary.SequenceNames.Count, actualLibrary.FrameCount);
             Require(services.Playbook.Plays.Count == plan.Playbook.Plays.Count &&
                 services.Playbook.Routes.Count == plan.Playbook.Routes.Count, "Saved actual converted P1 catalog inventory changed.");
+            long boundBytes, pixelBytes;
+            VerifyHudBindings(plan, hud, requireAtlasPixels, out boundBytes, out pixelBytes);
+            var savedServices = new SerializedObject(services);
+            TextAsset book = savedServices.FindProperty("originalPlaybook").objectReferenceValue as TextAsset;
+            Require(book != null && AuthorizedAssetRoot.Sha256(book.bytes) == SourceInterfacePackagePlan.PlaybookSha256 &&
+                AssetDatabase.GetAssetPath(book) == destination + "/Resources/BlitzSourceInterface/playbook.bytes",
+                "Saved services P1 TextAsset bytes/reference changed.");
+            Require(savedServices.FindProperty("originalAnimations").objectReferenceValue == animation &&
+                savedServices.FindProperty("originalHud").objectReferenceValue == hud,
+                "Persisted services reference different animation/HUD assets.");
+            TextAsset config = AssetDatabase.LoadAssetAtPath<TextAsset>(destination + "/Resources/BlitzSourceInterface/configuration.json");
+            Require(config != null && AuthorizedAssetRoot.Sha256(config.bytes) == plan.ConfigurationSha256,
+                "Actual saved explicit configuration bytes changed.");
+            if (profile.IsMovement157)
+            {
+                TextAsset bootstrap = savedServices.FindProperty("originalMovementBootstrap").objectReferenceValue as TextAsset;
+                Require(bootstrap != null && AuthorizedAssetRoot.Sha256(bootstrap.bytes) == plan.BootstrapSha256 &&
+                    AssetDatabase.GetAssetPath(bootstrap) == destination + "/Resources/BlitzSourceInterface/movement-bootstrap.json" &&
+                    savedServices.FindProperty("movementBootstrapSha256").stringValue == plan.BootstrapSha256,
+                    "Actual saved explicit M1 bootstrap reference/bytes/pin changed.");
+                MovementEquals(plan.MovementBootstrap, services.MovementBootstrap, services.MovementSettings);
+                string movementPath = SourceTeamInterfaceImporter.FindUniqueResourcePath("TextAsset", SourceInterfaceMovementData.ResourceKey);
+                TextAsset movement = Resources.Load<TextAsset>(SourceInterfaceMovementData.ResourceKey);
+                Require(movement != null && AssetDatabase.GetAssetPath(movement) == movementPath &&
+                    movementPath.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
+                    movementPath.EndsWith("/Resources/" + SourceInterfaceMovementData.ResourceKey + ".json", StringComparison.Ordinal) &&
+                    movement.bytes.SequenceEqual(plan.CopyMovement()), "Saved actual runtime movement data is missing/duplicated/changed or outside ignored resources.");
+                SourceInterfaceMovementData.Read(movement.bytes, SourceInterfaceMovementData.ContentSha256);
+                Require(services.MovementData.Friction.SequenceEqual(plan.MovementRuntime.Friction) &&
+                    services.MovementData.Defense.Count == plan.MovementRuntime.Defense.Count,
+                    "Actual typed runtime movement data was not loaded from the pinned resource.");
+                for (int i = 0; i < plan.MovementRuntime.Defense.Count; i++)
+                {
+                    SourceInterfaceDefenseRow expected = plan.MovementRuntime.Defense[i];
+                    SourceMovementDefenseRow actual = services.MovementData.Defense[i];
+                    Require(actual.LineSpeeds.SequenceEqual(expected.Line) && actual.BackSpeeds.SequenceEqual(expected.Back) &&
+                        actual.AccelerationBase == expected.Base && actual.AccelerationRange == expected.Range &&
+                        actual.PlowProbability == expected.Plow, "Actual typed movement defense row changed at " + i + ".");
+                }
+            }
+            string report = "{\n\"schema\":\"source-interface-package-native/v2\",\n\"bindingsVerified\":true," +
+                "\n\"atlasPixelsVerified\":" + (requireAtlasPixels ? "true" : "false") +
+                ",\n\"atlasRawBytes\":" + boundBytes + ",\n\"nativeReadbackBytes\":" + pixelBytes +
+                ",\n\"configurationSha256\":\"" + plan.ConfigurationSha256 +
+                "\",\n\"hudManifestSha256\":\"" + SourceInterfacePackagePlan.HudSha256 +
+                "\",\n\"animationManifestSha256\":\"" + profile.AnimationSha256 +
+                "\",\n\"playbookSha256\":\"" + SourceInterfacePackagePlan.PlaybookSha256 +
+                "\",\n\"profile\":\"" + profile.StableId +
+                "\",\n\"bootstrapSha256\":\"" + plan.BootstrapSha256 +
+                "\",\n\"unityVersion\":\"" + Application.unityVersion +
+                "\",\n\"graphicsDeviceType\":\"" + SystemInfo.graphicsDeviceType +
+                "\",\n\"graphicsDeviceName\":\"" + Escape(SystemInfo.graphicsDeviceName) +
+                "\",\n\"freshDomainRequired\":true,\n\"M1DataLoaded\":" + (profile.IsMovement157 ? "true" : "false") +
+                ",\n\"gameOrBrowserParityClaimed\":false\n}\n";
+            string output = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Build");
+            Directory.CreateDirectory(output);
+            File.WriteAllText(Path.Combine(output, requireAtlasPixels ? "source-interface-native-pixels.json" :
+                "source-interface-native-bindings.json"), report);
+            Debug.Log("PASS actual saved " + profile.StableId + " HUD/services " + (requireAtlasPixels ?
+                "bindings + ALL native atlas pixels" : "bindings ONLY; no framebuffer/native-game proof") +
+                "; explicit settings and SAME selected animation library preserved.");
+        }
+
+        internal static void VerifyHudBindings(SourceInterfacePackagePlan plan, SourceHudAsset hud, bool requireAtlasPixels,
+            out long boundBytes, out long pixelBytes)
+        {
+            Require(hud != null, "Actual shared original HUD resource is missing.");
+            SourceInterfacePackagePlan.RequireHudShaderSource(Path.GetDirectoryName(Application.dataPath));
+            string hudPath = AssetDatabase.GetAssetPath(hud);
+            SourceInterfacePackagePlan.RequireOutputIdentity(hudPath, SourceInterfacePackagePlan.HudResourceKey);
+            Require(SourceTeamInterfaceImporter.FindUniqueResourcePath("SourceHudAsset", SourceInterfacePackagePlan.HudResourceKey) == hudPath &&
+                Resources.Load<SourceHudAsset>(SourceHudAsset.ResourceKey) == hud, "Shared original HUD resource is duplicated or resolves another asset.");
+            string folder = hudPath.Substring(0, hudPath.LastIndexOf('/'));
+            hud.Load();
             var savedHud = new SerializedObject(hud);
             TextAsset manifest = savedHud.FindProperty("manifest").objectReferenceValue as TextAsset;
             Require(manifest != null && AuthorizedAssetRoot.Sha256(manifest.bytes) == SourceInterfacePackagePlan.HudSha256 &&
                 savedHud.FindProperty("manifestSha256").stringValue == SourceInterfacePackagePlan.HudSha256 &&
-                AssetDatabase.GetAssetPath(manifest) == destination + "/Resources/BlitzSourceInterface/interface.json",
+                AssetDatabase.GetAssetPath(manifest) == folder + "/interface.json",
                 "Persisted HUD manifest bytes/pin differ.");
             Shader shader = savedHud.FindProperty("sourceHudShader").objectReferenceValue as Shader;
             Require(shader != null && shader.name == SourceTeamInterfaceImporter.ShaderName &&
@@ -114,7 +224,7 @@ namespace Blitz.Editor
             SerializedProperty bytes = savedHud.FindProperty("textureBytes");
             Require(bytes != null && bytes.arraySize == plan.Textures.Count, "Saved original rawRGBA reference inventory changed.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
-            long boundBytes = 0, pixelBytes = 0;
+            boundBytes = pixelBytes = 0;
             for (int i = 0; i < bytes.arraySize; i++)
             {
                 SerializedProperty entry = bytes.GetArrayElementAtIndex(i);
@@ -125,7 +235,7 @@ namespace Blitz.Editor
                 byte[] raw = data.bytes;
                 Require(AuthorizedAssetRoot.Sha256(raw) == expected.Definition.Sha256 &&
                     raw.SequenceEqual(expected.CopyBytes()) && AssetDatabase.GetAssetPath(data) ==
-                    destination + "/Resources/BlitzSourceInterface/Bytes/" + id + ".bytes",
+                    folder + "/Bytes/" + id + ".bytes",
                     "Actual saved rawRGBA bytes/path differ from original atlas identity: " + id);
                 plan.Hud.RequireTextureBytes(id, raw);
                 Texture2D texture = hud.Texture(id);
@@ -138,34 +248,6 @@ namespace Blitz.Editor
                 boundBytes += raw.Length;
                 if (requireAtlasPixels) pixelBytes += VerifyNativePixels(texture, raw);
             }
-            var savedServices = new SerializedObject(services);
-            TextAsset book = savedServices.FindProperty("originalPlaybook").objectReferenceValue as TextAsset;
-            Require(book != null && AuthorizedAssetRoot.Sha256(book.bytes) == SourceInterfacePackagePlan.PlaybookSha256 &&
-                AssetDatabase.GetAssetPath(book) == destination + "/Resources/BlitzSourceInterface/playbook.bytes",
-                "Saved services P1 TextAsset bytes/reference changed.");
-            Require(savedServices.FindProperty("originalAnimations").objectReferenceValue == animation &&
-                savedServices.FindProperty("originalHud").objectReferenceValue == hud,
-                "Persisted services reference different animation/HUD assets.");
-            TextAsset config = AssetDatabase.LoadAssetAtPath<TextAsset>(destination + "/Resources/BlitzSourceInterface/configuration.json");
-            Require(config != null && AuthorizedAssetRoot.Sha256(config.bytes) == plan.ConfigurationSha256,
-                "Actual saved explicit configuration bytes changed.");
-            string report = "{\n\"schema\":\"source-interface-package-native/v1\",\n\"bindingsVerified\":true," +
-                "\n\"atlasPixelsVerified\":" + (requireAtlasPixels ? "true" : "false") +
-                ",\n\"atlasRawBytes\":" + boundBytes + ",\n\"nativeReadbackBytes\":" + pixelBytes +
-                ",\n\"configurationSha256\":\"" + plan.ConfigurationSha256 +
-                "\",\n\"hudManifestSha256\":\"" + SourceInterfacePackagePlan.HudSha256 +
-                "\",\n\"animationManifestSha256\":\"" + SourceInterfacePackagePlan.AnimationSha256 +
-                "\",\n\"playbookSha256\":\"" + SourceInterfacePackagePlan.PlaybookSha256 +
-                "\",\n\"unityVersion\":\"" + Application.unityVersion +
-                "\",\n\"graphicsDeviceType\":\"" + SystemInfo.graphicsDeviceType +
-                "\",\n\"graphicsDeviceName\":\"" + Escape(SystemInfo.graphicsDeviceName) +
-                "\",\n\"freshDomainRequired\":true,\n\"M1Loaded\":false,\n\"gameOrBrowserParityClaimed\":false\n}\n";
-            string output = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Build");
-            Directory.CreateDirectory(output);
-            File.WriteAllText(Path.Combine(output, requireAtlasPixels ? "source-interface-native-pixels.json" :
-                "source-interface-native-bindings.json"), report);
-            Debug.Log("PASS actual saved original HUD/services " + (requireAtlasPixels ? "bindings + ALL native atlas pixels" :
-                "bindings ONLY; no atlas framebuffer/native-game proof") + "; explicit configuration and SAME final117 library preserved.");
         }
 
         private static long VerifyNativePixels(Texture2D source, byte[] expected)

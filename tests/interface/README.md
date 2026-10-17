@@ -1,5 +1,52 @@
 # HUD/cabinet regression checks
 
+## Current movement157 runtime gate
+
+From a clean coherent checkout, with no original assets, Unity or ignored
+authoring state:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
+```
+
+This runs the actual C#7.3/.NET Standard2.1 HUD/input model and strict new
+`SourceInterfaceMovementBootstrap` parser, including all7 field indices/three0..3
+team masks/global booleans/both original DIP rasters, and ten **compiled
+production-source** bootstrap mutants. It also runs the actual
+Runtime/services/camera wiring guards, isolated structural mutants, complete
+16-owned-file inventory and copied clean-checkout default.
+Structural guards are not presented as native Runtime execution.
+
+Optional complete actual Unity-reference API compilation and actual data mapping:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py \
+  --unity-editor-data "$UNITY_EDITOR_DATA" \
+  --movement tools/movement/.artifacts/source-movement-runtime.json
+```
+
+`--movement` requires the real Unity-reference option, never stubs. Both
+`UNITY_EDITOR` and `UNITY_WEBGL` compile the complete current runtime dependencies,
+including actual `BlitzRuntime`, `PlayHud` and `FixedStepBridge`, with exact
+owned-file hashes. The actual compiled Runtime assembly's pure composition
+helper is then executed by a .NET runner with the real89c790 movement payload.
+It checks every original Line/Back/friction/acceleration/plow bit and all
+settings combinations, rejecting four compiled actual Runtime mapping mutants.
+It does not construct fake Unity objects, execute native engine APIs, sample
+an invented camera or replace QA's real Core caller campaigns.
+
+The current runtime calls those same helpers and injects mandatory typed M1
+data/settings. Camera guards require original DIP configuration before stage
+initialization, Core's raw mode, one real source sample followed by the
+tick-guarded pure frame and Core frame injection inside the executing provider.
+Omitted/stale/zero/browser frames, duplicate/post-host transport, wrong masks,
+swapped rows, missing bootstrap/resources and legacy alias activation are
+discriminated. Restart/focus and single cue/lifecycle ownership remain guarded.
+See [stage/API details](STAGE.md) and
+[movement/bootstrap resources](../../tools/interface/README.md#current-movement157-bootstrap).
+
+## Retained B1 HUD/cabinet evidence
+
 The model compiles **actual production C# 7.3 / .NET Standard 2.1**, warnings as
 errors. It uses all current Contracts, the existing immutable roster JSON reader,
 production input/menu/bridge code and the actual HUD composer, not fake Unity

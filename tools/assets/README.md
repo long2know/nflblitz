@@ -1,5 +1,9 @@
 # Original player/team presentation inputs
 
+For the **new M1 checkout**, use the explicit Movement157 profile below and
+[`../interface/packaging.md`](../interface/packaging.md). The117 recipe is retained
+as an honest B1 profile, not repointed to new motion.
+
 Original sources, art, motion, prepared catalogs, imported Resources and native
 proofs stay ignored/local. These tools do not download anything or grant
 redistribution rights. Supply the explicitly authorized original inputs.
@@ -9,6 +13,47 @@ redistribution rights. Supply the explicitly authorized original inputs.
 `prepare_player.py` remains the immutable normal-body Chicago-home/PC_WHITE
 preparation. It is a conversion control, **not** an opposing-team renderer.
 Its original recipe and output are unchanged.
+
+## Completed Movement157 team/resource profile
+
+The completed converter-state bundle has157 clips/13,490 frames, manifest SHA256
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
+`tools/animation/prepare_movement_complete.py` consumes explicit original source
+and the unchanged156 base; it does not rewrite WAN flags or invent missing
+poses:
+
+```sh
+python3 -B tools/animation/prepare_movement_complete.py \
+  --source-root "$ORIGINAL_SOURCE" --selected-bundle "$BUNDLE156" \
+  --destination "$NEW_BUNDLE157"
+```
+
+`R_SKIP` was selected/uncompressed (`0x4000`), with absent right-hand limb5.
+The original `wan2seq` shared-buffer replay from selected `Huffrun2` supplies
+that exact converter state. All156 preceding clip bytes remain unchanged.
+
+Use `Blitz.Editor.SourceTeamImporter.ImportMovement157FromCommandLine` with the
+same all31 prepared team and original impact inputs, but
+`-teamAnimationRoot "$NEW_BUNDLE157"`. Actual new identities are:
+
+- Template/stable ID: `original-teams-movement157`.
+- Team: `BlitzSourcePlayers/original-teams-movement157/team-presentation`.
+- Animation: `SourceData/local-plyr266-movement157-f0ae9395`.
+- Impact: `BlitzSourcePlayers/original-teams-movement157/impact-library`.
+- Match services: `BlitzSourceInterface/original-movement157-match-services`.
+
+The actual prefab provider, field team selector, camera resource selector,
+importer, and services consumer agree on these identities and reject117/56/
+partial156 aliases. Match configuration, source movement data, actual powerup
+masks, and original DIP settings are explicit package inputs; see the interface
+recipe. The old B1 `ImportFromCommandLine` still requires its immutable117
+profile. A current M1 services consumer fails visibly if called as old B1.
+
+No new assets have been imported or GPU-checked while legitimate Editor access
+remains blocked (exit198). All original art/motion, converted resources and
+generated metadata stay ignored/local. Source/API tests do not prove a native
+or browser game, full original normal-camera targeting, sound/SPFX, or any of
+the16 full-parity rows.
 
 ## All31 opposing-team preparation
 

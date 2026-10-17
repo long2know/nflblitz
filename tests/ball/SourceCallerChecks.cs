@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Globalization;
+using System.Text.Json;
 using Blitz.Contracts;
 using Blitz.Gameplay;
 
@@ -37,10 +38,6 @@ internal static class SourceCallerChecks
     internal static int Run(FullKernelInputs real, string originalCases)
     {
         oracleRoot = originalCases;
-        ISourceAnimationLibrary animations = real.Animations;
-        ISourceActorGeometry geometry = real.Geometry;
-        SourcePlaybook playbook = real.Playbook;
-        ISourceTeamRoster rosters = real.Rosters;
         var settings = new SourcePresentationSettings(TeamId.Away, new[] { -1, 3, 19, -1 }, -2);
         Func<GameSimulation> create = () => real.Create(configuration: Configuration(), presentation: settings);
         var game = create();
@@ -126,6 +123,7 @@ internal static class SourceCallerChecks
         game.SourceStationInputTransform = (s, t, f) => { sequence.Add("input:" + t); return f; };
         game.SourceCameraHeadingProvider = (s, t) =>
         {
+            FullKernelInputs.SetControlledMovementCamera(game, s, t);
             sequence.Add("camera:" + t);
             Check(game.SourceCameraStageOrder >= 0, "camera exposes reserved actual execution ordinal");
             Check(((ISourceMatchState)s).SourceTick == t, "camera receives executing pre-actor snapshot");
@@ -150,16 +148,20 @@ internal static class SourceCallerChecks
         bool rejected = false;
         try { game.DrawSourceCameraRandom(3, "outside"); } catch (InvalidOperationException) { rejected = true; }
         Check(rejected, "render/outside-camera RNG draw is rejected");
-        game.SourceCameraHeadingProvider = (s, t) => 1024;
+        game.SourceCameraHeadingProvider = (s, t) =>
+        {
+            FullKernelInputs.SetControlledMovementCamera(game, s, t);
+            return 1024;
+        };
         rejected = false;
         try { game.Step(default(PlayerCommand)); } catch (ArgumentOutOfRangeException) { rejected = true; }
         Check(rejected, "invalid camera heading rejected instead of defaulted");
 
-        int gateCases = GateCases(animations, geometry, playbook, rosters);
+        int gateCases = GateCases(real);
         int receiverCases = ReceiverCases();
-        int vmCases = VmCases(animations, geometry, playbook, rosters);
+        int vmCases = VmCases(real);
         FlipCases(create);
-        RawSnapAndPass(animations, geometry, playbook, rosters);
+        RawSnapAndPass(real);
         Check(gateCases == 800 && receiverCases == 12544 && vmCases == 4, "complete original caller inventory");
         return assertions;
     }
@@ -203,8 +205,7 @@ internal static class SourceCallerChecks
         return cases;
     }
 
-    private static int GateCases(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
-        SourcePlaybook playbook, ISourceTeamRoster rosters)
+    private static int GateCases(FullKernelInputs real)
     {
         int cases = 0;
         MethodInfo drawMethod = typeof(GameSimulation).GetMethod("SourceDraw", BindingFlags.Instance | BindingFlags.NonPublic,
@@ -215,8 +216,7 @@ internal static class SourceCallerChecks
             var provenance = new SourceRandomProvenance("source-caller-oracle", "injected original-C recorded inputs",
                 "deterministic raw roll=" + t[3], SourceRandomEvidence.ExternalUnverified);
             var random = new SourceInjectedRandom(site => site.BoundOrModulus == 100 ? t[3] : 37, provenance);
-            var game = new GameSimulation(animations, geometry, playbook, Configuration(), seed: 1,
-                randomFactory: seed => random, rosters: rosters);
+            var game = real.Create(configuration: Configuration(), randomFactory: seed => random);
             game.Model.Phase = t[0] != 0 ? GamePhase.LiveBall : GamePhase.DeadBall;
             game.Model.CarrierId = t[2] != 0 ? 4 : 3;
             ActorState actor = game.Model.Players[4];
@@ -258,13 +258,12 @@ internal static class SourceCallerChecks
         return cases;
     }
 
-    private static int VmCases(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
-        SourcePlaybook playbook, ISourceTeamRoster rosters)
+    private static int VmCases(FullKernelInputs real)
     {
         int count = 0;
         foreach (string script in new[] { "fall_04", "h_front1_anim", "t_dshoul_anim", "c_dive_for_ball_anim" })
         {
-            var game = new GameSimulation(animations, geometry, playbook, Configuration(), rosters: rosters);
+            var game = real.Create(configuration: Configuration());
             game.Model.Phase = GamePhase.DeadBall;
             game.Model.CarrierId = script == "h_front1_anim" ? 3 : 4;
             ActorState actor = game.Model.Players[4];
@@ -348,6 +347,7 @@ internal static class SourceCallerChecks
         {
             game.SourceCameraHeadingProvider = (state, tick) =>
             {
+                FullKernelInputs.SetControlledMovementCamera(game, state, tick);
                 if (state.Phase == GamePhase.PreSnap)
                     lineups[game] = Enumerable.Range(0, 14).Select(game.SourceActorWorldPosition).ToArray();
                 return game.SourceCameraHeading;
@@ -397,13 +397,12 @@ internal static class SourceCallerChecks
             "published source presentation batches are detached per host step");
     }
 
-    private static void RawSnapAndPass(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
-        SourcePlaybook playbook, ISourceTeamRoster rosters)
+    private static void RawSnapAndPass(FullKernelInputs real)
     {
         SourceMatchConfiguration original = Configuration();
         var config = new SourceMatchConfiguration(original.Profile, original.StationLayout,
             original.HomeTeam, original.AwayTeam, original.Stations, TeamId.Away, original.Captain);
-        var game = new GameSimulation(animations, geometry, playbook, config, rosters: rosters);
+        var game = real.Create(configuration: config);
         for (int host = 0; game.State.Phase != GamePhase.PlaySelect && host < 5000; host++)
             game.Step(game.State.Phase == GamePhase.DeadBall ? new PlayerCommand(action: InputAction.Continue)
                 : new PlayerCommand(new FieldVector(1f, 0f), true));
@@ -429,18 +428,28 @@ internal static class SourceCallerChecks
         for (int host = 0; game.Model.CarrierId != quarterback && host < 100; host++)
             game.Step(Raw(SourceButtons.None));
         Check(game.Model.CarrierId == quarterback, "actual center wrist snap and QB catch, not state mutation");
-        for (int host = 0; game.Model.SourceClockRemainder != 0 && host < 20; host++)
-            game.Step(Raw(SourceButtons.None));
+        // Request the pass immediately after the real QB catch; M1 contact can legitimately interrupt a delayed throw.
         game.Step(Raw(SourceButtons.B, SourceButtons.B));
         game.Step(Raw(SourceButtons.None, released: SourceButtons.B));
         Check(game.Model.Players[quarterback].PendingThrowTarget >= 0,
             "complete raw B tap requests actual human QB pass without priority SourceAction conversion");
         bool released = false;
+        var releaseTrace = new List<object>();
         for (int host = 0; host < 100 && !released; host++)
         {
             game.Step(Raw(SourceButtons.None));
+            ActorState actor = game.Model.Players[quarterback];
+            releaseTrace.Add(new { host = game.State.Tick, source = game.SourceTick, game.State.Phase,
+                actor.PendingThrowTarget, actor.SourceMode, actor.Action, actor.SourceButtons,
+                lower = actor.AnimationState.Primary.ScriptSymbol, lowerFrame = actor.AnimationState.Primary.FrameOrdinal,
+                upper = actor.AnimationState.Secondary.ScriptSymbol, upperFrame = actor.AnimationState.Secondary.FrameOrdinal,
+                actor.AnimationState.TwoPart, actor.AnimationState.Busy, game.Model.CarrierId,
+                events = game.SourceEvents.Select(e => e.Type.ToString()).ToArray() });
             released |= game.SourceEvents.Any(e => e.Type == SourceEventType.PassReleased || e.Type == SourceEventType.LateralReleased);
         }
+        if (!released)
+            File.WriteAllText(Path.Combine(oracleRoot, "raw-B-release-failure.json"),
+                JsonSerializer.Serialize(releaseTrace, new JsonSerializerOptions { WriteIndented = true }));
         Check(released, "raw B tap drives real selected throw animation/wrist release and typed public event");
     }
 }

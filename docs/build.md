@@ -1,12 +1,21 @@
 # WebGL build and static hosting
 
-The root is the Unity project. The verified route is a **Unity 6000.3.24f1 host
-editor**, followed by a **Docker static runtime**. Original player mesh/textures
-now run with **continuous original animation: 56 clips / 3,731 selected source
-frames**. Verified host build `0000063700005f540000316b000003e7` is promoted at
+The root is the Unity project. The recorded deployment route is a **Unity
+6000.3.24f1 host editor**, followed by a **Docker static runtime**.
+The **older live preview** has continuous original animation: **56 clips / 3,731
+selected source frames**. Verified host build `0000063700005f540000316b000003e7` is promoted at
 Docker `8080/?actors=source`. The October 15 static `QBSTANCE` and identity/legend
-checks below are historical milestones, not the current animation state.
-**Full gameplay parity remains OPEN.** See the
+checks below are earlier historical milestones.
+
+The checked-in **movement157 + Team + HUD/cabinet** source extends the distinct
+B1/canonical117 layer with actual M1 data/settings and source-camera cache
+composition. It has source/pure/API evidence, **not
+a new imported/built/browser-playable generation**. Two archived 6000.3.24 and one
+installed 6000.6.5 attempts exited 198 before import (licensing404/missing headless
+entitlement). No new resource save/reload, pixels or game build is claimed.
+Target remains **6000.3.24f1**; the installed 6000.6.5 `GetInstanceID` API
+incompatibility is a separate issue, not permission to change versions.
+**All sixteen full-parity rows remain OPEN.** See the
 [source-parity ledger](source-parity.md) for the native/browser evidence and limits.
 
 ## Pinned toolchain and external activation
@@ -24,7 +33,170 @@ checks below are historical milestones, not the current animation state.
   or this tree. Do not run concurrent editors/imports/builds against the same
   project/`Library/`.
 
+## Current movement157 source-mode resources
+
+Use the coherent approved movement157 candidate, not the older live56 or frozen
+B1 project. Original/converted data and generated assets remain ignored/local.
+The [permanent complete-animation recipe](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip)
+produces **157 clips / 13,490 selected frames**, manifest
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
+It first verifies an unchanged selected156 bundle, then adds the selected,
+uncompressed `R_SKIP` using the original converter's explicit retained limb-5
+buffer from `Huffrun2`. This is qualified converter-state output, not an invented
+hand pose or shipped-SEQ/target-bit equivalence. No source flags or selectors
+are changed.
+
+The selected156 input must already match manifest
+`5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68`.
+With explicit local pinned inputs, follow the producer's new-only/read-only-reuse
+rules:
+
+```sh
+SOURCE_ROOT="/absolute/path/to/nflblitz2000"
+SELECTED_BUNDLE=".squad/.scratch/source-movement-integration/bundle156"
+NEW_BUNDLE=".squad/.scratch/source-rskip-export/bundle157"
+python3 -B tools/animation/prepare_movement_complete.py \
+  --source-root "$SOURCE_ROOT" --selected-bundle "$SELECTED_BUNDLE" \
+  --catalog tools/animation/movement_complete_sequences.json \
+  --destination "$NEW_BUNDLE"
+```
+
+| Required resource | Exact movement157 identity |
+| --- | --- |
+| Team | `BlitzSourcePlayers/original-teams-movement157/team-presentation` |
+| Animation | `SourceData/local-plyr266-movement157-f0ae9395` |
+| Impact | `BlitzSourcePlayers/original-teams-movement157/impact-library` |
+| HUD, same pinned bitmap data | `BlitzSourceInterface/original-interface` |
+| Match services | `BlitzSourceInterface/original-movement157-match-services` |
+| Runtime-safe movement | `SourceData/movement`, SHA256 `89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6` |
+
+Use [all-team preparation/import](../tools/assets/README.md) and the
+[explicit movement157 packaging entrypoints](../tools/interface/packaging.md).
+The existing explicit match/team/roster/station/home/head/`pup_bigball` selections
+are still required. Additionally provide a separately SHA-pinned
+`original-source-movement-bootstrap/v1` file with **all nine** members:
+`schema`, `field_index`, `infinite_turbo_team_mask`, `speed_powerup`,
+`fast_turbo_team_mask`, `run_out_of_bounds_team_mask`, `violence_powerup`,
+`source_hres`, `source_vres`. The field is0..6, three masks are raw0..3,
+speed and violence are booleans, and original DIP is explicitly512×256 or512×384.
+Do not infer masks from physical home/station identity or resolution from a
+browser viewport. See [bootstrap semantics](../tools/interface/README.md#current-movement157-bootstrap).
+
+Runtime injects the actual immutable movement constants/selectors, all7 friction
+values and12 Line/Back/acceleration/plow rows into the real Core constructor
+after presentation. Camera raster is configured before stage initialization;
+the actual raw Core mode and tick-guarded pure source position/all12 matrix
+floats are supplied inside the existing pre-player provider, after its real
+sample and before Core consumes the heading. Core owns previous post-actor
+14×15 joint caches; no WorldJoint/render-matrix/default/second-clock substitute.
+Legacy graybox, focus/restart and single cue/host lifecycle remain explicit.
+
+Old56/117/156 animation resources and B1 services are immutable historical
+identities. Neither a missing bootstrap/data asset nor a six-argument B1
+initializer manufactures M1 defaults. Missing data and still-unbound original
+audio/FX callbacks fail visibly. Native import/reload/pixels/game/browser proof
+still require legitimate Editor entitlement; the licensing198 boundary above
+has not changed.
+
+Current source checks are **33,921 pure assertions /10 compiled bootstrap
+mutants**, **10,941 actual-data runtime-composition assertions /4 compiled
+Runtime mutants**, and33 separate Runtime/service structural mutants.
+Actual Unity6000.3.24 C#7.3/.NET Standard2.1 compilation includes **85 runtime
+sources / all16 owned UI files**, zero diagnostics for both Editor/WebGL.
+Those pure helpers are executed from the actual compiled production Runtime
+assembly, not Unity stubs or a copied test factory; no native engine calls run.
+
+## Current B1 source-mode resources
+
+**Retained B1 source/revision only, not the current movement157 bootstrap.**
+Its117 assets/recipe and evidence remain unchanged. Use the previous B1 source
+for that full native composition; its omitted M1 inputs are rejected by the
+current M1 Core. The current recipe is above.
+
+Use an explicitly approved, isolated candidate containing the coherent checked-in
+B1/Team/UI source, not the older live-preview project or a hot M1 composition.
+Native commands below and in the linked recipes are **prerequisites for future
+licensed execution**, not operations completed by this documentation update.
+
+| Required runtime key | Preparation/import contract |
+| --- | --- |
+| `BlitzSourcePlayers/original-teams/team-presentation` | [All31 teams](../tools/assets/README.md): actual rosters, models, skins, H/A clash selection, BCD numbers and station-head metadata. The old `local-plyr266/player` is not a substitute. |
+| `BlitzSourcePlayers/original-teams/animation-library` | [Exact B1/B2 final117 recipe](../tools/animation/README.md#reproduce-exactly-the-expanded-b1b2-117-sequence-library); same immutable instance used by simulation, fifteen-pivot catch geometry and rendering. |
+| `BlitzSourcePlayers/original-teams/impact-library` | [Original impact preparation/import](../tools/assets/README.md#original-impact-presentation); actual ordered source cues and source-stage camera sampling, not a generic tackle effect. |
+| `BlitzSourceInterface/original-interface` | [HUD preparation](../tools/interface/README.md) and [native packaging](../tools/interface/packaging.md): original fonts/sprites/selection geometry, three exact RGBA assets and the source HUD shader. |
+| `BlitzSourceInterface/original-match-services` | Same packager: shared final117/HUD references, actual P1 catalog and a required explicit match/presentation configuration. |
+
+The canonical117 manifest is
+`f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274`
+(117 clips / 10,288 selected frames). Start offline with an explicitly supplied
+pinned source root:
+
+```sh
+SOURCE_ROOT="/absolute/path/to/nflblitz2000"
+BUNDLE=".squad/.scratch/player-animation-ball-recipe/bundle"
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root "$SOURCE_ROOT" \
+  --catalog tools/animation/ball_sequences.json \
+  --destination "$BUNDLE"
+```
+
+Omitting `--catalog` prepares only 56 and cannot satisfy this source profile.
+The printed manifest hash must equal the pin above. Use a new ignored destination;
+`--reuse` is only read-only verification of an entirely identical bundle.
+
+Then follow this order:
+
+1. Prepare the pinned rosters and [all 31 team/impact inputs](../tools/assets/README.md).
+   Under the exclusive licensed candidate Editor lease, use
+   `Blitz.Editor.SourceTeamImporter.ImportFromCommandLine` with its documented
+   `-teamAssetRoot`, `-teamCatalogSha256`, `-teamAnimationRoot`,
+   `-teamImpactRoot` and `-teamImpactSha256` arguments. This installs the
+   **new `original-teams` identity**, not an overwrite of the old56 resources.
+2. Prepare the [complete HUD](../tools/interface/README.md) and actual P1
+   `catalog.tsv`. The [packaging recipe](../tools/interface/packaging.md) pins
+   HUD manifest
+   `258d5f4361d7da852b1446e774c5aad7d389ed268daabf3d4971c68a29fd8435`
+   and P1 catalog
+   `b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3`.
+   Supply a separately SHA-pinned `original-source-match-package/v1`
+   configuration. Team IDs, seven roster records/side, station identities and
+   ownership, first possession, captain, time adjustment/difficulty/continuation,
+   selected-or-explicitly-null plays, designated home side, four station heads,
+   the whole `pup_bigball` integer and native-gamepad choice must be deliberate
+   inputs. The recipe's example is **not an original/default match selection**.
+3. In that same approved isolated candidate, follow the exact
+   `SourceTeamInterfaceImporter.ImportFromCommandLine` arguments in the packaging
+   recipe, then its **fresh-process** `VerifyBindingsFromCommandLine` and
+   graphics-device `VerifyFromCommandLine` checks. Existing destinations/resource
+   keys are refused, not overwritten or deleted. API compilation is not a
+   successful import, reload or GPU-pixel check.
+4. Prepare/import the [original world](#prepare-and-import-the-original-field-and-stadium)
+   separately if requiring `environment=source`. Only after actual resource
+   verification is a fresh [host build](#host-build-verified-route) meaningful.
+
+No M1/156-animation injection is included; the frozen movement accessor is lazy
+and its resource is not required by B1 packaging. Original data, converted output,
+generated Resources and their metadata remain ignored/local. There is no raw
+WAN/archive/network loading in WebGL.
+
+The published parent repairs—`DecodeUtf8` public visibility only and four explicit
+serialized `null` initializers—resolve the earlier separate-Editor/CS0649 API
+blockers recorded in the frozen recipe notes. The final integrated API snapshot
+compiles 82 runtime sources and a separate 5-Editor assembly against actual
+Unity 6000.3.24 C# 7.3/.NET Standard 2.1 with zero diagnostics. This does **not**
+resolve the native entitlement failure.
+
+Even with all resources present, actual original audio/FX callbacks still lack
+their gameplay consumers and fail explicitly when reached. Offline bank decoding
+is not finished game audio. Do not install silence/noops/fake clicks or claim a
+complete source match from resource/API checks.
+
 ## Prepare and import a local source player
+
+**Historical/diagnostic single-player control only.** This preserves the old
+Chicago/PC_WHITE import and the live56 evidence. It does not install the required
+`original-teams`, impact, HUD or match-service resources for current B1 source
+mode. Use the current composition above for a fresh source candidate.
 
 Start from a checkout of this project and a **user-supplied physical source
 directory** containing these exact inputs from `historicalsource/nflblitz2000`
@@ -91,9 +263,10 @@ preview. Do not hide it with an invented axis flip or call it animation.
 
 ## Apply QBSTANCE frame 0
 
-**Historical October 15 standing-preview diagnostic, not the current runtime
-setup.** The continuous source runtime requires the clip-library step below,
-not this optional static-pose command. Authentic frame-0 native application and
+**Historical October 15 standing-preview diagnostic, not the current B1 runtime
+setup.** The older continuous preview required the56 library below rather than
+this optional static-pose command; current B1 requires the full117 composition
+above. Authentic frame-0 native application and
 independent saved-prefab reload both passed;
 all **343 split vertices** matched the original source matrices within
 **2.79×10⁻⁶ source units**. The resulting WebGL generation passed the bounded
@@ -151,6 +324,11 @@ script/frame/layer/root state.
 
 ## Prepare and import continuous original animation
 
+**Historical live56/immutable control recipe, not a fresh B1 source-mode setup.**
+Retain this resource unchanged. The [canonical117 recipe](#current-b1-source-mode-resources)
+and original-team importer use a different resource identity; neither overwrites
+the old56 library.
+
 After the player import, prepare the pinned **56-clip / 3,731-selected-frame**
 library from the same explicitly supplied original source root using the
 [permanent offline animation recipe](../tools/animation/README.md).
@@ -159,7 +337,7 @@ eleven case-sensitive WAN paths, Git blobs, sequence names and selected counts.
 No network, ignored helper, historical executable or additional package is needed.
 Its `original-wan-clip/v1` files and `original-wan-export-inventory/v1` manifest
 remain ignored local data, not tracked motion fixtures. A single decoded
-`QBSTANCE` pose or the earlier 25-clip export is not this runtime's library.
+`QBSTANCE` pose or the earlier25 export is not that recorded preview's library.
 
 Continue in the same root Bash session with `SOURCE_ROOT` and `UNITY_EDITOR`
 set as above:
@@ -211,14 +389,16 @@ Source identities, selected mappings and every frame value remained unchanged;
 only portable provenance metadata changed from the older exports. Those recipe
 checks did **not** run Unity or rebuild the verified animated player.
 
-At runtime that same immutable library is injected into
+At the recorded56 checkpoint, that same immutable library was injected into
 `GameSimulation(ISourceAnimationLibrary, int seed = 1)` and the renderer.
 The host remains 60 Hz; source animation/action state runs on the explicit
 57 Hz profile. The renderer uses selected **authoring frame IDs**, independent
 lower/upper headings and resolved root offsets, not a generic looping FPS,
 velocity-selected animation or double-applied X/Z clip drift. Missing source
 library/clip/frame fails visibly; there is no static or graybox substitution.
-Rebuild after either player or animation import.
+Rebuilding that historical setup is not a current B1 recipe. Current
+`SourceInterfaceServices` composes the canonical117 library, actual geometry,
+P1 playbook, match configuration, team rosters and presentation settings.
 
 ## Prepare and import the original field and stadium
 
@@ -244,8 +424,10 @@ Editor ownership and source freezes before an actual root import/build.
 
 ## Host build: verified route
 
-From the repository root, use an existing supported, activated installation with
-the matching editor and WebGL module:
+This route has the old56 deployment proof below; it has not built the new
+combined candidate. For a new movement157 build, work from the complete approved
+candidate's project root **after** the resource/import prerequisites above, using
+an existing supported, activated installation with matching Editor/WebGL module:
 
 ```sh
 UNITY_EDITOR="${APPROVED_UNITY_EDITOR:?set an absolute editor executable path}" \
@@ -332,12 +514,16 @@ HTTP readiness, not gameplay.
 
 Use `http://127.0.0.1:8080/?actors=source` to require the generated source player;
 `?actors=graybox` explicitly selects the procedural baseline. Without a parameter,
-an installed source prefab is preferred, otherwise graybox runs. A missing or
-invalid required source prefab or animation library fails rather than silently
-substituting primitives or a static stance. All fourteen source actors currently
-reuse one model/skin/uniform, **not one static pose**.
-Rebuild after player/animation changes; the browser cannot load new Editor assets from
-disk into an older exported player.
+installed original-team resources may select source, but a missing resource set
+does **not** implicitly select legacy. Current source mode requires the
+**movement157 resource set plus pinned bootstrap above** and reports
+`SOURCE MODE ERROR` for missing/invalid data;
+there is no old-single-player, generic HUD/font, static or primitive substitute.
+Source controls are the [raw cabinet bindings](../README.md#source-cabinet-controls);
+the old1/2/3/Space/Shift/Q/F mappings are explicit graybox controls.
+Rebuild after source/resource changes; an older player cannot load new Editor
+assets from disk. Serving or viewing that older generation is not proof of the
+checked-in all-team/HUD composition.
 
 The runtime is non-root/read-only, contains no editor or source tree, serves WASM
 as `application/wasm`, disables compression, revalidates with ETags and returns
@@ -348,6 +534,11 @@ after a player change. The serve script selects the command-local default
 builder unless `BUILDX_BUILDER` is explicitly supplied.
 
 ## Browser verification
+
+Everything in the following continuous/static browser evidence records belongs
+to the **older56 or static live generations**, not a new B1/M1/Team/HUD build.
+No new resource import/build/browser session, replacement image or remeasurement
+of the existing full-viewport/RTX3070 baseline is claimed here.
 
 ### Continuous-animation evidence — October 16, 2026
 
@@ -463,6 +654,10 @@ python3 tests/camera/run.py
 python3 tests/test-unity-metadata.py
 python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
 python3 -B -m unittest discover -s tools/animation/tests
+python3 -B tests/interface/run.py
+python3 -B tests/interface/stage_followup.py
+python3 -B tests/presentation/run.py
+python3 -B tests/interface/movement_bootstrap.py
 ```
 
 See [core/metadata](../tests/README.md), [asset](../tests/assets/README.md) and
@@ -473,6 +668,17 @@ and **seven production-file hash guards**. Clean-source execution and missing/
 zero/stale-count rejection passed without original art or pose data. Native
 Editor/runtime adapters and the actual 343-vertex comparison remain separate.
 The camera suite retains **3,568 assertions / six rejected mutations**.
+
+See [HUD/cabinet](../tests/interface/README.md),
+[complete-owned-UI caller/API](../tests/interface/STAGE.md), and
+[team/impact](../tests/presentation/README.md) coverage and their explicit
+original-data options. Recorded source results—not suites rerun for this
+documentation change—are B1 **488,736 assertions/20 mutants**, Team
+**680,731/14**, base UI **16,215/13** plus nine converter/four interop tests,
+and packaging **107/18**. Caller API evidence covers all16 owned UI files in
+an 80-source runtime snapshot, both Editor/WebGL defines and 21 guards; the later
+packaging snapshot separately proves 82 runtime/separate 5 Editor APIs. These are
+distinct, overlapping scopes, not additive whole-game acceptance counts.
 
 The core suite has **156 cases / six runner guards**; preparation has **35**
 synthetic tests and the WAN reader **12**. Metadata has **12 guard tests** and
@@ -490,8 +696,13 @@ documented separately. Generate the corpus **before** the production comparison:
 
 ```sh
 python3 tests/source-oracles/run.py --source-root "$SOURCE_ROOT" --full-matrix
-python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
+python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json \
+  --full-kernel --fixture-manifest "$FULL_KERNEL_FIXTURE"
 ```
+
+`FULL_KERNEL_FIXTURE` must name the explicitly prepared real-input manifest
+described by the [full-kernel factory recipe](../tests/parity/README.md);
+canonical117 geometry/roster/playbook inputs are not synthetic substitutes.
 
 Recorded October 16: **21 original-C groups / 123,039 cases**, **123,004 C#
 comparisons / 864,156 assertions**, plus **332 synthetic contract/host-adapter

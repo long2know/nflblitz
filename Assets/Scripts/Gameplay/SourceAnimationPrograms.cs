@@ -29,7 +29,8 @@ namespace Blitz.Gameplay
         RotateHeading, PrepareTransition, Callback, WaitCondition, BranchIfHasBall,
         SetFlip, SetLateHittable, RotateTorso, FaceBall, RotateToBall, LeapTarget,
         SetLowerUninterruptible, SelectScript, RandomBranch, JumpProgram, BranchSlowerSpin,
-        BranchIfNotHasBall, CameraCue, ShakerCue, PresentationCallback, End
+        BranchIfNotHasBall, CameraCue, ShakerCue, PresentationCallback,
+        MovementCode, MovementBranchNonzero, MovementBranchZero, LeapAttack, AttackOn, AttackOff, TurnHack, End
     }
 
     [Flags]
@@ -57,12 +58,21 @@ namespace Blitz.Gameplay
         internal readonly int B;
         internal readonly int C;
         internal readonly int SourceLine;
+        internal readonly string Target;
+        internal readonly string AlternateSequence;
+        internal readonly int BranchPc;
+        internal readonly int Timer;
+        internal readonly float MaximumYVelocity;
+        internal readonly float MaximumPlanarVelocity;
+        internal readonly float MinimumPlanarVelocity;
         internal readonly float X;
         internal readonly float Y;
         internal readonly float Z;
 
         internal SourceAnimationInstruction(SourceAnimationOp op, int a = 0, int b = 0,
-            string text = null, float x = 0f, float y = 0f, float z = 0f, int c = 0, int sourceLine = 0)
+            string text = null, float x = 0f, float y = 0f, float z = 0f, int c = 0, int sourceLine = 0,
+            string target = null, int branchPc = -1, int timer = 0, string alternateSequence = null,
+            float maximumYVelocity = 0f, float maximumPlanarVelocity = 0f, float minimumPlanarVelocity = 0f)
         {
             Op = op;
             Text = text;
@@ -70,6 +80,10 @@ namespace Blitz.Gameplay
             B = b;
             C = c;
             SourceLine = sourceLine;
+            Target = target; BranchPc = branchPc; Timer = timer;
+            AlternateSequence = alternateSequence;
+            MaximumYVelocity = maximumYVelocity; MaximumPlanarVelocity = maximumPlanarVelocity;
+            MinimumPlanarVelocity = minimumPlanarVelocity;
             X = x;
             Y = y;
             Z = z;
@@ -90,7 +104,7 @@ namespace Blitz.Gameplay
 
     // Programs refer to selected SEQ ordinals, not WAN authoring frame numbers.
     // Evidence: plyrseq.c 28cef0d1082f2b0c9241930fdc8886de4c8f5438.
-    internal static class SourceAnimationPrograms
+    internal static partial class SourceAnimationPrograms
     {
         private static readonly Dictionary<string, SourceAnimationProgram> Programs = Build();
 
@@ -411,6 +425,7 @@ namespace Blitz.Gameplay
                     Run(), Call(SourceAnimationSignal.GeneralRun), Op(SourceAnimationOp.End));
             AddCatchPrograms(p);
             AddFormationPrograms(p);
+            AddMovementPrograms(p);
             return p;
         }
 

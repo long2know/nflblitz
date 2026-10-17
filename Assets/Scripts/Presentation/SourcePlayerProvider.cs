@@ -14,60 +14,93 @@ namespace Blitz.Presentation
         public const string TeamAnimationResourceKey = "BlitzSourcePlayers/original-teams/animation-library";
         public const string TeamImpactResourceKey = "BlitzSourcePlayers/original-teams/impact-library";
         public const string TeamAnimationManifestSha256 = "f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274";
+        public const string MovementTeamPresentationResourceKey = "BlitzSourcePlayers/original-teams-movement157/team-presentation";
+        public const string MovementAnimationResourceKey = SourceTeamResourceProfile.MovementAnimationKey;
+        public const string MovementImpactResourceKey = "BlitzSourcePlayers/original-teams-movement157/impact-library";
+        public const string MovementAnimationManifestSha256 = SourceTeamResourceProfile.MovementAnimationSha256;
 
         public static SourceTeamPresentationAsset ResolveRequiredTeamPresentation()
+        { return ResolveRequiredTeamPresentation(SourceTeamResourceProfile.B1Final117); }
+
+        public static SourceTeamPresentationAsset ResolveRequiredTeamPresentation(SourcePlayerRig sourcePrefab)
         {
-            SourceTeamPresentationAsset asset = Resources.Load<SourceTeamPresentationAsset>(TeamPresentationResourceKey);
+            if (sourcePrefab == null) throw new ArgumentNullException(nameof(sourcePrefab));
+            return ResolveRequiredTeamPresentation(SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId));
+        }
+
+        private static SourceTeamPresentationAsset ResolveRequiredTeamPresentation(SourceTeamResourceProfile profile)
+        {
+            SourceTeamPresentationAsset asset = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
             if (asset == null)
                 throw new InvalidOperationException("Original opposing-team presentation requires Resources/" +
-                    TeamPresentationResourceKey + ". Run the explicit original team importer; fourteen matching uniforms are not a fallback.");
+                    profile.TeamResourceKey + ". Run the explicit matching team importer; fourteen matching uniforms are not a fallback.");
             asset.Load();
+            if (asset.Template.StableId != profile.StableId)
+                throw new InvalidOperationException("Original team asset/template profile identity differs; no117/157 alias.");
             return asset;
         }
 
         public static SourceCinematicLibrary ResolveRequiredCinematicLibrary()
+        { return ResolveRequiredCinematicLibrary(null); }
+
+        public static SourceCinematicLibrary ResolveRequiredCinematicLibrary(SourcePlayerRig sourcePrefab)
         {
-            SourceCinematicLibraryAsset asset = Resources.Load<SourceCinematicLibraryAsset>(TeamImpactResourceKey);
+            SourceTeamResourceProfile profile = sourcePrefab == null ? SourceTeamResourceProfile.B1Final117 :
+                SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId);
+            SourceCinematicLibraryAsset asset = Resources.Load<SourceCinematicLibraryAsset>(profile.ImpactResourceKey);
             if (asset == null)
                 throw new InvalidOperationException("Original impact camera/effect catalog is missing at Resources/" +
-                    TeamImpactResourceKey + "; no generic tackle presentation is substituted.");
+                    profile.ImpactResourceKey + "; no generic tackle presentation is substituted.");
             return asset.Load();
         }
 
         internal static SourcePlayerRig ResolveActorMode()
+        { return ResolveActorMode(false); }
+
+        internal static SourcePlayerRig ResolveActorMode(bool movement157)
         {
+            SourceTeamResourceProfile profile = movement157 ? SourceTeamResourceProfile.Movement157 : SourceTeamResourceProfile.B1Final117;
             string mode = RequestedMode(Application.absoluteURL);
             if (mode == "graybox")
             {
                 Debug.Log("Actor mode: explicitly selected procedural graybox.");
                 return null;
             }
-            SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(TeamPresentationResourceKey);
+            SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
             if (teams == null)
             {
                 if (mode == "source" || Resources.Load<GameObject>(ResourceKey) != null)
                     throw new InvalidOperationException("Original opposing-team assets are missing at Resources/" +
-                        TeamPresentationResourceKey + ". The old single Chicago/PC_WHITE preview is not an opposing-team fallback.");
+                        profile.TeamResourceKey + ". The old single Chicago/PC_WHITE preview or another animation profile is not a fallback.");
                 Debug.Log("Actor mode: procedural graybox (no local source prefab installed). Use ?actors=source to require source assets or ?actors=graybox explicitly.");
                 return null;
             }
             SourcePlayerRig prefab = teams.Template;
             prefab.ValidateGeneratedRig();
-            Debug.Log("Actor mode: original opposing-team uniforms/models/BCD numbers/rosters; explicit source draw state and117-clip library required.");
+            if (prefab.StableId != profile.StableId)
+                throw new InvalidOperationException("Original team prefab resource profile differs.");
+            Debug.Log("Actor mode: original opposing-team uniforms/models/BCD numbers/rosters; explicit " + profile.StableId +
+                " draw state and" + profile.ClipCount + "-clip library required.");
             return prefab;
         }
 
         internal static ISourceAnimationLibrary ResolveRequiredAnimationLibrary(SourcePlayerRig sourcePrefab)
         {
             if (sourcePrefab == null) return null;
-            string key = sourcePrefab.StableId == "original-teams" ? TeamAnimationResourceKey : AnimationResourceKey;
+            SourceTeamResourceProfile profile = sourcePrefab.StableId == LocalPreviewId ? null :
+                SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId);
+            string key = profile == null ? AnimationResourceKey : profile.AnimationResourceKey;
             SourceAnimationLibraryAsset asset = Resources.Load<SourceAnimationLibraryAsset>(key);
             if (asset == null)
                 throw new InvalidOperationException("Source actor mode requires the imported original animation library at Resources/" +
                     key + ". Run the explicit clip importer; no static pose will be substituted.");
-            if (sourcePrefab.StableId == "original-teams" && asset.InventorySha256 != TeamAnimationManifestSha256)
-                throw new InvalidOperationException("Original team runtime requires the final immutable117-clip manifest, not the old56 library or an aliased inventory pin.");
             ISourceAnimationLibrary library = asset.Load();
+            if (profile != null)
+            {
+                SourceAnimationLibrary actual = library as SourceAnimationLibrary;
+                if (actual == null) throw new InvalidOperationException("Original team mode requires its actual typed animation library.");
+                profile.RequireInventory(asset.InventorySha256, actual.SequenceNames.Count, actual.FrameCount);
+            }
             Debug.Log("Original animation library loaded; inventory SHA256=" + asset.InventorySha256 +
                 "; source-clock samples required. Full gameplay/wall-clock parity is not asserted.");
             return library;

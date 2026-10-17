@@ -14,6 +14,9 @@ from fetch_inputs import ROOT, REVISION, blob_sha1, ignored_output
 ANIMATION_SHA = "f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274"
 ROSTER_SHA = "f747741e95766185e0c615ded549d1ce2f5fec0c48ed2ecb29ba1b755764539b"
 PLAYBOOK_SHA = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3"
+MOVEMENT_SHA = "89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6"
+MOVEMENT_SELECTED_SHA = "5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68"
+MOVEMENT_ANIMATION_SHA = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e"
 
 
 def sha(path):
@@ -42,20 +45,24 @@ def fixture_hashes(manifest_path):
     if manifest.get("schema") != "source-kernel-real-inputs/v1" or manifest.get("source_revision") != REVISION:
         raise ValueError("Wrong real-input fixture schema/revision.")
     paths = [manifest_path]
-    expected = {"animation": ANIMATION_SHA, "rosters": ROSTER_SHA, "playbook": PLAYBOOK_SHA}
-    for name in ("animation", "rosters", "playbook", "model", "skeleton", "standing_pose"):
+    expected = {"animation": ANIMATION_SHA, "rosters": ROSTER_SHA, "playbook": PLAYBOOK_SHA,
+                "movement": MOVEMENT_SHA, "movement_animation": MOVEMENT_ANIMATION_SHA,
+                "movement_selected_animation": MOVEMENT_SELECTED_SHA}
+    for name in ("animation", "rosters", "playbook", "model", "skeleton", "standing_pose",
+                 "movement", "movement_animation", "movement_selected_animation"):
         entry = manifest[name]
         path = verified_file(root, entry["path"], entry["sha256"])
         if name in expected and entry["sha256"] != expected[name]:
             raise ValueError("Actual fixture content pin changed: " + name)
         paths.append(path)
-    animation = root / manifest["animation"]["path"]
-    entries = json.loads(animation.read_bytes())["clips"]
-    if len(entries) != 117 or sum(entry["selected_frames"] for entry in entries) != 10288:
-        raise ValueError("Expected the complete canonical 117-clip / 10288-frame input.")
-    for entry in entries:
-        path = verified_file(animation.parent, entry["path"], entry["sha256"])
-        paths.append(path)
+    for name, count, frames in (("animation", 117, 10288), ("movement_animation", 157, 13490),
+                                ("movement_selected_animation", 156, 13420)):
+        animation = root / manifest[name]["path"]
+        entries = json.loads(animation.read_bytes())["clips"]
+        if len(entries) != count or sum(entry["selected_frames"] for entry in entries) != frames:
+            raise ValueError("Actual distinct library inventory changed: " + name)
+        for entry in entries:
+            paths.append(verified_file(animation.parent, entry["path"], entry["sha256"]))
     return {str(path.resolve()): sha(path) for path in paths}
 
 
@@ -90,6 +97,14 @@ def main():
          "--output", str(output / "playbook")],
         [sys.executable, "-B", "tools/rosters/export_rosters.py", "--source-root", str(source),
          "--output", str(output / "rosters.json")],
+        [sys.executable, "-B", "tools/animation/prepare_player_sequences.py", "--source-root", str(source),
+         "--catalog", "tools/animation/movement_sequences.json", "--destination", str(output / "movement-selected")],
+        [sys.executable, "-B", "tools/animation/prepare_movement_complete.py", "--source-root", str(source),
+         "--selected-bundle", str(output / "movement-selected"),
+         "--catalog", "tools/animation/movement_complete_sequences.json",
+         "--destination", str(output / "movement-animation")],
+        [sys.executable, "-B", "tools/movement/export.py", "--source-root", str(source),
+         "--output", "tools/movement/.artifacts/source-movement-runtime.json"],
     ]
     for index, command in enumerate(commands):
         result = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=240)
@@ -114,6 +129,10 @@ def main():
         target = output / name
         target.parent.mkdir(exist_ok=True)
         target.write_bytes(data)
+    runtime_bytes = (ROOT / "tools/movement/.artifacts/source-movement-runtime.json").read_bytes()
+    if hashlib.sha256(runtime_bytes).hexdigest() != MOVEMENT_SHA:
+        raise ValueError("Strict runtime-only movement export differs from its actual trusted pin.")
+    (output / "movement-runtime.json").write_bytes(runtime_bytes)
     manifest = {
         "schema": "source-kernel-real-inputs/v1", "source_revision": REVISION,
         "animation": {"path": "animation/export-inventory.json", "sha256": ANIMATION_SHA,
@@ -123,9 +142,16 @@ def main():
         "model": {"path": "models/plyr266.h", "sha256": selected["models/plyr266.h"]["sha256"]},
         "skeleton": {"path": "models/skeleton.h", "sha256": selected["models/skeleton.h"]["sha256"]},
         "standing_pose": {"path": "standing-pose.json", "sha256": sha(output / "standing-pose.json")},
+        "movement": {"path": "movement-runtime.json", "sha256": MOVEMENT_SHA},
+        "movement_animation": {"path": "movement-animation/export-inventory.json",
+                               "sha256": MOVEMENT_ANIMATION_SHA, "clips": 157, "selected_frames": 13490},
+        "movement_selected_animation": {"path": "movement-selected/export-inventory.json",
+                                        "sha256": MOVEMENT_SELECTED_SHA, "clips": 156, "selected_frames": 13420},
         "recipes_sha256": {name: sha(ROOT / name) for name in (
             "tools/animation/ball_sequences.json", "tools/playbooks/recipe.json",
-            "tools/rosters/source_inputs.json", "tools/assets/player_inputs.json")},
+            "tools/rosters/source_inputs.json", "tools/assets/player_inputs.json",
+            "tools/movement/recipe.json", "tools/animation/movement_sequences.json",
+            "tools/animation/movement_complete_sequences.json")},
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     hashes = fixture_hashes(manifest_path)

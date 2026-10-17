@@ -14,96 +14,167 @@ namespace Blitz.Editor
     {
         public const string HudAssetSuffix = "/Resources/BlitzSourceInterface/original-interface.asset";
         public const string ServicesAssetSuffix = "/Resources/BlitzSourceInterface/original-match-services.asset";
+        public const string MovementServicesAssetSuffix = "/Resources/BlitzSourceInterface/original-movement157-match-services.asset";
         public const string ShaderName = "Hidden/Blitz/SourceHud";
 
         public static void ImportFromCommandLine()
         {
             string[] args = Environment.GetCommandLineArgs();
-            SourceInterfacePackagePlan plan = PlanFromArguments(args);
-            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
-            Import(plan, id);
+            Import(PlanFromArguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
+        }
+
+        public static void ImportMovement157FromCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            Import(PlanFromMovement157Arguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
         }
 
         public static SourceInterfacePackagePlan PlanFromArguments(string[] args)
+        { return PlanFromArguments(args, false); }
+
+        public static SourceInterfacePackagePlan PlanFromMovement157Arguments(string[] args)
+        { return PlanFromArguments(args, true); }
+
+        private static SourceInterfacePackagePlan PlanFromArguments(string[] args, bool movement157)
         {
-            return SourceInterfacePackagePlan.Create(
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceAssetRoot"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceManifest"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceManifestSha256"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybookRoot"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybook"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybookSha256"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceConfigurationRoot"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceConfiguration"),
-                PlayerAssetImporter.RequiredArgument(args, "-interfaceConfigurationSha256"));
+            string hudRoot = PlayerAssetImporter.RequiredArgument(args, "-interfaceAssetRoot");
+            string manifest = PlayerAssetImporter.RequiredArgument(args, "-interfaceManifest");
+            string hudHash = PlayerAssetImporter.RequiredArgument(args, "-interfaceManifestSha256");
+            string bookRoot = PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybookRoot");
+            string book = PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybook");
+            string bookHash = PlayerAssetImporter.RequiredArgument(args, "-interfacePlaybookSha256");
+            string configRoot = PlayerAssetImporter.RequiredArgument(args, "-interfaceConfigurationRoot");
+            string config = PlayerAssetImporter.RequiredArgument(args, "-interfaceConfiguration");
+            string configHash = PlayerAssetImporter.RequiredArgument(args, "-interfaceConfigurationSha256");
+            if (!movement157)
+                return SourceInterfacePackagePlan.Create(hudRoot, manifest, hudHash, bookRoot, book, bookHash,
+                    configRoot, config, configHash);
+            return SourceInterfacePackagePlan.CreateMovement157(hudRoot, manifest, hudHash, bookRoot, book, bookHash,
+                configRoot, config, configHash,
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceMovementRoot"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceMovement"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceMovementSha256"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceBootstrapRoot"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceBootstrap"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceBootstrapSha256"));
         }
 
         public static SourceInterfaceServices Import(SourceInterfacePackagePlan plan, string stableId)
         {
             if (plan == null) throw new ArgumentNullException(nameof(plan));
             PlayerImportPlan.ValidateStableId(stableId);
+            SourceTeamResourceProfile profile = plan.Profile;
             string destination = "Assets/Imported/" + stableId;
-            string hudPath = destination + HudAssetSuffix, servicesPath = destination + ServicesAssetSuffix;
+            string hudPath = destination + HudAssetSuffix;
+            string servicesPath = destination + ServicesSuffix(plan);
             SourceInterfacePackagePlan.RequireOutputIdentity(hudPath, SourceInterfacePackagePlan.HudResourceKey);
-            SourceInterfacePackagePlan.RequireOutputIdentity(servicesPath, SourceInterfacePackagePlan.ServicesResourceKey);
+            SourceInterfacePackagePlan.RequireOutputIdentity(servicesPath, plan.SelectedServicesResourceKey);
             if (SourceHudAsset.PreparedManifestSha256 != SourceInterfacePackagePlan.HudSha256 ||
-                SourceInterfaceServices.ExpandedAnimationSha256 != SourceInterfacePackagePlan.AnimationSha256 ||
-                SourceInterfaceServices.PlaybookSha256 != SourceInterfacePackagePlan.PlaybookSha256)
-                throw new SourceInterfaceException("Frozen B1 interface consumer pins differ; no alias or M1 substitution.");
-            RejectExistingResources();
+                SourceInterfaceServices.ExpandedAnimationSha256 != profile.AnimationSha256 ||
+                SourceInterfaceServices.PlaybookSha256 != SourceInterfacePackagePlan.PlaybookSha256 ||
+                SourceInterfaceServices.ResourceKey != plan.SelectedServicesResourceKey)
+                throw new SourceInterfaceException("Explicit package/consumer profile differs. B1 history is not a157 alias; use the matching importer/consumer checkout.");
+            if (FindUniqueResourcePath("SourceInterfaceServices", plan.SelectedServicesResourceKey) != null)
+                throw new SourceInterfaceException("The selected immutable match-services resource already exists; no overwrite or duplicate key.");
             SourceInterfacePackagePlan.RequireHudShaderSource(Path.GetDirectoryName(Application.dataPath));
             Shader shader = Shader.Find(ShaderName);
             if (shader == null || AssetDatabase.GetAssetPath(shader) != SourceInterfacePackagePlan.HudShaderPath ||
                 ShaderUtil.ShaderHasError(shader))
-                throw new SourceInterfaceException("Actual original HUD shader is missing, duplicated or has compile errors; no material fallback.");
-            SourceAnimationLibraryAsset animations = Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.TeamAnimationResourceKey);
-            SourceTeamPresentationAsset teams = SourcePlayerProvider.ResolveRequiredTeamPresentation();
-            if (animations == null || animations.InventorySha256 != SourceInterfacePackagePlan.AnimationSha256 ||
-                AssetDatabase.GetAssetPath(animations) != "Assets/Imported/original-teams/Resources/" +
-                    SourcePlayerProvider.TeamAnimationResourceKey + ".asset" ||
+                throw new SourceInterfaceException("Actual original HUD shader is missing, duplicated or has errors; no fallback.");
+            SourceAnimationLibraryAsset animations = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
+            if (animations == null || AssetDatabase.GetAssetPath(animations) != profile.AnimationAssetPath)
+                throw new SourceInterfaceException("Import the exact " + profile.StableId + " resources first; old/future libraries are not aliases.");
+            SourceAnimationLibrary actual = animations.Load() as SourceAnimationLibrary;
+            if (actual == null) throw new SourceInterfaceException("The actual typed original animation library is required.");
+            profile.RequireInventory(animations.InventorySha256, actual.SequenceNames.Count, actual.FrameCount);
+            SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
+            if (teams == null || teams.Template.StableId != profile.StableId ||
                 teams.Rosters.ContentSha256 != SourceTeamPresentationData.PinnedRosterSha256)
-                throw new SourceInterfaceException("Import the actual NEW original-teams/final117 resources first; old56/future156 are not aliases.");
-            var actual = animations.Load() as SourceAnimationLibrary;
-            if (actual == null || actual.SequenceNames.Count != 117 || actual.FrameCount != 10288)
-                throw new SourceInterfaceException("Actual B1 animation content is not final117/10288.");
+                throw new SourceInterfaceException("Missing/wrong actual opposing-team/profile/roster resources.");
+
+            string existingHudPath = FindUniqueResourcePath("SourceHudAsset", SourceInterfacePackagePlan.HudResourceKey);
+            SourceHudAsset hud = existingHudPath == null ? null : AssetDatabase.LoadAssetAtPath<SourceHudAsset>(existingHudPath);
+            if (hud != null)
+            {
+                long bytes, pixels;
+                SourceTeamInterfaceChecks.VerifyHudBindings(plan, hud, false, out bytes, out pixels);
+            }
+            TextAsset existingMovement = null;
+            if (profile.IsMovement157)
+            {
+                string path = FindUniqueResourcePath("TextAsset", SourceInterfaceMovementData.ResourceKey);
+                if (path != null)
+                {
+                    existingMovement = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                    if (existingMovement == null) throw new SourceInterfaceException("Movement resource is not an actual TextAsset.");
+                    SourceInterfaceMovementData.Read(existingMovement.bytes, SourceInterfaceMovementData.ContentSha256);
+                }
+            }
             var output = new AuthorizedAssetRoot(Path.GetDirectoryName(Application.dataPath));
             output.NewPath(destination);
-            Folder(output, "Assets/Imported"); Folder(output, destination);
-            Folder(output, destination + "/Resources"); Folder(output, destination + "/Resources/BlitzSourceInterface");
+            Folder(output, "Assets/Imported"); Folder(output, destination); Folder(output, destination + "/Resources");
+            Folder(output, destination + "/Resources/BlitzSourceInterface");
             string resource = destination + "/Resources/BlitzSourceInterface";
-            Folder(output, resource + "/Bytes");
-            TextAsset manifest = WriteText(output, resource + "/interface.json", plan.CopyManifest());
-            var bytes = new List<SourceHudTextureBytes>();
-            foreach (SourceInterfacePackageTexture texture in plan.Textures)
-                bytes.Add(new SourceHudTextureBytes(texture.Definition.Id,
-                    WriteText(output, resource + "/Bytes/" + texture.Definition.Id + ".bytes", texture.CopyBytes())));
-            TextAsset book = WriteText(output, resource + "/playbook.bytes", plan.CopyPlaybook());
+            if (hud == null)
+            {
+                Folder(output, resource + "/Bytes");
+                TextAsset manifest = WriteText(output, resource + "/interface.json", plan.CopyManifest());
+                var originals = new List<SourceHudTextureBytes>();
+                foreach (SourceInterfacePackageTexture texture in plan.Textures)
+                    originals.Add(new SourceHudTextureBytes(texture.Definition.Id,
+                        WriteText(output, resource + "/Bytes/" + texture.Definition.Id + ".bytes", texture.CopyBytes())));
+                hud = ScriptableObject.CreateInstance<SourceHudAsset>();
+                hud.Initialize(manifest, SourceInterfacePackagePlan.HudSha256, originals.ToArray(), shader);
+                output.NewPath(hudPath); AssetDatabase.CreateAsset(hud, hudPath);
+            }
+            TextAsset bookText = WriteText(output, resource + "/playbook.bytes", plan.CopyPlaybook());
             WriteText(output, resource + "/configuration.json", plan.CopyConfiguration());
-            var hud = ScriptableObject.CreateInstance<SourceHudAsset>();
-            hud.Initialize(manifest, SourceInterfacePackagePlan.HudSha256, bytes.ToArray(), shader);
-            output.NewPath(hudPath); AssetDatabase.CreateAsset(hud, hudPath);
+            TextAsset bootstrapText = null;
+            if (profile.IsMovement157)
+            {
+                if (existingMovement == null)
+                {
+                    Folder(output, destination + "/Resources/SourceData");
+                    WriteText(output, destination + "/Resources/" + SourceInterfaceMovementData.ResourceKey + ".json", plan.CopyMovement());
+                }
+                bootstrapText = WriteText(output, resource + "/movement-bootstrap.json", plan.CopyBootstrap());
+            }
             var services = ScriptableObject.CreateInstance<SourceInterfaceServices>();
-            services.Initialize(animations, hud, book, plan.Configuration.Match, plan.Configuration.Presentation,
-                plan.Configuration.NativeGamepadsEnabled);
+            if (profile.IsMovement157)
+                services.Initialize(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
+                    plan.Configuration.NativeGamepadsEnabled, bootstrapText, plan.BootstrapSha256);
+            else
+                services.Initialize(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
+                    plan.Configuration.NativeGamepadsEnabled);
             output.NewPath(servicesPath); AssetDatabase.CreateAsset(services, servicesPath);
             AssetDatabase.SaveAssets();
             SourceTeamInterfaceChecks.VerifySaved(plan, destination, false);
-            Debug.Log("PASS saved actual original B1 HUD/services Resources; raw/converted art and all generated metadata stay ignored. " +
-                "Framebuffer/native-game/browser proof is separate; no M1 expanded catalog or fake services loaded.");
+            Debug.Log("PASS saved explicit " + profile.StableId + " HUD/services Resources. Shared identical HUD/movement bytes " +
+                "are reused, not overwritten. Import/save is not framebuffer/native-game/browser proof; raw/generated data stays ignored.");
             return services;
         }
 
-        private static void RejectExistingResources()
+        internal static string ServicesSuffix(SourceInterfacePackagePlan plan)
+        { return "/Resources/" + plan.SelectedServicesResourceKey + ".asset"; }
+
+        internal static string FindUniqueResourcePath(string type, string resourceKey)
         {
-            foreach (string type in new[] { "SourceHudAsset", "SourceInterfaceServices" })
-                foreach (string guid in AssetDatabase.FindAssets("t:" + type))
-                {
-                    string path = AssetDatabase.GUIDToAssetPath(guid);
-                    if (path.IndexOf("/Resources/", StringComparison.Ordinal) >= 0)
-                        throw new SourceInterfaceException("An immutable interface Resources asset already exists: " + path +
-                            ". Inspect it; no overwrite, duplicate key, repair or deletion is performed.");
-                }
+            string found = null;
+            foreach (string guid in AssetDatabase.FindAssets("t:" + type))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                int marker = path.LastIndexOf("/Resources/", StringComparison.Ordinal);
+                if (marker < 0) continue;
+                string key = path.Substring(marker + "/Resources/".Length);
+                int dot = key.LastIndexOf('.');
+                if (dot >= 0) key = key.Substring(0, dot);
+                if (!string.Equals(key, resourceKey, StringComparison.OrdinalIgnoreCase)) continue;
+                if (found != null) throw new SourceInterfaceException("Duplicate original Resources identity: " + resourceKey);
+                found = path;
+            }
+            return found;
         }
+
         private static TextAsset WriteText(AuthorizedAssetRoot output, string path, byte[] bytes)
         {
             PlayerAssetImporter.WriteNew(output, path, bytes);

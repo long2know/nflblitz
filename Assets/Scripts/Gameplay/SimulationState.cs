@@ -82,6 +82,30 @@ namespace Blitz.Gameplay
         internal bool SourceHelmetPopped;
         internal int SourceSpinCount;
         internal int SourceRawFlags = 0;
+        internal int SourceStickTime;
+        internal int SourceBackpedalExpireTime;
+        internal int SourceAttackTime;
+        internal int SourceAttackMode;
+        internal int SourceAttackJointA;
+        internal int SourceAttackJointB;
+        internal SourceVector3 SourceAttackRadii;
+        internal int SourceCelebrateTime;
+        internal int SourceOverrideTime;
+        internal float SourceOverrideSpeed;
+        internal int SourceDroneFace;
+        internal int SourceTurnRate;
+        internal int SourceUpperTurnRate;
+        internal int SourceUpperTurnHack;
+        internal float SourceMotionSnapX;
+        internal long SourceLastLeapCacheTick = -1;
+        internal int SourceLastLeapBytesConsumed;
+        internal int SourceLastLeapFlightTicks;
+        internal int SourceMaybeDiveCallbacks;
+        internal long SourceLastMaybeDiveTick = -1;
+        internal int SourceLastSpinPredicateCount = -1;
+        internal bool SourceCapturedControlBlock;
+        internal bool SourceReturnedFromMovementMode;
+        internal int SourceImmediateGeneralRuns;
 
         internal ActorState(int id)
         {
@@ -145,6 +169,7 @@ namespace Blitz.Gameplay
         internal readonly int[] SourceConsecutiveCompletions = new int[2];
         internal readonly bool[] SourceTeamFire = new bool[2];
         internal readonly int[] SourceSpinCount = new int[2];
+        internal readonly int[] SourceHurdleCount = new int[2];
         internal int SourceFumblesOnPlay;
         internal bool SourceNoAssist = false;
         internal bool SourceNoFumbles = false;
@@ -174,6 +199,13 @@ namespace Blitz.Gameplay
         internal PlayerCommand SourceCurrentInput;
         internal int SourceCameraHeading;
         internal long SourceCameraHeadingSampleTick;
+        internal SourceMovementRuntimeData SourceMovementData;
+        internal SourceMovementSettings SourceMovementSettings;
+        internal SourceMovementCameraFrame SourceMovementCamera;
+        internal long SourceMovementCameraTick = -1;
+        internal readonly SourceVector3[,] SourceCameraJoints = new SourceVector3[14, 15];
+        internal long SourceCameraJointTick = -1;
+        internal uint SourceBreathControl;
         internal Func<int, int> SourceCStandardRandom;
         internal SourceQuarterbackPlan SourceQuarterbackPlan;
         internal SourceAiFrame SourceAiFrame;

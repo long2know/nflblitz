@@ -66,7 +66,8 @@ MUTATIONS = (
 
 def source_files():
     return [path for directory in ("Contracts", "Gameplay", "AssetImport")
-            for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))]
+            for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))] + [
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
 
 
 def hashes(paths):
