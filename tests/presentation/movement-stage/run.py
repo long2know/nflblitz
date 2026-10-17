@@ -77,9 +77,82 @@ def caller_guards(source_root=ROOT):
             "actual provider samples once, reads current pure frame, sets Core frame INSIDE same pre-player callback")
     require("frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution" in sample,
             "actual source pose12 plus explicit bootstrap DIP, never WorldJoint/Unity camera")
-    require(awake.count("SourcePresentationCueRaised+=playCamera.ConsumeSourceCue;") == 1 and
-            awake.count("AfterHostStep+=playCamera.ObserveSourceHostStep;") == 1,
-            "one cue and host lifecycle owner")
+    code = compact(helpers.uncomment(runtime))
+    destroy = compact(method(runtime, "OnDestroy"))
+    owners = (
+        ("SourcePresentationCueRaised", "ConsumeSourcePresentationCue"),
+        ("AfterHostStep", "playCamera.ObserveSourceHostStep"),
+        ("bridge.SourcePresentationCueRaised", "OnSourcePresentationCue"),
+        ("bridge.AfterHostStep", "OnAfterHostStep"),
+        ("bridge.AfterSimulationStep", "OnAfterSimulationStep"),
+        ("bridge.AfterSourcePresentation", "CompleteSourceSoundBatch"),
+        ("bridge.Restarted", "ResetSourceSoundTransport"),
+    )
+    require(all(awake.count(event + "+=" + handler + ";") == code.count(event + "+=" + handler + ";") == 1 and
+                destroy.count(event + "-=" + handler + ";") == code.count(event + "-=" + handler + ";") == 1
+                for event, handler in owners) and
+            all(code.count(event + "+=") == code.count(event + "-=") == count for event, count in (
+                ("SourcePresentationCueRaised", 2), ("AfterHostStep", 2),
+                ("AfterSimulationStep", 1), ("AfterSourcePresentation", 1), ("Restarted", 1))),
+            "one resolved cue route and camera/host/sound lifecycle owner")
+    require("playCamera=newPlayCamera(transform,prefab);if(IsSourceProfile){" in awake and
+            all(awake.index(event + "+=" + handler + ";") < awake.index("ForwardInitialSourcePresentationCues();")
+                for event, handler in owners),
+            "source-only camera wiring and all sound lifecycle hooks precede initial cues")
+    require(code.count("RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);") == 1 and
+            code.count("simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;") == 1 and
+            not any(token in code for token in (".ResetSourceStage(", ".ObserveSourceCameraSuspension(",
+                                                ".InitializeSourceStage(", ".AdvanceSourceStage(")),
+            "Runtime does not duplicate Team camera stage/lifecycle ownership")
+    route = compact(method(runtime, "ConsumeSourcePresentationCue"))
+    require(route == (
+        "SourceCallbackCuecallback=cueasSourceCallbackCue;"
+        "if(callback!=null&&callback.Kind!=SourcePresentationCueKind.PlayerDownCallback){"
+        "SourceSoundVmDispatchdispatch=soundTransport.TakeForCue(callback);"
+        "if(dispatch!=null&&dispatch.Status==SourceSoundVmStatus.Resolved){"
+        "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);return;}}"
+        "playCamera.ConsumeSourceCue(cue);") and code.count("playCamera.ConsumeSourceCue(") == 1,
+        "paired resolved sound uses actual output once and returns before the sole generic fallback")
+    require(compact(method(camera, "ConsumeResolvedSourceSound")) ==
+            "SourcePlayback.ConsumeResolvedSourceSound(dispatch,actualRawOutputConsumer);",
+            "actual PlayCamera resolved wrapper forwards the same dispatch and output, never a no-op or generic replay")
+    resolved = compact(method(playback, "ConsumeResolvedSourceSound"))
+    require("if(dispatch.Result.Calls.Count==0)return;" in resolved and
+            "if(actualRawOutputConsumer==null)" in resolved and resolved.count("actualRawOutputConsumer(dispatch);") == 1 and
+            resolved.index("Calls.Count==0") < resolved.index("actualRawOutputConsumer==null") <
+            resolved.index("actualRawOutputConsumer(dispatch);") and
+            not any(token in resolved for token in ("SourceAudioFunctions.Select", ".Draw(", "listener(", ".Execute(")),
+            "resolved playback delivers nonempty output once without selecting, drawing RNG, or generic replay")
+    drain = compact(method(runtime, "OnAfterSimulationStep"))
+    require(drain.count("simulation.TakeSourceSoundVmDispatches()") == 1 and drain.count("soundTransport.Drain(batch);") == 1 and
+            "SourceSoundVmDispatchRaised" in drain and drain.index("soundTransport.Drain(batch);") <
+            drain.index("SourceSoundVmDispatchRaised"),
+            "actual per-Step sound batch is taken once and drained before raw dispatch observation")
+    bridge = (source_root / "Assets/Scripts/Runtime/FixedStepBridge.cs").read_text()
+    step = compact(method(bridge, "AdvanceInternal"))
+    finally_drain = "finally{Actiondrained=AfterSimulationStep;if(drained!=null)drained();}"
+    cue_handler = "Action<SourcePresentationCue>handler=SourcePresentationCueRaised;"
+    require(step.count("simulation.Step(") == 1 and step.count(finally_drain) == 1 and step.count(cue_handler) == 1 and
+            "Actioncomplete=AfterSourcePresentation;" in step and
+            step.index("simulation.Step(") < step.index(finally_drain) < step.index(cue_handler) <
+            step.index("Actioncomplete=AfterSourcePresentation;"),
+            "every actual Step finally drains before cue delivery and batch completion, including skips/failure")
+    initial = compact(method(runtime, "ForwardInitialSourcePresentationCues"))
+    initial_cues = "foreach(SourcePresentationCuecueinbatch.Cues)OnSourcePresentationCue(cue);"
+    require(initial.count("OnAfterSimulationStep();") == 1 and initial.count(initial_cues) == 1 and
+            initial.count("CompleteSourceSoundBatch();") == 1 and
+            initial.index("OnAfterSimulationStep();") < initial.index(initial_cues) < initial.index("CompleteSourceSoundBatch();"),
+            "initial/restart batches use the same drain-before-cue and completion protocol")
+    require(compact(method(runtime, "CompleteSourceSoundBatch")) ==
+            "if(soundTransport!=null)soundTransport.CompletePresentationBatch();" and
+            compact(method(runtime, "ResetSourceSoundTransport")) == "if(soundTransport!=null)soundTransport.Reset();",
+            "actual sound batch completion and restart hooks are connected to transport, not no-ops")
+    cue = compact(method(runtime, "OnSourcePresentationCue"))
+    require(cue.count("observed(cue);") == cue.count("handler(cue);") == 1 and
+            "SourcePresentationCueObserved" in cue and "SourcePresentationCueRaised" in cue and
+            cue.index("observed(cue);") < cue.index("handler(cue);") and
+            not any(token in cue for token in (".ConsumeSourceCue(", ".Execute(", "catch(")),
+            "raw cue observation precedes the sole consuming route with no second camera execution")
     provider = (source_root / "Assets/Scripts/Presentation/SourcePlayerProvider.cs").read_text()
     resolve = compact(method(provider, "ResolveRequiredAnimationLibrary"))
     require("profile.AnimationResourceKey" in resolve and "profile.RequireInventory(" in resolve,
@@ -98,7 +171,7 @@ def caller_guards(source_root=ROOT):
     normal = source_root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
     require(digest(normal.read_bytes()) == "4df6d0ce1bfa11322aa0e1e640f1e12bc043468e3d1ccd905deed376d411fb88",
             "original proven B1/graybox normal-camera implementation remains unchanged")
-    return 18
+    return 29
 
 
 def main():

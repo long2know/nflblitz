@@ -20,6 +20,8 @@ def source_hashes():
             for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))}
     camera = ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"
     result[camera.relative_to(ROOT).as_posix()] = hashlib.sha256(camera.read_bytes()).hexdigest()
+    selector = ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
+    result[selector.relative_to(ROOT).as_posix()] = hashlib.sha256(selector.read_bytes()).hexdigest()
     return result
 
 

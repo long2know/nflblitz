@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Blitz.AssetImport;
 using Blitz.Contracts;
+using Blitz.Gameplay;
 
 namespace Blitz.Presentation
 {
@@ -141,23 +142,56 @@ namespace Blitz.Presentation
                     LastObservedPlayerDown = context;
                     continue;
                 }
-                SourceCinematicCueDefinition original = library.RequireExecutedOpcode(context.ExecutingSymbol, context.SourceLine, "callback");
-                if (original.Arguments[0] != callback.FunctionSymbol)
-                    throw new InvalidOperationException("Actual source effect/audio callback function differs from its executed source site.");
-                int[] values = { callback.Argument0, callback.Argument1, callback.Argument2 };
-                for (int i = 0; i < values.Length; i++)
-                {
-                    int literal;
-                    if (int.TryParse(original.Arguments[i + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out literal) &&
-                        literal != values[i])
-                        throw new InvalidOperationException("Actual source callback integer/sentinel operand changed.");
-                }
+                SourceCinematicCueDefinition original = RequireOriginalCallback(callback);
                 Ordered(context.SourceTick, context.ProcessOrder, context.ActorPlayerId);
                 Action<SourceImpactCallback> listener = SourceCallback;
                 if (listener == null) throw new InvalidOperationException("No original effect/audio callback consumer is bound for " +
                     callback.FunctionSymbol + "; no generic substitute is created.");
                 listener(new SourceImpactCallback(callback, original));
             }
+        }
+
+        public void ConsumeResolvedSourceSound(SourceSoundVmDispatch dispatch,
+            Action<SourceSoundVmDispatch> actualRawOutputConsumer = null)
+        {
+            if (dispatch == null || dispatch.OriginalCue == null)
+                throw new InvalidOperationException("An actual detached source sound VM dispatch and its original cue are required.");
+            SourceCallbackCue cue = dispatch.OriginalCue;
+            if (cue.Kind != SourcePresentationCueKind.SoundCallback)
+                throw new InvalidOperationException("Only an already-resolved sound callback belongs here; PlayerDown/SPFX are not replayed.");
+            RequireOriginalCallback(cue);
+            SourcePresentationContext context = cue.Context;
+            Ordered(context.SourceTick, context.ProcessOrder, context.ActorPlayerId);
+            if (dispatch.Status != SourceSoundVmStatus.Resolved || dispatch.Result == null)
+                throw new InvalidOperationException("Unsupported/missing original sound input is not resolved silence: " + dispatch.Detail);
+            for (int i = 0; i < dispatch.Result.Calls.Count; i++)
+            {
+                SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls[i];
+                if (call == null || !ReferenceEquals(call.OriginalCue, cue) || call.SubcallOrder != i)
+                    throw new InvalidOperationException("Already-resolved source sound output must retain the exact OriginalCue and ordered subcalls.");
+            }
+            if (dispatch.Result.Calls.Count == 0) return;
+            if (actualRawOutputConsumer == null)
+                throw new InvalidOperationException("Resolved original sound has raw output but no actual DSP3 consumer is bound; no silence/isolated preview substitute.");
+            actualRawOutputConsumer(dispatch);
+        }
+
+        private SourceCinematicCueDefinition RequireOriginalCallback(SourceCallbackCue callback)
+        {
+            SourcePresentationContext context = callback.Context;
+            RequirePath(context, "plyrseq.c");
+            SourceCinematicCueDefinition original = library.RequireExecutedOpcode(context.ExecutingSymbol, context.SourceLine, "callback");
+            if (original.Arguments[0] != callback.FunctionSymbol)
+                throw new InvalidOperationException("Actual source effect/audio callback function differs from its executed source site.");
+            int[] values = { callback.Argument0, callback.Argument1, callback.Argument2 };
+            for (int i = 0; i < values.Length; i++)
+            {
+                int literal;
+                if (int.TryParse(original.Arguments[i + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out literal) &&
+                    literal != values[i])
+                    throw new InvalidOperationException("Actual source callback integer/sentinel operand changed.");
+            }
+            return original;
         }
 
         public SourceCinematicPlayback(SourceCinematicLibrary library, SourceCinematicSeed initialCamera)

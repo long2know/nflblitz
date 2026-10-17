@@ -17,14 +17,19 @@ class MovementCallerGuards(unittest.TestCase):
     def summary(self, mode):
         return {"schema": "source-movement-caller-checks/v1",
                 "status": "bounded-passed" if mode == "bounded" else "passed",
-                "assertions": 808 if mode == "controlled" else 36732,
+                "assertions": 808 if mode == "controlled" else RUNNER.COMPLETE_ASSERTIONS if mode == "complete"
+                else RUNNER.BOUNDED_ASSERTIONS,
                 "actual_Hurdle_VM_scripts": 16, "actual_MaybeDive_windows_per_hurdle": 7,
                 "actual_Core_post_VM_physics_cases": 664, "actual_Core_LEAPATT_operand_bytes": 36,
                 "whole_M1_or_full_gameplay_qualified": False,
                 "known_R_SKIP_asset_missing": mode == "bounded",
                 "complete_publication_qualification": mode == "complete",
                 "actual_animation_library_manifest": RUNNER.MOVEMENT_SELECTED_SHA if mode == "bounded"
-                else RUNNER.MOVEMENT_ANIMATION_SHA}
+                else RUNNER.MOVEMENT_ANIMATION_SHA,
+                "public_smoke_trace": RUNNER.SMOKE_TRACE, "public_smoke_source_tick": 2781,
+                "public_smoke_R_SKIP_frames_after2299": 2, "public_smoke_cache_assertions": 36120,
+                "public_smoke_resolved_sound_dispatches": 13, "public_smoke_sound_random_draws": 17,
+                "public_smoke_R_SKIP_instance_advanced": True}
 
     def test_complete_and_controlled_exact_inventories(self):
         for mode in ("bounded", "complete", "controlled"):
@@ -75,6 +80,19 @@ class MovementCallerGuards(unittest.TestCase):
                 data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / filename).read_bytes()
                 self.assertEqual(1, data.count(old.encode()))
                 self.assertNotEqual(old, new)
+
+    def test_complete_sound_m1_requires_real_post_gap_pose_advancement_cache_and_rng(self):
+        for field, value in (("public_smoke_trace", "old-unverified-LCG-window"),
+                             ("public_smoke_source_tick", 2299),
+                             ("public_smoke_R_SKIP_frames_after2299", 1),
+                             ("public_smoke_R_SKIP_instance_advanced", False),
+                             ("public_smoke_cache_assertions", 35909),
+                             ("public_smoke_resolved_sound_dispatches", 0),
+                             ("public_smoke_sound_random_draws", 0)):
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                row = self.summary("complete")
+                row[field] = value
+                RUNNER.require_summary(0, row, "complete")
 
 
 if __name__ == "__main__":

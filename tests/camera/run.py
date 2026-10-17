@@ -19,9 +19,10 @@ report.unlink(missing_ok=True)
 project = suite / "CameraChecks.csproj"
 expected_assertions = 3568
 model = root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
+selector = root / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
 def production_files():
     paths = [model, root / "Assets/Scripts/Editor/NormalCameraChecks.cs",
-             root / "Assets/Scripts/Presentation/PlayCamera.cs"]
+             root / "Assets/Scripts/Presentation/PlayCamera.cs", selector]
     paths += sorted((root / "Assets/Scripts/Contracts").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/Gameplay").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/AssetImport").glob("*.cs"))
@@ -32,6 +33,9 @@ def hashes():
             for path in production_files()}
 
 before = hashes()
+sources = {path.relative_to(root): path.read_bytes() for path in production_files()}
+if {path.as_posix(): hashlib.sha256(data).hexdigest() for path, data in sources.items()} != before:
+    raise SystemExit("Production sources changed while capturing the camera snapshot.")
 env = dict(os.environ)
 for key, subdir in (("TMPDIR", "work"), ("DOTNET_CLI_HOME", "dotnet-home"), ("NUGET_PACKAGES", "nuget")):
     directory = artifacts / subdir
@@ -39,11 +43,54 @@ for key, subdir in (("TMPDIR", "work"), ("DOTNET_CLI_HOME", "dotnet-home"), ("NU
     env[key] = str(directory)
 env["TMP"] = env["TEMP"] = env["TMPDIR"]
 env.update(DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_NOLOGO="1")
+commands = []
+build_results = {}
 
-def run(source_root=None):
-    extra = [] if source_root is None else ["-p:BlitzSourceRoot=" + source_root.as_posix() + "/"]
-    return subprocess.run(["dotnet", "run", "--project", str(project), "--configuration", "Release",
-                           "--verbosity", "quiet", *extra], cwd=root, env=env, capture_output=True, text=True)
+def invoke(command, label, phase):
+    result = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=180)
+    commands.append({"label": label, "phase": phase, "command": command, "exit_code": result.returncode})
+    (artifacts / (label + "-" + phase + ".log")).write_text(result.stdout + result.stderr, encoding="utf-8")
+    return result
+
+def run(source_root, label):
+    build_root = workspace / ("build-" + label)
+    properties = ["-p:BlitzSourceRoot=" + source_root.as_posix() + "/",
+                  "-p:BaseIntermediateOutputPath=" + str(build_root / "obj") + "/",
+                  "-p:BaseOutputPath=" + str(build_root / "bin") + "/"]
+    command = ["dotnet", "build", str(project), "--no-restore", "--configuration", "Release",
+               "--verbosity", "quiet", *properties]
+    compiled = invoke(command, label, "build")
+    if compiled.returncode and "NETSDK1004" in compiled.stdout + compiled.stderr:
+        feed = workspace / "empty-feed"
+        feed.mkdir(exist_ok=True)
+        restored = invoke(["dotnet", "restore", str(project), "--source", str(feed),
+                           "-p:NuGetAudit=false", "--verbosity", "quiet", *properties], label, "restore-local-sdk")
+        if restored.returncode:
+            raise RuntimeError(restored.stdout + restored.stderr)
+        compiled = invoke(command, label, "build-restored")
+    build_results[label] = compiled.returncode
+    if compiled.returncode:
+        raise RuntimeError("Compilation error is NOT a rejected camera assertion mutant: " + label + "\n" +
+                           compiled.stdout + compiled.stderr)
+    return invoke(["dotnet", str(build_root / "bin/Release/net10.0/CameraChecks.dll")], label, "execute")
+
+def snapshot(name, mutation):
+    source_root = workspace / ("source-" + name)
+    for relative, data in sources.items():
+        copied = source_root / relative
+        copied.parent.mkdir(parents=True, exist_ok=True)
+        copied.write_bytes(data)
+    isolated = source_root / model.relative_to(root)
+    source = isolated.read_text(encoding="utf-8")
+    _, original, replacement, _ = mutation
+    if source.count(original) != 1:
+        raise SystemExit("Mutation anchor is not unique: " + name)
+    isolated.write_text(source.replace(original, replacement), encoding="utf-8")
+    copied_hashes = {relative.as_posix(): hashlib.sha256((source_root / relative).read_bytes()).hexdigest()
+                     for relative in sources}
+    if [name for name in before if copied_hashes[name] != before[name]] != [model.relative_to(root).as_posix()]:
+        raise SystemExit("Isolated camera snapshot changed more than its intended production model.")
+    return source_root
 
 def check_success(result):
     print(result.stdout.strip())
@@ -65,25 +112,39 @@ mutations = [
 ]
 mutation_results = []
 try:
-    baseline_assertions = check_success(run())
-    for name, original, replacement, expected in mutations:
-        source_root = workspace / ("source-" + name)
-        for path in production_files():
-            copied = source_root / path.relative_to(root)
-            copied.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(path, copied)
-        isolated = source_root / model.relative_to(root)
-        source = isolated.read_text(encoding="utf-8")
-        if source.count(original) != 1:
-            raise SystemExit("Mutation anchor is not unique: " + name)
-        isolated.write_text(source.replace(original, replacement), encoding="utf-8")
-        result = run(source_root)
+    baseline_assertions = check_success(run(root, "baseline"))
+    missing_selector_root = snapshot("missing-selector", mutations[0])
+    (missing_selector_root / selector.relative_to(root)).unlink()
+    compile_guard = "Actual frozen SourceAudioFunctions is a required pure Core VM dependency; no stub or omitted selector."
+    try:
+        run(missing_selector_root, "missing-selector")
+    except RuntimeError as error:
+        if compile_guard not in str(error) or "Compilation error is NOT a rejected camera assertion mutant:" not in str(error):
+            raise
+    else:
+        raise SystemExit("Omitting the real selector was not rejected by the camera compile gate.")
+    compile_failure_probe = {
+        "name": "focal-with-missing-real-selector",
+        "omitted_source": selector.relative_to(root).as_posix(),
+        "build_exit_code": build_results["missing-selector"],
+        "required_diagnostic": compile_guard,
+        "runtime_executed": any(c["label"] == "missing-selector" and c["phase"] == "execute" for c in commands),
+        "accepted_as_camera_mutant_kill": False,
+    }
+    print("PASS guard: missing real selector is a compile failure, NOT a camera mutant kill.")
+    for mutation in mutations:
+        name, _, _, expected = mutation
+        source_root = snapshot(name, mutation)
+        result = run(source_root, name)
         detail = result.stdout + result.stderr
-        if result.returncode == 0 or expected not in detail:
+        if result.returncode != 1 or expected not in detail:
             raise SystemExit("Mutation did not fail its intended assertion: " + name + "\n" + detail)
         print("PASS mutation: " + name + " -> " + expected)
-        mutation_results.append({"name": name, "rejected_by": expected})
-    final_assertions = check_success(run())
+        mutation_results.append({"name": name, "rejected_by": expected, "build_exit_code": build_results[name],
+                                 "execution_exit_code": result.returncode,
+                                 "same_root_selector_sha256": hashlib.sha256(
+                                     (source_root / selector.relative_to(root)).read_bytes()).hexdigest()})
+    final_assertions = check_success(run(root, "final-baseline"))
 finally:
     shutil.rmtree(workspace)
     if before != hashes():
@@ -96,6 +157,8 @@ result = {
     "final_baseline_assertions": final_assertions,
     "expected_assertions": expected_assertions,
     "mutations": mutation_results,
+    "compile_failure_probe": compile_failure_probe,
+    "commands": commands,
     "production_sha256_before": before,
     "production_sha256_after": hashes(),
     "production_hashes_unchanged": True,

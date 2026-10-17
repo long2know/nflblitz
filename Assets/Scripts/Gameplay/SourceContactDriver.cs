@@ -25,6 +25,13 @@ namespace Blitz.Gameplay
             return false;
         }
 
+        // detect.c:do_collision 912-913, before the selected collision function/animation.
+        internal static void RecordCollision(ActorState attacker, ActorState defender)
+        {
+            defender.SourceHitPartnerId = attacker.Id;
+            attacker.SourceHitPartnerId = defender.Id;
+        }
+
         // detect.c 2545-2970. Attack dispatch supplies the original base pair;
         // this does not substitute for C1's collision/puppet/reaction selection.
         internal static SourceBallLoss FumbleOrBobble(SimulationState model, ActorState victim,
@@ -203,6 +210,7 @@ namespace Blitz.Gameplay
 
         private static void Respond(SimulationState model, ActorState a, ActorState d, float distance)
         {
+            RecordCollision(a, d);
             SourceVector3 pa = SourcePlayerDriver.WorldPosition(a), pd = SourcePlayerDriver.WorldPosition(d);
             var connecting = new FieldVector(pd.X - pa.X, pd.Z - pa.Z);
             float squared = PlayerSimulation.DistanceSquared(connecting, default(FieldVector));

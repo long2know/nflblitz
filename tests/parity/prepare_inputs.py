@@ -17,6 +17,9 @@ PLAYBOOK_SHA = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3
 MOVEMENT_SHA = "89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6"
 MOVEMENT_SELECTED_SHA = "5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68"
 MOVEMENT_ANIMATION_SHA = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e"
+SOUND_SHA = "4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280"
+SOUND_INCLUDE_SHA = "db9e2f18fb6c62147843250ddd80c36712360a46193ab02ef23a96ab48224096"
+SOUND_AUDIT_SHA = "4601c44212825a87b5b8c46c15dd91cccc58ad84e7e22e40d696a16afa5cab40"
 
 
 def sha(path):
@@ -38,7 +41,7 @@ def verified_file(root, relative, expected_sha):
     return path
 
 
-def fixture_hashes(manifest_path):
+def fixture_hashes(manifest_path, sound_functions=None):
     manifest_path = Path(manifest_path)
     root = manifest_path.parent
     manifest = json.loads(manifest_path.read_bytes())
@@ -47,9 +50,11 @@ def fixture_hashes(manifest_path):
     paths = [manifest_path]
     expected = {"animation": ANIMATION_SHA, "rosters": ROSTER_SHA, "playbook": PLAYBOOK_SHA,
                 "movement": MOVEMENT_SHA, "movement_animation": MOVEMENT_ANIMATION_SHA,
-                "movement_selected_animation": MOVEMENT_SELECTED_SHA}
+                "movement_selected_animation": MOVEMENT_SELECTED_SHA, "sound_functions": SOUND_SHA,
+                "sound_function_original": SOUND_INCLUDE_SHA, "sound_function_manifest": SOUND_AUDIT_SHA}
     for name in ("animation", "rosters", "playbook", "model", "skeleton", "standing_pose",
-                 "movement", "movement_animation", "movement_selected_animation"):
+                 "movement", "movement_animation", "movement_selected_animation",
+                 "sound_functions", "sound_function_original", "sound_function_manifest"):
         entry = manifest[name]
         path = verified_file(root, entry["path"], entry["sha256"])
         if name in expected and entry["sha256"] != expected[name]:
@@ -63,6 +68,9 @@ def fixture_hashes(manifest_path):
             raise ValueError("Actual distinct library inventory changed: " + name)
         for entry in entries:
             paths.append(verified_file(animation.parent, entry["path"], entry["sha256"]))
+    if sound_functions is not None:
+        sound_functions = Path(sound_functions).absolute()
+        paths.append(verified_file(sound_functions.parent, sound_functions.name, SOUND_SHA))
     return {str(path.resolve()): sha(path) for path in paths}
 
 
@@ -90,6 +98,7 @@ def main():
     work.mkdir()
     environment = dict(os.environ, TMPDIR=str(work), TMP=str(work), TEMP=str(work),
                        PYTHONDONTWRITEBYTECODE="1", DOTNET_CLI_TELEMETRY_OPTOUT="1")
+    sound_name = "kernel-" + hashlib.sha256(output.relative_to(ROOT).as_posix().encode("ascii")).hexdigest()[:16]
     commands = [
         [sys.executable, "-B", "tools/animation/prepare_player_sequences.py", "--source-root", str(source),
          "--catalog", "tools/animation/ball_sequences.json", "--destination", str(output / "animation")],
@@ -105,6 +114,8 @@ def main():
          "--destination", str(output / "movement-animation")],
         [sys.executable, "-B", "tools/movement/export.py", "--source-root", str(source),
          "--output", "tools/movement/.artifacts/source-movement-runtime.json"],
+        [sys.executable, "-B", "tools/audio/prepare_functions.py", "--source-root", str(source),
+         "--name", sound_name],
     ]
     for index, command in enumerate(commands):
         result = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=240)
@@ -133,6 +144,14 @@ def main():
     if hashlib.sha256(runtime_bytes).hexdigest() != MOVEMENT_SHA:
         raise ValueError("Strict runtime-only movement export differs from its actual trusted pin.")
     (output / "movement-runtime.json").write_bytes(runtime_bytes)
+    sound_output = ROOT / "tools/audio/.artifacts/functions" / sound_name
+    (output / "audio-functions").mkdir()
+    for name, expected in (("sound-functions.safn", SOUND_SHA), ("original-functions.inc", SOUND_INCLUDE_SHA),
+                           ("manifest.json", SOUND_AUDIT_SHA)):
+        path = sound_output / name
+        if sha(path) != expected:
+            raise ValueError("Actual sound-function producer output differs from its frozen pin: " + name)
+        (output / "audio-functions" / name).write_bytes(path.read_bytes())
     manifest = {
         "schema": "source-kernel-real-inputs/v1", "source_revision": REVISION,
         "animation": {"path": "animation/export-inventory.json", "sha256": ANIMATION_SHA,
@@ -147,11 +166,14 @@ def main():
                                "sha256": MOVEMENT_ANIMATION_SHA, "clips": 157, "selected_frames": 13490},
         "movement_selected_animation": {"path": "movement-selected/export-inventory.json",
                                         "sha256": MOVEMENT_SELECTED_SHA, "clips": 156, "selected_frames": 13420},
+        "sound_functions": {"path": "audio-functions/sound-functions.safn", "sha256": SOUND_SHA},
+        "sound_function_original": {"path": "audio-functions/original-functions.inc", "sha256": SOUND_INCLUDE_SHA},
+        "sound_function_manifest": {"path": "audio-functions/manifest.json", "sha256": SOUND_AUDIT_SHA},
         "recipes_sha256": {name: sha(ROOT / name) for name in (
             "tools/animation/ball_sequences.json", "tools/playbooks/recipe.json",
             "tools/rosters/source_inputs.json", "tools/assets/player_inputs.json",
             "tools/movement/recipe.json", "tools/animation/movement_sequences.json",
-            "tools/animation/movement_complete_sequences.json")},
+            "tools/animation/movement_complete_sequences.json", "tools/audio/function-inputs.json")},
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     hashes = fixture_hashes(manifest_path)

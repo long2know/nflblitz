@@ -20,4 +20,5 @@
     <Compile Include="Controlled.cs" />
     <Compile Include="InputAndStation.cs" />
   </ItemGroup>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" />
 </Project>

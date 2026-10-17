@@ -19,6 +19,7 @@ namespace Blitz.Gameplay
                 throw new InvalidOperationException("The source profile requires the original ISourceTeamRoster "
                     + "for actor-slot/static-record identities and actual model scales; no uniform scale fallback is used.");
             Model.SourceMode = true;
+            InitializeSourceSoundState();
             BeginSourceProcess("game_proc", -1, 0);
             Model.SourceConfiguration = sourceConfiguration;
             Model.SourcePresentation = sourcePresentation;
@@ -53,6 +54,7 @@ namespace Blitz.Gameplay
 
         private void SourceStep(PlayerCommand command)
         {
+            RequireSourceSoundVmBinding();
             Model.SourceDispatchOrdinal = 0;
             Model.SourcePresentationOrder = 0;
             BeginSourceProcess("game_proc", -1, 0);
@@ -1772,8 +1774,10 @@ namespace Blitz.Gameplay
                     ? SourcePresentationCueKind.PlayerDownCallback
                     : instruction.Text == "dust_cloud" ? SourcePresentationCueKind.DustCallback
                     : SourcePresentationCueKind.SoundCallback;
-                sourcePresentationCues.Add(new SourceCallbackCue(context, kind, instruction.Text,
-                    instruction.A, instruction.B, instruction.C, Model.CarrierId));
+                var cue = new SourceCallbackCue(context, kind, instruction.Text,
+                    instruction.A, instruction.B, instruction.C, Model.CarrierId);
+                sourcePresentationCues.Add(cue);
+                if (kind != SourcePresentationCueKind.PlayerDownCallback) ExecuteSourceSoundVm(actor, cue);
             }
         }
 

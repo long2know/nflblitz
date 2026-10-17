@@ -133,6 +133,8 @@ namespace Blitz.Gameplay
             stepEvents.Clear();
             sourceStepEvents.Clear();
             sourcePresentationCues.Clear();
+            sourceSoundVmPending.Clear();
+            sourceSoundVmFailed = false;
             SourceCameraStageOrder = -1;
             ClearPendingInput();
             if (Profile == SimulationProfile.OriginalRelease57Hz)

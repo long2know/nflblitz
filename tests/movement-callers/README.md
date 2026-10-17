@@ -46,6 +46,9 @@ Preparation uses the existing permanent producers:
   manifest `f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
 * Runtime-safe `tools/movement/export.py` payload
   `89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6`.
+* Mandatory real SAFN1 sound data, audit and unchanged C include from the
+  permanent producer; payload
+  `4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
 * Actual playbook, 31×16 roster and original fifteen-node model/skeleton
   producers already used by the shared B1 factory.
 
@@ -77,14 +80,20 @@ beyond the former source-tick2299 asset stop. It must not treat a missing clip,
 filtered taunt, alias, forced header flag or substituted pose as success.
 `--bounded156-diagnostic` separately preserves the exact known-missing-R_SKIP
 control; its receipt says `bounded-passed` and never complete publication green.
-That historical diagnostic is not the default CI qualification.
+That diagnostic is not the default CI qualification. With the new sound-aware
+raw vector it stops at source1458 and remains separately labelled
+`bounded-passed` (**12,792 assertions**); the historical sound-omitting
+source2299 stop is not reused as a claim about this changed shared stream.
 
 Replay demonstrates pinned **source-converter** behavior, not the missing
 artist-authored right hand or shipped SEQ/quantization/binary identity.
 
 ## What is actually checked
 
-The frozen caller inventory is **36,732 assertions**:
+The sound-aware caller inventory is **36,948 assertions** (controlled-only
+remains808). Every prior36,732 contract is retained; the216 delta is one
+additional complete14×15 cache frame (210 checks), two real post-gap poses
+(four checks), and two new minimum-cache/synchronous-sound checks:
 
 * All **16 real hurdle VMs**, all **seven** source MaybeDive callback windows
   each, real root/Y/velocity/landing changes, one immediate GeneralRun transition.
@@ -104,6 +113,34 @@ The frozen caller inventory is **36,732 assertions**:
   field0..6, exact station fire/infinite freeze/drain/defense recharge.
 * Existing raw A/B/C queued tap, focus/restart and once-per-source-transform
   behavior remains exercised.
+
+### Sound-aware unfiltered public smoke
+
+The old2500-host preview-LCG window on the new sound source reached source2375
+but observed **zero R_SKIP poses**. Its42216-assertion failure is not accepted
+as qualification. Newly synchronous original sound calls consume legitimate
+draws on the same stream and change later choices; neither the old LCG timeline
+nor a filtered taunt is the contract.
+
+The replacement uses the explicit repeated test vector
+`[0,1,2,3,17,31,127,257,4096,65537,104729,1234567,2147483645,2147483646,2147483647]`.
+Every RNG site consumes from that same vector with no site/actor/animation
+branch in the provider. This is named test input, **not target-libc PRNG proof**.
+Public commands, original grace periods, actual phase/control, source
+selectors, full-body scripts and all157 clips remain unmodified.
+
+A12000-host budget fails unless the original unfiltered `r_skip_anim` really
+advances one instance through at least two selected ordinals *after source2299*,
+samples fifteen real bones through production geometry, retains at least
+171 complete14×15 cache comparisons, and executes resolved original sound with
+real shared draws. Observed: **2928 host / 2781 source ticks**, actor12
+R_SKIP ordinals0→1 at ticks2780→2781, **172** cache frames,13 resolved sound
+dispatches/17 sound draws out of4985 shared draws. No pose or animation is
+forced; stopping is based on observed coverage, not an assumed random timeline.
+The ignored `sound-aware-smoke.json` records the raw vector, actual selector
+draws, source events, poses and dispatches. The separate2400-host/2280-source
+raw gesture campaign, MaybeDive, all16 real hurdle VMs and664 post-VM physics
+rows retain their existing assertions.
 
 From those real VM executions, the suite captures **664 actual post-animation
 Core rows**. `compare_physics.py` extracts unchanged pinned `player_proc` active
@@ -171,4 +208,4 @@ python3 tests/ball/compile_profile.py \
 
 This only compiles against actual .NET Standard2.1 APIs, without starting an
 Editor/native/IL2CPP/WebGL/browser process. No complete M1/C1/C2/normal-camera,
-sound-function RNG/SPFX, target libc/scheduler or all-row/full-match claim is made.
+other sound functions/SPFX, target libc/scheduler or all-row/full-match claim is made.

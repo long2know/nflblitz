@@ -25,6 +25,7 @@ internal sealed class FullKernelInputs
     internal SourcePlayerPose StandingPose { get; private set; }
     internal string ManifestSha256 { get; private set; }
     internal SourceMovementRuntimeData MovementRuntime { get; private set; }
+    internal SourceAudioFunctionData SoundFunctions { get; private set; }
 
     private static string Sha256(byte[] bytes)
     {
@@ -44,7 +45,7 @@ internal sealed class FullKernelInputs
     }
 
     internal static FullKernelInputs Load(string manifestPath, bool movementLibrary = false,
-        bool selectedMovementLibrary = false)
+        bool selectedMovementLibrary = false, string soundFunctionsPath = null)
     {
         if (string.IsNullOrWhiteSpace(manifestPath))
             throw new ArgumentException("An explicit prepared real-input fixture manifest is required.", nameof(manifestPath));
@@ -109,6 +110,11 @@ internal sealed class FullKernelInputs
             result.MovementRuntime = new SourceMovementRuntimeData(new SourceMovementData(movement.Constants, movement.Tables),
                 movement.Friction, movement.Defense.Select(row => new SourceMovementDefenseRow(
                     row.Line, row.Back, row.Base, row.Range, row.Plow)).ToArray());
+            byte[] soundFunctions = soundFunctionsPath == null
+                ? Read(root, manifest.GetProperty("sound_functions"), "audio-functions/sound-functions.safn",
+                    GameSimulation.SourceSoundVmDataSha256)
+                : File.ReadAllBytes(soundFunctionsPath);
+            result.SoundFunctions = SourceAudioFunctionData.Read(soundFunctions, GameSimulation.SourceSoundVmDataSha256);
             return result;
         }
     }
@@ -120,6 +126,7 @@ internal sealed class FullKernelInputs
         var game = new GameSimulation(Animations, Geometry, Playbook, configuration,
             randomFactory, seed, Rosters, presentation, MovementRuntime,
             movementSettings ?? new SourceMovementSettings(0, 0, false, 0, 0, false));
+        game.BindSourceSoundVmData(SoundFunctions);
         if (camera)
             game.SourceCameraHeadingProvider = (snapshot, tick) => SetControlledMovementCamera(game, snapshot, tick);
         return game;

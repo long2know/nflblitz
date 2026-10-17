@@ -54,6 +54,14 @@ manifest identities. Simulation and geometry always share the same selected
 library. Mandatory movement settings and a named source-DIP test camera are
 injected without claiming production camera/render parity.
 
+The next sound-integrated fixture also carries real SAFN1 data, its pinned audit
+and unchanged original C include (443 prepared files from69 original inputs).
+The shared factory binds that immutable production datum before the first source
+wake; it never substitutes muted/zero sound. The explicit `--sound-functions`
+override remains available and is byte-guarded. All **488,751** B1 assertions and
+**20** named mutants remain unchanged; actual synchronous sound VM/RNG proof is
+separately documented in `../audio/vm/README.md`, not counted as ball/DSP parity.
+
 All output goes below this checkout's ignored `.squad/.scratch/SourceData/` or
 `tests/ball/.artifacts/`. Existing prepared fixtures require explicit `--reuse`,
 which verifies their bytes read-only. Missing/mismatched inputs fail rather than

@@ -56,6 +56,8 @@ class InventoryGuardTests(unittest.TestCase):
         self.assertTrue(dependencies, "The actual pure AssetImport dependency must not be omitted.")
         for path in dependencies:
             self.assertIn(path.relative_to(root).as_posix(), actual)
+        self.assertIn("Assets/Scripts/Presentation/SourceAudioFunctions.cs", actual,
+                      "The imported actual sound selector must be covered by the legacy source hash guard.")
 
     def test_projects_compiling_actual_catch_geometry_include_its_actual_dependency(self):
         root = Path(__file__).resolve().parents[1]

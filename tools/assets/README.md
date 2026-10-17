@@ -1,5 +1,13 @@
 # Original player/team presentation inputs
 
+The dependent sound-runtime service uses a **new** services key
+`BlitzSourceInterface/original-movement157-soundvm-match-services` and exact1983-byte
+SAFN1 data at `SourceData/sound-functions-safn1-4a557304`. It does not rename or
+replace any157 team/library/impact/HUD/movement/DIP asset. See the explicit
+SoundVM section of [`../interface/packaging.md`](../interface/packaging.md).
+Selection is synchronous in Core; already-resolved presentation transport is
+not DSP playback, and unbound nonempty output fails visibly.
+
 For the **new M1 checkout**, use the explicit Movement157 profile below and
 [`../interface/packaging.md`](../interface/packaging.md). The117 recipe is retained
 as an honest B1 profile, not repointed to new motion.

@@ -80,10 +80,15 @@ namespace Blitz.AssetImport
         public const string HudResourceKey = "BlitzSourceInterface/original-interface";
         public const string ServicesResourceKey = "BlitzSourceInterface/original-match-services";
         public const string MovementServicesResourceKey = "BlitzSourceInterface/original-movement157-match-services";
+        public const string SoundVmServicesResourceKey = "BlitzSourceInterface/original-movement157-soundvm-match-services";
+        public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
+        public const string SoundVmFunctionsSha256 = "4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280";
+        public const int SoundVmFunctionsBytes = 1983;
         public const string HudShaderPath = "Assets/Scripts/Presentation/SourceHud.shader";
         public const string HudShaderSha256 = "d43a25cb309f2a6ae511aecbbc39c5272c8b784d7e782fc794d2eed33a2a0369";
         private readonly byte[] manifest, playbook, configuration;
         private readonly byte[] movement, bootstrap;
+        private readonly byte[] soundVmFunctions;
         public SourceInterfaceData Hud { get; }
         public SourcePlaybook Playbook { get; }
         public SourceInterfacePackageConfiguration Configuration { get; }
@@ -93,13 +98,15 @@ namespace Blitz.AssetImport
         public SourceInterfaceMovementData MovementRuntime { get; }
         public SourceInterfaceMovementBootstrap MovementBootstrap { get; }
         public string BootstrapSha256 { get; }
+        public SourceAudioFunctionData SoundVmData { get; }
+        public bool HasSoundVm { get { return soundVmFunctions != null; } }
         public string SelectedServicesResourceKey
-        { get { return Profile.IsMovement157 ? MovementServicesResourceKey : ServicesResourceKey; } }
+        { get { return HasSoundVm ? SoundVmServicesResourceKey : Profile.IsMovement157 ? MovementServicesResourceKey : ServicesResourceKey; } }
 
         private SourceInterfacePackagePlan(byte[] manifest, byte[] book, byte[] config, string configHash,
             SourceInterfaceData hud, SourcePlaybook playbook, SourceInterfacePackageConfiguration configuration,
             SourceInterfacePackageTexture[] textures, SourceTeamResourceProfile profile = null,
-            byte[] movement = null, byte[] bootstrap = null, string bootstrapHash = null)
+            byte[] movement = null, byte[] bootstrap = null, string bootstrapHash = null, byte[] soundVmFunctions = null)
         {
             this.manifest = (byte[])manifest.Clone(); this.playbook = (byte[])book.Clone();
             this.configuration = (byte[])config.Clone(); ConfigurationSha256 = configHash;
@@ -115,6 +122,12 @@ namespace Blitz.AssetImport
                 MovementBootstrap = SourceInterfaceMovementBootstrap.Read(this.bootstrap, bootstrapHash);
                 BootstrapSha256 = bootstrapHash;
             }
+            if (soundVmFunctions != null)
+            {
+                Require(Profile.IsMovement157, "Source SoundVM is an explicit new movement157 profile, not a B1 replacement.");
+                SoundVmData = ReadSoundVmFunctions(soundVmFunctions, SoundVmFunctionsSha256);
+                this.soundVmFunctions = (byte[])soundVmFunctions.Clone();
+            }
         }
 
         public byte[] CopyManifest() { return (byte[])manifest.Clone(); }
@@ -129,6 +142,33 @@ namespace Blitz.AssetImport
         {
             Require(Profile.IsMovement157, "A B1 package has no inferred movement settings/DIP bootstrap.");
             return (byte[])bootstrap.Clone();
+        }
+
+        public byte[] CopySoundVmFunctions()
+        {
+            Require(HasSoundVm, "This historical package has no implicit source sound-function data.");
+            return (byte[])soundVmFunctions.Clone();
+        }
+
+        public static SourceAudioFunctionData ReadSoundVmFunctions(byte[] bytes, string expectedSha256)
+        {
+            Require(expectedSha256 == SoundVmFunctionsSha256, "Source SoundVM requires its exact frozen SAFN1 identity.");
+            Require(bytes != null && bytes.Length == SoundVmFunctionsBytes, "Source SoundVM requires exactly1983 actual SAFN1 bytes, not missing/empty/older data.");
+            return SourceAudioFunctionData.Read(bytes, SoundVmFunctionsSha256);
+        }
+
+        public static SourceInterfacePackagePlan WithSourceSoundVm(SourceInterfacePackagePlan movement157,
+            string soundRoot, string soundRelativePath, string expectedSoundSha256)
+        {
+            Require(movement157 != null && movement157.Profile.IsMovement157 && !movement157.HasSoundVm,
+                "Explicitly select a new SoundVM movement157 package; do not alias/rebind old B1 or an existing sound profile.");
+            Require(expectedSoundSha256 == SoundVmFunctionsSha256, "Source SoundVM requires its exact frozen SAFN1 identity.");
+            byte[] sound = new AuthorizedAssetRoot(soundRoot).ReadBytes(soundRelativePath, SoundVmFunctionsBytes);
+            ReadSoundVmFunctions(sound, expectedSoundSha256);
+            return new SourceInterfacePackagePlan(movement157.CopyManifest(), movement157.CopyPlaybook(),
+                movement157.CopyConfiguration(), movement157.ConfigurationSha256, movement157.Hud,
+                movement157.Playbook, movement157.Configuration, movement157.Textures.ToArray(),
+                movement157.Profile, movement157.CopyMovement(), movement157.CopyBootstrap(), movement157.BootstrapSha256, sound);
         }
 
         public static SourceInterfacePackagePlan CreateMovement157(string hudRoot, string manifestPath, string expectedHudHash,
@@ -239,7 +279,8 @@ namespace Blitz.AssetImport
         public static void RequireOutputIdentity(string assetPath, string resourceKey)
         {
             AuthorizedAssetRoot.ValidateRelativePath(assetPath);
-            Require((resourceKey == HudResourceKey || resourceKey == ServicesResourceKey || resourceKey == MovementServicesResourceKey) &&
+            Require((resourceKey == HudResourceKey || resourceKey == ServicesResourceKey || resourceKey == MovementServicesResourceKey ||
+                resourceKey == SoundVmServicesResourceKey) &&
                 assetPath.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
                 assetPath.EndsWith("/Resources/" + resourceKey + ".asset", StringComparison.Ordinal),
                 "Generated original resource must remain ignored under Assets/Imported with its exact Resources identity.");

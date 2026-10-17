@@ -101,6 +101,21 @@ namespace Blitz.Editor
         public static void VerifyMovement157BindingsFromCommandLine()
         { VerifyMovement157(false); }
 
+        public static void VerifySoundVmFromCommandLine()
+        { VerifySoundVm(true); }
+
+        public static void VerifySoundVmBindingsFromCommandLine()
+        { VerifySoundVm(false); }
+
+        private static void VerifySoundVm(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromSoundVmArguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
         private static void VerifyMovement157(bool pixels)
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -176,6 +191,25 @@ namespace Blitz.Editor
                         actual.PlowProbability == expected.Plow, "Actual typed movement defense row changed at " + i + ".");
                 }
             }
+            if (plan.HasSoundVm)
+            {
+                string soundPath = SourceTeamInterfaceImporter.FindUniqueResourcePath("TextAsset",
+                    SourceInterfacePackagePlan.SoundVmFunctionsResourceKey);
+                TextAsset sound = Resources.Load<TextAsset>(SourceInterfacePackagePlan.SoundVmFunctionsResourceKey);
+                Require(sound != null && AssetDatabase.GetAssetPath(sound) == soundPath &&
+                    soundPath.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
+                    soundPath.EndsWith("/Resources/" + SourceInterfacePackagePlan.SoundVmFunctionsResourceKey + ".bytes", StringComparison.Ordinal) &&
+                    sound.bytes.SequenceEqual(plan.CopySoundVmFunctions()),
+                    "Saved exact SAFN1 resource is missing, aliased, duplicated, outside ignored Resources, or has changed bytes.");
+                SourceInterfacePackagePlan.ReadSoundVmFunctions(sound.bytes, SourceInterfacePackagePlan.SoundVmFunctionsSha256);
+                Require(SourceInterfaceServices.SoundVmFunctionsResourceKey == SourceInterfacePackagePlan.SoundVmFunctionsResourceKey &&
+                    savedServices.FindProperty("originalSoundVmFunctions").objectReferenceValue == sound &&
+                    savedServices.FindProperty("soundVmFunctionsSha256").stringValue == SourceInterfacePackagePlan.SoundVmFunctionsSha256,
+                    "Saved sound services SAFN reference/pin is not the same canonical resource.");
+                Require(services.SoundVmData != null &&
+                    services.SoundVmData.PayloadSha256 == plan.SoundVmData.PayloadSha256,
+                    "Saved sound services did not load the exact mandatory source SoundVM function data.");
+            }
             string report = "{\n\"schema\":\"source-interface-package-native/v2\",\n\"bindingsVerified\":true," +
                 "\n\"atlasPixelsVerified\":" + (requireAtlasPixels ? "true" : "false") +
                 ",\n\"atlasRawBytes\":" + boundBytes + ",\n\"nativeReadbackBytes\":" + pixelBytes +
@@ -185,6 +219,8 @@ namespace Blitz.Editor
                 "\",\n\"playbookSha256\":\"" + SourceInterfacePackagePlan.PlaybookSha256 +
                 "\",\n\"profile\":\"" + profile.StableId +
                 "\",\n\"bootstrapSha256\":\"" + plan.BootstrapSha256 +
+                "\",\n\"servicesResourceKey\":\"" + plan.SelectedServicesResourceKey +
+                "\",\n\"soundVmFunctionsSha256\":\"" + (plan.HasSoundVm ? plan.SoundVmData.PayloadSha256 : "") +
                 "\",\n\"unityVersion\":\"" + Application.unityVersion +
                 "\",\n\"graphicsDeviceType\":\"" + SystemInfo.graphicsDeviceType +
                 "\",\n\"graphicsDeviceName\":\"" + Escape(SystemInfo.graphicsDeviceName) +

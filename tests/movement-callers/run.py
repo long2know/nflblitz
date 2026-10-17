@@ -18,6 +18,9 @@ ARTIFACTS = SUITE / ".artifacts"
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes, MOVEMENT_ANIMATION_SHA, MOVEMENT_SELECTED_SHA
 
+COMPLETE_ASSERTIONS = 36948
+BOUNDED_ASSERTIONS = 12792
+SMOKE_TRACE = "source-sound-smoke/raw-vector-v1"
 MUTANTS = (
     ("shared-before-script", "SourceMovementIntegration.cs",
      "actor.SourceSpinCount = Model.SourceSpinCount[(int)actor.Team] = state.TeamSpinCount;",
@@ -55,7 +58,8 @@ MUTANTS = (
 def source_files():
     return [path for folder in ("Contracts", "Gameplay", "AssetImport")
             for path in sorted((ROOT / "Assets/Scripts" / folder).glob("*.cs"))] + [
-                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs",
+                ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"]
 
 
 def hashes():
@@ -66,7 +70,7 @@ def hashes():
 def require_summary(code, summary, mode):
     if not isinstance(summary, dict) or summary.get("schema") != "source-movement-caller-checks/v1":
         raise RuntimeError("Missing actual M1 caller summary; compilation/crash/status-only output is not evidence.")
-    expected = 808 if mode == "controlled" else 36732
+    expected = 808 if mode == "controlled" else COMPLETE_ASSERTIONS if mode == "complete" else BOUNDED_ASSERTIONS
     status = "bounded-passed" if mode == "bounded" else "passed"
     if (code != 0 or summary.get("status") != status or summary.get("assertions") != expected
             or summary.get("actual_Hurdle_VM_scripts") != 16
@@ -77,7 +81,14 @@ def require_summary(code, summary, mode):
         raise RuntimeError("Actual M1 caller inventory or bounded evidence layer differs.")
     if mode == "complete" and (summary.get("known_R_SKIP_asset_missing") is not False
                                or summary.get("complete_publication_qualification") is not True
-                               or summary.get("actual_animation_library_manifest") != MOVEMENT_ANIMATION_SHA):
+                               or summary.get("actual_animation_library_manifest") != MOVEMENT_ANIMATION_SHA
+                               or summary.get("public_smoke_trace") != SMOKE_TRACE
+                               or summary.get("public_smoke_source_tick", 0) <= 2299
+                               or summary.get("public_smoke_R_SKIP_frames_after2299", 0) < 2
+                               or summary.get("public_smoke_R_SKIP_instance_advanced") is not True
+                               or summary.get("public_smoke_cache_assertions", 0) < 35910
+                               or summary.get("public_smoke_resolved_sound_dispatches", 0) < 1
+                               or summary.get("public_smoke_sound_random_draws", 0) < 1):
         raise RuntimeError("Complete caller smoke requires the exact true157 replay library and no missing R_SKIP.")
     if mode == "bounded" and (summary.get("known_R_SKIP_asset_missing") is not True
                               or summary.get("complete_publication_qualification") is not False
@@ -100,6 +111,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, required=True, help="Pinned original player.c root, not C# sources.")
     parser.add_argument("--fixture-manifest", type=Path, required=True)
+    parser.add_argument("--sound-functions", type=Path,
+                        help="Explicit frozen SAFN input, required by the synchronous source sound VM.")
     parser.add_argument("--bounded156-diagnostic", action="store_true",
                         help="Explicit known-missing-asset control only; never the final publication/CI qualification.")
     parser.add_argument("--no-mutations", action="store_true", help="Author follow-up only, not complete CI.")
@@ -109,7 +122,7 @@ def main():
     fixture = args.fixture_manifest.resolve()
     original = args.source_root.resolve()
     before = hashes()
-    inputs_before = fixture_hashes(fixture)
+    inputs_before = fixture_hashes(fixture, args.sound_functions)
     original_before = hashlib.sha256((original / "player.c").read_bytes()).hexdigest()
     snapshot = {path.relative_to(ROOT).as_posix(): path.read_bytes() for path in source_files()}
     if before != {name: hashlib.sha256(data).hexdigest() for name, data in snapshot.items()}:
@@ -135,6 +148,8 @@ def main():
                    "-p:BaseIntermediateOutputPath=" + str(build / "obj") + "/",
                    "-p:BaseOutputPath=" + str(build / "bin") + "/",
                    "--", str(fixture), str(output), section]
+        if args.sound_functions is not None:
+            command.append(str(args.sound_functions.resolve()))
         result["commands"].append(command)
         process = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=240)
         text = process.stdout + process.stderr
@@ -179,7 +194,7 @@ def main():
                     raise
                 item["offending_field_rejected"] = True
                 print("PASS actual M1 caller mutant:", name, "->", summary["failed_assertion"])
-                if hashes() != before or fixture_hashes(fixture) != inputs_before:
+                if hashes() != before or fixture_hashes(fixture, args.sound_functions) != inputs_before:
                     raise RuntimeError("Live copied sources or actual data changed during isolated mutation proof.")
         code, final, text = execute("final-baseline-" + mode, mode, ROOT)
         result["final_baseline"] = final
@@ -194,7 +209,7 @@ def main():
             shutil.rmtree(workspace)
         result["own_isolated_source_and_build_removed"] = not workspace.exists()
         result["production_sha256_after"] = hashes()
-        result["actual_input_sha256_after"] = fixture_hashes(fixture)
+        result["actual_input_sha256_after"] = fixture_hashes(fixture, args.sound_functions)
         result["original_player_sha256_after"] = hashlib.sha256((original / "player.c").read_bytes()).hexdigest()
         stable = (before == result["production_sha256_after"] and inputs_before == result["actual_input_sha256_after"]
                   and original_before == result["original_player_sha256_after"])
@@ -205,7 +220,8 @@ def main():
         filename = "result-bounded156.json" if mode == "bounded" else "result.json"
         (ARTIFACTS / filename).write_text(json.dumps(result, indent=2) + "\n")
     if exit_code == 0:
-        print("M1", result["status"], "/36732 actual caller assertions /5312 unchanged original-C physics assertions /",
+        print("M1", result["status"], "/" + str(result["baseline"]["assertions"]) +
+              " actual caller assertions /5312 unchanged original-C physics assertions /",
               len(result["mutants"]), "real source mutants / complete qualification:", mode == "complete")
     return exit_code
 

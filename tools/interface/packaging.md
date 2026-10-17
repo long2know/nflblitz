@@ -1,5 +1,12 @@
 # Original B1 HUD and match-service resource packaging
 
+**Sound-runtime checkout:** use the explicit **SoundVM profile** below.
+Historical B1 and eight-argument M1 data/APIs are retained, not silently
+reclassified as this new mandatory sound-function version.
+Movement PR19 (head`70fcc`) passed CI and was normally merged; this dependent
+SoundVM binding/transport remains a separate unpublished layer. Do not pull,
+recopy, or reinterpret the active isolated source generation during validation.
+
 **M1 checkout:** use the explicit **Movement157** section below. The B1 recipe
 and dated qualification are retained as historical profiles, not instructions
 to call157 bytes117. The shared UTF-8 visibility repair and serialized-field
@@ -399,3 +406,128 @@ python3 -B tests/presentation/movement-stage/run.py \
 
 The pre-existing approximate60-frame/s browser preview is untouched; no new
 M1 browser performance or visual parity is claimed.
+
+## Explicit SoundVM service/data profile
+
+This is a dependent resource/transport version, **not DSP playback**. All
+Movement157 team/prefab/library/impact/HUD/runtime-movement/bootstrap/source-DIP
+identities above remain unchanged. Two new identities are explicit:
+
+| Resource | Exact key |
+| --- | --- |
+| New match services | `BlitzSourceInterface/original-movement157-soundvm-match-services` |
+| SAFN1 `TextAsset` | `SourceData/sound-functions-safn1-4a557304` |
+
+Required SAFN1 is exactly **1983 bytes**, trusted SHA256
+`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
+The binary contains the original frozen sound-function parameters and exact
+six implemented ANI_CODE tuples. It is not a PCM bank, test `Responses`, a
+missing-data default, or an inferred hash. Original numerical data, its raw
+input, converted output, generated resource and metadata remain ignored/local.
+
+`SourceInterfacePackagePlan.WithSourceSoundVm` explicitly derives a **new**
+package from an actual157 plan and an authorized sound root/relative path/fixed
+pin. The existing B1/M1 constructors keep their original keys and do not gain
+sound data. A new sound consumer rejects those old resources before import;
+it does not reuse their old key as though unchanged.
+
+### Future isolated licensed import — still blocked
+
+No further Editor invocation is authorized while legitimate startup exits198.
+When parent approves an actual licensed isolated candidate, use every required
+Movement157/HUD/P1/match/bootstrap argument above, a **fresh** stable ID such as
+`original-movement157-soundvm-v1`, and the new entrypoint/three additional inputs:
+
+```text
+-executeMethod Blitz.Editor.SourceTeamInterfaceImporter.ImportSoundVmFromCommandLine
+-interfaceSoundVmRoot <ABS_AUTHORIZED_SAFN_DIRECTORY>
+-interfaceSoundVmData <EXPLICIT_RELATIVE_SAFN_FILE>
+-interfaceSoundVmSha256 4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280
+```
+
+The exact SAFN bytes become
+`Assets/Imported/<fresh-id>/Resources/SourceData/sound-functions-safn1-4a557304.bytes`.
+An existing identical canonical data resource is validated and reused, never
+overwritten or duplicated. The new services asset is
+`Resources/BlitzSourceInterface/original-movement157-soundvm-match-services.asset`.
+
+The actual new services initializer preserves the eight-argument M1 prefix and
+requires **two more** arguments: `(TextAsset soundVmFunctions,
+string trustedSoundVmSHA)`. Its serialized reference, canonical Resources
+identity, fixed pin and exact bytes must agree. `CreateSimulation` constructs
+the real mandatory M1 kernel, then calls
+`BindSourceSoundVmData(SoundVmData)` **before returning and before the first
+executing57-Hz source wake**. Restart retains that binding. The old eight-argument
+initializer is not a muted/legacy fallback.
+
+New fresh-domain checks, with the same explicit sound/M1 input arguments:
+
+- `Blitz.Editor.SourceTeamInterfaceChecks.VerifySoundVmBindingsFromCommandLine`
+  checks saved resource/configuration references and exact SAFN bytes/pin.
+- `Blitz.Editor.SourceTeamInterfaceChecks.VerifySoundVmFromCommandLine` additionally
+  requires real graphics for existing complete atlas-pixel checks.
+
+Neither has run while the native license blocker remains. No saved resource,
+pixel, audible output, or browser game claim follows from source compilation.
+
+### Already-resolved sound transport
+
+Exactly six original VM sound tuples are selected **synchronously inside Core
+ANI_CODE**, using its actual state, shared RNG and process context. Detached
+`SourceSoundVmDispatch` batches retain the same `OriginalCue`, result, ordered
+raw calls and draw trace. Delivery never selects or consumes RNG again.
+
+Runtime drains FIFO after each actual host `Step` (including partial failure),
+pairs by `ReferenceEquals(OriginalCue)`, and routes a paired `Resolved` dispatch
+to `PlayCamera.ConsumeResolvedSourceSound(dispatch, actualRawOutputConsumer)`,
+**instead of** the old generic callback. `SourceCinematicPlayback` reuses its
+original source-site/operand validation and consumes global cue order once.
+`PlayerDown` remains the existing already-executed ordering token.
+
+- `Resolved` with an actual completed zero-call result is legitimate source
+  control flow, not fabricated silence or a request to draw RNG.
+- `Unsupported`, `MissingInput`, absent results, and other unpaired
+  speech/dust/SPFX callbacks remain visible unsupported/fault paths.
+- A nonempty resolved result requires an explicitly supplied real typed raw
+  output consumer. With no such consumer, delivery throws visibly. No isolated
+  preview adapter, fake click, noop, clipping/scaling of raw uint fields, mixer,
+  pan/priority interpretation or DSP firmware guess is installed here.
+- Original cue reference/subcall order are preserved; duplicate delivery or
+  retry through the generic callback is rejected.
+
+Current standalone checkout commands require no ignored authoring roots:
+
+```sh
+python3 -B tests/presentation/sound-runtime/run.py
+python3 -B tests/presentation/sound-runtime/mutations.py
+python3 -B tests/presentation/sound-runtime/api_compile.py --unity-editor-data "$UNITY_DATA"
+```
+
+For actual positive-data, original-catalog consumer, and full package guards:
+
+```sh
+python3 -B tests/presentation/sound-runtime/run.py \
+  --sound-vm-data "$SAFN_FILE" --impact-catalog "$ORIGINAL_IMPACT_JSON" \
+  --hud-root "$HUD_ROOT" --playbook-root "$P1_ROOT" --movement-data "$MOVEMENT_JSON"
+python3 -B tests/presentation/sound-runtime/mutations.py \
+  --sound-vm-data "$SAFN_FILE" --impact-catalog "$ORIGINAL_IMPACT_JSON" \
+  --hud-root "$HUD_ROOT" --playbook-root "$P1_ROOT" --movement-data "$MOVEMENT_JSON"
+```
+
+The API command reuses the permanent current-checkout compiler: ALL real runtime
+sources and ALL Editor sources compiled separately, warnings as errors,
+C#7.3/netstandard2.1, actual6000.3.24 APIs. No Editor is executed. DSP3
+firmware/protocol/mixing, all remaining sound/SPFX functions, C1/full normal
+camera/target scheduler/libc, native/browser/rendered/audible behavior, and all16
+full-parity rows remain explicitly unqualified.
+
+The playback boundary is **not missing public PM/DM images**: all eight public
+images exist, and CRC deployment wrapping is resolved. Exact original playback
+still requires establishing the source `TARGET_SYS`/`localset`/build identity
+(Seattle ADSP2115 versus Vegas ADSP2104), the matching legitimate32768-byte
+bootstrap (`sound102.u95`, SHA1 `db80aa4a645804a4574b07b9f34dec6b6b64190d`,
+or `vegassio.bin`, SHA1 `f6e8405cfa604528c0224401bc374a6df9caccef`), and a full
+matching DCS2 board runner. The existing pinball decoder is not that runner.
+Neither target/bootstrap match nor full-board behavior is established here.
+No download, alternate-target assumption, firmware implementation or DSP output
+sink was added; unbound nonempty raw sound output continues to fail visibly.

@@ -1,6 +1,7 @@
 using System;
 using Blitz.AssetImport;
 using Blitz.Contracts;
+using Blitz.Gameplay;
 using Blitz.Presentation;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ namespace Blitz.Runtime
         private PlayHud hud;
         private SourceInterfaceServices sourceServices;
         private SourceCabinetUnityInput sourceInput;
+        private SourceSoundVmTransport soundTransport;
         private Blitz.Gameplay.GameSimulation simulation;
         private Func<IGameState, long, int> sourceCameraProducer;
         private long lastSourceCameraTick = -1;
@@ -38,8 +40,11 @@ namespace Blitz.Runtime
         public SourceCabinetPlaySelection SourceSelection { get; private set; }
         public Blitz.Gameplay.GameSimulation SourceSimulation { get { return IsSourceProfile ? simulation : null; } }
         public SourceCinematicPlayback SourcePlayback { get { return IsSourceProfile && playCamera != null ? playCamera.SourcePlayback : null; } }
+        public SourceSoundVmTransport SoundVmTransport { get { return soundTransport; } }
         public event Action<SourceGameEvent> SourceEventRaised;
         public event Action<SourcePresentationCue> SourcePresentationCueRaised;
+        public event Action<SourcePresentationCue> SourcePresentationCueObserved;
+        public event Action<SourceSoundVmDispatch> SourceSoundVmDispatchRaised;
         public event Action<IGameState> BeforeHostStep;
         public event Action<IGameState> AfterHostStep;
 
@@ -71,6 +76,7 @@ namespace Blitz.Runtime
                     if (!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab)))
                         throw new SourceInterfaceException("M1 Core, catch geometry, Team and renderer must share the SAME canonical157 animation instance.");
                     simulation = sourceServices.CreateSimulation(prefab);
+                    soundTransport = new SourceSoundVmTransport();
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
                     simulation.SourceStationInputTransform = SourceSelection.ApplyAtSourceTick;
                     sourceInput = new SourceCabinetUnityInput(((ISourceMatchState)simulation.State).Match.Configuration,
@@ -94,7 +100,7 @@ namespace Blitz.Runtime
                         simulation.SourceActorWorldPosition);
                     RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
-                    SourcePresentationCueRaised += playCamera.ConsumeSourceCue;
+                    SourcePresentationCueRaised += ConsumeSourcePresentationCue;
                     AfterHostStep += playCamera.ObserveSourceHostStep;
                 }
                 hud = gameObject.AddComponent<PlayHud>();
@@ -104,6 +110,9 @@ namespace Blitz.Runtime
                 bridge.SourcePresentationCueRaised += OnSourcePresentationCue;
                 bridge.BeforeHostStep += OnBeforeHostStep;
                 bridge.AfterHostStep += OnAfterHostStep;
+                bridge.AfterSimulationStep += OnAfterSimulationStep;
+                bridge.AfterSourcePresentation += CompleteSourceSoundBatch;
+                bridge.Restarted += ResetSourceSoundTransport;
                 if (IsSourceProfile)
                 {
                     hud.OnSourceHostStep(bridge.State);
@@ -117,12 +126,26 @@ namespace Blitz.Runtime
             catch (NotSupportedException e) { FailSourceMode(e); }
             catch (SourceRosterException e) { FailSourceMode(e); }
             catch (ArgumentException e) { FailSourceMode(e); }
+            catch (System.IO.InvalidDataException e) { FailSourceMode(e); }
         }
 
         private void Update()
         {
-            if (InputSuspended || bridge == null || sourceFailure != null)
+            if (InputSuspended || bridge == null)
                 return;
+            if (sourceFailure == null && soundTransport != null && soundTransport.Failure != null)
+                FailSourceMode(new InvalidOperationException(soundTransport.Failure));
+            if (sourceFailure != null)
+            {
+                if (IsSourceProfile && sourceInput != null)
+                {
+                    sourceInput.Poll(((ISourceMatchState)State).Match);
+                    if (waitingForRelease && !sourceInput.Buffer.WaitingForNeutral && !Input.GetKey(KeyCode.R))
+                        waitingForRelease = false;
+                    if (!waitingForRelease && Input.GetKeyDown(KeyCode.R)) RestartMatch();
+                }
+                return;
+            }
             if (IsSourceProfile)
             {
                 try
@@ -206,6 +229,8 @@ namespace Blitz.Runtime
         internal void FailSourceMode(Exception error)
         {
             sourceFailure = error.Message;
+            waitingForRelease = true;
+            if (sourceInput != null) sourceInput.Clear();
             if (bridge != null) bridge.SetActive(false);
             Debug.LogError("SOURCE MODE ERROR: " + sourceFailure);
         }
@@ -253,6 +278,8 @@ namespace Blitz.Runtime
             if (bridge == null)
                 return;
             bridge.Restart();
+            sourceFailure = null;
+            bridge.SetActive(!InputSuspended);
             lastSourceCameraTick = -1;
             if (sourceInput != null) sourceInput.Clear();
             if (SourceSelection != null) SourceSelection.Clear();
@@ -306,17 +333,59 @@ namespace Blitz.Runtime
 
         private void OnSourcePresentationCue(SourcePresentationCue cue)
         {
+            Action<SourcePresentationCue> observed = SourcePresentationCueObserved;
+            if (observed != null) observed(cue);
             Action<SourcePresentationCue> handler = SourcePresentationCueRaised;
             if (handler != null) handler(cue);
         }
 
+        private void ConsumeSourcePresentationCue(SourcePresentationCue cue)
+        {
+            SourceCallbackCue callback = cue as SourceCallbackCue;
+            if (callback != null && callback.Kind != SourcePresentationCueKind.PlayerDownCallback)
+            {
+                SourceSoundVmDispatch dispatch = soundTransport.TakeForCue(callback);
+                if (dispatch != null && dispatch.Status == SourceSoundVmStatus.Resolved)
+                {
+                    playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);
+                    return;
+                }
+            }
+            playCamera.ConsumeSourceCue(cue);
+        }
+
+        public void BindSourceSoundOutput(ISourceSoundVmOutputConsumer actualConsumer)
+        {
+            if (!IsSourceProfile || soundTransport == null)
+                throw new InvalidOperationException("Bind real raw sound output only on the initialized source profile.");
+            soundTransport.BindOutput(actualConsumer);
+        }
+
+        private void OnAfterSimulationStep()
+        {
+            if (!IsSourceProfile) return;
+            SourceSoundVmBatch batch = simulation.TakeSourceSoundVmDispatches();
+            soundTransport.Drain(batch);
+            Action<SourceSoundVmDispatch> observed = SourceSoundVmDispatchRaised;
+            if (observed != null)
+                foreach (SourceSoundVmDispatch dispatch in batch.Dispatches) observed(dispatch);
+        }
+
+        private void CompleteSourceSoundBatch()
+        { if (soundTransport != null) soundTransport.CompletePresentationBatch(); }
+
+        private void ResetSourceSoundTransport()
+        { if (soundTransport != null) soundTransport.Reset(); }
+
         private void ForwardInitialSourcePresentationCues()
         {
+            OnAfterSimulationStep();
             SourcePresentationCueBatch batch = simulation.PresentationCues;
             if (batch == null)
                 throw new SourceInterfaceException("Initial source presentation cue availability is unknown.");
             foreach (SourcePresentationCue cue in batch.Cues)
                 OnSourcePresentationCue(cue);
+            CompleteSourceSoundBatch();
         }
 
         private void OnBeforeHostStep(IGameState state)
@@ -413,7 +482,7 @@ namespace Blitz.Runtime
         {
             if (IsSourceProfile && playCamera != null)
             {
-                SourcePresentationCueRaised -= playCamera.ConsumeSourceCue;
+                SourcePresentationCueRaised -= ConsumeSourcePresentationCue;
                 AfterHostStep -= playCamera.ObserveSourceHostStep;
             }
             if (bridge != null)
@@ -423,6 +492,9 @@ namespace Blitz.Runtime
                 bridge.SourcePresentationCueRaised -= OnSourcePresentationCue;
                 bridge.BeforeHostStep -= OnBeforeHostStep;
                 bridge.AfterHostStep -= OnAfterHostStep;
+                bridge.AfterSimulationStep -= OnAfterSimulationStep;
+                bridge.AfterSourcePresentation -= CompleteSourceSoundBatch;
+                bridge.Restarted -= ResetSourceSoundTransport;
             }
             if (field != null)
                 field.Dispose();

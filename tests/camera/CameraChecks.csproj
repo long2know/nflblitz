@@ -22,4 +22,5 @@
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.cs')"
            Text="The actual gameplay kernel is required for camera integration checks." />
   </Target>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" />
 </Project>
