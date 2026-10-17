@@ -154,12 +154,23 @@ namespace Blitz.Presentation
         public void ConsumeResolvedSourceSound(SourceSoundVmDispatch dispatch,
             Action<SourceSoundVmDispatch> actualRawOutputConsumer = null)
         {
-            if (dispatch == null || dispatch.OriginalCue == null)
+            if (dispatch == null || !dispatch.HasOriginalAnimationCue)
                 throw new InvalidOperationException("An actual detached source sound VM dispatch and its original cue are required.");
             SourceCallbackCue cue = dispatch.OriginalCue;
             if (cue.Kind != SourcePresentationCueKind.SoundCallback)
                 throw new InvalidOperationException("Only an already-resolved sound callback belongs here; PlayerDown/SPFX are not replayed.");
             RequireOriginalCallback(cue);
+            if (dispatch.C2Context != null)
+            {
+                SourceC2SoundContext c2Context = dispatch.C2Context;
+                if (!c2Context.HasOriginalAnimationCue || !ReferenceEquals(c2Context.OriginalAnimationCue, cue) ||
+                    c2Context.Kind != SourceC2SoundFunctionKind.TauntSpeech &&
+                    c2Context.Kind != SourceC2SoundFunctionKind.HitFunctionExtension)
+                    throw new InvalidOperationException("Only actual C2 animation sound kinds use the cinematic cue path; native whistles have no fake ANI cue.");
+                if (c2Context.Kind == SourceC2SoundFunctionKind.HitFunctionExtension &&
+                    (cue.FunctionSymbol != "get_hit_snd" || cue.Context.SourceLine != 7538 || cue.Argument0 != 70))
+                    throw new InvalidOperationException("The C2 hit extension retains actual7538/get_hit_snd70, not a ground/taunt fallback.");
+            }
             SourcePresentationContext context = cue.Context;
             Ordered(context.SourceTick, context.ProcessOrder, context.ActorPlayerId);
             if (dispatch.Status != SourceSoundVmStatus.Resolved || dispatch.Result == null)
@@ -167,7 +178,11 @@ namespace Blitz.Presentation
             for (int i = 0; i < dispatch.Result.Calls.Count; i++)
             {
                 SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls[i];
-                if (call == null || !ReferenceEquals(call.OriginalCue, cue) || call.SubcallOrder != i)
+                if (call == null || !call.HasOriginalAnimationCue || !ReferenceEquals(call.OriginalCue, cue) ||
+                    call.SubcallOrder != i || dispatch.C2Context != null &&
+                    (dispatch.C2Context.Kind == SourceC2SoundFunctionKind.TauntSpeech
+                        ? !ReferenceEquals(call.C2Context, dispatch.C2Context)
+                        : call.C2Context != null))
                     throw new InvalidOperationException("Already-resolved source sound output must retain the exact OriginalCue and ordered subcalls.");
             }
             if (dispatch.Result.Calls.Count == 0) return;

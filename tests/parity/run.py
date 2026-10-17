@@ -11,6 +11,9 @@ import sys
 import uuid
 
 from prepare_inputs import fixture_hashes
+from contact_inputs import ANIMATION_SHA as CONTACT_ANIMATION_SHA, fixture_profile
+from prepare_inputs import ANIMATION_SHA
+from kernel_sources import production_paths, canonical_hashes, C2_ANIMATION_SHA
 
 SUITE = Path(__file__).resolve().parent
 ROOT = SUITE.parents[1]
@@ -18,10 +21,7 @@ ARTIFACTS = SUITE / ".artifacts"
 
 
 def source_files():
-    return [path for directory in ("Contracts", "Gameplay", "AssetImport")
-            for path in sorted((ROOT / "Assets/Scripts" / directory).glob("*.cs"))] + [
-                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs",
-                ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"]
+    return production_paths()
 
 
 def hashes(paths):
@@ -36,17 +36,42 @@ def stable_production_snapshot():
     raise RuntimeError("Production source inventory is changing; no coherent isolated mutation snapshot was obtained.")
 
 
+def require_full_kernel(summary, animation_sha):
+    if (not isinstance(summary, dict) or summary.get("status") != "passed"
+            or summary.get("full_kernel_host_adapter_exercised") is not True
+            or summary.get("contract_assertions") != 332
+            or summary.get("real_animation_library_sha256") != animation_sha):
+        raise RuntimeError("Actual full-kernel332 adapter checks and explicit animation identity are required.")
+
+
 def main():
+    global ARTIFACTS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, required=True)
     parser.add_argument("--full-kernel", action="store_true", help="Also compile and exercise the actual source-profile host adapter.")
     parser.add_argument("--fixture-manifest", type=Path, help="Explicit pinned real-input fixture.json, required with --full-kernel.")
     parser.add_argument("--sound-functions", type=Path, help="Explicit frozen SAFN input for actual source VM execution.")
+    parser.add_argument("--c2-inputs", type=Path, help="Explicit frozen current281 inputs with real C2 composition.")
+    parser.add_argument("--output", type=Path, help="New ignored child output; preserve historical matrix receipts.")
+    parser.add_argument("--input-profile", choices=("legacy", "contact272"), default="legacy",
+                        help="Select the explicit production272 fixture without changing legacy117/157 defaults.")
     args = parser.parse_args()
+    if args.output is not None:
+        selected = args.output.absolute()
+        if not selected.is_relative_to(SUITE / ".artifacts") or selected.exists():
+            parser.error("--output requires a new tests/parity/.artifacts child.")
+        ARTIFACTS = selected
     if args.full_kernel and args.fixture_manifest is None:
         parser.error("--full-kernel requires --fixture-manifest; synthetic/geometry fallbacks are forbidden.")
     fixture_path = args.fixture_manifest.resolve() if args.fixture_manifest is not None else None
+    profile = fixture_profile(fixture_path, args.input_profile) if args.full_kernel else None
+    animation_sha = C2_ANIMATION_SHA if args.c2_inputs is not None else (
+        CONTACT_ANIMATION_SHA if profile == "contact272" else ANIMATION_SHA)
     fixture_before = fixture_hashes(fixture_path, args.sound_functions) if args.full_kernel else None
+    if args.c2_inputs is not None:
+        if not args.full_kernel:
+            parser.error("--c2-inputs requires the actual full-kernel host adapter.")
+        fixture_before.update(canonical_hashes(args.c2_inputs))
     case_path = args.cases.resolve()
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     mode = "full-kernel" if args.full_kernel else "focused"
@@ -90,6 +115,8 @@ def main():
             command.append(str(fixture_path))
             if args.sound_functions is not None:
                 command.append(str(args.sound_functions.resolve()))
+            if args.c2_inputs is not None:
+                command += ["--c2-inputs", str(args.c2_inputs.absolute())]
         commands.append(command)
         process = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=180)
         text = process.stdout + process.stderr
@@ -111,6 +138,7 @@ def main():
         "mutation": {"executed": False}, "browser_or_unity_executed": False,
         "full_gameplay_parity_claimed": False,
         "full_kernel_adapter_requested": args.full_kernel,
+        "input_profile": profile, "expected_animation_sha256": animation_sha if args.full_kernel else None,
         "real_input_sha256_before": fixture_before,
     }
     try:
@@ -120,6 +148,8 @@ def main():
         if baseline.returncode or summary is None or summary.get("status") != "passed":
             print(text)
             return 1
+        if args.full_kernel:
+            require_full_kernel(summary, animation_sha)
         if summary["executed_original_c_cases"] != original_receipt["executed_original_c_cases"]:
             raise RuntimeError("Production run did not consume the complete original-C case inventory.")
         contents, snapshot_hashes = stable_production_snapshot()
@@ -152,6 +182,8 @@ def main():
         if final.returncode or final_summary is None or final_summary.get("status") != "passed":
             print(final_text)
             return 1
+        if args.full_kernel:
+            require_full_kernel(final_summary, animation_sha)
         evidence["status"] = "passed"
         print("PASS: original-C / exact production C# comparison; actual isolated rounding mutation rejected.")
         print(json.dumps(final_summary, separators=(",", ":")))
@@ -166,6 +198,8 @@ def main():
         evidence["production_sha256_after"] = hashes(source_files())
         evidence["production_hashes_unchanged"] = evidence["production_sha256_after"] == before
         evidence["real_input_sha256_after"] = fixture_hashes(fixture_path, args.sound_functions) if args.full_kernel else None
+        if args.c2_inputs is not None:
+            evidence["real_input_sha256_after"].update(canonical_hashes(args.c2_inputs))
         evidence["real_input_hashes_unchanged"] = evidence["real_input_sha256_after"] == fixture_before
         stable = evidence["production_hashes_unchanged"] and evidence["real_input_hashes_unchanged"]
         if not stable:

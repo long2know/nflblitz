@@ -1,5 +1,62 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Current281 canonical entry and honest coverage boundary
+
+The commands/results below this section are historical117/156/157/272
+contracts, not new281 full-M1 acceptance. The explicit canonical test adapter
+loads frozen288 producer outputs in addition to the unchanged real-input
+fixture, and calls the actual `SourceC2Composition` with its sealed geometry,
+the same281 library, real pre-constructor bootstrap/two bank draws and the
+unchanged old six SAFN before wake.
+
+```sh
+python3 -B tests/movement-callers/canonical.py \
+  --fixture-manifest "$PRODUCTION272_FIXTURE" --sound-functions "$SAFN" \
+  --c2-inputs "$CANONICAL281_INPUTS" --source-root "$PINNED_ORIGINAL_PLAYER_ROOT" \
+  --output tests/movement-callers/.artifacts/qa-current281
+python3 -B -m unittest discover -s tests/movement-callers -p 'test*.py'
+```
+
+The permanent observer harness hash-checks the exact original cache-call source,
+requires one unique injection site, and proves removing only its local
+argument capture/read-observer restores the original bytes. It compiles an
+**isolated source copy**, never mutates a live assembly/readonly geometry, never
+replaces the factory/geometry, and adds no geometry calls, RNG or model writes.
+Actual call arguments/results and every14x15 row are recorded before contact.
+ReferenceRows use offline captured-view pose/matrix arithmetic, not post-contact
+resampling and not an independent original-C geometry oracle.
+
+An independent **uninstrumented** real-composition stream is compared
+bit-for-bit with the separately labelled isolated witness: every host's complete
+serialized public snapshot, explicit actor/model/cache state, source/contact/C2
+events and guarded sound-call projections, plus all shared raw draw/site/order
+records. Receipts preserve original/instrumented source hashes and hashes of
+the immutable actual compile/input closure. Instrumented output is never called
+untouched production.
+
+The first scoped canonical run completed12,000 hosts /11,400 source ticks /
+25,641 shared draws with identical streams and strict current/previous/reference
+cache coverage. It observed **zero R_SKIP frames**. Therefore the preserved
+full-M1 R_SKIP advancement/pose assertions are **uncovered**, not deleted,
+reinterpreted or replaced by a bounded-window success. The old36,948 gate and
+historical source474/cache controls are unchanged.
+
+The extended tracked runner now separately executes a final untouched baseline,
+three canonical cache controls, all original eight M1 controls and the existing
+caller campaigns through the explicit281 factory. The resumed current run
+compiled/rejected all11 controls causally, completed the original664 post-VM
+inputs /5,312 exact original-C physics assertions, and reran controlled/caller
+baselines. These results are new receipts, **not relabelled first-scoped proof**.
+They do not cover the missing R_SKIP advancement/pose witness; full M1 remains
+incomplete. The source135 timing contract was subsequently split under a
+bounded test-only authorization. New campaigns paused again at the retained B1
+source439 flip-only menu assertion, with no queue/input/extra-wake adaptation.
+All16 parity rows remain OPEN.
+
+The C2 no-eligible-candidate policy is an autonomous semantic portability repair,
+**not user-approved**, not target-memory/instruction/ABI equivalence. Callback
+draw3829 and natural post-host raw4039 are different observation times.
+
 This suite promotes the frozen Core caller checks, not a new movement
 implementation. It compiles the actual gameplay/helpers/Contracts/AssetImport
 closure and the existing pure cinematic-transform producer. No production
@@ -209,3 +266,157 @@ python3 tests/ball/compile_profile.py \
 This only compiles against actual .NET Standard2.1 APIs, without starting an
 Editor/native/IL2CPP/WebGL/browser process. No complete M1/C1/C2/normal-camera,
 other sound functions/SPFX, target libc/scheduler or all-row/full-match claim is made.
+## Current Contact272 generation
+
+For the C1+Sound generation, add `--input-profile contact272` with the explicit
+`source-contact-kernel-real-inputs/v1` fixture from
+[`../parity/prepare_contact_inputs.py`](../parity/prepare_contact_inputs.py).
+Complete and controlled modes use the actual production272 library and its
+same-instance15-bone geometry. `--bounded156-diagnostic` keeps the separately
+identified historical156 negative control; neither157 nor156 is relabeled272.
+The existing unfiltered raw-vector smoke, R_SKIP advancement,14×15 cache,
+664 original-C physics cases, all hurdle/caller/control cases and eight named
+mutants remain requirements. Counts in the historical section above are not a
+new-generation pass. Report the first actual C2/software fault precisely; do
+not force a target animation/state, filter the trace or call the LCG historical.
+The success trace retains every shared raw draw. An unhandled public-smoke
+exception saves `first-public-smoke-failure.json` with the full raw prefix,
+actual actors/source process/cursor and command before rethrowing unchanged;
+that file is explicitly partial, never completed-smoke evidence.
+
+The accepted **blocked** generation first failed its old post-step resample
+expectation at source474, actor12/pelvis0, after12→13 C1 cylinder contact.
+That receipt remains failed and preserved. The focused source-time correction
+below changes the invalid observation basis, not production or the strict-bit
+contract. Full R_SKIP/callers/original-C physics and all eight original mutants
+remain unqualified until the parent confirms a new complete source freeze.
+No software or missing-asset failure becomes green.
+
+## Source-time cache observation, not post-contact reconstruction
+
+Pinned NFL2000 `89f840d58d152a2a9f230cb8d0cdffbd554c8ded` establishes:
+
+- `nfl.c:694–721` creates the named camera/player/post-player/collision/ball
+  run levels; `player.c:6533–6547` explicitly places `last_player_proc` after
+  all players and before collision checks.
+- `player.c:1001–1010,1090–1155` animates/integrates players first.
+  `player.c:6568–6675` uses the executing camera and actual actor roots/poses
+  to generate all14 actors' matrices/jpos, onscreen or not.
+- `detect.c:517–675` consumes that existing jpos. Its `att_none` body moves
+  world X/Z at `detect.c:1091–1095`, without regenerating those joint matrices.
+- `_ani_leapatt`, `ANIM.C:2462–2472`, reads the preceding jpos with the current
+  camera transform. The prior-cache/current-matrix contract is intentional.
+
+`Program.cs` therefore wraps the **actual** `SourceCatchGeometry` interfaces.
+It returns the original delegate result unchanged and retains the same real272
+animation object in Core and geometry; real SAFN is still bound before wake.
+It captures actual caller arguments/results at the real post-player geometry
+call, independently checks them against the actual live actor/current camera
+at that instant, and compares **all210 stored joint vectors** after `Step`
+against those captured results. It never invents a pose, modifies a snapshot,
+patches model/RNG state, forces a clip, or sets a collision-suppression flag.
+
+The pre-player camera callback validates every preceding14×15 cached value,
+including values from prior contact wakes. Every current camera's matrix,
+position and resolution are checked by exact float bits. Every post-contact
+frame still checks all14×15 stored results, including every displaced actor.
+Where the actual pose/root basis is unchanged, the ordinary post-step resample
+is also compared strictly. That extra comparison is not used to skip any
+source-time comparison.
+
+The named source474 observation retains all210 rows. Actual actor12/SPIN_A26
+moves from `(-215.51158,0,-17.88577)` to
+`(-215.47853,0,-17.90938)` after the cache call. Its cached pelvis bits remain
+`[1115870891,3248888060,1120589844]`, matching the actual pre-contact result;
+the actual post-contact resample is
+`[1115875196,3248881154,1120592457]`. All15 actor12 joints and all other actors
+are validated, not just this pelvis example.
+
+### Focused command while Core is mutable
+
+Use an **explicit immutable** local source copy sealed as
+`source-contact-cache-compile-snapshot/v1`. The focused runner reads that copy,
+not a moving live production generation. It copies the real project/test
+closure, including unchanged `FullKernelInputs.cs` and mandatory real
+`SourceSoundVmSources.props`, into each isolated compile. No new framework,
+production API, stub or omitted dependency is used.
+
+```sh
+python3 -B tests/movement-callers/run.py --input-profile contact272 \
+  --source-root .squad/.scratch/SourceData/contact-kernel-original \
+  --fixture-manifest .squad/.scratch/SourceData/contact-kernel272/fixture.json \
+  --sound-functions tools/audio/.artifacts/functions/contact-sound-v1/sound-functions.safn \
+  --cache-contract-only \
+  --frozen-source-root tests/movement-callers/.artifacts/cache-contract-frozen-source \
+  --frozen-source-map tests/movement-callers/.artifacts/cache-contract-frozen-source/source-manifest.json
+python3 -B tests/movement-callers/test_runner.py
+```
+
+This **targeted-only** trace stops at source474 after499 unchanged public host
+inputs and431 shared raw draws. No input value, random-site predicate or game
+state changes. It does not claim a full smoke, R_SKIP, new AI fix, full M1/B1,
+native/browser or all-row acceptance.
+
+The baseline/final count is437452:
+
+| Contract | Strict vector/assertion count |
+|---|---:|
+| Retained original smoke checks |422 = two original headers +420 dead-ball cache rows |
+| Additional current cache rows outside that retained subset |99120 |
+| Actual current-pose/root/current-matrix reference rows |99540 |
+| Previous cached rows at next camera stage |99330 |
+| Additional ordinary unchanged-basis post-step rows |96825 |
+| Actual geometry phase/order/root/camera/count/no-RNG checks |39816 |
+| Camera/cache lifecycle checks |948 |
+| Frame cache/current-matrix/completeness checks |1422 |
+| Skipped-host cache preservation |25 |
+| Exact474 provenance and final coverage |4 |
+
+The original393rd assertion is now correctly based on the actual pre-contact
+result; the remaining29 original rows in that prefix are completed, not dropped.
+There are474 full cache frames,79 contact frames and178 displaced-actor
+occurrences. Each frame, including all contact frames, checks210 stored rows.
+
+Three **additional**, isolated controls must successfully compile and fail their
+named contract: production refresh after contact; checker using the wrong
+current-root basis; checker dropping displaced-actor comparisons. The original
+eight real M1 mutants remain unchanged and are not replaced by these controls.
+
+For later full runs the observer's added assertions are recorded separately
+from `retained_M1_assertions`. The old36948/12792 and controlled808 inventories,
+minimum35910 retained cache rows, all16×7 hurdle windows,664/5312 original-C
+physics,36-byte LEAPATT operands and unfiltered R_SKIP requirements remain gates.
+Legitimate whole-trace count changes must still be measured/source-explained
+after the new complete freeze; this targeted milestone does not waive them.
+
+## Persistent current-generation cache-control wiring
+
+After an approved complete source freeze, the existing full runner seals its
+current production snapshot and requires the cache baseline, all three compiled
+cache controls and final cache baseline before the full M1 smoke and all eight
+original gameplay mutants. Archived pre-AI evidence is never current acceptance.
+
+The same explicit input recipe can independently exercise only the current
+cache contracts after a freeze:
+
+```sh
+python3 -B tests/movement-callers/run.py --input-profile contact272 \
+  --source-root .squad/.scratch/SourceData/contact-kernel-original \
+  --fixture-manifest .squad/.scratch/SourceData/contact-kernel272/fixture.json \
+  --sound-functions tools/audio/.artifacts/functions/contact-sound-v1/sound-functions.safn \
+  --cache-contract-only --cache-contract-current
+```
+
+`--cache-contract-current` explicitly captures current sources; it is not
+permission to run against moving production. Do not combine it with historical
+`--frozen-source-root`/`--frozen-source-map` inputs. Neither cache-only route
+qualifies full R_SKIP/callers/664 original-C physics/all8 gameplay mutants.
+
+The next frozen-generation full attempt passes the current cache controls but
+stops at source858/host index903: `SourceRouteInput.targetFacing` rejects actual
+actor7 raw target/facing `-437`. The unchanged unfiltered prefix has1144 draws;
+the active route is `db_rush_qb`, WordIndex0, flags1146888, station-1. This is a
+production source-domain boundary failure, not an asset/native/C2 guess or
+permission to normalize state. The actual failure trace now also retains raw
+facing/target, actual route argument sources, formation/cache inputs and all34
+real handicap table records. Full M1/R_SKIP/original8 mutants remain blocked.

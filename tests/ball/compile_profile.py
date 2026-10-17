@@ -8,21 +8,18 @@ from pathlib import Path
 import shutil
 import subprocess
 import uuid
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = Path(__file__).resolve().parent / ".artifacts"
+sys.path.insert(0, str(ROOT / "tests/parity"))
+from kernel_sources import production_paths
 
 
 def source_hashes():
-    result = {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-            for directory in ("Contracts", "Gameplay", "AssetImport")
-            for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))}
-    camera = ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"
-    result[camera.relative_to(ROOT).as_posix()] = hashlib.sha256(camera.read_bytes()).hexdigest()
-    selector = ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
-    result[selector.relative_to(ROOT).as_posix()] = hashlib.sha256(selector.read_bytes()).hexdigest()
-    return result
+    return {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in production_paths()}
 
 
 def compiler_path():

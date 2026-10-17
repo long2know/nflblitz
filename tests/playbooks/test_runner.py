@@ -100,8 +100,11 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, support.live_hashes())
-        self.assertEqual(6, len(support.CONTRACTS))
-        self.assertEqual(12, sum(name.endswith(".cs") for name in contents))
+        self.assertEqual(7, len(support.CONTRACTS))
+        self.assertEqual(13, sum(name.endswith(".cs") for name in contents))
+        runner_source = (support.SUITE / "run.py").read_text()
+        self.assertIn('"profile": "Actual complete seven Contracts +', runner_source)
+        self.assertNotIn('"profile": "Actual complete six Contracts +', runner_source)
         self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in contents))
         for name in ("model/PurePlaybooks.csproj", "PlaybookChecks.csproj"):
             project = (support.SUITE / name).read_text()
@@ -119,10 +122,30 @@ class PlaybookRunnerGuards(unittest.TestCase):
 
     def test_live_source_hash_guard_rejects_changed_actual_copied_source(self):
         contents, before = support.snapshot()
+        contracts = {name for name in contents if name.startswith("Assets/Scripts/Contracts/")}
+        self.assertEqual(7, len(contracts))
+        self.assertIn("Assets/Scripts/Contracts/SourceContactContracts.cs", contracts)
+        self.assertEqual({"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}, contracts)
         for name, data in contents.items():
             path = self.directory / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
+        support.require_unchanged(before, self.directory)
+        contact = self.directory / "Assets/Scripts/Contracts/SourceContactContracts.cs"
+        contact.unlink()
+        with self.assertRaisesRegex(support.GateError, "missing=.*SourceContactContracts.cs"):
+            support.source_paths(self.directory)
+        contact.write_bytes(contents["Assets/Scripts/Contracts/SourceContactContracts.cs"])
+        renamed = contact.with_name("UnqualifiedContactDto.cs")
+        contact.rename(renamed)
+        with self.assertRaisesRegex(support.GateError, "missing=.*SourceContactContracts.cs.*unexpected=.*UnqualifiedContactDto.cs"):
+            support.source_paths(self.directory)
+        renamed.rename(contact)
+        extra = contact.parent / "UnexpectedContract.cs"
+        extra.write_text("// Owned negative inventory control, never compiled as a production DTO.\n")
+        with self.assertRaisesRegex(support.GateError, "unexpected=.*UnexpectedContract.cs"):
+            support.source_paths(self.directory)
+        extra.unlink()
         support.require_unchanged(before, self.directory)
         target = self.directory / "Assets/Scripts/Gameplay/SourceDroneAI.cs"
         original = target.read_text()

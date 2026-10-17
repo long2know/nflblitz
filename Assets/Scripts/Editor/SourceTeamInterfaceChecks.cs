@@ -107,6 +107,33 @@ namespace Blitz.Editor
         public static void VerifySoundVmBindingsFromCommandLine()
         { VerifySoundVm(false); }
 
+        public static void VerifyContact272FromCommandLine()
+        { VerifyContact272(true); }
+
+        public static void VerifyContact272BindingsFromCommandLine()
+        { VerifyContact272(false); }
+
+        public static void VerifyContact281C2FromCommandLine() { VerifyContact281C2(true); }
+        public static void VerifyContact281C2BindingsFromCommandLine() { VerifyContact281C2(false); }
+
+        private static void VerifyContact281C2(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromContact281C2Arguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
+        private static void VerifyContact272(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromContact272Arguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
         private static void VerifySoundVm(bool pixels)
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -135,12 +162,13 @@ namespace Blitz.Editor
             SourceHudAsset hud = Resources.Load<SourceHudAsset>(SourceHudAsset.ResourceKey);
             SourceInterfaceServices services = AssetDatabase.LoadAssetAtPath<SourceInterfaceServices>(servicesPath);
             Require(hud != null && services != null, "Actual persisted original HUD/services assets are missing.");
-            Require(SourceInterfaceServices.ResourceKey == plan.SelectedServicesResourceKey &&
+            Require(SourceInterfaceServices.ResourceKeyFor(profile) == plan.SelectedServicesResourceKey &&
                 Resources.Load<SourceInterfaceServices>(plan.SelectedServicesResourceKey) == services &&
                 SourceTeamInterfaceImporter.FindUniqueResourcePath("SourceInterfaceServices", plan.SelectedServicesResourceKey) == servicesPath,
                 "Actual services Resources lookup/profile differs or is duplicated.");
             ConfigurationEquals(plan.Configuration, services.Configuration(), services.PresentationSettings,
                 services.NativeGamepadsEnabled);
+            Require(services.Profile.StableId == profile.StableId, "Saved services explicit generation tag differs; old resources are not upgraded.");
             Require(ReferenceEquals(services.Hud, hud), "Saved services refer to a different original HUD.");
             SourceAnimationLibraryAsset animation = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
             Require(animation != null && animation.InventorySha256 == profile.AnimationSha256 &&
@@ -149,6 +177,13 @@ namespace Blitz.Editor
             SourceAnimationLibrary actualLibrary = animation.Load() as SourceAnimationLibrary;
             Require(actualLibrary != null, "Saved actual typed animation library is missing.");
             profile.RequireInventory(animation.InventorySha256, actualLibrary.SequenceNames.Count, actualLibrary.FrameCount);
+            if (profile.IsContact272 || profile.IsContact281C2)
+            {
+                SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
+                Require(teams != null && teams.Template.StableId == profile.StableId,
+                    "Saved Contact272 team/template canonical profile differs.");
+                profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(teams.Template));
+            }
             Require(services.Playbook.Plays.Count == plan.Playbook.Plays.Count &&
                 services.Playbook.Routes.Count == plan.Playbook.Routes.Count, "Saved actual converted P1 catalog inventory changed.");
             long boundBytes, pixelBytes;
@@ -164,7 +199,7 @@ namespace Blitz.Editor
             TextAsset config = AssetDatabase.LoadAssetAtPath<TextAsset>(destination + "/Resources/BlitzSourceInterface/configuration.json");
             Require(config != null && AuthorizedAssetRoot.Sha256(config.bytes) == plan.ConfigurationSha256,
                 "Actual saved explicit configuration bytes changed.");
-            if (profile.IsMovement157)
+            if (profile.UsesMovementData)
             {
                 TextAsset bootstrap = savedServices.FindProperty("originalMovementBootstrap").objectReferenceValue as TextAsset;
                 Require(bootstrap != null && AuthorizedAssetRoot.Sha256(bootstrap.bytes) == plan.BootstrapSha256 &&
@@ -210,6 +245,16 @@ namespace Blitz.Editor
                     services.SoundVmData.PayloadSha256 == plan.SoundVmData.PayloadSha256,
                     "Saved sound services did not load the exact mandatory source SoundVM function data.");
             }
+            if (plan.HasC2)
+            {
+                VerifyC2Text(savedServices, "originalC2Callbacks", SourceInterfacePackagePlan.C2CallbackResourceKey,
+                    plan.CopyC2Callbacks(), SourceInterfacePackagePlan.C2CallbackSha256);
+                VerifyC2Text(savedServices, "originalC2HitExtension", SourceInterfacePackagePlan.C2HitResourceKey,
+                    plan.CopyC2HitExtension(), SourceInterfacePackagePlan.C2HitSha256);
+                Require(services.C2Data.PayloadSha256 == plan.C2Data.PayloadSha256 &&
+                    services.C2Data.AnimationManifestSha256 == profile.AnimationSha256,
+                    "Saved C2 data/library/bootstrap identity differs; C2 entry must precede initial AI draws.");
+            }
             string report = "{\n\"schema\":\"source-interface-package-native/v2\",\n\"bindingsVerified\":true," +
                 "\n\"atlasPixelsVerified\":" + (requireAtlasPixels ? "true" : "false") +
                 ",\n\"atlasRawBytes\":" + boundBytes + ",\n\"nativeReadbackBytes\":" + pixelBytes +
@@ -224,7 +269,7 @@ namespace Blitz.Editor
                 "\",\n\"unityVersion\":\"" + Application.unityVersion +
                 "\",\n\"graphicsDeviceType\":\"" + SystemInfo.graphicsDeviceType +
                 "\",\n\"graphicsDeviceName\":\"" + Escape(SystemInfo.graphicsDeviceName) +
-                "\",\n\"freshDomainRequired\":true,\n\"M1DataLoaded\":" + (profile.IsMovement157 ? "true" : "false") +
+                "\",\n\"freshDomainRequired\":true,\n\"M1DataLoaded\":" + (profile.UsesMovementData ? "true" : "false") +
                 ",\n\"gameOrBrowserParityClaimed\":false\n}\n";
             string output = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Build");
             Directory.CreateDirectory(output);
@@ -233,6 +278,17 @@ namespace Blitz.Editor
             Debug.Log("PASS actual saved " + profile.StableId + " HUD/services " + (requireAtlasPixels ?
                 "bindings + ALL native atlas pixels" : "bindings ONLY; no framebuffer/native-game proof") +
                 "; explicit settings and SAME selected animation library preserved.");
+        }
+
+        private static void VerifyC2Text(SerializedObject services, string field, string key, byte[] expected, string hash)
+        {
+            string path = SourceTeamInterfaceImporter.FindUniqueResourcePath("TextAsset", key);
+            TextAsset actual = Resources.Load<TextAsset>(key);
+            Require(actual != null && path != null && AssetDatabase.GetAssetPath(actual) == path &&
+                path.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
+                services.FindProperty(field).objectReferenceValue == actual && actual.bytes.SequenceEqual(expected) &&
+                AuthorizedAssetRoot.Sha256(actual.bytes) == hash,
+                "Saved C2 callback/ONE7538 resource is missing, duplicated, aliased, changed or not canonical: " + key);
         }
 
         internal static void VerifyHudBindings(SourceInterfacePackagePlan plan, SourceHudAsset hud, bool requireAtlasPixels,

@@ -55,7 +55,9 @@ def ignored_output(path):
     return absolute
 
 
-def input_pins():
+def input_pins(profile="legacy"):
+    if profile not in ("legacy", "contact272"):
+        raise ValueError("Unknown explicit original-input profile: " + profile)
     pins = {}
 
     def add(name, pin):
@@ -93,12 +95,50 @@ def input_pins():
         add(name, pin)
     for name, pin in SOUND_STATE_INPUTS.items():
         add(name, pin)
+    if profile == "contact272":
+        from contact_inputs import SOURCE_PINS
+        for name, pin in SOURCE_PINS.items():
+            add(name, pin)
     return dict(sorted(pins.items()))
+
+
+def verified_original_hashes(root, profile="legacy"):
+    root = Path(root).absolute()
+    tree_path = root / "tree.json"
+    tree_bytes = tree_path.read_bytes()
+    tree_data = json.loads(tree_bytes)
+    if tree_data.get("sha") != TREE or tree_data.get("truncated", False):
+        raise ValueError("Exact complete original tree metadata is required.")
+    spec = importlib.util.spec_from_file_location("kernel_original_tree", ROOT / "tools/rosters/export_rosters.py")
+    helper = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / "tools/rosters"))
+    try:
+        spec.loader.exec_module(helper)
+    finally:
+        sys.path.pop(0)
+    tree = helper.verify_tree(tree_data)
+    result = {str(tree_path): hashlib.sha256(tree_bytes).hexdigest()}
+    for name, pin in input_pins(profile).items():
+        if name not in tree or tree[name]["sha"] != pin:
+            raise ValueError("Original input canonical case/tree pin differs: " + name)
+        path = root / name
+        for component in (path, *path.parents):
+            if component.is_symlink():
+                raise ValueError("Original input symlinks are forbidden: " + name)
+            if component == root:
+                break
+        data = path.read_bytes()
+        if blob_sha1(data) != pin:
+            raise ValueError("Original input blob pin differs: " + name)
+        result[str(path)] = hashlib.sha256(data).hexdigest()
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--profile", choices=("legacy", "contact272"), default="legacy",
+                        help="Keep the original69 default; contact272 adds only active C1 source/operand/WAN pins.")
     parser.add_argument("--cache", type=Path, action="append", default=[],
                         help="Explicit read-only original cache; only matching bytes are used.")
     parser.add_argument("--blob-file", action="append", default=[],
@@ -106,7 +146,7 @@ def main():
     parser.add_argument("--download", action="store_true", help="Explicitly permit pinned Git blob/tree API reads.")
     args = parser.parse_args()
     destination = ignored_output(args.output)
-    pins = input_pins()
+    pins = input_pins(args.profile)
     overrides = {}
     for entry in args.blob_file:
         name, separator, path = entry.partition("=")
@@ -170,10 +210,14 @@ def main():
         raise ValueError("Tree metadata identity/completeness mismatch.")
     if not tree_target.exists():
         tree_target.write_bytes(tree_bytes)
+    if args.profile == "contact272":
+        verified_original_hashes(destination, args.profile)
     receipt = {"schema": "source-kernel-original-inputs/v1", "repository": REPOSITORY,
                "revision": REVISION, "tree": TREE, "verified_blobs": records,
                "tree_sha256": hashlib.sha256(tree_bytes).hexdigest(),
                "tree_objects_verified_by_roster_producer_before_use": True}
+    if args.profile != "legacy":
+        receipt["input_profile"] = args.profile
     (destination / "input-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print("PASS: " + str(len(records)) + " exact pinned original inputs; complete tree supplied for producer verification.")
     return 0

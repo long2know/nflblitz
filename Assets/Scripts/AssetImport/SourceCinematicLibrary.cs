@@ -70,6 +70,16 @@ namespace Blitz.AssetImport
         { Script = script; Line = line; Kind = kind; Arguments = Array.AsReadOnly(arguments); }
     }
 
+    public sealed class SourceCinematicCameraBinding
+    {
+        public string Script { get; }
+        public int OpcodeLine { get; }
+        public int OperandLine { get; }
+        public string Table { get; }
+        internal SourceCinematicCameraBinding(string script, int opcode, int operand, string table)
+        { Script = script; OpcodeLine = opcode; OperandLine = operand; Table = table; }
+    }
+
     public sealed class SourceCinematicLibrary
     {
         public string ContentSha256 { get; }
@@ -78,15 +88,23 @@ namespace Blitz.AssetImport
         public ReadOnlyCollection<SourceCinematicCueDefinition> AnimationCues { get; }
         public ReadOnlyCollection<SourceCinematicCueDefinition> ContactCameraSites { get; }
         public ReadOnlyCollection<string> Qualifications { get; }
+        public string ContactAnimationManifestSha256 { get; }
+        public string ContactProgramsSha256 { get; }
+        public string C2CallbackDataSha256 { get; }
+        public ReadOnlyCollection<SourceCinematicCameraBinding> CameraOperandBindings { get; }
 
         private SourceCinematicLibrary(string hash, Dictionary<string, ReadOnlyCollection<SourceCinematicEntry>> tables,
-            float[] shaker, SourceCinematicCueDefinition[] cues, SourceCinematicCueDefinition[] contacts, string[] qualifications)
+            float[] shaker, SourceCinematicCueDefinition[] cues, SourceCinematicCueDefinition[] contacts, string[] qualifications,
+            string contactAnimation, string contactPrograms, SourceCinematicCameraBinding[] cameraBindings, string c2Data)
         {
             ContentSha256 = hash;
             Tables = new ReadOnlyDictionary<string, ReadOnlyCollection<SourceCinematicEntry>>(tables);
             ShakerExponent = Array.AsReadOnly(shaker); AnimationCues = Array.AsReadOnly(cues);
             ContactCameraSites = Array.AsReadOnly(contacts);
             Qualifications = Array.AsReadOnly(qualifications);
+            ContactAnimationManifestSha256 = contactAnimation; ContactProgramsSha256 = contactPrograms;
+            CameraOperandBindings = Array.AsReadOnly(cameraBindings);
+            C2CallbackDataSha256 = c2Data;
         }
 
         public SourceCinematicEntry Selected(string originalTable, int actualSelectedOrdinal)
@@ -120,7 +138,10 @@ namespace Blitz.AssetImport
             RosterGuard.Require(json != null && json.Length >= 2 && json.Length <= 1024 * 1024 &&
                 RosterGuard.Sha256(json) == expectedSha256, "Original cinematic content pin mismatch.");
             RosterObject root = RosterJson.Object(RosterJson.Parse(json), "original impact presentation");
-            RosterGuard.Require(root.Text("schema") == "original-impact-presentation/v1" &&
+            string schema = root.Text("schema");
+            bool c2 = schema == "original-impact-contact281-c2/v1";
+            bool contact = c2 || schema == "original-impact-contact272/v1";
+            RosterGuard.Require((contact || schema == "original-impact-presentation/v1") &&
                 root.Text("source_revision") == SourceTeamRosterLibrary.PinnedSourceRevision &&
                 root.Text("source_tree") == SourceTeamRosterLibrary.PinnedSourceTree &&
                 root.Text("profile") == "normal-release-57hz-no-debug-no-NOSETCAM",
@@ -201,8 +222,57 @@ namespace Blitz.AssetImport
                 RosterGuard.Require(tables.ContainsKey(table), "Missing original contact camera table: " + table);
                 contacts.Add(new SourceCinematicCueDefinition(function, line, "contact", new[] { table }));
             }
+            string contactAnimation = null, contactPrograms = null, c2Data = null;
+            var cameraBindings = new List<SourceCinematicCameraBinding>();
+            if (contact)
+            {
+                RosterObject binding = root.Object("contact_binding");
+                contactAnimation = binding.Text("animation_manifest_sha256", 64);
+                contactPrograms = binding.Text("programs_sha256", 64);
+                RosterGuard.Hex(contactAnimation, 64, "C1 animation manifest");
+                RosterGuard.Hex(contactPrograms, 64, "C1 source programs");
+                if (c2)
+                {
+                    RosterGuard.Require(binding.Text("legacy_animation_manifest_sha256", 64) == SourceTeamResourceProfile.ContactAnimationSha256 &&
+                        binding.Text("legacy_programs_sha256", 64) == SourceTeamResourceProfile.ContactProgramsSha256,
+                        "C2 must retain the qualified C1 source/library lineage.");
+                    c2Data = binding.Text("c2_payload_sha256", 64);
+                    RosterGuard.Require(c2Data == SourceInterfacePackagePlan.C2CallbackSha256,
+                        "C2 impact must bind its actual frozen callback data.");
+                }
+                RosterGuard.Require(binding.Text("base_catalog_sha256", 64) ==
+                    "794b1fa2865733677d08d5c465dad6a002966750a7d0523138f61f3a25be1fb3",
+                    "C1 impact requires the actual complete original catalog generation.");
+                foreach (object raw in binding.Array("camera_sites"))
+                {
+                    RosterObject site = RosterJson.Object(raw, "C1 exact camera instruction site");
+                    string script = site.Text("script"), table = site.Text("table");
+                    int opcode = site.Integer("opcode_line", 1, 100000), operand = site.Integer("operand_line", 1, 100000);
+                    site.Done();
+                    RosterGuard.Require(operand > opcode && operand <= opcode + 4 && tables.ContainsKey(table) &&
+                        HasCue(cues, script, opcode, "camera", table) && HasCue(cues, script, operand, "camera", table),
+                        "C1 camera must explicitly retain both exact original .byte opcode and .word operand identities.");
+                    cameraBindings.Add(new SourceCinematicCameraBinding(script, opcode, operand, table));
+                }
+                object[] additional = binding.Array("new_callback_lines");
+                var unique = new HashSet<int>();
+                foreach (object raw in additional)
+                {
+                    int line = RosterJson.Integer(raw, 1, 100000);
+                    RosterGuard.Require(unique.Add(line) && cues.Exists(cue => cue.Line == line && cue.Kind == "callback" &&
+                        (cue.Arguments[0] == "taunt_speech" || cue.Arguments[0] == "tackle_spch")),
+                        "C1 additional speech sites must remain exact original metadata, not implemented substitutes.");
+                }
+                binding.Done();
+                RosterGuard.Require(cameraBindings.Count == 25 && additional.Length == (c2 ? 36 : 28) && cues.Count == (c2 ? 477 : 469),
+                    "Impact coverage requires the exact historical469 or explicit C2477 source sites, never a missing-speech subset.");
+            }
             string[] qualifications = root.Strings("qualifications", 1, 32); root.Done();
-            return new SourceCinematicLibrary(expectedSha256, tables, shaker, cues.ToArray(), contacts.ToArray(), qualifications);
+            return new SourceCinematicLibrary(expectedSha256, tables, shaker, cues.ToArray(), contacts.ToArray(), qualifications,
+                contactAnimation, contactPrograms, cameraBindings.ToArray(), c2Data);
         }
+
+        private static bool HasCue(List<SourceCinematicCueDefinition> cues, string script, int line, string kind, string argument)
+        { return cues.Exists(cue => cue.Script == script && cue.Line == line && cue.Kind == kind && cue.Arguments[0] == argument); }
     }
 }

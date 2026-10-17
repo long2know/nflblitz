@@ -18,12 +18,21 @@ PROJECT = HERE / "SourceSoundVm.Checks.csproj"
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes, MOVEMENT_ANIMATION_SHA, SOUND_SHA, SOUND_INCLUDE_SHA, SOUND_AUDIT_SHA
 from fetch_inputs import blob_sha1, input_pins, sound_function_pins, SOUND_STATE_INPUTS
+from contact_inputs import ANIMATION_SHA as CONTACT_ANIMATION_SHA, fixture_profile
+from kernel_sources import production_paths, canonical_hashes, C2_ANIMATION_SHA
 
 DATA_SHA = SOUND_SHA
 INCLUDE_SHA = SOUND_INCLUDE_SHA
-EXPECTED_SHORT = 141
-EXPECTED_ASSERTIONS = 800734
+EXPECTED_SHORT = 142
+EXPECTED_ASSERTIONS = 800735
 EXPECTED_CASES = 15912
+POST_HOST_SELECTION_ANCHOR = """        private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
+        {
+            RequireSourceSoundVmBinding();
+            if (SourceC2Enabled)"""
+POST_HOST_SELECTION_DEFERRED = POST_HOST_SELECTION_ANCHOR.replace(
+    "RequireSourceSoundVmBinding();",
+    "RequireSourceSoundVmBinding(); if (!deliveringDeferred) { deferred.Add(Tuple.Create(actor,cue)); return; }")
 MUTATION_FIELDS = {
     "double-consume": "no extra consumption and following opcode runs after sound",
     "wrong-stream": "no extra consumption and following opcode runs after sound",
@@ -44,19 +53,16 @@ def sha(path):
 
 
 def source_files():
-    return [p for folder in ("Gameplay", "Contracts", "AssetImport")
-            for p in sorted((ROOT / "Assets/Scripts" / folder).glob("*.cs"))] + [
-                ROOT / "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
-                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
+    return production_paths()
 
 
-def require_summary(code, summary, native):
+def require_summary(code, summary, native, animation_sha=MOVEMENT_ANIMATION_SHA):
     if (code != 0 or not isinstance(summary, dict) or summary.get("schema") != "source-sound-vm-checks/v1"
             or summary.get("status") != "passed"
             or summary.get("assertions") != (EXPECTED_ASSERTIONS if native else EXPECTED_SHORT)
             or summary.get("actual_C_cases") != (EXPECTED_CASES if native else 0)
             or summary.get("actual_implemented_VM_tuples") != 6
-            or summary.get("actual_M1_library") != MOVEMENT_ANIMATION_SHA
+            or summary.get("actual_M1_library") != animation_sha
             or summary.get("actual_SAFN") != DATA_SHA
             or summary.get("DSP_playback_SPFX_or_target_PRNG_qualified") is not False):
         raise RuntimeError("Actual sound VM exact assertion/case/input inventory differs.")
@@ -71,14 +77,27 @@ def require_mutant(code, summary, field):
 
 
 def main():
+    global OUT
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fixture-manifest", type=Path, required=True, help="Explicit read-only real117/157 fixture.")
+    parser.add_argument("--fixture-manifest", type=Path, required=True, help="Explicit read-only legacy or production272 fixture.")
+    parser.add_argument("--input-profile", choices=("legacy", "contact272"), default="legacy",
+                        help="Contact272 requires its new explicit schema and actual production library.")
     parser.add_argument("--functions", type=Path, required=True, help="Frozen verified directory with SAFN/manifest/original C include.")
     parser.add_argument("--source-root", type=Path, required=True,
                         help="Explicit pinned originals for sound functions and actual bank/pointer initialization provenance.")
     parser.add_argument("--mutations", action="store_true")
+    parser.add_argument("--c2-inputs", type=Path, help="Explicit complete current281 inputs; no272 alias.")
+    parser.add_argument("--output", type=Path, help="New ignored child output; preserve historical VM receipts.")
     parser.add_argument("--unity-reference", type=Path, help="Optional explicit actual Unity netstandard2.1 reference; never launches Unity.")
     args = parser.parse_args()
+    if args.output is not None:
+        selected = args.output.absolute()
+        if not selected.is_relative_to(HERE / ".artifacts") or selected.exists():
+            parser.error("--output requires a new tests/audio/vm/.artifacts child.")
+        OUT = selected
+    profile = fixture_profile(args.fixture_manifest, args.input_profile)
+    animation_sha = C2_ANIMATION_SHA if args.c2_inputs is not None else (
+        CONTACT_ANIMATION_SHA if profile == "contact272" else MOVEMENT_ANIMATION_SHA)
     OUT.mkdir(parents=True, exist_ok=True)
     work = OUT / ("work-" + uuid.uuid4().hex)
     work.mkdir()
@@ -94,6 +113,8 @@ def main():
     files = source_files()
     before = {p.relative_to(ROOT).as_posix(): sha(p) for p in files}
     inputs = fixture_hashes(args.fixture_manifest.resolve(), payload)
+    if args.c2_inputs is not None:
+        inputs.update(canonical_hashes(args.c2_inputs))
     inputs.update({str(p): sha(p) for p in [original, audit_path]})
     pins = input_pins()
     state_names = sorted(set(sound_function_pins()) | set(SOUND_STATE_INPUTS) | {"nfl.c", "detect.c", "player.c"})
@@ -108,6 +129,7 @@ def main():
                "original_input_sha256_before": inputs, "production_sha256_before": before,
                "state_producer_git_blobs": {name: pins[name] for name in state_names},
                "complete_ci_proof_requested": args.mutations,
+               "input_profile": profile, "expected_animation_sha256": animation_sha,
                "native_Unity_browser_DSP_or_target_PRNG_qualified": False}
 
     def run(command, label, check=True, stdin=None):
@@ -142,6 +164,8 @@ def main():
         command = ["dotnet", assembly, args.fixture_manifest.resolve(), payload, OUT / label]
         if c_cases is not None:
             command += [c_cases, c_results]
+        if args.c2_inputs is not None:
+            command += ["--c2-inputs", args.c2_inputs.absolute()]
         result, text = run(command, label, False)
         summaries = [json.loads(line) for line in result.stdout.splitlines()
                      if line.startswith('{"schema":"source-sound-vm-checks/')]
@@ -150,7 +174,7 @@ def main():
     try:
         assembly = build(ROOT, "baseline")
         code, summary, text = execute(assembly, "baseline-short")
-        require_summary(code, summary, False)
+        require_summary(code, summary, False, animation_sha)
         receipt["short"] = summary
 
         run(["gcc", "-std=c11", "-O0", "-fwrapv", "-fno-strict-aliasing", "-I", directory,
@@ -181,7 +205,7 @@ def main():
         if len(native_text.splitlines()) != EXPECTED_CASES:
             raise RuntimeError("Unchanged original C inventory differs.")
         code, summary, text = execute(assembly, "baseline-original-C", cases, oracle)
-        require_summary(code, summary, True)
+        require_summary(code, summary, True, animation_sha)
         receipt["actual_VM_original_C"] = summary
         receipt["original_C"] = {"cases": len(rows), "fixture_sha256": sha(ROOT / "tests/audio/functions/oracle.c"),
                                  "unchanged_include_sha256": sha(original), "inputs_sha256": sha(cases),
@@ -217,8 +241,7 @@ def main():
                     ("private bool sourceSoundVmFailed;", "private bool sourceSoundVmFailed;\n        private bool deliveringDeferred;\n        private readonly List<Tuple<ActorState, SourceCallbackCue>> deferred = new List<Tuple<ActorState, SourceCallbackCue>>();"),
                     ("var batch = new SourceSoundVmBatch(sourceSoundVmPending);",
                      "deliveringDeferred = true; foreach (var item in deferred) ExecuteSourceSoundVm(item.Item1,item.Item2); deferred.Clear(); deliveringDeferred = false;\n            var batch = new SourceSoundVmBatch(sourceSoundVmPending);"),
-                    ("RequireSourceSoundVmBinding();\n            SourceAudioVmBinding binding",
-                     "RequireSourceSoundVmBinding(); if (!deliveringDeferred) { deferred.Add(Tuple.Create(actor,cue)); return; }\n            SourceAudioVmBinding binding")]),
+                    (POST_HOST_SELECTION_ANCHOR, POST_HOST_SELECTION_DEFERRED)]),
             ]
             snapshot = {p.relative_to(ROOT): p.read_bytes() for p in files}
             if {str(p): hashlib.sha256(data).hexdigest() for p, data in snapshot.items()} != before:
@@ -252,7 +275,7 @@ def main():
                     raise RuntimeError("Actual sound/fixture inputs changed during isolated mutation proof.")
 
         code, summary, text = execute(assembly, "final-baseline-original-C", cases, oracle)
-        require_summary(code, summary, True)
+        require_summary(code, summary, True, animation_sha)
         receipt["final_baseline_original_C"] = summary
 
         if args.unity_reference:

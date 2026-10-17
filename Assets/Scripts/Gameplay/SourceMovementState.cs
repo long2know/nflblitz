@@ -131,7 +131,9 @@ namespace Blitz.Gameplay
         {
             if (playerId < 0 || playerId > 13) throw new ArgumentOutOfRangeException(nameof(playerId));
             SourceMovementGuard.Finite(distance, nameof(distance));
-            if (distance < 0f || bearing < 0 || bearing > 512) throw new ArgumentOutOfRangeException(nameof(distance));
+            if (distance < 0f) throw new ArgumentOutOfRangeException(nameof(distance));
+            // pmisc.c:bearing keeps signed remainder for source fwd[-1023,1023]/angle[0,1023].
+            if (bearing < -1022 || bearing > 512) throw new ArgumentOutOfRangeException(nameof(bearing));
             PlayerId = playerId; Distance = distance; Bearing = bearing;
         }
     }

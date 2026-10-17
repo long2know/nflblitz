@@ -19,6 +19,10 @@ on:
       - 'Dockerfile'
       - 'compose.yaml'
       - '.dockerignore'
+      - 'README.md'
+      - 'docs/build.md'
+      - 'docs/source-parity.md'
+      - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
   push:
     branches: [main]
@@ -39,6 +43,10 @@ on:
       - 'Dockerfile'
       - 'compose.yaml'
       - '.dockerignore'
+      - 'README.md'
+      - 'docs/build.md'
+      - 'docs/source-parity.md'
+      - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
   workflow_dispatch:
 
@@ -53,7 +61,7 @@ jobs:
   core-and-tooling:
     name: Core inventory and build-tool units (no Unity)
     runs-on: ubuntu-24.04
-    # PR19 took17m36; added sound gates measured6m28 locally. Keep every check.
+    # PR19 took17m36; sound gates measured6m28, Contact/C2 SDK gates2m06 locally.
     timeout-minutes: 30
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
@@ -114,6 +122,7 @@ jobs:
       - name: Execute original C reference cases
         run: python3 tests/source-oracles/run.py --source-root tests/source-oracles/.artifacts/original --full-matrix
       - name: Fetch verified real source-kernel inputs
+        # Preserve the legacy69/443 input profile; these are not Contact281 campaigns.
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tests/parity/fetch_inputs.py --download --cache tests/source-oracles/.artifacts/original --output .squad/.scratch/SourceData/source-kernel-original
@@ -122,8 +131,11 @@ jobs:
       - name: Test real-input fixture and ball-runner failure gates
         run: |
           python3 tests/parity/test_inputs.py
+          python3 tests/parity/test_contact_inputs.py
           python3 tests/ball/test_runner.py
+          python3 tests/contact/test_runner.py
           python3 tests/movement-callers/test_runner.py
+          python3 tests/movement-callers/test_canonical.py
           python3 tests/audio/vm/test_runner.py
       - name: Compare source gameplay and host adapter
         run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
@@ -134,7 +146,10 @@ jobs:
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
-        run: python3 -B -m unittest discover -s tools/animation/tests
+        run: |
+          python3 -B -m unittest discover -s tools/animation/tests
+          python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null
+          python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null
       - name: Test generated-player parsing and geometry
         run: python3 tests/assets/run.py
       - name: Test source-camera behavior
@@ -174,6 +189,16 @@ jobs:
         run: |
           python3 -B tests/presentation/sound-runtime/run.py
           python3 -B tests/presentation/sound-runtime/mutations.py
+      - name: Test Contact272 SDK preflight and callers without original assets
+        run: |
+          python3 -B -m unittest discover -s tests/presentation/contact-runtime -p 'test_callers.py' -q
+          python3 -B tests/presentation/contact-runtime/run.py
+          python3 -B tests/presentation/contact-runtime/mutations.py
+      - name: Test opt-in Contact281C2 SDK preflight and callers without original assets
+        run: |
+          python3 -B -m unittest discover -s tests/presentation/c2-runtime -p 'test_callers.py' -q
+          python3 -B tests/presentation/c2-runtime/run.py
+          python3 -B tests/presentation/c2-runtime/mutations.py
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references

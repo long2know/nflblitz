@@ -106,7 +106,9 @@ namespace Blitz.Gameplay
                 actor.Velocity, actor.Turbo01, relativeToOrigin ? 0f : actor.Height,
                 SourcePoseMath.Facing(actor.Facing), actor.Role, actor.AnimationState.View(actor, tick),
                 actor.ModelScale, new SourceActorView(actor.SourceControllerStation, actor.SourceRoster, actor.NoCatchTicks,
-                    new SourceActorPresentationView(SourceActorFlags(actor), (int)actor.SourceMode)));
+                    new SourceActorPresentationView(SourceActorFlags(actor), (int)actor.SourceMode),
+                    new SourceActorContactView(actor.SourceHitPartnerId, actor.SourcePuppetLinkId,
+                        actor.SourcePuppetReleaseTick, actor.SourceAttackMode, actor.SourceAttackTime, actor.SourceBlockCount)));
         }
 
         internal static int SourceActorFlags(ActorState actor)

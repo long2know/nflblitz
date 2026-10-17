@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Asset-free actual workflow/input-closure guards; no CI or source simulation substitute."""
+"""Asset-free workflow guards for historical Sound inputs and opt-in Contact/C2."""
 import importlib.util
 from pathlib import Path
 import re
+import shlex
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -49,11 +50,47 @@ BASELINE_STEPS = (
     "Build-tool unit checks",
     "Build and hosting shell syntax",
 )
+CONTACT_STEPS = {
+    "Test Contact272 SDK preflight and callers without original assets": (
+        "python3 -B -m unittest discover -s tests/presentation/contact-runtime -p test_callers.py -q",
+        "python3 -B tests/presentation/contact-runtime/run.py",
+        "python3 -B tests/presentation/contact-runtime/mutations.py",
+    ),
+    "Test opt-in Contact281C2 SDK preflight and callers without original assets": (
+        "python3 -B -m unittest discover -s tests/presentation/c2-runtime -p test_callers.py -q",
+        "python3 -B tests/presentation/c2-runtime/run.py",
+        "python3 -B tests/presentation/c2-runtime/mutations.py",
+    ),
+}
+CONTACT_RUNNER_GUARDS = (
+    "python3 tests/parity/test_contact_inputs.py",
+    "python3 tests/contact/test_runner.py",
+    "python3 tests/movement-callers/test_canonical.py",
+)
+TRIGGER_PATHS = (
+    "Assets/**", "Assets.meta", "tests/**", "tools/assets/**", "tools/animation/**",
+    "tools/rosters/**", "tools/playbooks/**", "tools/movement/**", "tools/interface/**",
+    "tools/audio/**", "tools/environments/**", "scripts/**", "hosting/**", "Dockerfile",
+    "compose.yaml", ".dockerignore", "README.md", "docs/build.md", "docs/source-parity.md",
+    "docs/architecture.md", ".github/workflows/game-build.yml",
+)
 
 
 def require(value, message):
     if not value:
         raise AssertionError(message)
+
+
+def step_commands(text):
+    result = {}
+    for block in re.split(r"^      - name: ", text, flags=re.M)[1:]:
+        name, _, body = block.partition("\n")
+        run = re.search(r"^        run: ([^\n]+)$", body, re.M)
+        require(run is not None, "named CI stage must execute its checks: " + name)
+        lines = (re.findall(r"^          (.*)$", body[run.end():], re.M)
+                 if run[1] == "|" else [run[1]])
+        result[name] = [shlex.split(line, comments=True) for line in lines if line.strip()]
+    return result
 
 
 def validate_workflow(text):
@@ -89,6 +126,24 @@ def validate_workflow(text):
             "real69-pin fixture preparation precedes mandatory sound consumers")
     require("fetch_function_inputs.py --download" not in text,
             "four sound blobs are reused from verified69 input union, not downloaded redundantly")
+    steps = step_commands(text)
+    for name, commands in CONTACT_STEPS.items():
+        require(steps.get(name) == [shlex.split(command) for command in commands],
+                "actual asset-free Contact stage/commands differ: " + name)
+    runner_commands = steps["Test real-input fixture and ball-runner failure gates"]
+    for command in CONTACT_RUNNER_GUARDS:
+        require(shlex.split(command) in runner_commands, "explicit Contact runner guard missing: " + command)
+    animation = steps["Test original-animation input reader without original assets"]
+    require(animation == [shlex.split(command) for command in (
+        "python3 -B -m unittest discover -s tools/animation/tests",
+        "python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null",
+        "python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null",
+    )], "full producer discovery and both impact CLI/import smokes must execute without original data")
+    for event in ("pull_request", "push"):
+        block = re.search(r"^  " + event + r":\n(.*?)(?=^  [a-z_]+:|\Z)", text, re.M | re.S)
+        require(block is not None, "required workflow event missing: " + event)
+        paths = re.findall(r"^      - '([^']+)'$", block[1], re.M)
+        require(paths == list(TRIGGER_PATHS), "source/tool/test and current documentation triggers differ: " + event)
 
 
 class SoundWorkflow(unittest.TestCase):
@@ -123,6 +178,43 @@ class SoundWorkflow(unittest.TestCase):
                 self.assertIn(old, original)
                 with self.assertRaises(AssertionError):
                     validate_workflow(original.replace(old, new, 1))
+
+
+class ContactWorkflow(unittest.TestCase):
+    def test_actual_steps_execute_assetfree_contracts_and_trigger_on_current_docs(self):
+        validate_workflow(WORKFLOW.read_text())
+
+    def test_actual_contact_commands_and_triggers_cannot_be_removed_or_disguised(self):
+        original = WORKFLOW.read_text()
+        mutations = (
+            ("python3 tests/contact/test_runner.py", "true # python3 tests/contact/test_runner.py"),
+            ("python3 tests/parity/test_contact_inputs.py", "true"),
+            ("python3 tests/movement-callers/test_canonical.py", "true"),
+            ("python3 -B tests/presentation/c2-runtime/run.py",
+             "echo python3 -B tests/presentation/c2-runtime/run.py"),
+            ("python3 -B tests/presentation/contact-runtime/mutations.py", "true"),
+            ("python3 -B tests/presentation/c2-runtime/mutations.py", "true"),
+            ("-s tests/presentation/contact-runtime -p 'test_callers.py'", "-s tests/presentation/contact-runtime -p 'absent.py'"),
+            ("python3 -B tests/presentation/c2-runtime/run.py",
+             "python3 -B tests/presentation/c2-runtime/run.py --inputs missing-original-data"),
+            ("-s tools/animation/tests", "-s tools/animation/tests -p test_read_wan_pose.py"),
+            ("python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null", "true"),
+            ("python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null", "true"),
+            ("      - 'tools/animation/**'\n", ""),
+            ("      - 'tests/**'\n", ""),
+            ("      - 'Assets/**'\n", ""),
+            ("      - 'README.md'\n", ""),
+            ("      - 'docs/build.md'\n", ""),
+            ("      - 'docs/source-parity.md'\n", ""),
+            ("      - 'docs/architecture.md'\n", ""),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                self.assertIn(old, original)
+                with self.assertRaises(AssertionError):
+                    validate_workflow(original.replace(old, new, 1))
+        with self.assertRaises(AssertionError):
+            validate_workflow(original.replace("      - 'docs/build.md'\n", "", 2))
 
 
 if __name__ == "__main__":

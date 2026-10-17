@@ -30,6 +30,7 @@ namespace Blitz.Gameplay
             if (layout == null)
                 throw new InvalidOperationException("An explicit original playbook formation layout is required.");
             model.SourceHumanTurbo = 100f;
+            model.SourceQbEvaded = false;
             Array.Clear(model.SourceAnimationUniqueMasks, 0, model.SourceAnimationUniqueMasks.Length);
             model.SourceFormationSlots = new SourceFormationSlot[model.Players.Length];
             for (int id = 0; id < model.Players.Length; id++)
@@ -74,6 +75,12 @@ namespace Blitz.Gameplay
                 actor.SourceLateHittable = false;
                 actor.SourcePendingFireCheck = false;
                 actor.SourceHelmetPopped = false;
+                actor.SourceRawFlags &= ~(0x20 | 0x100 | 0x200 | 0x1000 | 0x800000 | 0x08
+                    | 0x8000 | 0x4000 | 0x400 | 0x20000 | 0x100000 | 0x10 | 0x800
+                    | 0x80000 | 0x200000 | 0x400000 | 0x2000);
+                actor.SourcePuppetLinkId = -1;
+                actor.SourceBlockCount = 0;
+                actor.SourceAttackTime = actor.SourceAttackMode = 0;
                 actor.SourcePlayOver = false;
                 actor.PendingThrowTarget = -1;
                 actor.PendingThrowTurbo = false;
@@ -91,7 +98,7 @@ namespace Blitz.Gameplay
                     : placed.Slot.Mode == SourceActorMode.DefensiveBackPreSnap ? ActorRole.Defender : ActorRole.Receiver;
                 actor.Facing = placed.Facing;
                 actor.UpperFacing = actor.TargetFacing = actor.TargetUpperFacing = actor.Facing;
-                actor.AnimationState = new SourceAnimationState(library, id);
+                actor.AnimationState = new SourceAnimationState(library, id, model.SourceC2Programs);
                 actor.AnimationState.SetScriptSelector((name, value, draw) => SelectInitialAnimation(model, name, value, draw));
                 actor.AnimationState.SetStandardRandom(model.SourceCStandardRandom);
                 bindAnimation(actor);
@@ -324,24 +331,6 @@ namespace Blitz.Gameplay
                     throw new InvalidOperationException("Non-finite source player state: actor=" + id
                         + " sourceTick=" + model.SourceTick + " script=" + actor.AnimationState.Primary.ScriptSymbol);
             }
-        }
-
-        internal static void Contact(SimulationState model, int attackerId, int victimId, Func<int, int> random)
-        {
-            ActorState attacker = model.Players[attackerId];
-            ActorState victim = model.Players[victimId];
-            SourceContactDriver.RecordCollision(attacker, victim);
-            attacker.Facing = Heading(PlayerSimulation.Subtract(victim.Position, attacker.Position));
-            attacker.TargetFacing = attacker.Facing;
-            attacker.Action = ActorAction.Contact;
-            attacker.AnimationState.FullBody(attacker.Turbo ? "t_dshoul_anim" : "t_stshld_anim",
-                attacker, model.SourceTick, random, AnimationSelectionEvidence.Approximate);
-            victim.Action = ActorAction.Fall;
-            victim.PendingThrowTarget = -1;
-            // FALL_04 is an explicit provisional contact selection. Unlike the
-            // H_FRONT1 ball-holder branch it does not skip a required wobble clip.
-            victim.AnimationState.FullBody("fall_04", victim, model.SourceTick, random,
-                AnimationSelectionEvidence.Approximate);
         }
 
         private static void Movement(SimulationState model, ActorState actor, FieldVector move,

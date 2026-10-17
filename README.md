@@ -7,27 +7,33 @@ not a finished or whole-game-parity recreation.
 
 ## Checked-in source versus the recorded live player
 
-This **sound-runtime candidate** extends movement157 (published as PR19); its
-new SoundVM binding/transport is not yet a main/live-game increment. It requires
-the distinct services key
-`BlitzSourceInterface/original-movement157-soundvm-match-services` and canonical
-`SourceData/sound-functions-safn1-4a557304`: exact1983-byte SAFN/SHA256
-`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`.
-The [sound resource/transport contract](tools/interface/README.md#current-synchronous-sound-vm-candidate)
-binds immutable data before the first source wake. Core selects at six original
-ANI_CODE sites; Runtime drains/pairs once before raw cue handling. Legitimate
-zero calls are not missing output. Nonempty calls with no real DSP consumer
-fail visibly—**nothing is claimed played**. Direct speech/other FX stay open.
+The checked-in **Contact/C2 source increment** is a bounded portable-source and
+resource-binding milestone, **not a new playable build or whole-game acceptance**.
+The absent/empty runtime selector still chooses C1
+`original-teams-contact272` (**272 clips / 24,892 selected frames**).
+`original-teams-contact281-c2` (**281 clips / 26,230 frames**) is explicit opt-in:
+`?actors=source&sourceprofile=original-teams-contact281-c2`.
+Conflicting built/URL selections and missing or mismatched resources fail
+visibly; there is no automatic promotion or old-asset fallback.
 
-The checked-in **movement157 + Team + HUD/cabinet** composition extends the frozen
-B1/final117 layer with mandatory original movement data/settings and a same-tick
-pure source-camera frame. It requires the distinct **157-clip** library/team
-resources and explicitly pinned match/movement/DIP configuration. The old
-single-player56, B1/117 and earlier156 resources are not aliases or fallbacks.
-Source/pure/API checks have passed, but this composition has **no new native
-asset-import, game-build, pixel or browser proof**. The attempted imports stopped
-before import with licensing exit 198; see the
-[build boundaries](docs/build.md#current-movement157-source-mode-resources).
+Both profiles require real, pinned animation/team/impact/HUD/match/movement/DIP
+inputs. C2 additionally requires its own callback JSON, ONE7538 hit SAFN and
+**477-site** impact catalog, retaining the separate unchanged six-binding SAFN.
+See the [current preparation and resource contract](docs/build.md#current-contactc2-source-mode-resources)
+and [strict-input versus asset-free checks](tests/README.md#current-contactc2-gates).
+Historical 56/117/156/157/272 identities remain distinct; preserving them does
+not make every historical composition runnable on the new engine.
+Nonempty sound output without a real DSP consumer fails visibly—**nothing is
+claimed played**. Source/pure/reference-API checks are not native import, game
+pixels, a Unity build or browser proof. Three legitimate Editor attempts exited
+198 **before import** because headless entitlement was unavailable.
+
+**Portability disclosure:** the parent autonomously selected a narrow
+no-eligible-candidate return before original `maybe_taunt` calls
+`bearing(me,-1)`; **no explicit user approval was captured**.
+`PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE` records that repair. Eligible paths
+remain unchanged and invalid/unknown inputs still error. This is not
+target-memory, instruction or ABI emulation.
 
 **Recorded live-generation proof, October 16, 2026 (PDT):** original player
 mesh/rig/textures run with **continuous original animation: 56 clips / 3,731
@@ -36,7 +42,7 @@ Unity **6000.3.24f1** host build `0000063700005f540000316b000003e7` is promoted
 at Docker `8080/?actors=source`. Native vertex comparisons and a real
 **219.875-second browser recording** prove the bounded increment: twelve actors
 with non-rigid motion, eight observed actions and zero runtime errors.
-That is the older live preview, not evidence that the new movement157/Team/HUD source
+That is the older live preview, not evidence that the new Contact/C2 source
 has been imported, built or deployed. Its payload and captures are not replaced
 or relabeled by the new headless/API results. **All sixteen full-parity rows
 remain OPEN.** The ledger also retains the October 15 static-pose/title history.
@@ -49,29 +55,28 @@ described by the packaging recipe.
 
 1. Install Unity **6000.3.24f1** with WebGL Build Support and provide an existing
    externally activated editor environment. Docker with Compose serves the result.
-2. Follow the [current movement157 preparation/import order](docs/build.md#current-movement157-source-mode-resources)
+2. Follow the [current Contact/C2 preparation/import order](docs/build.md#current-contactc2-source-mode-resources)
    in an approved, isolated candidate using explicit pinned original inputs:
-   - Prepare the [exact movement-complete157 catalog](tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip).
-     Required manifest:
-     `f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
-     Its70-frame `R_SKIP` uses explicitly qualified original converter-state
-     replay, not a forced selection bit or guessed missing-hand pose.
-   - Prepare/import [all 31 original teams and impact data](tools/assets/README.md),
-     including actual rosters, model/skin/uniform/BCD-number bindings and the
-     new `original-teams-movement157` identity and animation key
-     `SourceData/local-plyr266-movement157-f0ae9395`.
+   - Prepare [Contact272 from the unchanged true157 base](tools/animation/README.md#c1-production-successor-explicit-contact272).
+     The base retains `R_SKIP`'s qualified converter-state replay, not a guessed
+     missing-hand pose. For C2, explicitly supply the pinned nine-clip bundle
+     and use the [canonical281 and impact producers](tools/animation/README.md#explicit-c2-production281-generation).
+     These commands do not retrieve original data or manufacture absent bundles.
+   - Prepare/import [all 31 original teams and the selected profile's impact data](tools/assets/README.md),
+     including actual rosters, model/skin/uniform/BCD-number bindings. Use the
+     matching Contact272 or Contact281C2 importer, never a relabeled 157 resource.
    - Prepare the [original HUD/cabinet data](tools/interface/README.md), then
      [package the HUD and match services](tools/interface/packaging.md) with the
-     actual P1 catalog and an explicitly chosen, SHA-pinned configuration.
+     actual P1 catalog and an explicitly chosen, SHA-pinned configuration,
+     movement bootstrap and unchanged old six-binding SAFN.
      Teams, seven roster records/side, stations, possession, captain, home side,
      heads and power-up settings are not inferred defaults. M1 additionally
      requires pinned `SourceData/movement` and a separate
      `original-source-movement-bootstrap/v1` file: explicit field0..6,
      three team masks0..3, global speed/violence booleans and original
      DIP512×256 or512×384. Browser dimensions are not source resolution.
-     For this next sound profile, use the explicit sound packaging entrypoint
-     and ten-argument initializer with canonical SAFN bytes/pin; an old M1
-     eight-argument resource is not silently upgraded.
+     C2's saved initializer additionally requires its two distinct canonical
+     callback/hit TextAssets; an old service resource is not silently upgraded.
    - Import the [original world](tools/environments/README.txt) separately when
      requiring `environment=source`.
 
@@ -81,8 +86,9 @@ described by the packaging recipe.
    [56-clip recipe](docs/build.md#prepare-and-import-continuous-original-animation)
    and [frame-0 pose](docs/build.md#apply-qbstance-frame-0) remain diagnostic/
    historical controls, not the new source-mode setup. The
-   [B1/final117 recipe](docs/build.md#current-b1-source-mode-resources) remains
-   a separate immutable historical source composition.
+   [movement157](docs/build.md#current-movement157-source-mode-resources) and
+   [B1/final117](docs/build.md#current-b1-source-mode-resources) recipes remain
+   separate immutable historical source compositions.
 3. **Only after** legitimate isolated imports and resource verification, build
    and serve from that complete candidate's project root:
 
@@ -92,11 +98,17 @@ described by the packaging recipe.
    bash scripts/serve-webgl.sh
    ```
 
-   Host mode preserves the caller's `HOME`/`XDG_*` activation environment.
+   The existing wrapper calls ordinary `WebGlBuild.Build`, retaining the C1
+   default; it has no C2 selector flag. Explicitly select the installed C2
+   resources by URL below, or use the separately documented future fixed-C2
+   Editor entrypoint. Host mode preserves the caller's `HOME`/`XDG_*`
+   activation environment.
    Serving builds the static runtime image locally and runs in the foreground;
    Ctrl-C stops it. See [build, activation and generation proof](docs/build.md).
-4. For a newly built candidate, `http://127.0.0.1:8080/?actors=source` **requires**
-   the complete movement157/team/impact/HUD/match-service/bootstrap resources. Missing or
+4. For a newly built ordinary candidate, `http://127.0.0.1:8080/?actors=source` **requires**
+   the complete Contact272 resources. Explicit C2 uses
+   `http://127.0.0.1:8080/?actors=source&sourceprofile=original-teams-contact281-c2`
+   and its complete, separately keyed C2 resources. Missing or
    invalid inputs show `SOURCE MODE ERROR`; no generic font, matching-uniform,
    static-player or graybox substitute is installed.
    `http://127.0.0.1:8080/?actors=graybox` explicitly selects LegacyBaseline60Hz.
@@ -105,11 +117,13 @@ described by the packaging recipe.
    changes require a new build; an older exported player cannot load them.
 
 The resource set is necessary, not a finished-game guarantee: original audio/FX
-consumers remain unbound and fail explicitly when reached. The offline audio
-decoder is not complete game audio; do not bind noops, silence or fake clicks
-to make a source session appear successful. M1 now injects real typed data/settings
-and the pure camera frame inside Core's existing pre-player callback. It does
-not establish full C1/normal-camera/RNG/scheduler or whole-game parity.
+consumers remain unbound and fail explicitly when reached. Do not bind noops,
+silence or fake clicks. Canonical M1 observed 12,000 host/11,400 source ticks but
+**zero `R_SKIP` frames**; the required multi-ordinal/pose witness remains open.
+B1's FIFO compatibility and unfiltered raw99-at-every-site positive catch are
+separately declared controlled inputs, not unchanged original trajectories or
+target PRNG. The seed1 standing-BatDown negative remains. See the
+[current evidence and limits](docs/source-parity.md#current-contactc2-boundary).
 
 For interactive editing, open `Assets/Scenes/Boot.unity`. Never run concurrent
 editors/imports/builds against the same project and `Library/`.
@@ -165,7 +179,7 @@ Legacy contextual buttons use those legacy commands.
 
 ## Run the tests
 
-Headless prerequisites: Python 3.9+ and .NET SDK **10.0.100**. From the repository
+Headless prerequisites: Python 3.10+ and .NET SDK **10.0.100**. From the repository
 root, with no importer/editor writing assets:
 
 ```sh
@@ -180,6 +194,9 @@ python3 -B tests/interface/stage_followup.py
 python3 -B tests/presentation/run.py
 python3 -B tests/interface/movement_bootstrap.py
 python3 -B tests/audio/runtime/run.py
+python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
+python3 -B tests/presentation/contact-runtime/run.py
+python3 -B tests/presentation/c2-runtime/run.py
 ```
 
 See [core/metadata coverage](tests/README.md), [asset regressions](tests/assets/README.md),
@@ -217,12 +234,12 @@ coverage is separate from animation/browser acceptance.
   game, original audio/FX consumers and representative hardware performance
   remain unqualified. Pure/API success is not new pixels or a fresh deployment.
 
-Current movement-bootstrap evidence is **33,921 pure assertions / ten compiled
-bootstrap mutants**, **10,941 actual-data runtime-composition assertions / four
-compiled Runtime mutants**, and separate structural ordering/resource/lifecycle
-guards. Complete **85-source / all16-owned-UI** real Unity6000.3.24
-C#7.3/.NET Standard2.1 API profiles pass for Editor/WebGL. These results do not
-instantiate native engine objects or replace the retained B1/Team/HUD evidence.
+Current component evidence includes all 61 Contact/C2 causal controls,
+34,570 kernel assertions, 963 actual package assertions/14 compiled controls,
+and all five actual archived Unity6000.3.24 C#7.3/.NET Standard2.1 reference
+profiles over 112 sources (99 runtime/13 separate Editor), zero diagnostics.
+These are recorded source/component results, not full-M1, native/DSP,
+all-sixteen-row or new playable-build acceptance.
 
 The [source-parity ledger](docs/source-parity.md) records the pinned references,
 provenance boundary and exact evidence limits. Original inputs, converted art,

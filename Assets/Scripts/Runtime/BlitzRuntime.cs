@@ -26,6 +26,13 @@ namespace Blitz.Runtime
         private bool waitingForRelease;
         private string sourceFailure;
         private uint evidenceSerial;
+        [SerializeField] private string sourceResourceProfile = null;
+
+        public void ConfigureSourceResourceProfile(string stableId)
+        {
+            if (bridge != null) throw new SourceInterfaceException("Source entry profile cannot change after runtime construction.");
+            sourceResourceProfile = SourceTeamResourceProfile.SelectRuntimeProfile(null, stableId).StableId;
+        }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         [SerializeField] private string runtimeStatus;
@@ -41,6 +48,8 @@ namespace Blitz.Runtime
         public Blitz.Gameplay.GameSimulation SourceSimulation { get { return IsSourceProfile ? simulation : null; } }
         public SourceCinematicPlayback SourcePlayback { get { return IsSourceProfile && playCamera != null ? playCamera.SourcePlayback : null; } }
         public SourceSoundVmTransport SoundVmTransport { get { return soundTransport; } }
+        public System.Collections.Generic.IReadOnlyList<SourceContactSoundCue> UnresolvedContactSoundCalls
+        { get { return SourceSimulation == null ? null : SourceSimulation.UnresolvedContactSoundCalls; } }
         public event Action<SourceGameEvent> SourceEventRaised;
         public event Action<SourcePresentationCue> SourcePresentationCueRaised;
         public event Action<SourcePresentationCue> SourcePresentationCueObserved;
@@ -58,23 +67,29 @@ namespace Blitz.Runtime
 #endif
             try
             {
-                SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(true);
+                SourceTeamResourceProfile profile = SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL, sourceResourceProfile);
+                SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(profile);
                 ISourceAnimationLibrary animations = null;
                 if (prefab == null)
                 {
+                    if (profile.IsContact281C2)
+                        throw new SourceInterfaceException("Explicit C2 entry cannot silently select legacy graybox/old bank initialization.");
                     if (!ExplicitGraybox(Application.absoluteURL))
                         throw new SourceInterfaceException("Original source player assets are missing. Only explicit ?actors=graybox selects LegacyBaseline60Hz; no implicit generic source-mode substitute was created.");
                     simulation = new Blitz.Gameplay.GameSimulation(1);
                 }
                 else
                 {
-                    sourceServices = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKey);
+                    string serviceKey = SourceInterfaceServices.ResourceKeyFor(profile);
+                    sourceServices = Resources.Load<SourceInterfaceServices>(serviceKey);
                     if (sourceServices == null)
                         throw new SourceInterfaceException("Missing actual source match/HUD services at Resources/" +
-                            SourceInterfaceServices.ResourceKey + ". Import the new pinned157/playbook/HUD/movement/settings resources; no B1/legacy/font fallback is permitted.");
+                            serviceKey + ". Import its explicit matching animation/playbook/HUD/movement/settings/sound resources; no historical or profile fallback is permitted.");
                     animations = sourceServices.Animations;
+                    if (sourceServices.Profile.StableId != profile.StableId)
+                        throw new SourceInterfaceException("The C1 services resource has an incompatible historical profile tag; no old contact path is selected.");
                     if (!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab)))
-                        throw new SourceInterfaceException("M1 Core, catch geometry, Team and renderer must share the SAME canonical157 animation instance.");
+                        throw new SourceInterfaceException("C1 Core, geometry, Team and renderer must share the SAME canonical272 animation instance.");
                     simulation = sourceServices.CreateSimulation(prefab);
                     soundTransport = new SourceSoundVmTransport();
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
@@ -348,6 +363,7 @@ namespace Blitz.Runtime
                 if (dispatch != null && dispatch.Status == SourceSoundVmStatus.Resolved)
                 {
                     playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);
+                    soundTransport.FlushNativePrefix();
                     return;
                 }
             }
@@ -369,6 +385,7 @@ namespace Blitz.Runtime
             Action<SourceSoundVmDispatch> observed = SourceSoundVmDispatchRaised;
             if (observed != null)
                 foreach (SourceSoundVmDispatch dispatch in batch.Dispatches) observed(dispatch);
+            soundTransport.FlushNativePrefix();
         }
 
         private void CompleteSourceSoundBatch()

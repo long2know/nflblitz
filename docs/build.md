@@ -7,9 +7,9 @@ selected source frames**. Verified host build `0000063700005f540000316b000003e7`
 Docker `8080/?actors=source`. The October 15 static `QBSTANCE` and identity/legend
 checks below are earlier historical milestones.
 
-The checked-in **movement157 + Team + HUD/cabinet** source extends the distinct
-B1/canonical117 layer with actual M1 data/settings and source-camera cache
-composition. It has source/pure/API evidence, **not
+The checked-in **Contact/C2** source extends those historical compositions with
+default Contact272 and explicit opt-in Contact281C2 resources, factories and
+source callers. It has bounded source/pure/reference-API evidence, **not
 a new imported/built/browser-playable generation**. Two archived 6000.3.24 and one
 installed 6000.6.5 attempts exited 198 before import (licensing404/missing headless
 entitlement). No new resource save/reload, pixels or game build is claimed.
@@ -20,17 +20,9 @@ incompatibility is a separate issue, not permission to change versions.
 
 ## Pinned toolchain and external activation
 
-The next **sound-runtime candidate** uses
-`BlitzSourceInterface/original-movement157-soundvm-match-services`, not the
-published M1 service key. All157 animation/team/HUD/movement/DIP identities below
-remain unchanged. Add canonical `SourceData/sound-functions-safn1-4a557304`,
-exact1983 bytes/SHA256
-`4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280`,
-via the [explicit sound packaging recipe](../tools/interface/packaging.md).
-The ten-argument initializer requires the existing eight M1 inputs plus actual
-SAFN TextAsset/trusted pin. Actual M1 construction precedes immutable Core
-binding, and binding precedes the first executing57 wake. Old M1/B1 services are
-not aliased. This new SoundVM transport has no main/live deployment proof.
+The current source profiles require the [Contact/C2 packaging contract](../tools/interface/packaging.md#explicit-contact281c2-production-binding).
+Older B1, movement157 and movement157-SoundVM keys below are historical,
+not aliases or automatically runnable compositions on this engine.
 
 - Unity **6000.3.24f1**, WebGL support, Linux amd64 editor image:
   `unityci/editor:ubuntu-6000.3.24f1-webgl-3.2.2@sha256:f3c6661a8c5bc975df168f114eb3882766546b2ad09765664f5b2bb186857ddb`.
@@ -45,7 +37,161 @@ not aliased. This new SoundVM transport has no main/live deployment proof.
   or this tree. Do not run concurrent editors/imports/builds against the same
   project/`Library/`.
 
-## Current movement157 source-mode resources
+## Current Contact/C2 source-mode resources
+
+This is an **opt-in portable-source/resource milestone**, not a newly playable
+game. An absent or empty runtime selector retains C1
+`original-teams-contact272`; C2 requires
+`?actors=source&sourceprofile=original-teams-contact281-c2`.
+An explicit built selector and conflicting URL fail, as do unknown selectors,
+wrong inventories, missing assets or copied noncanonical resource references.
+There is no old157/272/277 fallback for C2.
+
+| Resource | Default C1 | Explicit C2 |
+| --- | --- | --- |
+| Team/template profile | `original-teams-contact272` | `original-teams-contact281-c2` |
+| Animation | `SourceData/local-plyr266-contact272-9cae962b` | `SourceData/local-plyr266-contact281-c2-e87401c8` |
+| Clips / selected frames | 272 / 24,892 | 281 / 26,230 |
+| Team | `BlitzSourcePlayers/original-teams-contact272/team-presentation` | `BlitzSourcePlayers/original-teams-contact281-c2/team-presentation` |
+| Impact | `BlitzSourcePlayers/original-teams-contact272/impact-library` | `BlitzSourcePlayers/original-teams-contact281-c2/impact-library` |
+| Impact sites | 469 | 477, retaining all 469 old sites |
+| Services | `BlitzSourceInterface/original-contact272-soundvm-match-services` | `BlitzSourceInterface/original-contact281-c2-match-services` |
+
+| Prepared artifact | Required SHA-256 |
+| --- | --- |
+| C1 animation manifest | `9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9` |
+| C1 impact catalog | `738d712b6f80d8a9456338548e7bbce1fdf88baa46f342a7c45efffd02a8f23a` |
+| C2 animation manifest | `e87401c8cf3e348cc2d9c7255a1f18f43e41b1694ff7dff45c4bf025a5ecce4f` |
+| C2 callback JSON | `9d2cb7ac5d92c3c2178fc1970a68ccad778fb7d319513b1787fe3ba3fe905f99` |
+| C2 ONE7538 hit SAFN | `bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904` |
+| C2 impact catalog | `9e82809268e18ae5d792f6e1614f0ea949a04b579bf4a93ea81b7833be4ce8ac` |
+| Unchanged old six-binding SAFN, 1983 bytes | `4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280` |
+
+C2 additionally installs two **separate canonical TextAssets**:
+`SourceData/source-c2-callbacks-9d2cb7ac` and
+`SourceData/sound-functions-c2-hit7538-bb978454`.
+Both profiles retain the old six-binding SAFN at
+`SourceData/sound-functions-safn1-4a557304`; C2 data never replaces it.
+Actual 31-team/HUD/P1/roster/head/BCD/uniform/`pup_bigball` choices, mandatory
+`SourceData/movement` hash89c790, and separately pinned match and
+`original-source-movement-bootstrap/v1` configuration remain required.
+Keep every explicit field, team mask, global power boolean and original
+512×256 or 512×384 DIP selection described in the historical bootstrap below;
+browser size and physical home side do not supply defaults.
+
+### Offline preparation with explicitly supplied inputs
+
+A clean checkout has **none of the original inputs, converted bundles,
+Resources or player build**. Supply authorized, case-sensitive originals at
+NFL2000 revision `89f840d58d152a2a9f230cb8d0cdffbd554c8ded`, the immutable
+[true157 bundle](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip),
+the complete original impact catalog, and (only for C2) the exact real nine-clip
+bundle with manifest
+`3e69a29f11c15c5d318f486824b1a3bba1f9489905e20d4c9ce76742af7a8c5f`.
+The nine-clip bundle is an **explicit input**, not a checkout asset or a new
+downloader/decoder. The C2 producer verifies/copies those unchanged clips.
+The157 base retains its qualified original `R_SKIP` retained-limb replay;
+neither shipped numeric SEQ IDs nor target compression/quantization is asserted.
+
+Set `ORIGINAL_SOURCE`, `BUNDLE157`, `EXTRA9` and `ORIGINAL_IMPACT` to those
+supplied roots/files. Use a **new ignored** output location:
+
+```sh
+CONTACT_ROOT=".squad/.scratch/contact-local"
+BUNDLE272="$CONTACT_ROOT/animation272"
+C2_INPUTS="$CONTACT_ROOT/c2-inputs"
+
+python3 -B tools/animation/prepare_contact_profile.py prepare \
+  --source-root "$ORIGINAL_SOURCE" --base-bundle "$BUNDLE157" \
+  --destination "$BUNDLE272"
+python3 -B tools/animation/prepare_contact_impact.py \
+  --base-catalog "$ORIGINAL_IMPACT" --plyrseq "$ORIGINAL_SOURCE/plyrseq.c" \
+  --contact-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Contact.cs \
+  --animation-manifest "$BUNDLE272/export-inventory.json" \
+  --destination "$CONTACT_ROOT/impact272"
+
+# Explicit C2 only; not part of the absent/empty selector's default.
+python3 -B tools/animation/prepare_c2_profile.py \
+  --source-root "$ORIGINAL_SOURCE" --base-bundle "$BUNDLE272" \
+  --extra-bundle "$EXTRA9" --destination "$C2_INPUTS"
+python3 -B tools/animation/prepare_c2_impact.py \
+  --base-catalog "$CONTACT_ROOT/impact272/impact-presentation.json" \
+  --callback-data "$C2_INPUTS/c2-callback-data.json" \
+  --plyrseq "$ORIGINAL_SOURCE/plyrseq.c" \
+  --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs \
+  --destination "$CONTACT_ROOT/impact281"
+```
+
+The C1 and C2 profile producers accept `--reuse` only for read-only exact-byte
+verification. The impact producers likewise verify an existing destination
+without replacing it. The canonical C2 closure is 288 files; the477-site impact
+catalog and old six-binding SAFN are separately required. No ignored Core
+scratch producer, private handoff path, guessed source data or synthetic
+fallback is an executable dependency. Use the
+[strict-input regression recipe](../tests/README.md#current-contactc2-gates)
+for fixture preparation, actual package checks and original-source campaigns.
+
+### Future licensed import and build order
+
+These are available entrypoints, **not operations executed for this increment**.
+The three legitimate import attempts remain blocked by external entitlement;
+do not probe activation or change Unity versions to bypass that boundary.
+
+1. Prepare all 31-team assets, HUD and P1 using the existing
+   [team recipe](../tools/assets/README.md) and
+   [interface recipe](../tools/interface/packaging.md). In a newly authorized,
+   isolated licensed candidate use
+   `Blitz.Editor.SourceTeamImporter.ImportContact272FromCommandLine`, or the
+   explicit `ImportContact281C2FromCommandLine`. Retain all team/catalog flags;
+   select the matching animation root, impact root and exact impact hash above.
+   Each profile gets its own imported identity; never overwrite an old one.
+2. Use the corresponding
+   `Blitz.Editor.SourceTeamInterfaceImporter.ImportContact272FromCommandLine`
+   or `ImportContact281C2FromCommandLine` with a fresh interface stable ID,
+   every existing explicit HUD/P1/config/movement/bootstrap/old-SAFN input.
+   C2 additionally requires `-interfaceC2Root "$C2_INPUTS"`,
+   `-interfaceC2Data c2-callback-data.json` and
+   `-interfaceC2HitExtension m-qbfite-hit-extension.safn`.
+   The [full packaging flags](../tools/interface/packaging.md#explicit-contact281c2-production-binding)
+   are unchanged; no initializer manufactures absent configuration.
+3. Run the matching fresh-domain `SourceTeamChecks.VerifyContact272FromCommandLine`
+   / `VerifyContact281C2FromCommandLine` and
+   `SourceTeamInterfaceChecks.VerifyContact272BindingsFromCommandLine`
+   / `VerifyContact281C2BindingsFromCommandLine`. The separate interface pixel
+   checks require actual licensed graphics execution. Reference compilation
+   is not import, save/reload or GPU verification.
+4. Only after that verification use the existing
+   [host build and static serving recipe](#host-build-verified-route).
+   `scripts/build-webgl.sh --host` calls ordinary `WebGlBuild.Build`, whose
+   prepared scene retains the **unpinned C1 default**. It has no C2 shell flag
+   or build-method override. With the C2 resources installed, explicitly use
+   `?actors=source&sourceprofile=original-teams-contact281-c2` on that new build.
+   The separate Editor entrypoints `WebGlBuild.PrepareContact281C2Project`
+   / `BuildContact281C2` persist a fixed C2 selector; a conflicting URL errors.
+   They have not been executed, and are not the wrapper's tested invocation.
+
+The actual C2 factory supplies bootstrap **before** the constructor's two
+sound-bank draws/old initial AI, shares the same281 library with Core and real
+geometry/rendering, then binds the unchanged old SAFN **before the first wake**.
+One FIFO carries old/new/native raw sound calls. Recording raw output, including
+legitimate playlist0, is not DSP playback: unbound nonempty delivery still fails.
+No new native build, Docker promotion, screenshot or browser result exists.
+The older live8080/56-clip player is untouched.
+
+The parent-autonomous no-eligible-candidate return before original
+`maybe_taunt`'s `bearing(me,-1)` has **no captured explicit user approval**.
+It emits `PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE`; eligible paths remain
+unchanged and invalid/unknown inputs still error. It is not target-memory,
+instruction or ABI emulation. All sixteen parity rows, full M1, native
+scheduler/PRNG and actual DSP/browser acceptance remain open.
+
+<a id="current-movement157-source-mode-resources"></a>
+
+## Historical movement157 source-mode resources
+
+**Retained movement157 source/revision recipe, not the current engine's default.**
+Use that historical source for its native composition; the current
+Contact272/Contact281C2 factories require their own profiles above.
 
 Use the coherent approved movement157 candidate, not the older live56 or frozen
 B1 project. Original/converted data and generated assets remain ignored/local.
@@ -118,12 +264,14 @@ sources / all16 owned UI files**, zero diagnostics for both Editor/WebGL.
 Those pure helpers are executed from the actual compiled production Runtime
 assembly, not Unity stubs or a copied test factory; no native engine calls run.
 
-## Current B1 source-mode resources
+<a id="current-b1-source-mode-resources"></a>
 
-**Retained B1 source/revision only, not the current movement157 bootstrap.**
+## Historical B1 source-mode resources
+
+**Retained B1 source/revision only, not the current Contact/C2 engine.**
 Its117 assets/recipe and evidence remain unchanged. Use the previous B1 source
 for that full native composition; its omitted M1 inputs are rejected by the
-current M1 Core. The current recipe is above.
+later M1 Core. The current Contact/C2 recipe is above.
 
 Use an explicitly approved, isolated candidate containing the coherent checked-in
 B1/Team/UI source, not the older live-preview project or a hot M1 composition.
@@ -207,7 +355,7 @@ complete source match from resource/API checks.
 
 **Historical/diagnostic single-player control only.** This preserves the old
 Chicago/PC_WHITE import and the live56 evidence. It does not install the required
-`original-teams`, impact, HUD or match-service resources for current B1 source
+`original-teams`, impact, HUD or match-service resources for current Contact/C2 source
 mode. Use the current composition above for a fresh source candidate.
 
 Start from a checkout of this project and a **user-supplied physical source
@@ -275,10 +423,10 @@ preview. Do not hide it with an invented axis flip or call it animation.
 
 ## Apply QBSTANCE frame 0
 
-**Historical October 15 standing-preview diagnostic, not the current B1 runtime
+**Historical October 15 standing-preview diagnostic, not the current Contact/C2 runtime
 setup.** The older continuous preview required the56 library below rather than
-this optional static-pose command; current B1 requires the full117 composition
-above. Authentic frame-0 native application and
+this optional static-pose command; current Contact/C2 requires its distinct
+272/281 resource composition above. Authentic frame-0 native application and
 independent saved-prefab reload both passed;
 all **343 split vertices** matched the original source matrices within
 **2.79×10⁻⁶ source units**. The resulting WebGL generation passed the bounded
@@ -336,7 +484,7 @@ script/frame/layer/root state.
 
 ## Prepare and import continuous original animation
 
-**Historical live56/immutable control recipe, not a fresh B1 source-mode setup.**
+**Historical live56/immutable control recipe, not a fresh Contact/C2 source-mode setup.**
 Retain this resource unchanged. The [canonical117 recipe](#current-b1-source-mode-resources)
 and original-team importer use a different resource identity; neither overwrites
 the old56 library.
@@ -408,9 +556,10 @@ The host remains 60 Hz; source animation/action state runs on the explicit
 lower/upper headings and resolved root offsets, not a generic looping FPS,
 velocity-selected animation or double-applied X/Z clip drift. Missing source
 library/clip/frame fails visibly; there is no static or graybox substitution.
-Rebuilding that historical setup is not a current B1 recipe. Current
-`SourceInterfaceServices` composes the canonical117 library, actual geometry,
-P1 playbook, match configuration, team rosters and presentation settings.
+Rebuilding that historical setup is not a current Contact/C2 recipe. Historical
+B1 `SourceInterfaceServices` composed canonical117, geometry, P1, match/roster
+and presentation data; current services require the separately keyed
+Contact272/Contact281C2 composition above.
 
 ## Prepare and import the original field and stadium
 
@@ -437,7 +586,7 @@ Editor ownership and source freezes before an actual root import/build.
 ## Host build: verified route
 
 This route has the old56 deployment proof below; it has not built the new
-combined candidate. For a new movement157 build, work from the complete approved
+combined candidate. For a new Contact/C2 build, work from the complete approved
 candidate's project root **after** the resource/import prerequisites above, using
 an existing supported, activated installation with matching Editor/WebGL module:
 
@@ -528,7 +677,8 @@ Use `http://127.0.0.1:8080/?actors=source` to require the generated source playe
 `?actors=graybox` explicitly selects the procedural baseline. Without a parameter,
 installed original-team resources may select source, but a missing resource set
 does **not** implicitly select legacy. Current source mode requires the
-**movement157 resource set plus pinned bootstrap above** and reports
+**Contact272 resources by default, or explicit Contact281C2 resources, plus
+the pinned match/movement/bootstrap/SAFN inputs above** and reports
 `SOURCE MODE ERROR` for missing/invalid data;
 there is no old-single-player, generic HUD/font, static or primitive substitute.
 Source controls are the [raw cabinet bindings](../README.md#source-cabinet-controls);
@@ -548,7 +698,7 @@ builder unless `BUILDX_BUILDER` is explicitly supplied.
 ## Browser verification
 
 Everything in the following continuous/static browser evidence records belongs
-to the **older56 or static live generations**, not a new B1/M1/Team/HUD build.
+to the **older56 or static live generations**, not a new Contact/C2 build.
 No new resource import/build/browser session, replacement image or remeasurement
 of the existing full-viewport/RTX3070 baseline is claimed here.
 
@@ -702,10 +852,12 @@ added **14** synthetic tests to the unchanged **12** pose-reader tests; that
 WAN-reader tests prove decoding, not native
 application by themselves.
 
-The additional [original-C oracle](../tests/source-oracles/README.md) requires
+The retained [original-C oracle](../tests/source-oracles/README.md) requires
 GCC or Clang and the exact inputs in `tests/source-oracles/pins.json`.
 Use the supplied pinned source root offline; optional blob acquisition is
-documented separately. Generate the corpus **before** the production comparison:
+documented separately. The following is the **historical legacy-profile**
+comparison; use the [explicit current281 command](../tests/README.md#original-source-campaigns-and-reference-only-apis)
+for the current composition. Generate the corpus **before** the comparison:
 
 ```sh
 python3 tests/source-oracles/run.py --source-root "$SOURCE_ROOT" --full-matrix
@@ -723,7 +875,8 @@ assertions**, zero failures. The **35 C-only geometry cases** are not production
 comparisons. Clock/local-state wakes/discard, result classification, exact
 spotting/dispatch/clamp, field conversion and CPU onside are covered; later
 result-switch/PAT/kick/period callers and full gameplay are not certified.
-The frozen CI fetches pinned oracle inputs before its oracle/comparison steps.
+CI retains these pinned legacy-profile original-data steps, separately from its
+new asset-free Contact/C2 preflights; neither result is whole-game acceptance.
 
 Build/hosting tooling validation (the optional `--docker` case uses a labeled,
 non-playable fixture):

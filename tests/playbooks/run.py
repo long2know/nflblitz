@@ -110,10 +110,17 @@ def require_unit_tests(code, output, count):
 
 
 def main(argv=None):
+    global ARTIFACTS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=ARTIFACTS / "original",
                         help="Exact canonical-path pinned public source input root; no network fallback.")
+    parser.add_argument("--output", type=Path, help="New ignored child output; never overwrite historical P1 receipts.")
     args = parser.parse_args(argv)
+    if args.output is not None:
+        selected = args.output.absolute()
+        if not selected.is_relative_to(SUITE / ".artifacts") or selected.exists():
+            parser.error("--output requires a new tests/playbooks/.artifacts child.")
+        ARTIFACTS = selected
     source_root = args.source_root.resolve()
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     report = ARTIFACTS / "result.json"
@@ -128,7 +135,7 @@ def main(argv=None):
     evidence = {
         "schema": "source-playbook-regressions/v1", "status": "failed", "commands": [], "mutations": [],
         "source_root": str(source_root), "source_pins": PINS,
-        "profile": "Actual complete six Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
+        "profile": "Actual complete seven Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
         "boundary": PINS["boundary"], "full_gameplay_parity_claimed": False,
         "unity_editor_native_build_browser_or_hosting_executed": False,
         "production_hashes_unchanged": False, "original_input_hashes_unchanged": False,

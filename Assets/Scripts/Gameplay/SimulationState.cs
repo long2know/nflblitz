@@ -107,6 +107,9 @@ namespace Blitz.Gameplay
         internal bool SourceReturnedFromMovementMode;
         internal int SourceImmediateGeneralRuns;
         internal int? SourceHitPartnerId;
+        internal int SourcePuppetLinkId = -1;
+        internal long SourcePuppetReleaseTick;
+        internal int SourceBlockCount;
 
         internal ActorState(int id)
         {
@@ -160,6 +163,11 @@ namespace Blitz.Gameplay
         internal float SourcePlayEndZ;
         internal bool SourceHasContactSpot;
         internal float SourceVictimHeight;
+        internal string SourceVictimSequence;
+        internal FieldVector SourceCollisionVelocity;
+        internal bool SourceQbEvaded;
+        internal bool SourcePlowSoundPending;
+        internal readonly int[] SourceTackles = new int[2];
         internal readonly int[] SourceOffensivePlays = new int[2];
         internal readonly int[] SourceLostFumbles = new int[2];
         internal readonly int[] SourceInterceptions = new int[2];
@@ -190,7 +198,18 @@ namespace Blitz.Gameplay
         internal int SourceRandomCallIndex;
         internal int SourceDispatchOrdinal;
         internal int SourcePresentationOrder;
+        internal string SourceAnimationFailure;
         internal string SourceCurrentPlayerBank;
+        internal bool SourceC2Enabled;
+        internal bool? SourceTaunted;
+        internal string SourceAnnouncerSwappedBank;
+        internal string SourceTauntBank;
+        internal long SourceC2EndEpoch;
+        internal long SourceC2BankEpoch;
+        internal SourceC2PendingEnd SourceC2PendingResult;
+        internal IReadOnlyDictionary<string, SourceAnimationProgram> SourceC2Programs;
+        internal readonly List<SourceC2WhistleProcess> SourceC2Whistles = new List<SourceC2WhistleProcess>();
+        internal long SourceC2WhistleSerial;
         internal readonly uint[] SourceAnimationUniqueMasks = new uint[6];
         internal SourcePlaybook SourcePlaybook;
         internal SourcePlayDefinition SourceOffensePlay;

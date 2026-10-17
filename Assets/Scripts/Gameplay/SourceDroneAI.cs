@@ -157,6 +157,7 @@ namespace Blitz.Gameplay
         public SourceActorJob Job { get; }
         public int Target { get; }
         public int Facing { get; }
+        public int RawFacing { get; }
         public int Stick { get; }
         public int Station { get; }
         public bool IsHuman { get { return Station != -1; } }
@@ -165,7 +166,8 @@ namespace Blitz.Gameplay
 
         public SourceAiActor(int id, SourcePlanar position, SourcePlanar velocity, SourceActorMode mode,
             SourceActorJob job = SourceActorJob.None, int target = -1, SourceAiActorFlags flags = SourceAiActorFlags.None,
-            int station = -1, int facing = 0, int stick = 24, int attackTarget = -1, float height = 0f)
+            int station = -1, int facing = 0, int stick = 24, int attackTarget = -1, float height = 0f,
+            int? rawFacing = null)
         {
             SourceP1Guard.Actor(id);
             if (mode < SourceActorMode.Lineup || mode > SourceActorMode.Kicker) throw new ArgumentOutOfRangeException(nameof(mode));
@@ -174,10 +176,14 @@ namespace Blitz.Gameplay
                 throw new ArgumentOutOfRangeException(nameof(target));
             if (station < -1 || station > 3) throw new ArgumentOutOfRangeException(nameof(station));
             if (facing < 0 || facing > 1023) throw new ArgumentOutOfRangeException(nameof(facing));
+            if (rawFacing.HasValue && (rawFacing.Value < -1023 || rawFacing.Value > 1023 ||
+                (rawFacing.Value & 1023) != facing))
+                throw new ArgumentOutOfRangeException(nameof(rawFacing));
             if (stick < 0 || stick > 48) throw new ArgumentOutOfRangeException(nameof(stick));
             SourceP1Guard.Coordinate(height, nameof(height));
             Id = id; Position = position; Velocity = velocity; Mode = mode; Job = job; Target = target;
             Flags = flags; Station = station; Facing = facing; Stick = stick; AttackTarget = attackTarget; Height = height;
+            RawFacing = rawFacing ?? facing;
         }
     }
 
@@ -295,7 +301,8 @@ namespace Blitz.Gameplay
         public int Angle(int from, int to) { SourceP1Guard.Actor(from); SourceP1Guard.Actor(to); return angles[from, to]; }
         public int Bearing(int from, int to)
         {
-            int bearing = (1024 + Actors[from].Facing - Angle(from, to)) % 1024;
+            // pmisc.c:608-618 retains signed remainder; callers choose whether to take abs.
+            int bearing = (1024 + Actors[from].RawFacing - Angle(from, to)) % 1024;
             return bearing > 512 ? 1024 - bearing : bearing;
         }
         public bool IsHumanTeam(int side) { SourceP1Guard.Side(side); return (HumanTeamMask & (1 << side)) != 0; }
@@ -514,6 +521,7 @@ namespace Blitz.Gameplay
         public IReadOnlyList<SourceRouteState> DroneStates { get; }
         public SourceFormationSlot? FormationSlot { get; }
         public int TargetFacing { get; }
+        public int RawTargetFacing { get; }
         public SourceDroneSnapContext? SnapContext { get; }
         public SourceDroneKickerContext? KickerContext { get; }
 
@@ -523,7 +531,8 @@ namespace Blitz.Gameplay
             int hurdleCount = 0, int spinCount = 0, bool dronesLose = false, bool dronesWinning = false,
             SourceBlockAssignments blocking = null, IReadOnlyList<SourceReceiverAssessment> receivers = null,
             IReadOnlyList<SourceRouteState> droneStates = null, SourceFormationSlot? formationSlot = null,
-            int targetFacing = -1, SourceDroneSnapContext? snapContext = null, SourceDroneKickerContext? kickerContext = null)
+            int targetFacing = -1, SourceDroneSnapContext? snapContext = null, SourceDroneKickerContext? kickerContext = null,
+            int? rawTargetFacing = null)
         {
             Frame = frame ?? throw new ArgumentNullException(nameof(frame));
             Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
@@ -542,6 +551,10 @@ namespace Blitz.Gameplay
             DroneStates = droneStates == null ? null : Array.AsReadOnly(new List<SourceRouteState>(droneStates).ToArray());
             FormationSlot = formationSlot;
             TargetFacing = targetFacing == -1 ? frame.Actors[actorId].Facing : targetFacing;
+            if (rawTargetFacing.HasValue && (rawTargetFacing.Value < -1023 || rawTargetFacing.Value > 1023 ||
+                (rawTargetFacing.Value & 1023) != TargetFacing))
+                throw new ArgumentOutOfRangeException(nameof(rawTargetFacing));
+            RawTargetFacing = rawTargetFacing ?? TargetFacing;
             SnapContext = snapContext; KickerContext = kickerContext;
         }
     }
@@ -857,7 +870,7 @@ namespace Blitz.Gameplay
             InterpretReceiver(e);
             int nearest;
             if (NearestDefender(f, e.Actor.Id, out nearest) < 15.6f && !f.IsHumanTeam(e.Actor.Side) &&
-                (e.Actor.Flags & SourceAiActorFlags.RunningPush) == 0 && f.Bearing(e.Actor.Id, nearest) <= 128)
+                (e.Actor.Flags & SourceAiActorFlags.RunningPush) == 0 && Math.Abs(f.Bearing(e.Actor.Id, nearest)) <= 128)
                 e.State.Buttons = SourceDroneButtons.B | SourceDroneButtons.C;
             if ((e.State.Flags & SourceDroneFlags.GhostActive) != 0)
                 e.State.Ghost = new SourcePlanar(e.State.Ghost.X + e.State.GhostVelocity.X, e.State.Ghost.Z + e.State.GhostVelocity.Z);
@@ -1699,7 +1712,7 @@ namespace Blitz.Gameplay
         {
             int nearest = -1, start = (1 - frame.Actors[actor].Side) * 7;
             for (int i = start; i < start + 7; i++)
-                if (frame.Bearing(actor, i) <= 128 && (nearest == -1 || frame.Distance(actor, i) < frame.Distance(actor, nearest)))
+                if (Math.Abs(frame.Bearing(actor, i)) <= 128 && (nearest == -1 || frame.Distance(actor, i) < frame.Distance(actor, nearest)))
                     nearest = i;
             return nearest == target;
         }
@@ -2065,7 +2078,7 @@ namespace Blitz.Gameplay
         {
             int toBall = e.Frame.Directions.Heading(e.Actor.Position, e.Frame.Ball.Position);
             float distance = e.Actor.Position.DistanceTo(e.Frame.Ball.Target);
-            if (Math.Abs(toBall - e.Input.TargetFacing) < 64 && distance <= 4f) e.Hold();
+            if (Math.Abs(toBall - e.Input.RawTargetFacing) < 64 && distance <= 4f) e.Hold();
             else if (distance <= 2f)
             {
                 e.State.Stick = e.Frame.Directions.DirectionToStick(toBall - e.Frame.CameraHeading);

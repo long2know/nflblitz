@@ -1,16 +1,16 @@
 # Source parity and port evidence
 
-**Contract checked October 16, 2026 (PDT).** Reference: public
+**Contract checked October 17, 2026 (PDT).** Reference: public
 [`historicalsource/nflblitz2000`](https://github.com/historicalsource/nflblitz2000).
 Pinned default-branch revision:
 [`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`](https://github.com/historicalsource/nflblitz2000/commit/89f840d58d152a2a9f230cb8d0cdffbd554c8ded),
 with a non-truncated source tree. The target is the original NFL Blitz 2000
-appearance and logic, not a generic football graybox. Checked-in **movement157 +
-Team + HUD/cabinet** source extends the frozen B1/canonical117 layer with
-mandatory real M1 data/settings and same-tick source-camera cache composition.
-It retains actual ball/input/cue services, all31-team presentation, original
-bitmap HUD/selection and raw two/four-station input. Source/pure/API evidence is separate from the **older
-live56 WebGL generation**. No combined native resource import, game build,
+appearance and logic, not a generic football graybox. Checked-in **Contact/C2**
+source adds bounded contact/callback/resource composition to the retained
+movement, ball, sound, Team and HUD/cabinet layers. Default/empty selection
+remains Contact272; Contact281C2 is **explicit opt-in**, not a new playable
+build or whole-game acceptance. Source/pure/reference-API evidence is separate
+from the **older live56 WebGL generation**. No combined native resource import, game build,
 new pixels/browser session or actual game-audio consumer is established.
 It is not a complete port of the original C engine or every shipped
 version/configuration. **Full source gameplay parity remains OPEN; all sixteen
@@ -20,17 +20,99 @@ stopping point. No deferred feature below is removed from the completion target.
 
 Archive-source links below pin that revision; line numbers refer to the raw source's
 physical lines. Original inputs and converted art stay in ignored local storage;
-the [current movement157 resource contract](build.md#current-movement157-source-mode-resources)
+the [current Contact/C2 resource contract](build.md#current-contactc2-source-mode-resources)
 uses explicit local inputs. The older single-player/56 recipes are retained as
 historical controls, not sufficient source-mode setup. Original motion is not a
 published test fixture.
 
-## Current movement157 bootstrap boundary
+## Current Contact/C2 boundary
 
-### Next synchronous SoundVM runtime boundary
+The C1 default is `original-teams-contact272`, 272 clips/24,892 selected frames,
+manifest `9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9`.
+Only explicit `?actors=source&sourceprofile=original-teams-contact281-c2` or
+the fixed-C2 build entrypoint selects the **281-clip/26,230-frame** profile,
+manifest `e87401c8cf3e348cc2d9c7255a1f18f43e41b1694ff7dff45c4bf025a5ecce4f`.
+The same actual library object supplies Core, real fifteen-pivot geometry and
+rendering. C2 bootstrap precedes the constructor's announcer/taunt bank draws
+and initial AI; unchanged six-binding SAFN is bound before the first wake.
+Built/URL conflicts, missing data, wrong inventories and noncanonical resource
+references fail explicitly. Historical 56/117/156/157/272 identities are
+preserved, not automatically runnable native compositions on the new engine.
 
-Movement157 is published in PR19; this next sound-runtime candidate is not yet
-main/live evidence. Original SAFN data is canonically pinned/bound before the
+The [tracked producers](../tools/animation/README.md#explicit-c2-production281-generation)
+require explicitly supplied pinned originals/base272/real9 inputs and reuse
+the existing encoders. The 288-file canonical closure includes separate C2 JSON
+`9d2cb7ac5d92c3c2178fc1970a68ccad778fb7d319513b1787fe3ba3fe905f99`
+and ONE7538 SAFN
+`bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904`.
+The separately bound477-site impact catalog
+`9e82809268e18ae5d792f6e1614f0ea949a04b579bf4a93ea81b7833be4ce8ac`
+retains all 469 prior sites. Old six-binding SAFN4a557304 remains separate and
+unchanged. No original arrays, motion, art or audio are checkout fixtures or
+authorized for redistribution by this evidence.
+
+**Mandatory portability disclosure:** the parent autonomously chose a narrow
+no-eligible-candidate return before original `maybe_taunt` would call
+`bearing(me,-1)`; **no explicit user approval was captured**.
+It emits the existing `PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE` diagnostic.
+Valid eligible paths are unchanged and invalid/unknown inputs still error.
+This is a defined portable-source repair, **not target-memory, instruction or
+ABI emulation**, and unsafe original C was not executed as a target oracle.
+
+### Recorded current component evidence, not full-generation acceptance
+
+These are frozen owner results, not original-data campaigns rerun for this
+CI/docs update. The new asset-free workflow checks and strict original-input
+commands are [documented separately](../tests/README.md#current-contactc2-gates).
+
+| Current layer | Recorded result | Boundary |
+| --- | --- | --- |
+| Contact/C2 | All 61 compiled causal controls (27 C1/34 C2), final baselines, all 22 kernels/34,570 assertions. Retains 34,548 C1 assertions and adds 22 explicit C2 queued/next-existing-wake checks; original same-wake C1 contract remains separate. | Source/controlled original-C/component coverage, not full game, native scheduler or target void-return ABI. |
+| B1 | Baseline/final 36 sentinel, 470,666 scalar, 18,062 caller and 41 geometry assertions; all 25 controls. | New FIFO compatibility history and the positive catch's **unfiltered raw99 at every site**, including constructor/sound/AI/catch, are separately declared controlled fixtures. Neither is an unchanged original whole-host trajectory or target PRNG; seed1 standing-BatDown remains a separate negative. No canonical seed/vector/site/model tuning. |
+| SoundVM / P1 | VM 800,735 assertions/all 11 controls and final baseline; P1 baseline/final with all 3 controls and unchanged pins. | Host-C/portable-source behavior, not target PRNG, DSP output or a rendered match. |
+| Full-kernel numeric/host adapter | Real281 composition, 123,039 original-C cases, 864,156 C# checks, all 332 host-adapter assertions and rejected rounding control. | 35 geometry cases remain C-only; numeric/adapter green is not every caller or full-generation parity. |
+| Actual package and Unity-reference APIs | 963 package assertions/14 compiled controls. All 112 C# sources (99 runtime/13 separate Editor), five actual archived6000.3.24 C#7.3/netstandard2.1 profiles, zero diagnostics. | No Editor process, asset import/reload, native geometry/game pixels, WebGL build or browser/DSP execution. |
+
+### M1 is scoped PASS, not full M1
+
+The real281 canonical stream completed **12,000 host / 11,400 source ticks /
+25,641 shared raw draws**. All eight original controlled caller mutations and
+three isolated cache controls compiled and were causally rejected. It observed
+**zero `R_SKIP` frames**: there is no two-or-more-selected-ordinal advancement
+or post-source2299 `R_SKIP` pose witness. Those preserved assertions are
+**uncovered**, not deleted, relaxed or satisfied by elapsed ticks.
+
+The separately labelled isolated witness observed 159,194 cache calls and
+2,387,910 current rows plus the same number of reference rows. The untouched receipt still records
+**zero observed calls**; do not attribute instrumented counters to it.
+Reference rows are offline captured-view pose/matrix arithmetic, **not an
+independent original-C/all-model/native geometry proof**. Aggregate
+phase/play/action/route counters are unavailable in the retained observations;
+RNG-site counts or old trajectories cannot supply them. No new seed/vector
+search or model/site tuning is part of this milestone.
+
+One FIFO handles old six/new speech/hit/native raw sound output. Playlist0
+and empty resolved batches remain legitimate, but nonempty delivery without
+a real backend fails visibly: **nothing was heard or DSP-qualified**.
+Three legitimate Unity probes exited198 **before import** due to external
+headless entitlement; no new Editor probe, native build, Docker promotion,
+browser session or screenshot was performed. The live8080 old56 build and its
+captures are untouched. **All sixteen completion rows below remain OPEN**,
+including full M1, target PRNG/scheduler, native gameplay and DSP/browser
+acceptance. The profile's “C2” name does not close the matrix's C2 tuning row.
+
+<a id="current-movement157-bootstrap-boundary"></a>
+
+## Historical movement157 bootstrap boundary
+
+The following157/B1 resource contracts retain their original source-generation
+meaning and recorded evidence, not the current Contact/C2 default or a
+promise that old assets boot on this engine.
+
+### Historical synchronous SoundVM runtime boundary
+
+Movement157 was published in PR19; the subsequent sound-runtime layer is not
+live evidence. Original SAFN data is canonically pinned/bound before the
 first source wake. Exactly six original ANI_CODE sites select synchronously
 using Core's same stream; Runtime never selects or draws RNG after the host.
 Each Step drains FIFO before raw cues, pairs the exact OriginalCue once and
@@ -78,10 +160,12 @@ second57-Hz accumulator is substituted. Source/pure/API evidence below does not
 constitute native resource import, game pixels or all-M1/full-normal/C1/RNG/
 scheduler parity.
 
-## Current B1 resource and activation boundary
+<a id="current-b1-resource-and-activation-boundary"></a>
+
+## Historical B1 resource and activation boundary
 
 **Retained previous B1/final117 source/revision only.** This contract/evidence is
-not relabeled as movement157; the current M1 bootstrap is above.
+not relabeled as movement157 or Contact/C2; the current resource boundary is above.
 
 The [exact117 recipe](../tools/animation/README.md#reproduce-exactly-the-expanded-b1b2-117-sequence-library)
 uses `--catalog tools/animation/ball_sequences.json` and must reproduce manifest
@@ -113,6 +197,8 @@ qualification notes in frozen recipes predate those repairs.
 ## Current implementation evidence
 
 These are distinct evidence layers, not interchangeable parity claims.
+The October15/16 entries below retain their historical generation-specific
+meaning; the current281 results are above, not replacements for old receipts.
 Headless suites compile actual production inputs as C# 7.3 under .NET 10;
 actual Unity-reference .NET Standard2.1 API checks are another layer. The
 recorded Unity6000.3.24f1 host runs establish the **older** selected build path,
@@ -129,7 +215,7 @@ build or rendering was rerun for this documentation update.
 | Original HUD/cabinet source — October 16 | [Interface checks](../tests/interface/README.md): **16,215 assertions / thirteen rejected production mutants**, nine converter and four interop tests. Complete data has **381 images / six fonts / 104 selection planes**. Actual bitmap metrics, packed source HUD state, raw49 A/B/C edges, station/captain mapping, focus clearing and CSS/DPR layouts including360×740/DPR2 are checked. | Repacked authored art is not missing Composit/Texus runtime-pixel equivalence. No native/browser HUD pixels, physical cabinet ADC timing, full custom/random/power-up selection, manual kick meters or game-audio proof. |
 | B1 stage caller / complete-owned-UI API — October 16 | [Stage follow-up](../tests/interface/STAGE.md): **80 runtime sources including all16 owned UI files**, actual Unity6000.3.24 C#7.3/.NET Standard2.1, zero diagnostics for both `UNITY_EDITOR` and `UNITY_WEBGL`, plus **21 caller/scope/inventory guards**. Source camera is registered before the first wake; cue/lifecycle forwarding has one owner. | Runtime-with-defines is not a separate Editor assembly or native execution. The earlier three-adapter-only API project excluded existing Runtime/HUD files and was not complete UI proof. Semantic B1 camera lifecycle is not all original raw modes. |
 | HUD/match-service packaging — October 16 | **107 actual-data assertions / eighteen rejected production mutants**. The final integrated API snapshot passes **82 runtime sources / separate5 Editor sources**, actual6000.3.24 references, zero diagnostics after parent public-`DecodeUtf8` and four-null-initializer repairs. | No new native import/save/reload, atlas GPU pixels, game build or browser proof. Pre-repair internal-access/CS0649 reports are historical, not current blockers; licensing198 and actual audio/FX consumers remain open. |
-| Current movement157 Runtime bootstrap — October 16 | **33,921 pure assertions / ten compiled production bootstrap mutants**; **10,941 actual89c790 production Runtime-composition assertions / four compiled Runtime mutants**. All field/team-mask/global-power/DIP combinations, every original friction/Line/Back/acceleration/plow value and real constructor/helper wiring are exercised or structurally guarded. **33 separate structural Runtime/service mutants** protect frame order, raw mode, mandatory settings/resources, canonical shared animation identity and lifecycle. Actual Unity6000.3.24 C#7.3/.NET Standard2.1 profiles compile **85 runtime sources / all16 owned UI**, zero diagnostics for Editor/WebGL. | The actual compiled Runtime's pure helper executes under .NET, not Unity native. Structural caller guards are not physics execution or target-MIPS proof. This does not replace QA's Core caller or Team's camera campaigns, provide imported157 assets/game/browser proof, or close M1/C1/full normal camera/audio/RNG/scheduler. |
+| Historical movement157 Runtime bootstrap — October 16 | **33,921 pure assertions / ten compiled production bootstrap mutants**; **10,941 actual89c790 production Runtime-composition assertions / four compiled Runtime mutants**. All field/team-mask/global-power/DIP combinations, every original friction/Line/Back/acceleration/plow value and real constructor/helper wiring are exercised or structurally guarded. **33 separate structural Runtime/service mutants** protect frame order, raw mode, mandatory settings/resources, canonical shared animation identity and lifecycle. Actual Unity6000.3.24 C#7.3/.NET Standard2.1 profiles compile **85 runtime sources / all16 owned UI**, zero diagnostics for Editor/WebGL. | The actual compiled Runtime's pure helper executes under .NET, not Unity native. Structural caller guards are not physics execution or target-MIPS proof. This does not replace QA's Core caller or Team's camera campaigns, provide imported157 assets/game/browser proof, or close M1/C1/full normal camera/audio/RNG/scheduler. |
 | Legacy rules/interaction/replay | **156 core cases**, zero skipped; six runner guards. Actual-source thirty-to-ten-yard mutation was rejected. Fourteen IDs, phase/rule transitions, passing, defense, scoring, final/restart and detached deterministic state/events pass. | These preserve the asset-free legacy constructor, not original AI, physics, timing or a rendered full match. |
 | Original movement/evasion helpers — October 16 | **14,047 original-C cases / 813,702 production assertions**, **sixteen rejected implementation mutants** and **fifteen publication guards**. The explicit SDK C# 7.3/.NET Standard 2.1 profile passes; a separate actual Unity-reference API mode is preserved. The runtime-safe producer retains exact constants, selectors, friction and both 12×6 defense tables without test-only animation responses. | Pure helpers and static data, not completed Core callers, source animation/control callbacks, cached camera-joint integration, target RNG/scheduling or native/browser gameplay. SDK API success is explicitly not Unity validation. All sixteen matrix rows remain open. |
 | Pure asset parser/mesh/pose | Permanent [asset suite](../tests/assets/README.md): **2,751 assertions** = original **419** parser/mesh + **2,332** original synthetic pose checks; **eight rejected mutations**, **seven production-file hash guards**, including `SourcePlayerPose.cs`. Clean-source and missing/zero/stale-count gates passed. | No original pose/art fixtures; native Editor/runtime adapters and actual-source vertex comparison remain separate. |
@@ -423,7 +509,8 @@ requirements and their distinct evidence are recorded above.
   historical captures visibly show heads above bodies and feet below, without
   an invented axis flip or pose. The [frame-0 diagnostic](build.md#apply-qbstance-frame-0)
   reproduces the native single-pose check, not that historical browser generation;
-  current source mode requires the canonical117 composition. At the October 15
+  historical B1 source mode required canonical117; current Contact/C2 uses its
+  distinct resources above. At the October 15
   milestone it was one ball-holding stance applied to all fourteen actors,
   **not verified pre-snap for all roles**.
 - **Recorded56 continuous original animation, October 16:** 56 content-pinned selected

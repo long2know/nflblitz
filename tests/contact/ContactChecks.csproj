@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceContactComposition.cs" />
+    <Compile Include="../parity/FullKernelInputs.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="OracleChecks.cs" />
+    <Compile Include="KernelChecks.cs" />
+    <Compile Include="SoundIntegrationChecks.cs" />
+    <Compile Include="InputChecks.cs" />
+    <Compile Include="HeadingBoundaryChecks.cs" />
+    <Compile Include="MovementBearingBoundaryChecks.cs" />
+    <Compile Include="RouteTargetFacingBoundaryChecks.cs" />
+    <Compile Include="C2CallbackChecks.cs" />
+  </ItemGroup>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" />
+  <Import Project="../parity/FullKernelSources.props" />
+  <Target Name="RequireActualContactComposition" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceContactComposition.cs')"
+           Text="Actual production Contact272 composition is required, including isolated mutation builds; no test adapter." />
+  </Target>
+</Project>

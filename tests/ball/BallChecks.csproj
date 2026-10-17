@@ -21,8 +21,10 @@
     <Compile Include="SourceCallerChecks.cs" />
     <Compile Include="SentinelChecks.cs" />
     <Compile Include="GeometryCallerChecks.cs" />
+    <Compile Include="CanonicalInputs.cs" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
+  <Import Project="../parity/FullKernelSources.props" />
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceCatchGeometry.cs')"
            Text="Actual SourceCatchGeometry is required; no geometry replacement is allowed." />

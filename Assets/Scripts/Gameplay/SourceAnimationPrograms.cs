@@ -11,6 +11,7 @@ namespace Blitz.Gameplay
         internal const uint Streaming = 0x0008;
         internal const uint PrepareTransition = 0x0010;
         internal const uint RotationOnly = 0x0020;
+        internal const uint Zero = 0x0040;
         internal const uint Reacting = 0x0080;
         internal const uint NoCatch = 0x0800;
         internal const uint AnchorY = 0x00010000;
@@ -30,7 +31,8 @@ namespace Blitz.Gameplay
         SetFlip, SetLateHittable, RotateTorso, FaceBall, RotateToBall, LeapTarget,
         SetLowerUninterruptible, SelectScript, RandomBranch, JumpProgram, BranchSlowerSpin,
         BranchIfNotHasBall, CameraCue, ShakerCue, PresentationCallback,
-        MovementCode, MovementBranchNonzero, MovementBranchZero, LeapAttack, AttackOn, AttackOff, TurnHack, End
+        MovementCode, MovementBranchNonzero, MovementBranchZero, LeapAttack, AttackOn, AttackOff, TurnHack,
+        HitFacingVelocity, End
     }
 
     [Flags]
@@ -114,6 +116,14 @@ namespace Blitz.Gameplay
             if (!Programs.TryGetValue(symbol, out program))
                 throw new NotSupportedException("Unported source animation script: " + symbol);
             return program;
+        }
+
+        internal static SourceAnimationProgram Get(string symbol,
+            IReadOnlyDictionary<string, SourceAnimationProgram> instanceExtension)
+        {
+            SourceAnimationProgram program;
+            if (instanceExtension != null && instanceExtension.TryGetValue(symbol, out program)) return program;
+            return Get(symbol);
         }
 
         private static SourceAnimationInstruction Mode(uint bits)
@@ -426,6 +436,7 @@ namespace Blitz.Gameplay
             AddCatchPrograms(p);
             AddFormationPrograms(p);
             AddMovementPrograms(p);
+            AddContactPrograms(p);
             return p;
         }
 

@@ -24,6 +24,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" Link="Production/Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
+  <Import Project="FullKernelSources.props" />
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs')"
            Text="Actual production SourceClock.cs is required; no substitute clock is allowed." />

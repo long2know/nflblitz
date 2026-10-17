@@ -1,7 +1,15 @@
 # Unity source-port integration contract v1
 
-**Owner:** Lead. **Contract checked:** October 16, 2026 (PDT).
-**Status:** continuous original animation is implemented and verified on Unity
+**Owner:** Lead. **Contract checked:** October 17, 2026 (PDT).
+**Current source boundary:** default/empty selection remains Contact272;
+Contact281C2 is an explicit opt-in portable-source/resource increment, not a
+new playable build. See the [current factories/resources/build selection](build.md#current-contactc2-source-mode-resources)
+and [component evidence, M1 gaps and autonomous portability disclosure](source-parity.md#current-contactc2-boundary).
+Historical constructor/resource descriptions below retain their original
+generation meaning; old56/117/156/157 assets are not current-engine fallbacks.
+All sixteen full-parity rows remain OPEN.
+
+**Recorded live status:** continuous original animation is implemented and verified on Unity
 6000.3.24f1 host WebGL build `0000063700005f540000316b000003e7`, promoted to
 Docker `8080/?actors=source`. The shared library contains **56 original clips /
 3,731 selected source frames**. Actual native vertex checks and a

@@ -25,6 +25,12 @@ namespace Blitz.Editor
         public static void VerifyMovement157FromCommandLine()
         { VerifyProfile(SourceTeamResourceProfile.Movement157); }
 
+        public static void VerifyContact272FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Contact272); }
+
+        public static void VerifyContact281C2FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Contact281C2); }
+
         private static void VerifyProfile(SourceTeamResourceProfile profile)
         {
             assertions = vertices = indices = rgbaBytes = 0;

@@ -1,4 +1,4 @@
-# Regression evidence: legacy and source B1
+# Regression evidence: legacy and source components
 
 The core suites compile the **actual** `Assets/Scripts/Contracts/**/*.cs` and
 `Assets/Scripts/Gameplay/**/*.cs`, including the actual pure
@@ -8,25 +8,155 @@ assembly, public debug command, reflection-based field editing, or historical
 source/asset import. Assertions target the bounded slice in
 `docs/architecture.md` and `docs/source-parity.md`, **not whole-game parity**.
 
-The checked-in movement157/Team/HUD source is distinct from the recorded live56
-browser player and frozen B1/canonical117 source. Fresh source mode needs
-[complete157 animation](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip),
-[all31-team/impact resources](../tools/assets/README.md),
-[original HUD data](../tools/interface/README.md) and
-[explicit match-service packaging](../tools/interface/packaging.md).
-Teams/rosters, stations/possession/captain, designated home side, station heads
-and power-up values are operator-supplied, not inferred defaults. Mandatory
-M1 data/settings and explicit original DIP raster are additional pinned inputs.
+The checked-in Contact/C2 source is distinct from the recorded live56 browser
+player and all historical 56/117/156/157/272 test-entry identities.
+Default/empty selection remains `original-teams-contact272`; the281/26,230-frame
+`original-teams-contact281-c2` is **explicit opt-in**. Use the
+[current resource/preparation recipe](../docs/build.md#current-contactc2-source-mode-resources),
+not an old library relabeled as new. Teams/rosters, stations/possession/captain,
+designated home side, heads, power-ups, movement data/settings and original DIP
+raster remain explicit pinned inputs.
 `?actors=graybox` preserves legacy controls; source uses
 [raw cabinet bindings](../README.md#source-cabinet-controls) and rejects missing
 resources or unbound original audio/FX instead of substituting them.
 All sixteen [full-parity rows](../docs/source-parity.md#full-source-completion-matrix--executable-acceptance)
 remain **OPEN**.
 
-Counts below are recorded owner evidence, **not new suite executions for this
-documentation update**. Pure tests, actual Unity-reference API compilation,
+Original-data campaign counts below are recorded owner evidence, **not new
+campaign executions for this CI/documentation update**. The asset-free Contact/C2
+commands below were run locally on October 17, 2026. Pure tests, actual
+Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
+
+## Current Contact/C2 gates
+
+From the repository root, Python 3.10+ and the existing .NET 10.0.100 SDK suffice
+for these **asset-free** checks; no Unity, original data or third-party Python
+package is required:
+
+```sh
+python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
+python3 -B tests/parity/test_contact_inputs.py
+python3 -B tests/contact/test_runner.py
+python3 -B tests/movement-callers/test_canonical.py
+python3 -B -m unittest discover -s tools/animation/tests
+python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null
+python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null
+python3 -B -m unittest discover -s tests/presentation/contact-runtime -p 'test_callers.py' -q
+python3 -B tests/presentation/contact-runtime/run.py
+python3 -B tests/presentation/contact-runtime/mutations.py
+python3 -B -m unittest discover -s tests/presentation/c2-runtime -p 'test_callers.py' -q
+python3 -B tests/presentation/c2-runtime/run.py
+python3 -B tests/presentation/c2-runtime/mutations.py
+```
+
+The existing single `game-build.yml` job runs these gates alongside the retained
+Core, ball/M1/VM/P1 runner guards and all prior checks. Its `Assets/**`,
+`tests/**` and `tools/animation/**` triggers already include every new source,
+reader, factory, producer and test; README/build/parity/architecture changes
+also trigger it. The workflow guard inspects actual event paths, named steps
+and executed command tokens, and rejects in-memory removals, echo/comment-only
+commands, missing mutations and accidental original-data flags.
+
+The new preflights compile actual pure production code separately as
+C#7.3/SDK netstandard2.1 and execute on .NET10. Locally they passed 42 C1 and 27
+C2 assertions, six/four compiled causal controls, and each suite's twelve
+caller guards/seven in-memory seam removals. Animation discovery passed 62
+tests, including both new profile producers. These defaults **do not** load
+original281 motion or qualify the actual-data factory. Local preflight runs
+used fresh `--output` children to preserve earlier receipts. The existing original
+CI campaigns deliberately retain the legacy69-pin/443-file preparation and
+historical entry semantics; they are not promoted to current281 acceptance.
+
+### Explicit original-data preparation and package checks
+
+Supply authorized original files, not a checkout-relative directory assumed
+to exist. The existing `tests/parity/fetch_inputs.py` default remains 69 pins.
+Its explicit `--profile contact272` verifies 78 case-exact pins (all old69 plus
+three operand files/six WANs), using explicit read-only caches or separately
+authorized `--download`; there is no silent retrieval or synthetic fallback.
+The [legacy preparer](parity/README.md#required-actual-full-kernel-factory-inputs)
+produces the unchanged443-file fixture. Then, with actual272 and C1 impact from
+the [build recipe](../docs/build.md#offline-preparation-with-explicitly-supplied-inputs)
+and an explicitly supplied pinned115 supplemental bundle:
+
+```sh
+python3 -B tests/parity/prepare_contact_inputs.py --profile contact272 \
+  --legacy-fixture "$LEGACY443_FIXTURE" \
+  --production-bundle "$BUNDLE272" --supplemental-bundle "$SUPPLEMENTAL115" \
+  --impact "$CONTACT_ROOT/impact272/impact-presentation.json" \
+  --output .squad/.scratch/SourceData/contact-local272
+FIXTURE272=".squad/.scratch/SourceData/contact-local272/fixture.json"
+
+# All six roots/files must be explicit, real and local to this worktree.
+C2_ARGS=(
+  --inputs "$C2_INPUTS" --old272 "$BUNDLE272"
+  --fixture .squad/.scratch/SourceData/contact-local272/legacy-fixture.json
+  --impact "$CONTACT_ROOT/impact281/impact-presentation.json"
+  --old-impact "$CONTACT_ROOT/impact272/impact-presentation.json"
+  --hud "$HUD_ROOT"
+)
+python3 -B tests/presentation/c2-runtime/run.py "${C2_ARGS[@]}" \
+  --output tests/presentation/c2-runtime/.artifacts/local-original
+python3 -B tests/presentation/c2-runtime/mutations.py "${C2_ARGS[@]}" \
+  --output tests/presentation/c2-runtime/.artifacts/local-original-mutants
+```
+
+Use new ignored output children to preserve earlier receipts. Fixture `--reuse`
+is read-only verification, not permission to overwrite inputs. The834-file
+Contact272 fixture preserves the actual model/15 pivots, rosters, P1, movement,
+legacy animation and old SAFN. C2 adds the **separate 288-file** canonical producer
+closure via `--c2-inputs`; there is no invented281 fixture schema or promoted
+default. Actual package mode requires **all six** flags together, verifies real
+data and canonical identities, and never substitutes the asset-free checks.
+The [Contact272 suite](presentation/contact-runtime/README.md) documents its
+distinct six-flag actual-data mode; do not reuse C2 flag names there.
+
+### Original-source campaigns and reference-only APIs
+
+The original-C runner needs GCC/Clang and exact pinned originals. For the
+current numeric/host adapter, first generate its real corpus/receipt:
+
+```sh
+python3 -B tests/source-oracles/run.py --source-root "$ORIGINAL_SOURCE" --full-matrix
+python3 -B tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json \
+  --full-kernel --input-profile contact272 --fixture-manifest "$FIXTURE272" \
+  --c2-inputs "$C2_INPUTS" --output tests/parity/.artifacts/local-current281
+python3 -B tests/movement-callers/canonical.py \
+  --fixture-manifest "$FIXTURE272" --sound-functions "$SAFN" \
+  --c2-inputs "$C2_INPUTS" --source-root "$ORIGINAL_SOURCE" \
+  --output tests/movement-callers/.artifacts/local-current281
+```
+
+`SAFN` is the unchanged4a557304 payload in the fixture. The
+[contact runner](contact/README.md) additionally needs explicit operand,
+camera, exact original13 movement/original14 route roots and the separately
+pinned Midway process originals for C2. Its tracked `prepare_c2.py` delegates
+the canonical producer and tracked original-C/defined-negative-target oracles;
+ignored Core scratch producers are not dependencies.
+[Ball](ball/README.md) and [SoundVM](audio/vm/README.md) add
+`--c2-inputs "$C2_INPUTS"` and a fresh `--output` to their explicit
+`--input-profile contact272 --fixture-manifest "$FIXTURE272"` commands.
+Historical null-bootstrap/old-first-wake paths are separate controls, not
+unchanged C2 trajectories. Original-data campaigns were **not rerun** for this
+CI/docs integration.
+
+For actual Unity6000.3.24f1 references, independently of original data:
+
+```sh
+python3 -B tests/presentation/c2-runtime/api_compile.py \
+  --unity-editor-data "$UNITY_EDITOR_DATA"
+```
+
+This existing optional command compiles all current 99 runtime/13 separate
+Editor sources in five C#7.3/actual netstandard2.1 API shapes with
+warnings-as-errors and before/after source hashes. CI does not presume those
+references exist. No Editor/activation/import/native/WebGL execution follows
+from compilation. The recorded all112/zero-diagnostic result and 963 actual
+package assertions/14 controls are prior owner evidence, not newly executed
+here. Full M1, all16 rows and DSP/browser acceptance remain open; see the
+[current limits and autonomous portability disclosure](../docs/source-parity.md#current-contactc2-boundary).
 
 ## Core suite
 
@@ -148,7 +278,11 @@ single-player56 fixture or invented joint positions.
 
 ## Original HUD/cabinet, stage caller and team/impact presentation
 
-### Current movement157 runtime gate
+### Historical movement157 runtime gate
+
+These recorded bootstrap results precede Contact/C2. Its original native
+resource composition requires the matching historical source revision;
+preserved157 keys are not a current-engine fallback.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
@@ -254,7 +388,7 @@ data without the test-only `Responses` fixture; its output stays ignored.
 
 ## Original audio packages
 
-### Next synchronous sound Runtime
+### Retained synchronous sound Runtime
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -B tests/audio/runtime/run.py

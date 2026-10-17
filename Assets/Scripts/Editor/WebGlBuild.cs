@@ -4,6 +4,8 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Blitz.Runtime;
+using Blitz.AssetImport;
+using Blitz.Presentation;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -22,19 +24,45 @@ namespace Blitz.Editor
 
         [MenuItem("NFL Blitz 2000/Prepare Boot Scene")]
         public static void PrepareProject()
+        { PrepareProfile(SourceTeamResourceProfile.Contact272); }
+
+        public static void PrepareContact281C2Project()
+        { PrepareProfile(SourceTeamResourceProfile.Contact281C2); }
+
+        private static void PrepareProfile(SourceTeamResourceProfile profile)
         {
             if (Application.unityVersion != EditorVersion)
                 throw new BuildFailedException("Use the pinned Unity " + EditorVersion + " editor, not " + Application.unityVersion + ".");
             FixedStepBridgeChecks.Verify();
             HudTypographyChecks.Verify();
+            if (profile.IsContact281C2)
+            {
+                SourceInterfaceServices services = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.C2ResourceKey);
+                if (services == null || !services.Profile.IsContact281C2)
+                    throw new BuildFailedException("Explicit C2 build requires actual canonical281/C2 services, not a stock/272 fallback.");
+                profile.RequireLibrary(services.Animations);
+                SourceTeamPresentationAsset teams = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
+                if (teams == null || teams.Template.StableId != profile.StableId)
+                    throw new BuildFailedException("Explicit C2 build requires its actual canonical team/template resources.");
+                SourcePlayerRig template = teams.Template;
+                profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(template));
+                if (services.C2Data.PayloadSha256 != SourceInterfacePackagePlan.C2CallbackSha256)
+                    throw new BuildFailedException("Explicit C2 build callback data changed.");
+            }
             ConfigurePlayer();
             EnsureShaders();
-            CreateBootScene();
+            CreateBootScene(profile);
             AssetDatabase.SaveAssets();
             Debug.Log("NFL Blitz 2000 port prepared. Open Assets/Scenes/Boot.unity and press Play.");
         }
 
         public static void Build()
+        { BuildProfile(SourceTeamResourceProfile.Contact272); }
+
+        public static void BuildContact281C2()
+        { BuildProfile(SourceTeamResourceProfile.Contact281C2); }
+
+        private static void BuildProfile(SourceTeamResourceProfile profile)
         {
             string output = Path.GetFullPath(Path.Combine(Application.dataPath, "..", OutputPath));
             string buildId = Environment.GetEnvironmentVariable("BLITZ_WEBGL_BUILD_ID");
@@ -50,7 +78,7 @@ namespace Blitz.Editor
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
                 throw new BuildFailedException("Launch the editor with -buildTarget WebGL (scripts/build-webgl.sh supplies it).");
 
-            PrepareProject();
+            PrepareProfile(profile);
             BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
@@ -144,12 +172,13 @@ namespace Blitz.Editor
             graphics.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void CreateBootScene()
+        private static void CreateBootScene(SourceTeamResourceProfile profile)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             GameObject root = new GameObject("NFL Blitz 2000 / runtime");
-            root.AddComponent<BlitzRuntime>();
+            BlitzRuntime runtime = root.AddComponent<BlitzRuntime>();
+            if (profile.IsContact281C2) runtime.ConfigureSourceResourceProfile(profile.StableId);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
                 throw new BuildFailedException("Failed to persist " + ScenePath + ".");
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

@@ -107,7 +107,7 @@ namespace Blitz.Gameplay
             SourcePlaybook playbook, SourceMatchConfiguration configuration = null,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
             SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
-            SourceMovementSettings movementSettings = null)
+            SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null)
         {
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
             sourceGeometry = geometry;
@@ -116,6 +116,7 @@ namespace Blitz.Gameplay
             sourcePresentation = presentation;
             sourceMovementData = movementData;
             sourceMovementSettings = movementSettings;
+            sourceC2Bootstrap = c2Bootstrap;
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
@@ -133,8 +134,11 @@ namespace Blitz.Gameplay
             stepEvents.Clear();
             sourceStepEvents.Clear();
             sourcePresentationCues.Clear();
+            sourceContactEvents.Clear();
+            unresolvedContactSounds.Clear();
             sourceSoundVmPending.Clear();
             sourceSoundVmFailed = false;
+            sourceC2Events.Clear();
             SourceCameraStageOrder = -1;
             ClearPendingInput();
             if (Profile == SimulationProfile.OriginalRelease57Hz)
@@ -159,9 +163,15 @@ namespace Blitz.Gameplay
 
         public void Step(PlayerCommand command)
         {
+            if (Profile == SimulationProfile.OriginalRelease57Hz && Model.SourceAnimationFailure != null)
+                throw new InvalidOperationException("Original source execution failed; Restart is required, not a retry: "
+                    + Model.SourceAnimationFailure);
             stepEvents.Clear();
             sourceStepEvents.Clear();
             sourcePresentationCues.Clear();
+            sourceContactEvents.Clear();
+            unresolvedContactSounds.Clear();
+            sourceC2Events.Clear();
             SourceCameraStageOrder = -1;
             Model.Tick++;
             if (Profile == SimulationProfile.OriginalRelease57Hz)
