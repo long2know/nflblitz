@@ -403,30 +403,104 @@ internal static class SourceCallerChecks
         var config = new SourceMatchConfiguration(original.Profile, original.StationLayout,
             original.HomeTeam, original.AwayTeam, original.Stations, TeamId.Away, original.Captain);
         var game = real.Create(configuration: config);
+        var noTap = real.Create(configuration: config);
+        Action<PlayerCommand> pairedStep = command => { game.Step(command); noTap.Step(command); };
+        Action<PlayerCommand> pairedWake = command =>
+        {
+            long source = game.SourceTick;
+            do { pairedStep(command); } while (game.SourceTick == source);
+        };
         for (int host = 0; game.State.Phase != GamePhase.PlaySelect && host < 5000; host++)
-            game.Step(game.State.Phase == GamePhase.DeadBall ? new PlayerCommand(action: InputAction.Continue)
+            pairedStep(game.State.Phase == GamePhase.DeadBall ? new PlayerCommand(action: InputAction.Continue)
                 : new PlayerCommand(new FieldVector(1f, 0f), true));
         Check(game.State.Phase == GamePhase.PlaySelect && game.State.Possession == TeamId.Home,
             "actual away kickoff/public home return reaches human offensive selection");
         long tick = game.SourceTick;
-        game.Step(new PlayerCommand(source: new SourceCommand(SourceAction.SelectPlay,
+        pairedStep(new PlayerCommand(source: new SourceCommand(SourceAction.SelectPlay,
             new SourcePlaySelection("play_spider", SourcePlaybookKind.Offense))));
-        if (game.SourceTick == tick) game.Step(default(PlayerCommand));
+        if (game.SourceTick == tick) pairedStep(default(PlayerCommand));
         Check(game.State.Phase == GamePhase.PreSnap, "real original human QB lineup reached");
+        int quarterback = game.Model.OffenseOffset + 3;
+        ActorState qb = game.Model.Players[quarterback];
+        pairedWake(Raw(SourceButtons.B, SourceButtons.B));
+        Check(qb.SourceButtons == SourceDroneButtons.B && qb.SourceOldButtons == SourceDroneButtons.None
+            && qb.SourceNewButtons == SourceDroneButtons.B,
+            "active M1 first held B sample produces original current/old/fresh buttons");
+        Check(qb.SourceButtonHistory[0] == SourceDroneButtons.None,
+            "active M1 button history captures physical previous sample before acquisition");
+        Check(game.State.Phase == GamePhase.PreSnap && !game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
+            "fresh held B cannot bypass original pre-snap grace window");
+        pairedWake(Raw(SourceButtons.B));
+        Check(qb.SourceButtons == SourceDroneButtons.B && qb.SourceOldButtons == SourceDroneButtons.B
+            && qb.SourceNewButtons == SourceDroneButtons.None && qb.SourceButtonHistory[0] == SourceDroneButtons.B,
+            "active M1 repeated held B retains history without synthesizing a fresh press");
+        pairedWake(Raw(SourceButtons.None, released: SourceButtons.B));
+        Check(qb.SourceButtons == SourceDroneButtons.None && qb.SourceOldButtons == SourceDroneButtons.B
+            && qb.SourceNewButtons == SourceDroneButtons.None && qb.SourceReleasedButtons == SourceDroneButtons.B,
+            "active M1 physical B release is not a new press or synthesized held pulse");
         for (int host = 0; host < 100 && (game.Model.PreSnapTicksRemaining >=
             SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond
             || game.Model.SourceClockRemainder != 0); host++)
-            game.Step(Raw(SourceButtons.None));
+            pairedStep(Raw(SourceButtons.None));
         Check(game.State.Phase == GamePhase.PreSnap && game.Model.SourceClockRemainder == 0,
             "raw tap is deliberately placed across a skipped source wake after actual one-second gate");
+        int beforeHike = game.Model.PreSnapTicksRemaining;
+        Check(beforeHike > SourceClock.SourceTicksPerSecond
+            && beforeHike < SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond,
+            "manual tap fixture has passed grace but remains more than one second from automatic hike");
+        Check(noTap.State.Phase == GamePhase.PreSnap && noTap.SourceTick == game.SourceTick
+            && noTap.Model.PreSnapTicksRemaining == beforeHike,
+            "paired public no-tap control reaches identical pre-snap source time and hike deadline");
         tick = game.SourceTick;
         game.Step(Raw(SourceButtons.B, SourceButtons.B));
+        noTap.Step(Raw(SourceButtons.None));
         Check(game.SourceTick == tick, "raw snap press stays queued on skipped host tick");
+        Check(noTap.SourceTick == tick && noTap.State.Phase == GamePhase.PreSnap,
+            "no-tap control also skips the same host wake without consuming hike time");
         game.Step(Raw(SourceButtons.None, released: SourceButtons.B));
+        noTap.Step(Raw(SourceButtons.None));
+        Check((qb.SourceNewButtons & SourceDroneButtons.B) != 0 && qb.SourceButtons == SourceDroneButtons.None,
+            "active M1 post-BeginTick latched fresh B survives complete between-wake tap with held zero");
+        Check(qb.SourceOldButtons == SourceDroneButtons.None && qb.SourceButtonHistory[0] == SourceDroneButtons.None,
+            "active M1 latched tap does not rewrite physical held-button history");
         Check(game.State.Phase == GamePhase.LiveBall, "complete B press/release actually snaps despite Held=0");
-        int quarterback = game.Model.OffenseOffset + 3;
+        SourceGameEvent[] snaps = game.SourceEvents.Where(e => e.Type == SourceEventType.Snapped).ToArray();
+        Check(snaps.Length == 1 && snaps[0].SourceTick == tick + 1 && game.SourceTick == tick + 1
+            && game.Model.SourceHikeCounterAtSnap == beforeHike - 1 && game.Model.SourceHikeCounterAtSnap > 0,
+            "fresh raw B causes exactly one manual Snapped event on the first executed source wake, not auto-hike");
+        Check(noTap.SourceTick == tick + 1 && noTap.State.Phase == GamePhase.PreSnap
+            && noTap.Model.PreSnapTicksRemaining == beforeHike - 1
+            && !noTap.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
+            "negative public no-tap control stays pre-snap at identical source wake and positive countdown");
+        File.WriteAllText(Path.Combine(oracleRoot, "raw-B-input-causality.json"),
+            JsonSerializer.Serialize(new {
+                schema = "actual-M1-public-fresh-press-causality/v1",
+                state_mutation_used = false, station = 3, source_before = tick, source_after = game.SourceTick,
+                countdown_before = beforeHike, actual_manual_hike_counter = game.Model.SourceHikeCounterAtSnap,
+                actual_new_buttons = (int)qb.SourceNewButtons, actual_held_buttons = (int)qb.SourceButtons,
+                actual_old_buttons = (int)qb.SourceOldButtons,
+                actual_physical_history0 = (int)qb.SourceButtonHistory[0],
+                actual_snap_source_ticks = snaps.Select(e => e.SourceTick).ToArray(),
+                no_tap_source_tick = noTap.SourceTick, no_tap_phase = noTap.State.Phase.ToString(),
+                no_tap_countdown = noTap.Model.PreSnapTicksRemaining,
+                no_tap_snap_events = noTap.SourceEvents.Count(e => e.Type == SourceEventType.Snapped),
+                original_player_blob = "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c"
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        bool checkedConsumedPress = false;
         for (int host = 0; game.Model.CarrierId != quarterback && host < 100; host++)
+        {
+            long beforeSource = game.SourceTick;
             game.Step(Raw(SourceButtons.None));
+            if (!checkedConsumedPress && game.SourceTick > beforeSource)
+            {
+                Check(qb.SourceNewButtons == SourceDroneButtons.None && qb.SourceButtons == SourceDroneButtons.None,
+                    "active M1 latched fresh B is consumed once on the next executed neutral source wake");
+                Check(!game.SourceEvents.Any(e => e.Type == SourceEventType.Snapped),
+                    "consumed raw snap edge does not replay a second source Snapped event");
+                checkedConsumedPress = true;
+            }
+        }
+        Check(checkedConsumedPress, "actual post-snap flow observes a later source wake before QB catch");
         Check(game.Model.CarrierId == quarterback, "actual center wrist snap and QB catch, not state mutation");
         // Request the pass immediately after the real QB catch; M1 contact can legitimately interrupt a delayed throw.
         game.Step(Raw(SourceButtons.B, SourceButtons.B));
