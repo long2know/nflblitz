@@ -26,7 +26,7 @@
   },
   "production_sha256": {
     "Assets/Scripts/Gameplay/SourcePlaybook.cs": "bd51c3452fe49e5f5f8a49ef6e2cbef2cf692f566a0b46f714fb6c5e33b1e54e",
-    "Assets/Scripts/Gameplay/SourceDroneAI.cs": "0ff68c24b1699e2c51ff4941caa397386681a241565478a4209108a13075cd99",
+    "Assets/Scripts/Gameplay/SourceDroneAI.cs": "736ce2ccbbbd8c3ef52573cf441d46211cc928940fdd7819a8de88c8e67dde19",
     "Assets/Scripts/Gameplay/SourceRandom.cs": "71566e84f0688041f40688e053c91f6239fe75240f8aaf77487fdcb667f69205"
   },
   "producer_sha256": {

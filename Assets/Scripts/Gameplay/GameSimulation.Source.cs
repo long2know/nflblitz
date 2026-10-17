@@ -7,21 +7,69 @@ namespace Blitz.Gameplay
     {
         private void InitializeSource()
         {
+            if (sourceGeometry == null)
+                throw new InvalidOperationException("The source profile requires Contracts.ISourceActorGeometry backed "
+                    + "by the actual original pose library and imported reference pivots.");
+            if (sourceRosters == null)
+                throw new InvalidOperationException("The source profile requires the original ISourceTeamRoster "
+                    + "for actor-slot/static-record identities and actual model scales; no uniform scale fallback is used.");
             Model.SourceMode = true;
-            Model.SourceFirstPossession = 0;
+            BeginSourceProcess("game_proc", -1, 0);
+            Model.SourceConfiguration = sourceConfiguration;
+            Model.SourcePresentation = sourcePresentation;
+            Model.SourceRosters = sourceRosters;
+            Model.SourcePlaybook = sourcePlaybook;
+            if (sourcePlaybook != null)
+                Model.SourceAiParameters = new SourceAiParameters(sourcePlaybook,
+                    sourceConfiguration.Difficulty, sourceConfiguration.Difficulty);
+            Model.SourceCStandardRandom = bound => SourceDraw(bound, "player.c:plyr_rand",
+                SourceRandomKind.CStandardRand) % bound;
+            Model.SourceFirstPossession = (int)sourceConfiguration.FirstPossession;
+            Model.SourceCaptain = sourceConfiguration.Captain;
+            Model.SourceHomePlay = sourceConfiguration.HomePlay;
+            Model.SourceAwayPlay = sourceConfiguration.AwayPlay;
+            Model.SourcePeriodView = new SourcePeriodView(0);
+            Model.TargetPlayerId = 0;
+            Model.ThrowerId = 0;
+            Model.SourceMatchPhase = SourceMatchPhase.PreSnap;
             Model.SourceClock = SourceClock.Create();
-            Model.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Kickoff);
+            int firstSide = (int)sourceConfiguration.FirstPossession;
+            Model.SourceRules = new SourceRulesState(firstSide, firstSide, 1, 30, 100, SourcePlayType.Kickoff);
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                SourceTeamSelection team = id < 7 ? sourceConfiguration.HomeTeam : sourceConfiguration.AwayTeam;
+                Model.Players[id].SourceRoster = new SourceRosterIdentity(team.TeamIndex, team.RosterIndices[id % 7]);
+            }
             PrepareSourceKickoff(true, false);
             UpdateSourceClockView();
         }
 
         private void SourceStep(PlayerCommand command)
         {
+            Model.SourceDispatchOrdinal = 0;
+            Model.SourcePresentationOrder = 0;
+            BeginSourceProcess("game_proc", -1, 0);
+            if (SourceStationInputTransform != null)
+            {
+                SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),
+                    Model.SourceTick, command.StationInputs);
+                if (transformed == null)
+                    throw new InvalidOperationException("The executing source station transform returned no input frame.");
+                command = new PlayerCommand(command.Move, command.Turbo, command.Action, command.Play,
+                    command.TargetPlayerId, command.Source, transformed);
+            }
+            Model.SourceCurrentInput = command;
+            if (command.Source.OffenseFlipped.HasValue && Model.Phase == GamePhase.PlaySelect)
+                Model.SourceOffenseFlipped = command.Source.OffenseFlipped.Value;
+            SourceAction action = SourceActionFor(command);
             switch (Model.Phase)
             {
                 case GamePhase.PlaySelect:
-                    if (command.Action == InputAction.SelectPlay)
-                        SelectSourcePlay(command.Play);
+                    if (action == SourceAction.SelectPat && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
+                        ApplySourcePat(DecideSourcePat((SourcePatChoice)command.Source.PatChoice));
+                    if (action == SourceAction.SelectPlay)
+                        SelectSourcePlay(command.Play, command.Source.Play);
+                    ApplySourceStationMenuCommands(command);
                     break;
                 case GamePhase.PreSnap:
                     if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
@@ -38,14 +86,7 @@ namespace Blitz.Gameplay
                     else
                     {
                         Model.PreSnapTicksRemaining--;
-                        bool allowed = Model.PreSnapTicksRemaining
-                            < SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond;
-                        // Active _drone_qbps, no-motion branch: test absolute
-                        // process count, not a fabricated one-second CPU timer.
-                        bool cpuSnap = Model.Possession == TeamId.Away && Model.SourceTick % 30 == 0;
-                        bool humanSnap = Model.Possession == TeamId.Home
-                            && (command.Action == InputAction.Snap || command.Action == InputAction.Pass);
-                        if (Model.PreSnapTicksRemaining < 1 || allowed && (humanSnap || cpuSnap))
+                        if (Model.PreSnapTicksRemaining < 1)
                             SnapSource(Model.PreSnapTicksRemaining == 0);
                     }
                     break;
@@ -53,21 +94,13 @@ namespace Blitz.Gameplay
                     Model.LiveTicks++;
                     if (Model.SourceDisallowPassTicks > 0)
                         Model.SourceDisallowPassTicks--;
-                    if (Model.SourcePendingControl >= 0 && Model.SourceTick - Model.CatchSourceTick >= 18)
-                    {
-                        Model.ControlledPlayerId = Model.SourcePendingControl;
-                        Model.SourcePendingControl = -1;
-                    }
-                    if (Model.Possession == TeamId.Away && command.Action == InputAction.SwitchDefender)
-                        Model.ControlledPlayerId = PlayerSimulation.NearestHome(Model, Model.ControlledPlayerId);
-                    if (Model.Possession == TeamId.Home && command.Action == InputAction.Pass)
-                        RequestSourcePass(command.TargetPlayerId, command.Turbo && Model.SourceHumanTurbo > 0f);
-                    else if (Model.Possession == TeamId.Away)
-                        SourceQuarterbackDecision();
                     break;
                 case GamePhase.DeadBall:
-                    if (command.Action == InputAction.Continue)
+                    if (action == SourceAction.SelectKickoff && command.Source.KickoffChoice.HasValue)
+                        Model.SourceRequestedOnside = command.Source.KickoffChoice == SourceKickoffType.Onside;
+                    if (action == SourceAction.Continue)
                         ContinueSource();
+                    ApplySourceStationMenuCommands(command);
                     break;
                 case GamePhase.GameOver:
                     break;
@@ -76,11 +109,49 @@ namespace Blitz.Gameplay
                         + " at sourceTick=" + Model.SourceTick);
             }
 
+            // Verified playsel.c 848-854/1530 suspends gameplay processes while
+            // the selection process runs, then resumes them after selection.
+            if (Model.Phase == GamePhase.PlaySelect)
+                return;
+
+            // id.h RL_CAMBOT=0x100 precedes RL_PLAYER-1 and all actors.
+            if (SourceCameraHeadingProvider != null)
+            {
+                BeginSourceProcess("cambot_proc", -1, 0x100);
+                SourceCameraStageOrder = Model.SourcePresentationOrder++;
+                executingSourceCamera = true;
+                int heading;
+                try { heading = SourceCameraHeadingProvider(new GameSnapshot(Model), Model.SourceTick); }
+                finally { executingSourceCamera = false; }
+                SetSourceCameraHeading(heading, Model.SourceTick);
+            }
+            Model.SourceCameraHeading = pendingSourceCameraHeading;
+            Model.SourceCameraHeadingSampleTick = pendingSourceCameraSampleTick;
+
             SourceClockStep clock = SourceClock.Step(Model.SourceClock,
-                new SourceClockInput(Model.SourceTick, Model.ClockActive, Model.Quarter - 1));
+                new SourceClockInput(Model.SourceTick, Model.ClockActive, Model.Quarter - 1,
+                    sourceConfiguration.TimeAdjustment));
             Model.SourceClock = clock.State;
             UpdateSourceClockView();
-            SourcePlayerDriver.Update(Model, command, SourceDraw, ReleaseSourcePass, TrySourceCatch, SourcePlayerDown);
+            if (Model.Phase == GamePhase.LiveBall)
+            {
+                Model.SourceAiFrame = BuildSourceAiFrame();
+                Model.SourceBlocking = SourceDroneAI.AssignBlockers(Model.SourceAiFrame);
+                foreach (int blocker in Model.SourceBlocking.Blockers)
+                {
+                    int target = Model.SourceBlocking.TargetsByActor[blocker];
+                    Model.Players[blocker].SourceTarget = target;
+                    Model.Players[blocker].SourceJob = SourceActorJob.Block;
+                    Model.SourceDrones[blocker] = Model.SourceDrones[blocker].WithTarget(target);
+                }
+                Model.SourceAiFrame = BuildSourceAiFrame();
+                Model.SourceReceivers = SourceDroneAI.UpdateReceiverData(Model.SourceAiFrame);
+            }
+            SourcePlayerDriver.Update(Model, command, SourceDraw, SourceAnimationSideEffect, TrySourceCatch,
+                id => BeginSourceProcess("player_proc", id, id + 1), SourceCarrierControl,
+                SourceDroneMove, SourceActorActions, ApplySourceDroneAnimation);
+            // Active last_player_proc clears HICOUNT for all fourteen actors.
+            foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x04;
             if (Model.SourceKickApproach)
             {
                 int kicker = Model.SourceKickingSide * SliceRules.PlayersPerTeam;
@@ -90,111 +161,251 @@ namespace Blitz.Gameplay
             }
             if (Model.Phase == GamePhase.LiveBall)
             {
+                BeginSourceProcess("detect_proc", -1, 15);
                 SourceContactDriver.ResolveBodyCylinders(Model);
+                BeginSourceProcess("ball_proc", -1, 16);
                 AdvanceSourceBall();
                 if (Model.BallMode == BallMode.Held)
                 {
-                    SynchronizeSourceHeldBall();
-                    if (!ResolveSourceLocation())
-                        SourceContacts(command);
+                    if ((Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
+                        SynchronizeSourceHeldBall();
+                    BeginSourceProcess("detect_after_ball", -1, 17);
+                    SourceContacts(command);
                 }
             }
-            else if (Model.BallMode == BallMode.Held)
-                SynchronizeSourceHeldBall();
+            else
+            {
+                if (Model.Phase == GamePhase.PreSnap)
+                {
+                    BeginSourceProcess("detect_proc", -1, 15);
+                    SourceContactDriver.ResolveBodyCylinders(Model);
+                }
+                BeginSourceProcess("ball_proc", -1, 16);
+                if (Model.CarrierId >= 0 && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
+                    SynchronizeSourceHeldBall();
+                else
+                    AdvanceSourceBall();
+            }
         }
 
-        private void SelectSourcePlay(PlayId play)
+        private void SelectSourcePlay(PlayId play, SourcePlaySelection original = default(SourcePlaySelection),
+            TeamId? requestingTeam = null)
         {
-            bool homeOffense = Model.Possession == TeamId.Home;
-            if (homeOffense ? play != PlayId.Run && play != PlayId.QuickPass
-                : play != PlayId.Cover && play != PlayId.Blitz)
+            TeamId selectingSide = requestingTeam ?? (original.IsSpecified
+                ? original.Playbook == SourcePlaybookKind.Offense ? Model.Possession : GameplayRules.Opponent(Model.Possession)
+                : sourceConfiguration.Stations.Count == 0 ? TeamId.Home : sourceConfiguration.Stations[0].Team);
+            bool selectingOffense = selectingSide == Model.Possession;
+            if (!original.IsSpecified && (selectingOffense ? play != PlayId.Run && play != PlayId.QuickPass
+                : play != PlayId.Cover && play != PlayId.Blitz))
                 return;
-            if (Model.SourceRules.PlayType == SourcePlayType.FieldGoal || Model.SourceRules.PlayType == SourcePlayType.Punt)
-                throw new NotSupportedException("Unported source formation/ball driver: play=" + Model.SourceRules.PlayType
-                    + " side=" + Model.Possession + " sourceTick=" + Model.SourceTick);
-            SourcePlayStart start = SourceMatchFlow.BeginPlay(Model.SourceRules, Model.Quarter - 1,
-                Model.SourceClock.PackedTime);
-            SetSourceRules(start.State);
-            Model.SourceFlags = start.Flags;
-            if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
+            if (original.IsSpecified && (original.Playbook == SourcePlaybookKind.Offense) != selectingOffense)
+                throw new ArgumentException("The selected original playbook does not belong to the submitting source side.");
+            RequireSourcePlaybook();
+            BeginSourcePlay();
+            if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint && Model.SourcePatStatus != SourcePatStatus.RunTwoPointPlay)
             {
-                SourcePatChoice choice = Model.Possession != TeamId.Home ? SourcePatChoice.Unselected
+                SourcePatChoice choice = !SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+                    ? SourcePatChoice.Unselected : original.IsSpecified ? SourcePatChoice.TwoPointPlay
                     : play == PlayId.Run ? SourcePatChoice.FreeKick : SourcePatChoice.TwoPointPlay;
                 SourcePatDecision pat = DecideSourcePat(choice);
-                if (pat.Disposition == SourcePatDisposition.FreeKickComplete
-                    || pat.Disposition == SourcePatDisposition.SkipUnnecessary)
-                {
-                    Model.HomeScore += pat.Side0Points;
-                    Model.AwayScore += pat.Side1Points;
-                    SetSourceRules(pat.State);
-                    if (pat.CheckEndOfPeriod && AdvanceSourcePeriod())
-                        return;
-                    if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
-                        PrepareSourceKickoff(false, Model.SourceHalfKickoff);
-                    return;
-                }
+                if (ApplySourcePat(pat)) return;
                 if (pat.Disposition != SourcePatDisposition.RunTwoPointPlay)
                     throw new InvalidOperationException("Unresolved source PAT disposition " + pat.Disposition);
             }
-            Model.HomePlay = play;
-            // Menu adaptation is explicit and still P1-incomplete: Run -> ZIG
-            // ZAG, QuickPass -> SPIDER LEGS, Cover -> SAFE COVER, Blitz ->
-            // SUICIDE BLITZ. No approximate baseline formations/routes are used.
-            Model.AwayPlay = homeOffense ? PlayId.Cover : PlayId.QuickPass;
+            if (selectingSide == TeamId.Home) Model.HomePlay = play;
+            else Model.AwayPlay = play;
+            SourcePlaySelection selected = original.IsSpecified ? original : new SourcePlaySelection(
+                selectingOffense ? play == PlayId.Run ? "play_zigzag" : "play_spider"
+                    : play == PlayId.Blitz ? "play_suicide_blitz" : "play_safe_cover",
+                selectingOffense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense);
+            SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);
+            StoreSourceSelection(selectingSide, selected);
+            TeamId other = GameplayRules.Opponent(selectingSide);
+            if (!SourceContactDriver.IsHumanTeam(Model, other))
+                StoreSourceSelection(other, ChooseSourceCpuPlay(other, chosen));
+            else if (!Model.SourcePlaySelectionReady[(int)other])
+            {
+                SourcePlaySelection configured = other == TeamId.Home ? sourceConfiguration.HomePlay : sourceConfiguration.AwayPlay;
+                if (configured.IsSpecified && (configured.Playbook == SourcePlaybookKind.Offense) == (other == Model.Possession))
+                    StoreSourceSelection(other, configured);
+            }
+            if (!Model.SourcePlaySelectionReady[0] || !Model.SourcePlaySelectionReady[1])
+                return;
+            Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
+                ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);
+            Model.SourceDefensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
+                ? Model.SourceAwayPlay.PlaySymbol : Model.SourceHomePlay.PlaySymbol);
+            SourcePlayType type = (Model.SourceOffensePlay.Flags & SourcePlayFlags.Punt) != 0 ? SourcePlayType.Punt
+                : (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourcePlayType.FieldGoal
+                : Model.SourceRules.PlayType == SourcePlayType.ExtraPoint ? SourcePlayType.ExtraPoint : SourcePlayType.Normal;
+            if (type != Model.SourceRules.PlayType)
+                SetSourceRules(new SourceRulesState(Model.SourceRules.OffenseSide, Model.SourceRules.InitialOffenseSide,
+                    Model.SourceRules.Down, Model.SourceRules.LineOfScrimmage, Model.SourceRules.FirstDown, type,
+                    Model.SourceRules.NoFirstDown));
             Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
-            Model.SourcePendingControl = -1;
-            SourcePlayerDriver.LineUp(Model, sourceAnimations, SourceDraw);
+            Model.Phase = GamePhase.PreSnap;
+            LineUpSourceActors();
             Model.PreSnapTicksRemaining = SourceClock.DefaultAutoHikeTicks;
             Model.Phase = GamePhase.PreSnap;
-            Emit(GameEventType.PlaySelected, TeamId.Home, -1, 0, Model.BallPosition);
+            Model.SourceMatchPhase = SourceMatchPhase.PreSnap;
+            Emit(GameEventType.PlaySelected, selectingSide, -1, 0, Model.BallPosition);
+        }
+
+        private void StoreSourceSelection(TeamId side, SourcePlaySelection selection)
+        {
+            if (side == TeamId.Home) Model.SourceHomePlay = selection;
+            else Model.SourceAwayPlay = selection;
+            Model.SourcePlaySelectionReady[(int)side] = true;
+            sourceStepEvents.Add(new SourceGameEvent(Model.Tick, Model.SourceTick, SourceEventType.PlaySelected,
+                side, selection: selection, playKind: (SourcePlayKind)Model.SourceRules.PlayType));
+        }
+
+        private void ApplySourceStationMenuCommands(PlayerCommand command)
+        {
+            if (command.StationInputs == null) return;
+            foreach (SourceStationInput input in command.StationInputs.Stations)
+            {
+                if (!input.Command.IsSpecified) continue;
+                TeamId? team = null;
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (station.StationId == input.StationId) { team = station.Team; break; }
+                if (!team.HasValue)
+                    throw new InvalidOperationException("Source input names unconfigured station " + input.StationId + ".");
+                SourceCommand source = input.Command;
+                if (Model.Phase == GamePhase.PlaySelect)
+                {
+                    if (source.OffenseFlipped.HasValue)
+                    {
+                        if (team.Value != Model.Possession)
+                            throw new InvalidOperationException("Only the offensive side can submit original off_flip.");
+                        Model.SourceOffenseFlipped = source.OffenseFlipped.Value;
+                    }
+                    if (source.Action == SourceAction.SelectPlay)
+                        SelectSourcePlay(command.Play, source.Play, team);
+                    else if (source.Action == SourceAction.SelectPat && team.Value == Model.Possession
+                        && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
+                        ApplySourcePat(DecideSourcePat((SourcePatChoice)source.PatChoice));
+                }
+                else if (Model.Phase == GamePhase.DeadBall)
+                {
+                    if (source.Action == SourceAction.SelectKickoff && source.KickoffChoice.HasValue)
+                        Model.SourceRequestedOnside = source.KickoffChoice.Value == SourceKickoffType.Onside;
+                    else if (source.Action == SourceAction.Continue) ContinueSource();
+                }
+            }
         }
 
         private void SnapSource(bool automatic)
         {
+            if (!automatic && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+                && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.Punt)) != 0)
+                throw new NotSupportedException("Manual source kick/punt meter needs plyrinfo.c k_bar/k_marker widths, "
+                    + "p_meter height and TA_SPTEAMS meter scheduling. No guessed meter value is substituted. "
+                    + "The original auto-hike branch remains executable.");
+            Model.SourceHikeCounterAtSnap = automatic ? 0 : Model.PreSnapTicksRemaining;
+            if (automatic && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+                && (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0)
+            {
+                int percent = 55 + SourceDrawFor("plyrinfo.c:kick_meter_proc:auto_hike_percent")(35);
+                int sign = (SourceDrawFor("plyrinfo.c:kick_meter_proc:auto_hike_sign")(2) << 1) - 1;
+                Model.SourceKickMeterPercent = percent * sign;
+            }
             Model.Phase = GamePhase.LiveBall;
+            Model.SourceMatchPhase = SourceMatchPhase.LiveBall;
             Model.PreSnapTicksRemaining = 0;
             Model.PlayNumber++;
             Model.LiveTicks = 0;
+            Model.SourceSnapTick = Model.SourceTick;
             Model.ForwardPassUsed = false;
             Model.SourceDisallowPassTicks = automatic ? 30 : 0;
             Model.PassTicksElapsed = 0;
             Model.SourceBallDeflected = false;
+            Model.SourceBallFlags &= ~(SourceBallFlags.Bounce | SourceBallFlags.Bobble | SourceBallFlags.Deflected
+                | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost | SourceBallFlags.Phantom);
             Model.PassTicksTotal = 0;
             Model.LastOutcome = PlayOutcome.None;
             Model.SnapLineOfScrimmage = Model.LineOfScrimmage;
             Model.CatchSourceTick = Model.SourceTick - 18;
             Model.ClockActive = Model.SourceRules.PlayType != SourcePlayType.ExtraPoint;
             Model.SourceClock = SourceClock.ResetPlayTime(Model.SourceClock);
+            Model.SourceFlags |= SourceGameFlags.HikingBall;
+            Model.SourceBallBounces = 0;
             SourcePlayerDriver.Snap(Model, SourceDraw);
-            SynchronizeSourceHeldBall();
+            if (sourceGeometry != null)
+                SynchronizeSourceHeldBall();
             Emit(GameEventType.Snapped, Model.Possession, Model.CarrierId, 0, Model.BallPosition,
                 Model.OffenseOffset + 3, Model.OffenseOffset + 1);
+            EmitSource(SourceEventType.Snapped, Model.OffenseOffset + 3, Model.OffenseOffset + 1);
         }
 
         private void PrepareSourceKickoff(bool first, bool half)
         {
+            RequireSourcePlaybook();
+            SourcePlayStart start = SourceMatchFlow.BeginPlay(Model.SourceRules, Model.Quarter - 1,
+                Model.SourceClock.PackedTime, first);
+            if (!Model.SourceBeginPlayInitialized)
+                Model.SourceOffensivePlays[start.OffensivePlayCounterSide]++;
+            SetSourceRules(start.State);
+            bool onside = Model.SourceRequestedOnside;
+            if (!first && !SourceContactDriver.IsHumanTeam(Model, Model.Possession))
+            {
+                int? surprise = null, suppress = null;
+                SourceRandomDecision decision;
+                do
+                {
+                    decision = SourceMatchFlow.CpuOnside(new SourceCpuOnsideInput(Model.Quarter - 1,
+                        Model.SourceClock.PackedTime,
+                        Model.Possession == TeamId.Home ? Model.HomeScore : Model.AwayScore,
+                        Model.Possession == TeamId.Home ? Model.AwayScore : Model.HomeScore, surprise, suppress));
+                    if (!decision.RandomRequest.IsRequired) break;
+                    SourceRandomRequest request = decision.RandomRequest;
+                    int raw = SourceDraw(request.BoundOrModulus, "SourceMatchFlow." + request.Call, request.Kind);
+                    if (request.CallIndex == 0) surprise = raw;
+                    else suppress = raw;
+                } while (!decision.IsResolved);
+                onside = decision.Value;
+            }
             SourceKickoffPlan plan = SourceMatchFlow.PrepareKickoff(new SourceKickoffInput(
                 Model.SourceRules, Model.Quarter - 1, Model.SourceClock.PackedTime, first, half,
-                Model.SourceFirstPossession, 0));
+                Model.SourceFirstPossession, (int)Model.SourceCaptain, onside));
+            Model.SourceCaptain = (SourceCaptainSlot)plan.Captain;
+            Model.SourceRequestedOnside = false;
             Model.SourceKickingSide = plan.KickingSide;
             Model.SourceKickoffKind = plan.Kind;
             Model.SourceFlags = plan.Flags;
+            Model.SourceLastPossession = plan.LastPossession;
+            Model.SourceFumblesOnPlay = 0;
+            Model.SourceBeginPlayInitialized = true;
             Model.SourceKickApproach = false;
             Model.SourceFirstKickoff = false;
             Model.SourceHalfKickoff = false;
-            Model.SourceBallFrozen = true;
+            Model.SourceBallFlags = plan.Kind == SourceKickoffKind.Quick ? SourceBallFlags.Freeze : SourceBallFlags.None;
             Model.ClockActive = false;
-            Model.SourcePendingControl = -1;
             Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
             SetSourceRules(plan.State);
-            SourcePlayerDriver.LineUp(Model, sourceAnimations, SourceDraw);
+            if (plan.Kind == SourceKickoffKind.Quick)
+            {
+                Model.SourceOffensePlay = sourcePlaybook.GetPlay("play_kick_return_short");
+                Model.SourceDefensePlay = sourcePlaybook.GetPlay("play_kickoff_short");
+            }
+            else
+            {
+                Model.SourceOffensePlay = sourcePlaybook.GetPlay(plan.Kind == SourceKickoffKind.Onside
+                    ? "play_onside_313" : plan.KickingSide == 1 ? "play_kickoff2_313" : "play_kickoff_313");
+                Model.SourceDefensePlay = sourcePlaybook.GetPlay(plan.Kind == SourceKickoffKind.Onside
+                    ? "play_onside_kick_return" : "play_kick_return");
+            }
+            Model.Phase = GamePhase.PreSnap;
+            Model.BallKind = SourceBallKind.Kickoff;
+            LineUpSourceActors();
             Model.PreSnapTicksRemaining = plan.AutoHikeTicks;
             Model.Phase = GamePhase.PreSnap;
+            Model.SourceMatchPhase = SourceMatchPhase.PreSnap;
             Model.BallKind = SourceBallKind.Kickoff;
             Model.CarrierId = -1;
             Model.BallMode = BallMode.Dead;
             Model.ThrowerId = Model.SourceKickingSide * SliceRules.PlayersPerTeam;
-            Model.TargetPlayerId = (1 - Model.SourceKickingSide) * SliceRules.PlayersPerTeam + 3;
+            Model.SourceQuickReturnActor = (1 - Model.SourceKickingSide) * SliceRules.PlayersPerTeam + 3;
             Model.BallPosition = new FieldVector(Model.LineOfScrimmage, 0f);
             Model.BallHeight = 0f;
             Model.SourceBallVelocity = default(FieldVector);
@@ -211,22 +422,26 @@ namespace Blitz.Gameplay
                 float vz = catchZ / 150f;
                 Model.PassTarget = new FieldVector(SourceMatchRules.AbsoluteYardsFromSourceWorld(catchX),
                     catchZ / SourceTiming.SourceUnitsPerYard);
-                Model.Players[Model.TargetPlayerId].Position = Model.PassTarget;
-                Model.Players[Model.TargetPlayerId].SnapPosition = Model.PassTarget;
+                SourcePlayerDriver.SetSourcePosition(Model.Players[Model.SourceQuickReturnActor], new SourceVector3(catchX, 0f, catchZ));
+                Model.Players[Model.SourceQuickReturnActor].SnapPosition = Model.PassTarget;
                 Model.BallPosition = new FieldVector(
                     SourceMatchRules.AbsoluteYardsFromSourceWorld(catchX - 40f * vx),
                     (catchZ - 40f * vz) / SourceTiming.SourceUnitsPerYard);
                 Model.BallHeight = 176f / SourceTiming.SourceUnitsPerYard;
                 Model.SourceBallVelocity = new FieldVector(vx, vz);
                 Model.SourceBallVerticalVelocity = -2.8f;
+                Model.SourceBallPitch = 256;
             }
             else
             {
-                int direction = Model.SourceKickingSide == 0 ? 1 : -1;
-                Model.PassTarget = new FieldVector(Model.LineOfScrimmage
-                    + direction * 2.83f * 175f / SourceTiming.SourceUnitsPerYard, 0f);
+                Model.PassTarget = Model.BallPosition;
             }
             UpdateSourceBallVelocityView();
+            SourceBallDriver.SetPosition(Model, SourceBallDriver.SourcePosition(Model.BallPosition, Model.BallHeight));
+            SourceBallDriver.SetTarget(Model, SourceMatchRules.SourceWorldFromAbsoluteYards(Model.PassTarget.X),
+                Model.PassTarget.Z * SourceTiming.SourceUnitsPerYard);
+            Model.SourceBallBounces = 0;
+            Model.SourceBallBounceTick = 0;
         }
 
         private void BeginSourceKick()
@@ -238,6 +453,7 @@ namespace Blitz.Gameplay
             Model.SourceFlags |= SourceGameFlags.BallKicked;
             Model.BallMode = BallMode.InFlight;
             Model.Phase = GamePhase.LiveBall;
+            Model.SourceMatchPhase = SourceMatchPhase.LiveBall;
             Model.PlayNumber++;
             Model.LiveTicks = 0;
             Model.PassTicksElapsed = 0;
@@ -247,42 +463,76 @@ namespace Blitz.Gameplay
             if (!quick)
             {
                 int direction = Model.SourceKickingSide == 0 ? 1 : -1;
-                Model.SourceBallVelocity = new FieldVector(direction * 2.83f, 0f);
-                Model.SourceBallVerticalVelocity = 7f;
+                if (Model.SourceKickoffKind == SourceKickoffKind.Onside)
+                {
+                    float x = (25 + SourceDrawFor("player.c:_mode_kicker:onside_x")(9)) / 10f;
+                    float y = 1.2f + SourceDrawFor("player.c:_mode_kicker:onside_y")(5) / 10f;
+                    float z = (SourceDrawFor("player.c:_mode_kicker:onside_z")(21) - 10) / 10f;
+                    Model.SourceBallVelocity = new FieldVector(direction * x, z);
+                    Model.SourceBallVerticalVelocity = y;
+                }
+                else
+                {
+                    Model.SourceBallVelocity = new FieldVector(direction * 2.83f, 0f);
+                    Model.SourceBallVerticalVelocity = 7f;
+                }
                 ActorState actor = Model.Players[kicker];
                 actor.Action = ActorAction.Kick;
                 actor.AnimationState.FullBody("kickball_anim", actor, Model.SourceTick, SourceDraw,
                     AnimationSelectionEvidence.SourceVerified);
             }
+            Model.Players[kicker].SourceMode = SourceActorMode.Receiver;
             UpdateSourceBallVelocityView();
+            Model.SourceBallPitchRate = -45;
+            Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            if (!quick)
+            {
+                float time = -2f * Model.SourceBallVerticalVelocity / SourceBallDriver.Gravity;
+                SourceBallDriver.SetTarget(Model, Model.SourceBallPosition.X + time * Model.SourceBallVelocity.X,
+                    Model.SourceBallPosition.Z + time * Model.SourceBallVelocity.Z);
+            }
             Emit(GameEventType.Snapped, (TeamId)Model.SourceKickingSide, kicker, 0, Model.BallPosition,
                 kicker, Model.TargetPlayerId);
+            EmitSource(SourceEventType.Kicked, kicker, Model.TargetPlayerId);
         }
 
         private void RequestSourcePass(int targetId, bool turbo = false)
         {
-            int quarterbackId = Model.OffenseOffset + 3;
-            if (Model.BallMode != BallMode.Held || Model.CarrierId != quarterbackId || Model.ForwardPassUsed)
+            int quarterbackId = Model.CarrierId;
+            if (quarterbackId < 0)
+                return;
+            if (Model.BallMode != BallMode.Held || Model.CarrierId != quarterbackId)
                 return;
             if (Model.SourceRules.PlayType == SourcePlayType.Kickoff || Model.SourceDisallowPassTicks > 0)
                 return;
-            if (targetId < Model.OffenseOffset + 4 || targetId > Model.OffenseOffset + 6)
-                return;
             ActorState quarterback = Model.Players[quarterbackId];
             if (quarterback.Role != ActorRole.Quarterback || quarterback.AnimationState.Busy || quarterback.PendingThrowTarget >= 0
-                || Model.OffenseDirection * (quarterback.Position.X - Model.SnapLineOfScrimmage) > 0f)
+                || (Model.SourceFlags & SourceGameFlags.BallCrossedLine) != 0)
+                return;
+            if (targetId == -1 && quarterback.SourceControllerStation >= 0)
+                targetId = SourcePassDriver.PickReceiver(Model, quarterback,
+                    SourcePlayerDriver.ActorStick(quarterback,
+                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)));
+            if (targetId < Model.OffenseOffset + 3 || targetId > Model.OffenseOffset + 6 || targetId == quarterbackId)
                 return;
             ActorState target = Model.Players[targetId];
-            float distance = (float)Math.Sqrt(PlayerSimulation.DistanceSquared(quarterback.Position, target.Position));
-            if (distance < 7f && Model.OffenseDirection * (target.Position.X - quarterback.Position.X) < 0f)
-                throw new NotSupportedException("Source lateral throw branch unported: actor=" + quarterbackId
-                    + " target=" + targetId + " sourceTick=" + Model.SourceTick);
+            SourceVector3 from = SourcePlayerDriver.WorldPosition(quarterback), to = SourcePlayerDriver.WorldPosition(target);
+            float dx = to.X - from.X, dz = to.Z - from.Z;
+            float distance = (float)Math.Sqrt(dx * dx + dz * dz) / SourceTiming.SourceUnitsPerYard;
+            int fromField = SourceMatchRules.FieldPosition(from.X, (int)Model.Possession);
+            int toField = SourceMatchRules.FieldPosition(to.X, (int)Model.Possession);
+            if (distance < 7f && fromField > toField)
+            {
+                BeginSourceLateral(quarterback, target);
+                return;
+            }
             quarterback.PendingThrowTarget = targetId;
+            quarterback.SourceThrowing = true;
             quarterback.PendingThrowTurbo = turbo;
             quarterback.Action = ActorAction.Throw;
             int targetHeading = SourcePlayerDriver.Heading(PlayerSimulation.Subtract(target.Position, quarterback.Position));
             int bearing = Math.Abs(((targetHeading - quarterback.Facing + 512) & 1023) - 512);
-            if (distance < 15f && Model.OffenseDirection * (target.Position.X - quarterback.Position.X) >= 0f
+            if (distance < 15f && fromField <= toField
                 && bearing <= 320)
             {
                 quarterback.TargetUpperFacing = targetHeading;
@@ -304,170 +554,177 @@ namespace Blitz.Gameplay
             if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != quarterbackId || targetId < 0)
                 return;
             ActorState receiver = Model.Players[targetId];
-            // The source intercept equation/gravity are used; wrist matrices,
-            // canned catches and all target correction branches remain B1 work.
-            float units = SourceTiming.SourceUnitsPerYard;
-            float dx = (receiver.Position.X - quarterback.Position.X) * units;
-            float dz = (receiver.Position.Z - quarterback.Position.Z) * units;
-            float speed = quarterback.PendingThrowTurbo ? 5.70f : 5.50f;
-            float vx = receiver.SourceVelocity.X;
-            float vz = receiver.SourceVelocity.Z;
-            float a = vx * vx + vz * vz - speed * speed;
-            float b = 2f * (vx * dx + vz * dz);
-            float c = dx * dx + dz * dz;
-            float discriminant = Math.Max(0f, b * b - 4f * a * c);
-            float first = (-b + (float)Math.Sqrt(discriminant)) / (2f * a);
-            float second = (-b - (float)Math.Sqrt(discriminant)) / (2f * a);
-            float ticks = Math.Max(first, second);
-            if (!SourcePoseMath.IsFinite(ticks) || ticks <= 0f)
-                ticks = 150f;
-            float releaseHeight = quarterback.Height * units + quarterback.SourceRoot.Y;
-            float vertical = (21f - releaseHeight) / ticks + 0.04f * ticks;
-            float maximum = 0.08f * 60f * units / (2f * speed);
-            if (vertical > maximum)
-            {
-                vertical = maximum;
-                ticks = 60f * units / speed;
-            }
-            Model.BallPosition = quarterback.Position;
-            Model.BallHeight = releaseHeight / units;
-            Model.SourceBallVelocity = new FieldVector(dx / ticks + vx, dz / ticks + vz);
-            Model.SourceBallVerticalVelocity = vertical;
-            Model.PassTarget = PlayerSimulation.Add(Model.BallPosition,
-                PlayerSimulation.Scale(Model.SourceBallVelocity, ticks / units));
-            Model.PassTicksTotal = (int)(ticks + 0.5f);
-            Model.PassTicksElapsed = 0;
+            SourceVector3 wrist = SourceWorldJoint(quarterback, quarterback.Flipped ? 7 : 4);
+            SourcePassDriver.Pass(Model, quarterback, receiver, wrist, SourceDrawFor("player.c:set_ball_vels"));
             Model.BallMode = BallMode.InFlight;
             Model.BallKind = SourceBallKind.Pass;
+            Model.SourceBallFlags &= ~(SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            Model.SourceBallFlags |= SourceBallFlags.VelocityPitch;
+            if (quarterback.PendingThrowTurbo) Model.SourceBallFlags |= SourceBallFlags.TurboPass;
+            else Model.SourceBallFlags &= ~SourceBallFlags.TurboPass;
+            if (Model.SourceTeamFire[(int)quarterback.Team]) Model.SourceBallFlags |= SourceBallFlags.FirePass;
             Model.ThrowerId = quarterbackId;
             Model.LastTouchPlayerId = quarterbackId;
             Model.CarrierId = -1;
             Model.TargetPlayerId = targetId;
             Model.ForwardPassUsed = true;
+            quarterback.Role = ActorRole.Receiver;
+            quarterback.SourceMode = SourceActorMode.Receiver;
+            quarterback.SourceThrowing = false;
+            if (receiver.SourcePendingCatch != null)
+                Model.SourceDrones[targetId] = Model.SourceDrones[targetId].WithCatch(receiver.SourcePendingCatch,
+                    receiver.SourceCatchLaunchTime);
             Model.SourceFlags |= SourceGameFlags.PassThrown;
-            Model.SourceFumbleX = SourceMatchRules.SourceWorldFromAbsoluteYards(quarterback.Position.X);
+            Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(quarterback).X;
             UpdateSourceBallVelocityView();
             Emit(GameEventType.PassThrown, quarterback.Team, targetId, 0, Model.BallPosition,
                 quarterbackId, targetId);
-        }
-
-        private void SourceQuarterbackDecision()
-        {
-            if (Model.CarrierId != Model.OffenseOffset + 3 || Model.ForwardPassUsed || Model.LiveTicks < 15
-                || Model.SourceRules.PlayType == SourcePlayType.Kickoff)
-                return;
-            // Only the active QB's initial dropback is source-ported. This
-            // pressure decision is explicitly provisional, not USE_OLD_QB.
-            ActorState quarterback = Model.Players[Model.CarrierId];
-            if (PlayerSimulation.NearestOpponentDistanceSquared(Model, quarterback)
-                * SourceTiming.SourceUnitsPerYard * SourceTiming.SourceUnitsPerYard >= 625f)
-                return;
-            for (int slot = 4; slot < SliceRules.PlayersPerTeam; slot++)
-            {
-                int targetId = Model.OffenseOffset + slot;
-                if (Model.OffenseDirection * (Model.Players[targetId].Position.X - quarterback.Position.X) > 0f)
-                {
-                    RequestSourcePass(targetId, quarterback.Turbo);
-                    return;
-                }
-            }
+            EmitSource(SourceEventType.PassReleased, quarterbackId, targetId);
         }
 
         private void TrySourceCatch(ActorState actor)
         {
-            if (Model.Phase != GamePhase.LiveBall || Model.BallMode != BallMode.InFlight || Model.SourceBallFrozen)
-                return;
-            if ((actor.AnimationState.Primary.Mode & SourceAnimationModes.NoCatch) != 0)
+            if (Model.Phase == GamePhase.LiveBall && actor.Role == ActorRole.Quarterback
+                && (Model.SourceFlags & SourceGameFlags.HikingBall) != 0 && Model.CarrierId == -1)
             {
-                // Active neutral handicap row is zero, but the original call
-                // still consumes randrng(100) before rejecting NOCATCH.
-                SourceDraw(100);
+                SourceVector3 hikeBody = SourcePlayerDriver.WorldPosition(actor);
+                float dx = hikeBody.X - Model.SourceBallPosition.X, dz = hikeBody.Z - Model.SourceBallPosition.Z;
+                if ((float)Math.Sqrt(dx * dx + dz * dz) < 8f && Model.SourceBallPosition.Y >= hikeBody.Y
+                    && Model.SourceBallPosition.Y < hikeBody.Y + actor.SourceRoot.Y + 12f)
+                {
+                    Model.SourceFlags &= ~SourceGameFlags.HikingBall;
+                    Model.CarrierId = Model.SourceLastCarrierId = actor.Id;
+                    Model.BallMode = BallMode.Held;
+                    EmitSource(SourceEventType.PassCaught, actor.Id, Model.ThrowerId);
+                    if ((Model.SourceOffensePlay.Flags & SourcePlayFlags.Punt) != 0)
+                    {
+                        actor.Action = ActorAction.Punt;
+                        actor.SourceMode = SourceActorMode.Receiver;
+                        actor.AnimationState.FullBody("punt_ball_anim", actor, Model.SourceTick, SourceDraw,
+                            AnimationSelectionEvidence.SourceVerified);
+                        actor.ModeChangedTick = Model.SourceTick;
+                    }
+                    else if ((Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0)
+                    {
+                        actor.Action = ActorAction.Catch;
+                        actor.AnimationState.FullBody("qbhut_place_ball_anim", actor, Model.SourceTick, SourceDraw,
+                            AnimationSelectionEvidence.SourceVerified);
+                        actor.ModeChangedTick = Model.SourceTick;
+                    }
+                }
                 return;
             }
-            if (OutsideSourceField(actor.Position))
+            Func<int, int> random = SourceDrawFor("player.c:standard_catch");
+            if (!SourceCatchRules.ModeEligible(Model, actor, random))
                 return;
-            if (actor.Id == Model.ThrowerId && Model.PassTicksElapsed <= 10)
+            SourceVector3 body = SourcePlayerDriver.WorldPosition(actor);
+            SourceVector3 pelvis = new SourceVector3(body.X, body.Y + actor.SourceRoot.Y, body.Z);
+            if (!SourceCatchRules.InCatchDistance(Model.SourceBallPosition, pelvis,
+                SourceWorldJoint(actor, 7), SourceWorldJoint(actor, 4)))
                 return;
-            if (actor.Team == Model.Possession
-                && actor.Id != Model.TargetPlayerId && Model.PassTicksElapsed <= 15)
-                return;
-            if (actor.NoCatchTicks > 0)
-                return;
-            if ((Model.BallKind == SourceBallKind.Fumble || Model.BallKind == SourceBallKind.Bobble)
-                && Model.PassTicksElapsed <= 30)
-                return;
-            float units = SourceTiming.SourceUnitsPerYard;
-            float dx = (actor.Position.X - Model.BallPosition.X) * units;
-            float dz = (actor.Position.Z - Model.BallPosition.Z) * units;
-            float dy = actor.Height * units + actor.SourceRoot.Y - Model.BallHeight * units;
-            // player.c standard_catch: strict pelvis <14. Wrist <5 is not
-            // replaced with a fabricated larger sphere.
-            if (dx * dx + dy * dy + dz * dz >= 14f * 14f)
-                return;
-            if (Model.BallKind == SourceBallKind.Pass || Model.BallKind == SourceBallKind.Bobble)
+            SourceCatchResult result = SourceCatchRules.Evaluate(Model, actor, random);
+            if (result != SourceCatchResult.Catch)
             {
-                bool offense = actor.Team == Model.Possession;
-                int lead = Model.Possession == TeamId.Home ? Model.HomeScore - Model.AwayScore
-                    : Model.AwayScore - Model.HomeScore;
-                int field = SourceMatchRules.FieldPosition(
-                    SourceMatchRules.SourceWorldFromAbsoluteYards(actor.Position.X), (int)Model.Possession);
-                // player.c 3329-3341, handicap.c of_bobble_ht neutral row 5.
-                if ((actor.Team == TeamId.Away || lead > 3 && field > Model.SourceRules.LineOfScrimmage)
-                    && SourceDraw(100) < 2)
-                    throw new NotSupportedException("Unported source bobble outcome: actor=" + actor.Id
-                        + " sourceTick=" + Model.SourceTick);
-                if ((actor.AnimationState.Primary.Mode & SourceAnimationModes.Reacting) != 0)
-                    throw new NotSupportedException("Unported source reacting-catch distribution: actor=" + actor.Id
-                        + " sourceTick=" + Model.SourceTick);
-                // player.c 3376-3384: early defenders cannot intercept. They
-                // deflect 90% or miss 10%, rather than becoming fake carriers.
-                if (!offense && Model.PassTicksElapsed <= 30)
+                if (result == SourceCatchResult.None)
+                    return;
+                actor.NoCatchTicks = 20;
+                if (result == SourceCatchResult.DownPunt)
                 {
-                    actor.NoCatchTicks = 20;
-                    if (SourceDraw(10) != 0)
-                        DeflectSourcePass(actor);
+                    Model.SourceFlags |= SourceGameFlags.PlayEnding | SourceGameFlags.PossessionChange;
+                    Model.SourcePlayEndX = Model.SourceBallPosition.X;
+                    EndSourcePlay(SourcePlayEndCause.DeadBallInBounds, actor.Id, Model.BallPosition);
                     return;
                 }
-                if (!offense && Model.SourceRules.Down == 4 && field >= Model.SourceRules.LineOfScrimmage + 5)
-                    throw new NotSupportedException("Unported source fourth-down batdown: actor=" + actor.Id
-                        + " sourceTick=" + Model.SourceTick);
-                if (!offense && SourceDraw(100) < 20)
-                    throw new NotSupportedException("Unported source batdown outcome: actor=" + actor.Id
-                        + " sourceTick=" + Model.SourceTick);
-                if (!offense && actor.Height == 0f && (Model.SourceFlags & SourceGameFlags.Bobble) == 0
-                    && SourceDraw(100) < 20)
-                    throw new NotSupportedException("Unported source defensive bobble: actor=" + actor.Id
-                        + " sourceTick=" + Model.SourceTick);
+                if (result == SourceCatchResult.Deflect)
+                {
+                    SourceBallDriver.Deflect(Model, actor, SourceDrawFor("pmisc.c:deflect_pass"));
+                    EmitSource(SourceEventType.PassDeflected, actor.Id, Model.TargetPlayerId);
+                }
+                else if (result == SourceCatchResult.Bobble || result == SourceCatchResult.BatDown)
+                {
+                    if (result == SourceCatchResult.Bobble)
+                    {
+                        Model.SourceBallFlags &= ~SourceBallFlags.FirePass;
+                        TransferSourceCatchControl(actor, actor.Team == Model.Possession, false);
+                    }
+                    SourceBallDriver.Bobble(Model, actor, SourceWorldJoint(actor, 7), 0f,
+                        result == SourceCatchResult.BatDown ? -2f : 0f, 0f, SourceDrawFor("player.c:bobble_pass"));
+                    if (result == SourceCatchResult.BatDown
+                        && (actor.AnimationState.Primary.SequenceName == "C_JMPINT"
+                            || actor.AnimationState.Primary.SequenceName == "C_JMPIN3"))
+                        actor.AnimationState.FullBody("air_swat_anim", actor, Model.SourceTick, SourceDraw,
+                            AnimationSelectionEvidence.SourceVerified);
+                    EmitSource(result == SourceCatchResult.Bobble ? SourceEventType.Bobbled : SourceEventType.PassDeflected,
+                        actor.Id);
+                }
+                else EmitSource(SourceEventType.PassMissed, actor.Id, Model.TargetPlayerId);
+                return;
             }
             int thrower = Model.ThrowerId;
             TeamId before = Model.Possession;
+            bool offense = actor.Team == before;
             Model.BallMode = BallMode.Held;
             Model.CarrierId = actor.Id;
+            Model.SourceLastCarrierId = actor.Id;
             Model.LastTouchPlayerId = actor.Id;
-            Model.TargetPlayerId = -1;
             Model.CatchSourceTick = Model.SourceTick;
+            Model.SourceCatchX = SourcePlayerDriver.WorldPosition(actor).X;
             Model.SourceHumanTurbo = Math.Max(50f, Model.SourceHumanTurbo);
+            for (int station = 0; station < Model.SourceStationTurbo.Length; station++)
+                Model.SourceStationTurbo[station] = Math.Max(50f, Model.SourceStationTurbo[station]);
+            Model.SourceFlags &= ~SourceGameFlags.HikingBall;
+            TransferSourceCatchControl(actor, offense, true);
             actor.NonTurboTicks = 500;
             if (Model.BallKind == SourceBallKind.Kickoff)
             {
                 Model.SourceClock = SourceClock.ResetPlayTime(Model.SourceClock);
-                if ((Model.SourceFlags & SourceGameFlags.QuickKick) != 0)
-                    Model.SourceFlags |= SourceGameFlags.PossessionChange;
+                if ((Model.SourceFlags & SourceGameFlags.OnsideKick) == 0)
+                {
+                    Model.SourceLastPossession = (int)actor.Team;
+                    if (Model.SourceLastPossession != Model.SourceRules.InitialOffenseSide
+                        || (Model.SourceFlags & SourceGameFlags.QuickKick) != 0)
+                        Model.SourceFlags |= SourceGameFlags.PossessionChange;
+                }
             }
             if (actor.Team != Model.Possession)
             {
                 Model.SourceHumanTurbo = 100f;
+                for (int station = 0; station < Model.SourceStationTurbo.Length; station++)
+                    Model.SourceStationTurbo[station] = 100f;
                 Model.Possession = actor.Team;
                 Model.SourceRules = new SourceRulesState((int)actor.Team, Model.SourceRules.InitialOffenseSide,
                     Model.SourceRules.Down, Model.SourceRules.LineOfScrimmage, Model.SourceRules.FirstDown,
                     Model.SourceRules.PlayType, Model.SourceRules.NoFirstDown);
-                Model.SourceFlags |= SourceGameFlags.PossessionChange;
+                for (int id = 0; id < Model.Players.Length; id++)
+                {
+                    Model.Players[id].Role = Model.Players[id].Team == actor.Team
+                        ? ActorRole.Receiver : ActorRole.Defender;
+                    Model.Players[id].SourceMode = Model.Players[id].Team == actor.Team
+                        ? SourceActorMode.Receiver : SourceActorMode.DefensiveBack;
+                    Model.SourceDrones[id] = SourceDroneAI.OnPossessionChanged(Model.SourceDrones[id],
+                        (int)Model.Players[id].Team, (int)actor.Team, sourcePlaybook);
+                }
             }
             Model.ClockActive = Model.SourceRules.PlayType != SourcePlayType.ExtraPoint;
-            Model.SourcePendingControl = actor.Team == TeamId.Home ? actor.Id : PlayerSimulation.NearestHome(Model, -1);
-            SourcePlayerDriver.StartCatch(Model, actor, SourceDraw);
+            int field = SourceMatchRules.FieldPosition(Model.SourceCatchX, (int)Model.Possession);
+            if (field < 2 && (!offense || Model.BallKind == SourceBallKind.Kickoff))
+            {
+                Model.SourceFlags |= SourceGameFlags.RecoveredInEndZone;
+                Model.SourceFlags &= ~SourceGameFlags.LeftEndZone;
+            }
+            if (actor.Height > 0f) Model.SourceFlags |= SourceGameFlags.AirCatch;
+            else Model.SourceFlags &= ~SourceGameFlags.AirCatch;
+            actor.Action = offense ? ActorAction.Catch : ActorAction.Intercept;
+            if (offense && field < Model.SourceRules.LineOfScrimmage
+                && (int)actor.Team == Model.SourceRules.InitialOffenseSide
+                && Model.SourceRules.PlayType != SourcePlayType.Kickoff
+                && (Model.SourceFlags & SourceGameFlags.BallCrossedLine) == 0)
+                actor.Role = ActorRole.Quarterback;
+            if (actor.Role == ActorRole.Quarterback) actor.SourceMode = SourceActorMode.Quarterback;
+            Model.SourceAiFrame = BuildSourceAiFrame();
             SynchronizeSourceHeldBall();
             Emit(GameEventType.PassCaught, actor.Team, actor.Id, 0, Model.BallPosition, actor.Id, thrower);
+            EmitSource(SourceEventType.PassCaught, actor.Id, thrower);
             if (before != Model.Possession)
                 Emit(GameEventType.PossessionChanged, Model.Possession, actor.Id, 0, Model.BallPosition,
                     actor.Id, thrower);
@@ -475,63 +732,20 @@ namespace Blitz.Gameplay
 
         private void DeflectSourcePass(ActorState actor)
         {
-            // pmisc.c 304-368, blob 50426d40ecd03515cecd295fb80a63ffa0cb0683.
-            float vx = Model.SourceBallVelocity.X;
-            float vy = Model.SourceBallVerticalVelocity;
-            float vz = Model.SourceBallVelocity.Z;
-            float magnitude = (float)Math.Sqrt(vx * vx + vy * vy + vz * vz);
-            if (magnitude < 0.001f)
-                return;
-            vx /= magnitude;
-            vy /= magnitude;
-            vz /= magnitude;
-            magnitude *= (65 + SourceDraw(31)) / 100f;
-            int transfer = SourceDraw(4) != 0 ? 10 + SourceDraw(41) : 50 + SourceDraw(41);
-            float loss = transfer / 100f;
-            // Preserve the original v[0]+v[1] expression, not a corrected
-            // horizontal-magnitude substitute.
-            vy += loss * (vx + vy);
-            vx *= 1f - loss;
-            vz *= 1f - loss;
-            int rotation = SourceDraw(257) - SourceDraw(257);
-            Model.SourceBallVelocity = SourceAnimationLayerState.Rotate(vx * magnitude, vz * magnitude, rotation);
-            Model.SourceBallVerticalVelocity = Math.Min(vy * magnitude, 2.7f);
-            Model.SourceBallDeflected = true;
-            Model.LastTouchPlayerId = actor.Id;
-            float height = Model.BallHeight * SourceTiming.SourceUnitsPerYard;
-            float vertical = Model.SourceBallVerticalVelocity;
-            float ground = height < 0.001f ? 0f
-                : (vertical + (float)Math.Sqrt(vertical * vertical + 0.16f * height)) / 0.08f;
-            Model.PassTarget = PlayerSimulation.Add(Model.BallPosition,
-                PlayerSimulation.Scale(Model.SourceBallVelocity, ground / SourceTiming.SourceUnitsPerYard));
-            UpdateSourceBallVelocityView();
+            SourceBallDriver.Deflect(Model, actor, SourceDrawFor("pmisc.c:deflect_pass"));
         }
 
         private void AdvanceSourceBall()
         {
-            if (Model.BallMode != BallMode.InFlight || Model.SourceBallFrozen)
-                return;
-            const float units = SourceTiming.SourceUnitsPerYard;
-            Model.BallPosition = PlayerSimulation.Add(Model.BallPosition,
-                PlayerSimulation.Scale(Model.SourceBallVelocity, 1f / units));
-            Model.BallHeight += (Model.SourceBallVerticalVelocity - 0.04f) / units;
-            Model.SourceBallVerticalVelocity -= 0.08f;
-            Model.PassTicksElapsed++;
-            if (Model.BallKind == SourceBallKind.Pass
-                && Model.OffenseDirection * (Model.BallPosition.X - Model.SnapLineOfScrimmage) >= 0f)
-                Model.SourceFlags |= SourceGameFlags.ForwardPass;
-            UpdateSourceBallVelocityView();
-            if (OutsideSourceField(Model.BallPosition))
-                EndSourcePlay(SourcePlayEndCause.BallOutOfBounds, -1, Model.BallPosition);
-            else if (Model.BallHeight <= 0f)
+            SourceBallStep step = SourceBallDriver.Advance(Model, SourceDrawFor("player.c:ball_proc"));
+            if (step.EndPlay)
             {
-                Model.BallHeight = 0f;
-                if (Model.BallKind == SourceBallKind.Pass)
-                    EndSourcePlay(SourcePlayEndCause.DeadBallInBounds, Model.TargetPlayerId, Model.BallPosition);
-                else
-                    throw new NotSupportedException("Unported source loose-ball bounce: kind=" + Model.BallKind
-                        + " actor=" + Model.LastTouchPlayerId + " sourceTick=" + Model.SourceTick
-                        + " position=" + Model.BallPosition.X + "," + Model.BallPosition.Z);
+                if (step.Cause == SourcePlayEndCause.BallOutOfBounds)
+                {
+                    Model.SourcePlayEndX = Model.SourceBallPosition.X;
+                    Model.SourcePlayEndZ = Model.SourceBallPosition.Z;
+                }
+                EndSourcePlay(step.Cause, Model.TargetPlayerId, Model.BallPosition, sourceSpot: Model.SourceBallPosition);
             }
         }
 
@@ -540,28 +754,45 @@ namespace Blitz.Gameplay
             if (Model.CarrierId < 0)
                 throw new InvalidOperationException("Source held ball has no carrier at sourceTick=" + Model.SourceTick);
             ActorState actor = Model.Players[Model.CarrierId];
-            Model.BallPosition = actor.Position;
-            Model.BallHeight = actor.Height + actor.SourceRoot.Y / SourceTiming.SourceUnitsPerYard;
+            SourceBallDriver.SetPosition(Model, SourceWorldJoint(actor, 7));
+            Model.SourceLastCarrierId = actor.Id;
             Model.BallVelocity = actor.Velocity;
             Model.BallVerticalVelocity = actor.SourceVerticalVelocity
                 * SourceTiming.DefaultTicksPerSecond / SourceTiming.SourceUnitsPerYard;
+            if (Model.SourceRules.PlayType != SourcePlayType.Kickoff
+                && SourceMatchRules.FieldPosition(Model.SourceBallPosition.X, (int)Model.Possession)
+                    >= Model.SourceRules.LineOfScrimmage)
+                Model.SourceFlags |= SourceGameFlags.BallCrossedLine;
         }
 
         private bool ResolveSourceLocation()
         {
-            if (OutsideSourceField(Model.BallPosition))
-            {
-                EndSourcePlay(SourcePlayEndCause.CarrierOutOfBounds, Model.CarrierId, Model.BallPosition);
-                return true;
-            }
-            // td_check/over_def_ez: one source yard inside the end zone, with
-            // eighteen ticks of control. Do not reuse the legacy goal-line test.
-            float directed = Model.OffenseDirection
-                * SourceMatchRules.SourceWorldFromAbsoluteYards(Model.BallPosition.X);
-            if (directed >= 390f + SourceTiming.SourceUnitsPerYard && directed <= 468f
+            if (Model.CarrierId < 0 || Model.Phase != GamePhase.LiveBall)
+                return false;
+            ActorState carrier = Model.Players[Model.CarrierId];
+            float ballDirected = Model.OffenseDirection * Model.SourceBallPosition.X;
+            SourceVector3 carrierRoot = SourcePlayerDriver.WorldPosition(carrier);
+            float carrierDirected = Model.OffenseDirection * carrierRoot.X;
+            bool ballOver = ballDirected >= 390f + SourceTiming.SourceUnitsPerYard && ballDirected <= 468f
+                && Math.Abs(Model.SourceBallPosition.Z) <= 182.85f;
+            bool carrierOver = carrierDirected >= 390f + SourceTiming.SourceUnitsPerYard && carrierDirected <= 468f
+                && Math.Abs(carrierRoot.Z) <= 182.85f;
+            if ((ballOver || carrierOver) && (Model.SourceFlags & SourceGameFlags.AirCatch) == 0
                 && Model.SourceTick - Model.CatchSourceTick >= 18)
             {
-                EndSourcePlay(SourcePlayEndCause.CarrierTouchdown, Model.CarrierId, Model.BallPosition);
+                EndSourcePlay(SourcePlayEndCause.CarrierTouchdown, Model.CarrierId, carrier.Position, sourceSpot: carrierRoot);
+                return true;
+            }
+            if (!SourceBallDriver.InBounds(carrierRoot))
+            {
+                SourceDrawFor("player.c:_mode_wpn:whistle")(2);
+                SourcePlayEndCause cause = (Model.SourceFlags & SourceGameFlags.AirCatch) != 0
+                    || Model.SourceTick - Model.CatchSourceTick < 18 ? SourcePlayEndCause.BallOutOfBounds
+                    : carrierDirected < -390f ? SourcePlayEndCause.CarrierDownInOwnEndZone
+                    : SourcePlayEndCause.CarrierOutOfBounds;
+                Model.SourcePlayEndX = carrierRoot.X;
+                Model.SourcePlayEndZ = carrierRoot.Z;
+                EndSourcePlay(cause, Model.CarrierId, carrier.Position, sourceSpot: carrierRoot);
                 return true;
             }
             return false;
@@ -577,50 +808,124 @@ namespace Blitz.Gameplay
                 ActorState actor = Model.Players[id];
                 if (actor.Team == victim.Team || actor.Down || actor.AnimationState.Busy)
                     continue;
-                float distance = PlayerSimulation.DistanceSquared(actor.Position, victim.Position)
-                    * SourceTiming.SourceUnitsPerYard * SourceTiming.SourceUnitsPerYard;
+                SourceVector3 a = SourcePlayerDriver.WorldPosition(actor), v = SourcePlayerDriver.WorldPosition(victim);
+                float dx = v.X - a.X, dz = v.Z - a.Z;
+                float distance = dx * dx + dz * dz;
                 // detect.c BODY_RADIUS=5, ordinary strict cylinder broad phase.
                 // Attack-joint cylinders/evade/contact tables remain C1 work.
                 if (distance >= 100f)
                     continue;
-                if (id == Model.ControlledPlayerId && command.Action != InputAction.Tackle)
-                    continue;
+                if (actor.SourceControllerStation >= 0)
+                {
+                    PlayerCommand input = SourcePlayerDriver.ActorCommand(Model, actor, command);
+                    if (SourceActionFor(input) != SourceAction.Tackle
+                        && (input.StationInputs == null || (actor.SourceNewButtons & SourceDroneButtons.A) == 0))
+                        continue;
+                }
+                Model.SourceVictimHeight = v.Y;
+                SourceVector3 lossWrist = SourceWorldJoint(victim, 7);
+                FieldVector mean = PlayerSimulation.Scale(PlayerSimulation.Add(actor.SourceVelocity,
+                    victim.SourceVelocity), 0.5f);
                 Model.SourcePendingTackleAttacker = id;
                 Model.SourcePendingTackleVictim = victim.Id;
+                Model.SourceContactPosition = victim.Position;
+                Model.SourceContactSourcePosition = SourcePlayerDriver.WorldPosition(victim);
+                Model.SourceHasContactSpot = true;
                 SourcePlayerDriver.Contact(Model, id, victim.Id, SourceDraw);
+                int high;
+                SourceBallLoss loss = SourceContactDriver.FumbleOrBobble(Model, victim, actor, 50, 290,
+                    SourceDrawFor("detect.c:fumble_or_bobble"), out high);
+                if (loss == SourceBallLoss.Bobble)
+                {
+                    float by = SourceDrawFor("detect.c:fumble_or_bobble:high")(10000)
+                        > high ? -1f : 0f;
+                    SourceBallDriver.Bobble(Model, victim, lossWrist,
+                        mean.X / 1.5f, by, mean.Z / 1.5f, SourceDrawFor("player.c:bobble_pass"));
+                    Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
+                    Model.SourceHasContactSpot = false;
+                    EmitSource(SourceEventType.Bobbled, victim.Id, actor.Id);
+                }
+                else if (loss == SourceBallLoss.Fumble)
+                {
+                    SourceBallDriver.Fumble(Model, victim, lossWrist,
+                        mean.X / 2f, mean.Z / 2f, SourceDrawFor("player.c:fumble_ball"));
+                    Model.SourceFumblesOnPlay++;
+                    Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
+                    Model.SourceHasContactSpot = false;
+                    EmitSource(SourceEventType.Fumbled, victim.Id, actor.Id);
+                }
+                else
+                {
+                    Model.SourceFlags |= SourceGameFlags.PlayEnding;
+                    Model.SourcePlayEndX = v.X;
+                    Model.SourcePlayEndZ = v.Z;
+                    SourceVector3 afterHit = SourcePlayerDriver.WorldPosition(victim);
+                    SourceVector3 attackerAfterHit = SourcePlayerDriver.WorldPosition(actor);
+                    if ((OverSourceDefensiveEndZone(Model.SourceBallPosition) || OverSourceDefensiveEndZone(afterHit))
+                        && (attackerAfterHit.Y < 0.2f || afterHit.Y < 0.2f))
+                        EndSourcePlay(SourcePlayEndCause.CarrierTouchdown, victim.Id, victim.Position, actor.Id, afterHit);
+                }
                 return;
             }
         }
 
         private void SourcePlayerDown(int playerId)
         {
-            if (Model.Phase != GamePhase.LiveBall || Model.SourcePendingTackleVictim != playerId)
+            if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != playerId)
                 return;
             ActorState actor = Model.Players[playerId];
-            float directed = Model.OffenseDirection * SourceMatchRules.SourceWorldFromAbsoluteYards(actor.Position.X);
-            EndSourcePlay(directed < -390f ? SourcePlayEndCause.CarrierDownInOwnEndZone
-                : SourcePlayEndCause.CarrierTackledInBounds, playerId, actor.Position,
-                Model.SourcePendingTackleAttacker);
+            CreditSourcePossession(actor);
+            SourceVector3 root = SourcePlayerDriver.WorldPosition(actor);
+            SourceVector3 sourceSpot = Model.SourceHasContactSpot ? Model.SourceContactSourcePosition : root;
+            int spotField = SourceMatchRules.FieldPosition(sourceSpot.X, (int)Model.Possession);
+            int landedField = SourceMatchRules.FieldPosition(root.X, (int)Model.Possession);
+            if (spotField < landedField) sourceSpot = root;
+            if (spotField >= 100 && landedField < 100)
+                sourceSpot = new SourceVector3(SourceMatchRules.WorldPosition(99, (int)Model.Possession), 0f, sourceSpot.Z);
+            int final = SourceMatchRules.FieldPosition(sourceSpot.X, (int)Model.Possession);
+            Model.SourcePlayEndX = sourceSpot.X;
+            Model.SourcePlayEndZ = sourceSpot.Z;
+            var spot = new FieldVector(SourceMatchRules.AbsoluteYardsFromSourceWorld(sourceSpot.X),
+                sourceSpot.Z / SourceTiming.SourceUnitsPerYard);
+            EndSourcePlay(final >= 100 ? SourcePlayEndCause.CarrierTouchdown
+                : final <= 0 ? SourcePlayEndCause.CarrierDownInOwnEndZone
+                : SourcePlayEndCause.CarrierTackledInBounds, playerId, spot,
+                Model.SourcePendingTackleAttacker, sourceSpot);
         }
 
-        private void EndSourcePlay(SourcePlayEndCause cause, int playerId, FieldVector position, int attackerId = -1)
+        private void EndSourcePlay(SourcePlayEndCause cause, int playerId, FieldVector position, int attackerId = -1,
+            SourceVector3? sourceSpot = null)
         {
             if (Model.Phase != GamePhase.LiveBall)
                 return;
             TeamId offense = Model.Possession;
+            SourcePlayType endingType = Model.SourceRules.PlayType;
+            float displayLos = Model.LineOfScrimmage, displayFirstDown = Model.FirstDownLine;
+            Model.ClockActive = false;
+            Model.SourceClock = SourceClock.DiscardFraction(Model.SourceClock);
+            UpdateSourceClockView();
             SourcePlayResolution resolution = SourceMatchRules.Resolve(new SourcePlayEndInput(
                 Model.SourceRules, cause, SourceBallTypeFor(Model.BallKind), Model.SourceFlags,
-                (int)Model.Possession, SourceMatchRules.SourceWorldFromAbsoluteYards(position.X),
-                position.Z * SourceTiming.SourceUnitsPerYard, Model.SourceFumbleX, Model.SourceLastResult));
+                Model.SourceLastPossession, Model.SourcePlayEndX, Model.SourcePlayEndZ,
+                Model.SourceFumbleX, Model.SourceLastResult));
             if (!resolution.TransitionApplied)
                 throw new NotSupportedException("Invalid source result branch: play=" + Model.SourceRules.PlayType
                     + " cause=" + cause + " kind=" + Model.BallKind + " sourceTick=" + Model.SourceTick);
             Model.SourceLastResult = resolution.Classification.Result;
+            Model.SourcePlayEndX = resolution.PlayEndX;
             SetSourceRules(resolution.State);
+            if (resolution.PreserveDisplayedLines)
+            {
+                Model.LineOfScrimmage = displayLos;
+                Model.FirstDownLine = displayFirstDown;
+            }
             Model.SourceLinePosition = resolution.LinePositionZ / SourceTiming.SourceUnitsPerYard;
             Model.SourceFlags = resolution.Flags;
-            Model.HomeScore += resolution.Side0Points;
-            Model.AwayScore += resolution.Side1Points;
+            AddSourcePoints(resolution.Side0Points, resolution.Side1Points);
+            Model.SourceResultView = new SourceMatchResult((SourcePlayKind)endingType,
+                (SourceResultKind)resolution.Classification.Result, (SourceResultStatus)resolution.Classification.Status,
+                (SourcePlayEndKind)cause, resolution.Side0Points, resolution.Side1Points,
+                resolution.JustGotFirstDown, resolution.TurnoverOnDowns);
             Model.LastOutcome = resolution.JustGotFirstDown ? PlayOutcome.FirstDown
                 : resolution.TurnoverOnDowns ? PlayOutcome.TurnoverOnDowns
                 : resolution.Classification.Result == SourcePlayResult.Touchdown ? PlayOutcome.Touchdown
@@ -648,15 +953,21 @@ namespace Blitz.Gameplay
             if (offense != Model.Possession)
                 Emit(GameEventType.PossessionChanged, Model.Possession, playerId, 0, position, playerId);
             Model.Phase = GamePhase.DeadBall;
+            Model.SourceMatchPhase = SourceMatchPhase.PlayResult;
+            Model.SourceBeginPlayInitialized = false;
             Model.ClockActive = false;
             Model.SourceClock = SourceClock.DiscardFraction(Model.SourceClock);
             UpdateSourceClockView();
             Model.BallMode = BallMode.Dead;
             Model.BallPosition = position;
             Model.BallHeight = Math.Max(0f, Model.BallHeight);
-            Model.CarrierId = -1;
-            Model.TargetPlayerId = -1;
             Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                Model.Players[id].SourcePlayOver = true;
+                Model.Players[id].SourceInPlay = false;
+            }
+            EmitSource(SourceEventType.PlayResolved, playerId, attackerId, Model.SourceResultView);
             if (Model.SourceClock.PackedTime == 0 && Model.SourceRules.PlayType != SourcePlayType.ExtraPoint
                 && !Model.QuarterEndEmitted)
             {
@@ -675,26 +986,40 @@ namespace Blitz.Gameplay
                 return;
             }
             Model.Phase = GamePhase.PlaySelect;
+            Model.SourceOffenseFlipped = false;
+            Model.SourceMatchPhase = Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
+                ? SourceMatchPhase.PatSelection : SourceMatchPhase.PlaySelection;
             Model.PreSnapTicksRemaining = 0;
-            SourcePlayerDriver.LineUp(Model, sourceAnimations, SourceDraw);
+            BeginSourcePlay();
+            Model.SourceSelectionCountdown = SourceMatchFlow.PlaySelectionCountdownStart(Model.Quarter - 1);
+            if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
+                && !SourceContactDriver.IsHumanTeam(Model, Model.Possession))
+                ApplySourcePat(DecideSourcePat(SourcePatChoice.Unselected));
         }
 
         private bool AdvanceSourcePeriod()
         {
             SourcePeriodInput input = new SourcePeriodInput(Model.SourceRules, Model.Quarter - 1,
                 Model.SourceClock.PackedTime, Model.HomeScore, Model.AwayScore,
-                Model.SourceFirstPossession, Model.SourceOvertimeKickoff);
+                Model.SourceFirstPossession, Model.SourceOvertimeKickoff,
+                continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate);
             SourcePeriodDecision decision = SourceMatchFlow.AdvancePeriod(input);
             if (decision.RandomRequest.IsRequired)
             {
                 decision = SourceMatchFlow.AdvancePeriod(new SourcePeriodInput(Model.SourceRules, Model.Quarter - 1,
                     Model.SourceClock.PackedTime, Model.HomeScore, Model.AwayScore,
                     Model.SourceFirstPossession, Model.SourceOvertimeKickoff,
-                    overtimeFirstDraw: SourceDraw(decision.RandomRequest.BoundOrModulus)));
+                    continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate,
+                    overtimeFirstDraw: SourceDraw(decision.RandomRequest.BoundOrModulus,
+                        "SourceMatchFlow." + decision.RandomRequest.Call, decision.RandomRequest.Kind)));
             }
             if (decision.MatchEnded)
             {
                 Model.Phase = GamePhase.GameOver;
+                Model.SourceMatchPhase = SourceMatchPhase.MatchEnded;
+                Model.SourcePeriodView = new SourcePeriodView(decision.QuarterIndex,
+                    (SourcePeriodStatus)decision.Disposition, decision.CompletedQuarterIndex,
+                    decision.CabinetGateRequired);
                 Model.ClockActive = false;
                 Emit(GameEventType.GameEnded, TeamId.Home, -1, Model.HomeScore.CompareTo(Model.AwayScore),
                     default(FieldVector));
@@ -706,6 +1031,10 @@ namespace Blitz.Gameplay
                 Model.SourceClock = SourceClock.Create(decision.PackedTime, firstWakeTick: Model.SourceTick + 1);
                 Model.SourceOvertimeKickoff = decision.OvertimeKickoff;
                 Model.SourceHalfKickoff = decision.HalfKickoff;
+                Model.SourcePeriodView = new SourcePeriodView(decision.QuarterIndex,
+                    (SourcePeriodStatus)decision.Disposition, decision.CompletedQuarterIndex,
+                    decision.CabinetGateRequired);
+                EmitSource(SourceEventType.PeriodChanged);
                 Model.QuarterEndEmitted = false;
                 SetSourceRules(decision.State);
                 UpdateSourceClockView();
@@ -723,20 +1052,48 @@ namespace Blitz.Gameplay
             int offense = Model.Possession == TeamId.Home ? Model.HomeScore : Model.AwayScore;
             int defense = Model.Possession == TeamId.Home ? Model.AwayScore : Model.HomeScore;
             var input = new SourcePatInput(Model.SourceRules, Model.Quarter - 1, Model.SourceClock.PackedTime,
-                offense, defense, Model.Possession == TeamId.Home, choice);
+                offense, defense, SourceContactDriver.IsHumanTeam(Model, Model.Possession), choice);
             SourcePatDecision result = SourceMatchFlow.SelectPat(input);
             int? two = null;
             int? free = null;
             for (int i = 0; result.RandomRequest.IsRequired && i < 2; i++)
             {
-                int draw = SourceDraw(result.RandomRequest.BoundOrModulus);
+                int draw = SourceDraw(result.RandomRequest.BoundOrModulus,
+                    "SourceMatchFlow." + result.RandomRequest.Call, result.RandomRequest.Kind);
                 if (result.RandomRequest.Call == SourceRandomCall.GoForTwo) two = draw;
                 else if (result.RandomRequest.Call == SourceRandomCall.FreePat) free = draw;
                 else throw new NotSupportedException("Unknown source PAT RNG request " + result.RandomRequest.Call);
                 result = SourceMatchFlow.SelectPat(new SourcePatInput(Model.SourceRules, Model.Quarter - 1,
-                    Model.SourceClock.PackedTime, offense, defense, Model.Possession == TeamId.Home, choice, two, free));
+                    Model.SourceClock.PackedTime, offense, defense,
+                    SourceContactDriver.IsHumanTeam(Model, Model.Possession), choice, two, free));
             }
             return result;
+        }
+
+        private bool ApplySourcePat(SourcePatDecision pat)
+        {
+            Model.SourcePatChoice = (SourcePatOption)pat.Choice;
+            Model.SourcePatStatus = (SourcePatStatus)pat.Disposition;
+            sourceStepEvents.Add(new SourceGameEvent(Model.Tick, Model.SourceTick, SourceEventType.PatSelected,
+                Model.Possession, playKind: SourcePlayKind.ExtraPoint, patChoice: (SourcePatOption)pat.Choice));
+            if (pat.Disposition != SourcePatDisposition.FreeKickComplete
+                && pat.Disposition != SourcePatDisposition.SkipUnnecessary)
+                return false;
+            AddSourcePoints(pat.Side0Points, pat.Side1Points);
+            if (pat.Disposition == SourcePatDisposition.FreeKickComplete)
+            {
+                Model.SourceResultView = new SourceMatchResult(SourcePlayKind.ExtraPoint,
+                    pat.KickGood ? SourceResultKind.ExtraPoint : SourceResultKind.MissedKick,
+                    homePoints: pat.Side0Points, awayPoints: pat.Side1Points);
+                sourceStepEvents.Add(new SourceGameEvent(Model.Tick, Model.SourceTick, SourceEventType.FreePointResult,
+                    Model.Possession, result: Model.SourceResultView, playKind: SourcePlayKind.ExtraPoint,
+                    patChoice: (SourcePatOption)pat.Choice));
+            }
+            SetSourceRules(pat.State);
+            if (pat.CheckEndOfPeriod && AdvanceSourcePeriod()) return true;
+            if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
+                PrepareSourceKickoff(false, Model.SourceHalfKickoff);
+            return true;
         }
 
         private void SetSourceRules(SourceRulesState rules)
@@ -766,19 +1123,878 @@ namespace Blitz.Gameplay
 
         private int SourceDraw(int maximum)
         {
-            if (maximum <= 0)
-                return 0;
-            // The platform random() body is not yet established. Preserve call
-            // bounds/order and expose the draw count internally; this seeded
-            // profile is deliberately not represented as RNG/source parity.
+            string identity = Model.SourceRandomActor < 0 ? "player.c:game_proc"
+                : "plyrseq.c:" + (Model.Players[Model.SourceRandomActor].AnimationState.Primary.ScriptSymbol ?? "lineup");
+            return SourceDraw(maximum, identity);
+        }
+
+        private int SourceDraw(int maximum, string identity, SourceRandomKind kind = SourceRandomKind.RandRange)
+        {
+            SourceRandomDraw draw = DrawSourceRandom(maximum, identity, kind);
+            return kind == SourceRandomKind.CStandardRand ? draw.Raw.Value : draw.Value;
+        }
+
+        private SourceRandomDraw DrawSourceRandom(int maximum, string identity,
+            SourceRandomKind kind = SourceRandomKind.RandRange)
+        {
+            var site = new SourceRandomSite(kind, maximum, Model.SourceTick, Model.SourceRandomActor,
+                Model.SourceRandomProcess, Model.SourceRandomProcessOrder, Model.SourceRandomCallIndex++,
+                sourceRandom.Provenance.Profile, identity);
+            SourceRandomDraw draw = sourceRandom.Draw(site);
             Model.SourceRandomDraws++;
-            return NextInt(maximum);
+            return draw;
+        }
+
+        private Func<int, int> SourceDrawFor(string identity)
+        {
+            return maximum => SourceDraw(maximum, identity);
+        }
+
+        private void BeginSourceProcess(string process, int actor, int order)
+        {
+            Model.SourceRandomProcess = process;
+            Model.SourceRandomActor = actor;
+            Model.SourceRandomProcessOrder = Model.SourceDispatchOrdinal++;
+            Model.SourceRandomCallIndex = 0;
+        }
+
+        private static SourceMatchConfiguration DefaultSourceConfiguration()
+        {
+            return new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+                SourceStationLayout.TwoStation,
+                new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+                new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+                new[] { new SourceStationConfiguration(0, TeamId.Home) }, TeamId.Home, SourceCaptainSlot.First);
+        }
+
+        private static SourceAction SourceActionFor(PlayerCommand command)
+        {
+            if (command.Source.IsSpecified)
+                return command.Source.Action;
+            switch (command.Action)
+            {
+                case InputAction.None: return SourceAction.None;
+                case InputAction.SelectPlay: return SourceAction.SelectPlay;
+                case InputAction.Snap: return SourceAction.Snap;
+                case InputAction.Pass: return SourceAction.Pass;
+                case InputAction.Tackle: return SourceAction.Tackle;
+                case InputAction.SwitchDefender: return SourceAction.SwitchPlayer;
+                case InputAction.Continue: return SourceAction.Continue;
+                default: throw new NotSupportedException("Unported source input " + command.Action);
+            }
+        }
+
+        private void BeginSourcePlay()
+        {
+            if (Model.SourceBeginPlayInitialized)
+                return;
+            SourcePlayStart start = SourceMatchFlow.BeginPlay(Model.SourceRules, Model.Quarter - 1,
+                Model.SourceClock.PackedTime);
+            SetSourceRules(start.State);
+            Model.SourceFlags = start.Flags;
+            Model.SourceLastPossession = start.LastPossession;
+            Model.SourceOffensivePlays[start.OffensivePlayCounterSide]++;
+            Model.SourceFumblesOnPlay = 0;
+            Model.SourceHasContactSpot = false;
+            Model.SourceBeginPlayInitialized = true;
+            Model.SourceResultView = default(SourceMatchResult);
+            Model.SourcePatChoice = SourcePatOption.Unselected;
+            Model.SourcePatStatus = SourcePatStatus.NotExtraPoint;
+            Model.SourcePlaySelectionReady[0] = Model.SourcePlaySelectionReady[1] = false;
+        }
+
+        private void RequireSourcePlaybook()
+        {
+            if (sourcePlaybook == null || sourcePlaybook.Directions == null)
+                throw new InvalidOperationException("The source profile requires the converted pinned SourcePlaybook "
+                    + "with formations, routes, weighted pools and TRIGS.H data. Supply it to GameSimulation; "
+                    + "no preview route, formation or RNG fallback is selected.");
+        }
+
+        private SourceRandomContext CurrentSourceRandomContext()
+        {
+            return new SourceRandomContext(Model.SourceTick, Model.SourceRandomActor, Model.SourceRandomProcess,
+                Model.SourceRandomProcessOrder, sourceRandom.Provenance.Profile, Model.SourceRandomCallIndex);
+        }
+
+        private SourcePlaySelection ChooseSourceCpuPlay(TeamId side, SourcePlayDefinition opponent)
+        {
+            int?[] draws = new int?[3];
+            SourceOpponentPlay opponentKind = (opponent.Flags & SourcePlayFlags.Punt) != 0 ? SourceOpponentPlay.Punt
+                : (opponent.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourceOpponentPlay.FieldGoal
+                : (opponent.Flags & SourcePlayFlags.Custom) != 0 ? SourceOpponentPlay.Custom : SourceOpponentPlay.Other;
+            SourceCpuPlayDecision decision;
+            for (;;)
+            {
+                decision = SourceMatchFlow.CpuPickPlay(new SourceCpuPlayInput(Model.SourceRules, (int)side,
+                    Model.Quarter - 1, Model.SourceClock.PackedTime,
+                    side == TeamId.Home ? Model.HomeScore : Model.AwayScore,
+                    side == TeamId.Home ? Model.AwayScore : Model.HomeScore, opponentPlay: opponentKind,
+                    draws: new SourceRandomDraws(draws[0], draws[1], draws[2])));
+                if (decision.IsResolved) break;
+                SourceRandomRequest request = decision.RandomRequest;
+                if (!request.IsRequired || request.CallIndex < 0 || request.CallIndex >= draws.Length
+                    || draws[request.CallIndex].HasValue)
+                    throw new InvalidOperationException("Source CPU play choice did not advance its explicit draw request.");
+                draws[request.CallIndex] = SourceDraw(request.BoundOrModulus,
+                    "SourceMatchFlow." + request.Call, request.Kind);
+            }
+            SourcePlayDefinition selected = sourcePlaybook.ResolveCpuPlay(decision);
+            PlayId legacyView = side == Model.Possession ? PlayId.QuickPass
+                : (selected.Flags & SourcePlayFlags.Blitz) != 0 ? PlayId.Blitz : PlayId.Cover;
+            if (side == TeamId.Home) Model.HomePlay = legacyView;
+            else Model.AwayPlay = legacyView;
+            return new SourcePlaySelection(selected.Identity,
+                side == Model.Possession ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense,
+                pool: decision.PoolIndex < 0 ? (SourcePlayPool?)null : (SourcePlayPool)decision.Family,
+                poolIndex: decision.PoolIndex);
+        }
+
+        private void LineUpSourceActors()
+        {
+            RequireSourcePlaybook();
+            Model.SourcePlayEndX = SourceMatchRules.WorldPosition(-100, (int)Model.Possession);
+            SourceDroneInitialization before = SourceDroneAI.InitializePreLineup(BuildSourceAiFrame(),
+                Model.SourceOffensePlay, Model.SourceDefensePlay, Model.SourceAiParameters, Model.Quarter - 1,
+                CurrentSourceRandomContext(), sourceRandom);
+            Model.SourceRandomCallIndex += before.RandomCalls;
+            Model.SourceRandomDraws += before.RandomCalls;
+            for (int i = 0; i < Model.SourceDrones.Length; i++) Model.SourceDrones[i] = before.States[i];
+            SourceFormationLayout layout = Model.SourceKickoffKind == SourceKickoffKind.Quick
+                && Model.SourceRules.PlayType == SourcePlayType.Kickoff ? LineUpSourceQuickKick()
+                : SourcePlaybook.LineUp(Model.SourceOffensePlay, Model.SourceDefensePlay,
+                    new SourceLineupInput((int)Model.Possession, Model.SourceRules.LineOfScrimmage,
+                        Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped));
+            SourcePlayerDriver.LineUp(Model, sourceAnimations, SourceDraw, layout,
+                id => BeginSourceProcess("player_lineup", id, id + 1), BindSourceAnimation);
+            for (int id = 0; id < Model.Players.Length; id++)
+                Model.SourceDrones[id] = Model.SourceDrones[id].WithTarget(layout.Actors[id].CoverageTarget);
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                int receiver = layout.Actors[id].CoverageTarget;
+                if (Model.Players[id].Team == Model.Possession || receiver < 0) continue;
+                SourceCoverageAssignment coverage = SourceDroneAI.AssignCoverage(id, Model.SourceDrones[id],
+                    receiver, Model.SourceDrones[receiver],
+                    SourceContactDriver.IsHumanTeam(Model, Model.Players[id].Team),
+                    Model.SourceLastReceiver[(int)Model.Possession], Model.SourceConsecutiveCompletions[(int)Model.Possession]);
+                Model.SourceDrones[id] = coverage.Defender;
+                Model.SourceDrones[receiver] = coverage.Receiver;
+            }
+            ConfigureSourceStations();
+            CacheSourceGeometry();
+            Model.SourceAiFrame = BuildSourceAiFrame();
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                if (Model.Players[id].Team == Model.Possession) continue;
+                BeginSourceProcess("init_drones_dbps", id, id + 1);
+                SourceRouteStep initial = SourceDroneAI.InitializePreSnapDecision(Model.SourceDrones[id],
+                    new SourceRouteInput(Model.SourceAiFrame, id, Model.SourceAiParameters,
+                        CurrentSourceRandomContext(), droneStates: Model.SourceDrones,
+                        formationSlot: layout.Actors[id].Slot), sourceRandom);
+                ApplySourceDroneStep(Model.Players[id], initial);
+            }
+            BeginSourceProcess("init_drones_postlineup", -1, 15);
+            SourceDroneInitialization after = SourceDroneAI.InitializePostLineupRandom(BuildSourceAiFrame(),
+                Model.SourceAiParameters, CurrentSourceRandomContext(), sourceRandom);
+            Model.SourceRandomCallIndex += after.RandomCalls;
+            Model.SourceRandomDraws += after.RandomCalls;
+            Model.SourceQuarterbackPlan = after.QuarterbackPlan;
+            Model.SourceMotionDirection = after.QuarterbackPlan.MotionDirection;
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                Model.Players[id].SourceUnblockable = after.UnblockableByActor[id];
+                Model.SourceDrones[id] = Model.SourceDrones[id].WithQuarterbackPlan(after.QuarterbackPlan);
+            }
+            Model.SourceAiFrame = null;
+            if (SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+                && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.FakeFieldGoal)) != 0)
+            {
+                BeginSourceProcess("kick_meter_proc", -1, 16);
+                float wind = SourceDrawFor("plyrinfo.c:kick_meter_proc:wind")(11) * 0.1f;
+                if (wind != 0f)
+                {
+                    float sign = SourceDrawFor("plyrinfo.c:kick_meter_proc:wind_sign")(2) != 0 ? -1f : 1f;
+                    if (sign > 0f) wind = -wind;
+                }
+                Model.SourceKickWind = wind;
+            }
+            BeginSourceProcess("punt_meter_proc", -1, 17);
+            Model.SourcePuntStrength = 50 + SourceDrawFor("plyrinfo.c:punt_meter_proc:initial_strength")(50);
+            BeginSourceProcess("game_proc_after_lineup", -1, 16);
+        }
+
+        private SourceFormationLayout LineUpSourceQuickKick()
+        {
+            // nfl.c 3243+: quick kick swaps off_side before ordinary lineup.
+            // Its offense is therefore the return formation, not a normal
+            // SourcePlaySide.Offense/Kickoff accepted by the pure playbook API.
+            var actors = new SourceFormationActor[14];
+            float line = SourceMatchRules.WorldPosition(Model.SourceRules.LineOfScrimmage, (int)Model.Possession);
+            float forward = Model.OffenseDirection;
+            for (int id = 0; id < actors.Length; id++)
+            {
+                bool offense = id / 7 == (int)Model.Possession;
+                SourceFormationSlot slot = (offense ? Model.SourceOffensePlay : Model.SourceDefensePlay).Formation.Slots[id % 7];
+                float x = line + slot.Offset.X * (id < 7 ? 1f : -1f);
+                x = Math.Max(-(468f - 7.8f), Math.Min(468f - 7.8f, x));
+                float z = Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard + slot.Offset.Z * forward;
+                actors[id] = new SourceFormationActor(id, new SourcePlanar(x, z), slot, -1, false);
+            }
+            return new SourceFormationLayout(actors);
+        }
+
+        private void CacheSourceGeometry()
+        {
+            SourceAiFrame frame = BuildSourceAiFrame(false);
+            Model.SourceDistances = new float[14, 14];
+            Model.SourceAngles = new int[14, 14];
+            for (int i = 0; i < 14; i++)
+                for (int j = 0; j < 14; j++)
+                {
+                    Model.SourceDistances[i, j] = frame.Distance(i, j);
+                    Model.SourceAngles[i, j] = frame.Angle(i, j);
+                }
+        }
+
+        private SourceAiFrame BuildSourceAiFrame(bool useCachedGeometry = true)
+        {
+            RequireSourcePlaybook();
+            var actors = new SourceAiActor[14];
+            for (int id = 0; id < actors.Length; id++)
+            {
+                ActorState actor = Model.Players[id];
+                SourceVector3 root = SourcePlayerDriver.WorldPosition(actor);
+                uint lower = actor.AnimationState == null ? 0u : actor.AnimationState.Primary.Mode;
+                uint upper = actor.AnimationState == null ? 0u : actor.AnimationState.Secondary.Mode;
+                SourceAiActorFlags flags = SourceAiActorFlags.None;
+                if ((lower & SourceAnimationModes.Uninterruptible) != 0) flags |= SourceAiActorFlags.LowerUninterruptible;
+                if ((upper & SourceAnimationModes.Uninterruptible) != 0) flags |= SourceAiActorFlags.UpperUninterruptible;
+                if ((lower & SourceAnimationModes.Reacting) != 0) flags |= SourceAiActorFlags.Reacting;
+                if ((lower & 0x00400000u) != 0) flags |= SourceAiActorFlags.Puppet;
+                if ((lower & 0x00800000u) != 0) flags |= SourceAiActorFlags.Puppeteer;
+                if (actor.SourceReverseRoute) flags |= SourceAiActorFlags.ReverseRoute;
+                if (actor.SourceThrowing) flags |= SourceAiActorFlags.Throwing;
+                if ((upper & 0x1000u) != 0) flags |= SourceAiActorFlags.RunningPush;
+                actors[id] = new SourceAiActor(id,
+                    new SourcePlanar(root.X, root.Z),
+                    new SourcePlanar(actor.SourceVelocity.X, actor.SourceVelocity.Z), actor.SourceMode,
+                    actor.SourceJob, actor.SourceTarget, flags, actor.SourceControllerStation, actor.Facing,
+                    actor.SourceStick, height: root.Y);
+            }
+            int humans = 0;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations) humans |= 1 << (int)station.Team;
+            return new SourceAiFrame(actors, sourcePlaybook.Directions, Model.SourceRules,
+                new SourceAiBall(SourceBallTypeFor(Model.BallKind),
+                    new SourcePlanar(Model.SourceBallPosition.X, Model.SourceBallPosition.Z),
+                    new SourcePlanar(Model.SourceBallVelocity.X, Model.SourceBallVelocity.Z),
+                    new SourcePlanar(Model.SourceBallTarget.X, Model.SourceBallTarget.Z), Model.CarrierId,
+                    Model.TargetPlayerId, Model.ThrowerId, Model.PassTicksElapsed, Model.PassTicksTotal,
+                    Model.SourceBallPosition.Y, Model.SourceBallVerticalVelocity,
+                    (Model.SourceBallFlags & SourceBallFlags.Bounce) != 0), Model.SourceTick, Model.SourceSnapTick,
+                cameraHeading: Model.SourceCameraHeading,
+                humanTeamMask: humans, playOver: Model.Phase != GamePhase.LiveBall && Model.Phase != GamePhase.PreSnap,
+                gameFlags: Model.SourceFlags, offenseFire: Model.SourceTeamFire[(int)Model.Possession],
+                fireReceiver: Model.SourceLastReceiver[(int)Model.Possession],
+                offensePlayFlags: Model.SourceOffensePlay == null ? SourcePlayFlags.None : Model.SourceOffensePlay.Flags,
+                defensePlayFlags: Model.SourceDefensePlay == null ? SourcePlayFlags.None : Model.SourceDefensePlay.Flags,
+                inPlay: Model.Phase == GamePhase.LiveBall,
+                sourceDistances: useCachedGeometry ? Model.SourceDistances : null,
+                sourceAngles: useCachedGeometry ? Model.SourceAngles : null);
+        }
+
+        private FieldVector SourceDroneMove(ActorState actor, PlayerCommand command)
+        {
+            if (Model.SourceDrones[actor.Id].LastSourceTick == Model.SourceTick)
+                return actor.SourceMove;
+            SourceAiFrame frame = Model.SourceAiFrame ?? BuildSourceAiFrame();
+            int active = 0;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations) active |= 1 << station.StationId;
+            SourceKickerStage kickerStage = Model.Phase == GamePhase.LiveBall ? SourceKickerStage.InPlay
+                : Model.SourceKickApproach ? SourceKickerStage.PreKickoff : SourceKickerStage.PreSnap;
+            bool stickOnly = actor.SourceControllerStation >= 0 && Model.CarrierId == -1
+                && Model.TargetPlayerId == actor.Id
+                && (Model.BallKind == SourceBallKind.Pass || Model.BallKind == SourceBallKind.Lateral);
+            SourceDroneButtons humanButtons = actor.SourceControllerStation >= 0 ? actor.SourceNewButtons
+                : Model.ThrowerId >= 0 ? Model.Players[Model.ThrowerId].SourceNewButtons : SourceDroneButtons.None;
+            ActorState quarterback = Model.Players[Model.OffenseOffset + 3];
+            PlayerCommand quarterbackInput = SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput);
+            int quarterbackStick = SourcePlayerDriver.ActorStick(quarterback, quarterbackInput);
+            int motionStick = 24;
+            foreach (ActorState player in Model.Players)
+                if ((Model.SourceDrones[player.Id].Flags & SourceDroneFlags.Motion) != 0) { motionStick = player.SourceStick; break; }
+            SourceDroneButtons captainButtons = SourceDroneButtons.None;
+            foreach (ActorState player in Model.Players)
+                if (player.Team == Model.Possession && Model.SourceFormationSlots != null
+                    && (Model.SourceFormationSlots[player.Id].Control & SourceFormationControl.Captain) != 0)
+                { captainButtons = player.SourceButtons; break; }
+            SourceRouteStep step = SourceDroneAI.StepRoute(Model.SourceDrones[actor.Id],
+                new SourceRouteInput(frame, actor.Id, Model.SourceAiParameters, CurrentSourceRandomContext(),
+                    stickOnly: stickOnly, motionDirection: Model.SourceMotionDirection, quarterbackStick: quarterbackStick,
+                    humanNewButtons: humanButtons,
+                    spinCount: Model.SourceSpinCount[(int)actor.Team], dronesLose: Model.SourceDronesLose,
+                    dronesWinning: Model.SourceDronesWinning, blocking: Model.SourceBlocking, receivers: Model.SourceReceivers,
+                    droneStates: Model.SourceDrones, formationSlot: Model.SourceFormationSlots[actor.Id],
+                    targetFacing: actor.TargetFacing,
+                    snapContext: new SourceDroneSnapContext(active,
+                        sourceConfiguration.StationLayout == SourceStationLayout.FourStation, 0, 0, motionStick),
+                    kickerContext: new SourceDroneKickerContext(kickerStage, captainButtons)), sourceRandom);
+            ApplySourceDroneStep(actor, step);
+            if (step.ThrowTarget >= 0) actor.SourceDroneThrowTarget = step.ThrowTarget;
+            actor.SourceRequestedScript = step.Script != null
+                && (actor.SourceButtons & ~actor.SourceOldButtons & SourceDroneButtons.D) != 0 ? step.Script : null;
+            if (!step.CommandWritten) return actor.SourceMove;
+            return new FieldVector(step.DesiredMovement.X, step.DesiredMovement.Z);
+        }
+
+        private void ApplySourceDroneAnimation(ActorState actor)
+        {
+            string script = actor.SourceRequestedScript;
+            actor.SourceRequestedScript = null;
+            if (script == null || actor.SourceControllerStation >= 0 || actor.AnimationState.Primary.IsUninterruptible)
+                return;
+            actor.Action = script.StartsWith("c", StringComparison.Ordinal) ? ActorAction.Catch
+                : script.IndexOf("spin", StringComparison.Ordinal) >= 0 ? ActorAction.Spin : ActorAction.Juke;
+            if (script.StartsWith("c2p_", StringComparison.Ordinal))
+                actor.AnimationState.UpperBody(script, actor, Model.SourceTick, SourceDraw,
+                    AnimationSelectionEvidence.SourceVerified);
+            else actor.AnimationState.FullBody(script, actor, Model.SourceTick, SourceDraw,
+                AnimationSelectionEvidence.SourceVerified);
+            actor.ModeChangedTick = Model.SourceTick;
+            actor.SourcePendingCatch = null;
+        }
+
+        private void ApplySourceDroneStep(ActorState actor, SourceRouteStep step)
+        {
+            Model.SourceRandomCallIndex += step.RandomCalls;
+            Model.SourceRandomDraws += step.RandomCalls;
+            Model.SourceDrones[actor.Id] = step.State;
+            actor.SourceJob = step.State.Job;
+            actor.SourceTarget = step.State.Target;
+            if (step.CommandWritten) actor.SourceStick = step.State.Stick;
+            if (step.ButtonsWritten) actor.SourceButtons = step.State.Buttons;
+            actor.SourceNewButtons = actor.SourceButtons & ~actor.SourceOldButtons;
+            if (actor.SourceControllerStation >= 0 && Model.SourceCurrentInput.StationInputs != null)
+                foreach (SourceStationInput input in Model.SourceCurrentInput.StationInputs.Stations)
+                    if (input.StationId == actor.SourceControllerStation)
+                    {
+                        actor.SourceNewButtons |= (SourceDroneButtons)(int)input.Pressed;
+                        actor.SourceReleasedButtons |= (SourceDroneButtons)(int)input.Released;
+                        break;
+                    }
+            actor.SourceReleasedButtons |= actor.SourceOldButtons & ~actor.SourceButtons;
+            actor.Turbo = (actor.SourceButtons & SourceDroneButtons.C) != 0;
+            if (step.ResetNonAButtonTime) actor.SourceNonATicks = 0;
+            if (step.ForceNonTurboOneTick) actor.NonTurboTicks = 1;
+            if (step.WaveArm) actor.SourceWaveArm = true;
+            actor.SourceBackpedal = step.Backpedal;
+            actor.SourceBackpedalTarget = step.BackpedalTarget;
+            if (step.Facing >= 0) actor.TargetFacing = step.Facing;
+            foreach (SourceDefenderEffect effect in step.DefenderEffects)
+                Model.SourceDrones[effect.ActorId] = Model.SourceDrones[effect.ActorId].Apply(effect);
+        }
+
+        private void ConfigureSourceStations()
+        {
+            for (int id = 0; id < Model.Players.Length; id++)
+                Model.Players[id].SourceControllerStation = -1;
+            for (int i = 0; i < Model.SourceStationPlayers.Length; i++)
+            {
+                Model.SourceStationPlayers[i] = -1;
+                Model.SourceStationTurbo[i] = 100f;
+            }
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+            {
+                int chosen = station.InitialPlayerId;
+                if (chosen < 0)
+                {
+                    int offset = (int)station.Team * SliceRules.PlayersPerTeam;
+                    int count = 0, index = -1;
+                    foreach (SourceStationConfiguration teammate in sourceConfiguration.Stations)
+                    {
+                        if (teammate.Team != station.Team) continue;
+                        if (teammate.StationId == station.StationId) index = count;
+                        count++;
+                    }
+                    SourceFormationControl required = count == 1 || index == (int)Model.SourceCaptain
+                        ? SourceFormationControl.Captain : SourceFormationControl.SecondPlayer;
+                    for (int id = offset; id < offset + SliceRules.PlayersPerTeam; id++)
+                        if ((Model.SourceFormationSlots[id].Control & required) != 0) { chosen = id; break; }
+                    if (chosen < 0)
+                        throw new InvalidOperationException("Source formation has no " + required + " actor for station "
+                            + station.StationId + "; no nearest-player fallback is used.");
+                }
+                if (Model.Players[chosen].SourceControllerStation >= 0)
+                    throw new InvalidOperationException("Two source stations cannot own actor " + chosen + ".");
+                Model.SourceStationPlayers[station.StationId] = chosen;
+                Model.Players[chosen].SourceControllerStation = station.StationId;
+            }
+            Model.ControlledPlayerId = sourceConfiguration.Stations.Count == 0 ? -1
+                : Model.SourceStationPlayers[sourceConfiguration.Stations[0].StationId];
+        }
+
+        private void TransferSourceCatchControl(ActorState actor, bool offense, bool clearGroundedUninterruptible)
+        {
+            if (actor.SourceControllerStation >= 0 || !SourceContactDriver.IsHumanTeam(Model, actor.Team))
+                return;
+            int station = -1;
+            if (!clearGroundedUninterruptible || sourceConfiguration.StationLayout == SourceStationLayout.FourStation)
+            {
+                if (offense && Model.ThrowerId >= 0
+                    && (Model.BallKind == SourceBallKind.Lateral || Model.BallKind == SourceBallKind.Pass))
+                    station = Model.Players[Model.ThrowerId].SourceControllerStation;
+                if (station < 0)
+                {
+                    float farthest = 0f;
+                    foreach (ActorState teammate in Model.Players)
+                    {
+                        if (teammate.Team != actor.Team || teammate.SourceControllerStation < 0) continue;
+                        float distance = PlayerSimulation.DistanceSquared(actor.Position, teammate.Position);
+                        if (distance <= farthest) continue;
+                        farthest = distance;
+                        station = teammate.SourceControllerStation;
+                    }
+                }
+            }
+            else
+                foreach (SourceStationConfiguration configured in sourceConfiguration.Stations)
+                    if (configured.Team == actor.Team) { station = configured.StationId; break; }
+            if (station < 0)
+                throw new InvalidOperationException("Source catch could not resolve a human station for actor " + actor.Id + ".");
+            int old = Model.SourceStationPlayers[station];
+            if (old >= 0) Model.Players[old].SourceControllerStation = -1;
+            Model.SourceStationPlayers[station] = actor.Id;
+            actor.SourceControllerStation = station;
+            actor.Turbo01 = Model.SourceStationTurbo[station] / 100f;
+            actor.SourceButtons |= SourceDroneButtons.A | SourceDroneButtons.B;
+            if (sourceConfiguration.Stations.Count > 0 && sourceConfiguration.Stations[0].StationId == station)
+                Model.ControlledPlayerId = actor.Id;
+            if (clearGroundedUninterruptible && actor.Height == 0f)
+                actor.AnimationState.ClearUninterruptible();
+            EmitSource(SourceEventType.ControllerChanged, actor.Id, old, station: station);
+        }
+
+        private void SourceCarrierControl(ActorState actor)
+        {
+            if (Model.CarrierId != actor.Id || Model.Phase != GamePhase.LiveBall)
+                return;
+            int side = (int)actor.Team;
+            long held = Model.SourceTick - Model.CatchSourceTick;
+            if (side == Model.SourceLastPossession && Model.BallKind == SourceBallKind.Pass && held == 18
+                && !Model.SourceTeamFire[side]
+                && SourceMatchRules.FieldPosition(Model.SourceCatchX, (int)Model.Possession) >= Model.SourceRules.LineOfScrimmage)
+            {
+                if ((Model.SourceFlags & SourceGameFlags.AirCatch) != 0)
+                    actor.SourcePendingFireCheck = true;
+                else CheckSourceReceiverFire(actor);
+            }
+            if (side != Model.SourceLastPossession && held >= 18)
+                CreditSourcePossession(actor);
+            bool inbounds = SourceBallDriver.InBounds(SourcePlayerDriver.WorldPosition(actor));
+            int field = SourceMatchRules.FieldPosition(SourcePlayerDriver.WorldPosition(actor).X,
+                (int)Model.Possession);
+            if ((Model.SourceFlags & SourceGameFlags.AirCatch) != 0
+                && (Model.SourceFlags & SourceGameFlags.RecoveredInEndZone) == 0 && inbounds && field < 2)
+            {
+                Model.SourceFlags |= SourceGameFlags.RecoveredInEndZone;
+                Model.SourceFlags &= ~SourceGameFlags.LeftEndZone;
+            }
+            if ((Model.SourceFlags & SourceGameFlags.AirCatch) != 0 && inbounds && actor.Height == 0f)
+            {
+                Model.SourceFlags &= ~SourceGameFlags.AirCatch;
+                if (actor.SourcePendingFireCheck)
+                {
+                    actor.SourcePendingFireCheck = false;
+                    CheckSourceReceiverFire(actor);
+                }
+            }
+            if (inbounds && field > 2 && (Model.SourceFlags & SourceGameFlags.RecoveredInEndZone) != 0)
+                Model.SourceFlags |= SourceGameFlags.LeftEndZone;
+            ResolveSourceLocation();
+        }
+
+        private void CreditSourcePossession(ActorState actor)
+        {
+            if (Model.SourceLastPossession == (int)Model.Possession)
+                return;
+            bool intercepted = Model.BallKind == SourceBallKind.Pass || Model.BallKind == SourceBallKind.Bobble
+                || Model.BallKind == SourceBallKind.Lateral && (Model.SourceBallFlags & SourceBallFlags.Bounce) == 0;
+            if (intercepted)
+            {
+                Model.SourceInterceptions[(int)actor.Team]++;
+                EmitSource(SourceEventType.Intercepted, actor.Id, Model.ThrowerId);
+            }
+            else if (Model.BallKind == SourceBallKind.Fumble || Model.BallKind == SourceBallKind.Lateral)
+                Model.SourceLostFumbles[1 - (int)actor.Team]++;
+            Model.SourceLastPossession = (int)Model.Possession;
+            Model.SourceFlags |= SourceGameFlags.PossessionChange;
+            if (Model.BallKind != SourceBallKind.Kickoff)
+            {
+                Model.SourceTeamFire[1 - (int)Model.Possession] = false;
+                Model.SourceLastReceiver[1 - (int)Model.Possession] = -1;
+                Model.SourceConsecutiveCompletions[1 - (int)Model.Possession] = 0;
+            }
+            if (!Model.SourceTeamFire[(int)Model.Possession])
+            {
+                Model.SourceLastReceiver[(int)Model.Possession] = -1;
+                Model.SourceConsecutiveCompletions[(int)Model.Possession] = 0;
+            }
+            EmitSource(SourceEventType.PossessionChanged, actor.Id, Model.ThrowerId);
+        }
+
+        private void CheckSourceReceiverFire(ActorState actor)
+        {
+            int side = (int)actor.Team;
+            if (Model.SourceLastReceiver[side] == actor.Id)
+            {
+                Model.SourceConsecutiveCompletions[side]++;
+                if (Model.SourceConsecutiveCompletions[side] > 2)
+                    Model.SourceTeamFire[side] = true;
+            }
+            else
+            {
+                Model.SourceLastReceiver[side] = actor.Id;
+                Model.SourceConsecutiveCompletions[side] = 1;
+            }
+        }
+
+        private SourceVector3 SourceWorldJoint(ActorState actor, int joint)
+        {
+            if (sourceGeometry == null)
+                throw new InvalidOperationException("Source gameplay requires ISourceActorGeometry with the actual imported "
+                    + "fifteen reference pivots; actor=" + actor.Id + " sourceTick=" + Model.SourceTick
+                    + " joint=" + joint + ". No fabricated wrist or renderer readback is used.");
+            // Sample the rigid pose at the origin, then place it once using the
+            // canonical source root, without a source -> yards -> source roundtrip.
+            SourceVector3 relative = sourceGeometry.WorldJoint(GameSnapshot.SourcePlayerView(actor, Model.SourceTick, true), joint);
+            SourceVector3 root = SourcePlayerDriver.WorldPosition(actor);
+            return new SourceVector3(root.X + relative.X, root.Y + relative.Y, root.Z + relative.Z);
+        }
+
+        private void ReleaseSourceBall(int actorId)
+        {
+            if (Model.Players[actorId].SourcePendingLateral)
+                ReleaseSourceLateral(actorId);
+            else ReleaseSourcePass(actorId);
+        }
+
+        private void SourceAnimationSideEffect(int actorId, SourceAnimationSignal signal)
+        {
+            if ((signal & SourceAnimationSignal.ReleaseBall) != 0) ReleaseSourceBall(actorId);
+            if ((signal & SourceAnimationSignal.PlayerDown) != 0) SourcePlayerDown(actorId);
+            if ((signal & SourceAnimationSignal.PuntBall) != 0) ReleaseSourcePunt(actorId);
+            if ((signal & SourceAnimationSignal.DropBall) != 0)
+                SourceBallDriver.Drop(Model, Model.Players[actorId],
+                    SourceWorldJoint(Model.Players[actorId], Model.Players[actorId].Flipped ? 7 : 4),
+                    SourceDrawFor("player.c:drop_ball"));
+            if ((signal & SourceAnimationSignal.SpinBall) != 0)
+                SourceBallDriver.Spin(Model, SourceWorldJoint(Model.Players[actorId], 4));
+            if ((signal & (SourceAnimationSignal.SpikeBall | SourceAnimationSignal.FlingBall)) != 0)
+                SourceBallDriver.Spike(Model, Model.Players[actorId], SourceWorldJoint(Model.Players[actorId], 4),
+                    (signal & SourceAnimationSignal.FlingBall) != 0, SourceDrawFor("player.c:set_spike_ball_vels"));
+            if ((signal & SourceAnimationSignal.HikeBall) != 0)
+            {
+                ActorState actor = Model.Players[actorId];
+                int target = Model.OffenseOffset + 3;
+                Model.CarrierId = -1;
+                Model.BallMode = BallMode.InFlight;
+                Model.TargetPlayerId = target;
+                Model.BallKind = SourceBallKind.Lateral;
+                Model.SourceBallFlags |= SourceBallFlags.VelocityPitch;
+                Model.ThrowerId = Model.LastTouchPlayerId = actorId;
+                Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(actor).X;
+                bool fieldGoal = (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0;
+                float zOffset = fieldGoal ? (((actor.Flipped ? 1 : 0) ^ (int)Model.Possession) != 0 ? 4f : -4f) : 0f;
+                SourcePassDriver.Lateral(Model, Model.Players[target], SourceWorldJoint(actor, actor.Flipped ? 7 : 4),
+                    fieldGoal, 5.40f, zOffset);
+                Model.SourceBallFlags &= ~(SourceBallFlags.Bounce | SourceBallFlags.Bobble | SourceBallFlags.FirePass
+                    | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            }
+        }
+
+        private void BindSourceAnimation(ActorState actor)
+        {
+            actor.AnimationState.BindExecution(() => Model.SourcePresentationOrder++,
+                SynchronizeSourceAnimationActor, SourceAnimationPresentation,
+                signal =>
+                {
+                    SourceAnimationSideEffect(actor.Id, signal);
+                    SynchronizeSourceAnimationActor(actor);
+                });
+        }
+
+        private void SynchronizeSourceAnimationActor(ActorState actor)
+        {
+            actor.SourceIsCarrier = actor.SourceHasBall = Model.CarrierId == actor.Id;
+            actor.SourceInPlay = Model.Phase == GamePhase.LiveBall;
+            actor.SourcePlayOver = Model.Phase == GamePhase.DeadBall || Model.Phase == GamePhase.GameOver;
+        }
+
+        private void SourceAnimationPresentation(SourceAnimationLayerState layer, ActorState actor,
+            SourceAnimationInstruction instruction, int order)
+        {
+            string opcode = instruction.Op == SourceAnimationOp.CameraCue ? "ANI_SETCAMBOT"
+                : instruction.Op == SourceAnimationOp.ShakerCue ? "ANI_SHAKER" : "ANI_CODE";
+            var context = new SourcePresentationContext(layer.SourceTick, order, actor.Id, "plyrseq.c",
+                layer.ScriptSymbol, instruction.SourceLine, layer.InstanceId, opcode);
+            if (instruction.Op == SourceAnimationOp.CameraCue)
+            {
+                SourceRandomDraw draw = DrawSourceRandom(instruction.A,
+                    "lib/ani3d/ANIM.C:select_csi_ptr/plyrseq.c:" + instruction.SourceLine);
+                sourcePresentationCues.Add(new SourceCameraCue(context, SourcePresentationCueKind.CameraOpcode,
+                    new SourceCameraSelection(instruction.Text, draw.Value, instruction.A, draw.Raw, draw.Site.ToString()),
+                    Model.CarrierId));
+            }
+            else if (instruction.Op == SourceAnimationOp.ShakerCue)
+                sourcePresentationCues.Add(new SourceShakerCue(context, instruction.A, instruction.B, Model.CarrierId));
+            else
+            {
+                SourcePresentationCueKind kind = instruction.Text == "player_down"
+                    ? SourcePresentationCueKind.PlayerDownCallback
+                    : instruction.Text == "dust_cloud" ? SourcePresentationCueKind.DustCallback
+                    : SourcePresentationCueKind.SoundCallback;
+                sourcePresentationCues.Add(new SourceCallbackCue(context, kind, instruction.Text,
+                    instruction.A, instruction.B, instruction.C, Model.CarrierId));
+            }
+        }
+
+        private void RequestSourceLateral(int actorId)
+        {
+            if (actorId < 0 || Model.CarrierId != actorId || Model.Phase != GamePhase.LiveBall)
+                return;
+            ActorState actor = Model.Players[actorId];
+            if ((Model.SourceFlags & SourceGameFlags.PlayEnding) != 0
+                || actor.AnimationState.Primary.SequenceName == "M_LATERR"
+                || actor.AnimationState.Primary.SequenceName == "M_LATERL")
+                return;
+            int field = SourceMatchRules.FieldPosition(SourcePlayerDriver.WorldPosition(actor).X,
+                (int)Model.Possession);
+            foreach (ActorState teammate in Model.Players)
+            {
+                if (teammate.Id == actorId || teammate.Team != actor.Team
+                    || teammate.AnimationState.Primary.IsUninterruptible) continue;
+                SourceVector3 from = SourcePlayerDriver.WorldPosition(actor), to = SourcePlayerDriver.WorldPosition(teammate);
+                int targetField = SourceMatchRules.FieldPosition(to.X, (int)Model.Possession);
+                float x = to.X - from.X, z = to.Z - from.Z;
+                if (field < targetField || (float)Math.Sqrt(x * x + z * z) / SourceTiming.SourceUnitsPerYard > 10f) continue;
+                BeginSourceLateral(actor, teammate);
+                return;
+            }
+        }
+
+        private void BeginSourceLateral(ActorState actor, ActorState target)
+        {
+            actor.PendingThrowTarget = target.Id;
+            actor.SourcePendingLateral = true;
+            actor.Action = ActorAction.Throw;
+            float targetZ = target.Position.Z * SourceTiming.SourceUnitsPerYard + target.SourceVelocity.Z * 70f;
+            bool left = Model.Possession == TeamId.Away
+                ? actor.Position.Z * SourceTiming.SourceUnitsPerYard > targetZ
+                : actor.Position.Z * SourceTiming.SourceUnitsPerYard <= targetZ;
+            actor.AnimationState.FullBody(left ? "m_laterall_anim" : "m_lateralr_anim", actor, Model.SourceTick,
+                SourceDraw, AnimationSelectionEvidence.SourceVerified);
+        }
+
+        private void ReleaseSourceLateral(int actorId)
+        {
+            ActorState actor = Model.Players[actorId];
+            int target = actor.PendingThrowTarget;
+            if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != actorId || target < 0)
+                return;
+            Model.CarrierId = -1;
+            Model.TargetPlayerId = target;
+            Model.BallKind = SourceBallKind.Lateral;
+            Model.BallMode = BallMode.InFlight;
+            Model.SourceBallFlags &= ~SourceBallFlags.VelocityPitch;
+            Model.SourceBallPitchRate = 60;
+            Model.ThrowerId = Model.LastTouchPlayerId = actorId;
+            Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(actor).X;
+            SourcePassDriver.Lateral(Model, Model.Players[target], SourceWorldJoint(actor, actor.Flipped ? 7 : 4), false);
+            Model.SourceBallFlags &= ~(SourceBallFlags.Bounce | SourceBallFlags.Bobble | SourceBallFlags.FirePass
+                | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            actor.Role = ActorRole.Receiver;
+            actor.SourcePendingLateral = false;
+            EmitSource(SourceEventType.LateralReleased, actorId, target);
+        }
+
+        private void RequestSourceLooseBallAction(int actorId, bool dive)
+        {
+            if (actorId < 0 || Model.CarrierId >= 0)
+                return;
+            ActorState actor = Model.Players[actorId];
+            if (actor.AnimationState.Busy) return;
+            string script = null;
+            if ((Model.BallKind == SourceBallKind.Fumble || Model.BallKind == SourceBallKind.Bobble)
+                && (float)Math.Sqrt(PlayerSimulation.DistanceSquared(actor.Position, Model.BallPosition)) <= 8f)
+                script = Model.SourceBallPosition.Y < 20f || dive ? "c_dive_for_ball_anim"
+                    : SourceDrawFor("player.c:intercept_anim_tbl")(2) == 0 ? "c_jmpint_anim" : "c_jmpint2_anim";
+            else if (Model.BallKind == SourceBallKind.Pass && Model.TargetPlayerId == actorId)
+                script = "c_jmpint_anim";
+            else if (actor.Team != Model.Possession && Model.PassTicksTotal - Model.PassTicksElapsed > 10)
+                script = SourceDrawFor("player.c:intercept_anim_tbl")(2) == 0 ? "c_jmpint_anim" : "c_jmpint2_anim";
+            if (script == null) return;
+            actor.SourceBallTarget = Model.PassTarget;
+            actor.SourceBallLocation = new FieldVector(SourceMatchRules.AbsoluteYardsFromSourceWorld(Model.SourceBallOrigin.X),
+                Model.SourceBallOrigin.Z / SourceTiming.SourceUnitsPerYard);
+            actor.Action = dive ? ActorAction.Dive : actor.Team == Model.Possession ? ActorAction.Catch : ActorAction.Intercept;
+            actor.AnimationState.FullBody(script, actor, Model.SourceTick, SourceDraw, AnimationSelectionEvidence.SourceVerified);
+            actor.ModeChangedTick = Model.SourceTick;
+        }
+
+        private void SourceActorActions(ActorState actor, PlayerCommand command)
+        {
+            if (actor.SourceMode == SourceActorMode.Kicker && Model.Phase == GamePhase.LiveBall
+                && (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0
+                && (Model.SourceFlags & SourceGameFlags.BallKicked) == 0)
+            {
+                if (Model.CarrierId == -1 && Model.BallKind != SourceBallKind.Lateral)
+                {
+                    actor.SourceMode = SourceActorMode.Receiver;
+                    return;
+                }
+                if ((float)Math.Sqrt(PlayerSimulation.DistanceSquared(actor.Position, Model.BallPosition))
+                    * SourceTiming.SourceUnitsPerYard < 8f && Model.CarrierId >= 0)
+                {
+                    ActorState holder = Model.Players[Model.CarrierId];
+                    string sequence = holder.AnimationState.Primary.SequenceName;
+                    if (sequence != "M_KHHOLD" && sequence != "M_KHHUT")
+                    {
+                        actor.SourceMode = SourceActorMode.Receiver;
+                        return;
+                    }
+                    ReleaseSourceFieldGoal(actor, holder);
+                }
+            }
+            SourceAction action = SourceActionFor(command);
+            if (Model.Phase == GamePhase.PreSnap && actor.SourceMode == SourceActorMode.QuarterbackPreSnap
+                && !actor.AnimationState.Primary.IsUninterruptible && Model.PreSnapTicksRemaining
+                    < SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond)
+            {
+                bool snap = actor.SourceControllerStation >= 0
+                    ? action == SourceAction.Snap || action == SourceAction.Pass
+                        || (actor.SourceNewButtons & (SourceDroneButtons.A | SourceDroneButtons.B)) != 0
+                    : (actor.SourceNewButtons & (SourceDroneButtons.A | SourceDroneButtons.B)) != 0;
+                if (snap)
+                {
+                    SnapSource(false);
+                    return;
+                }
+            }
+            if (actor.SourceControllerStation < 0)
+            {
+                if (actor.SourceMode == SourceActorMode.Quarterback
+                    && (actor.SourceNewButtons & SourceDroneButtons.B) != 0)
+                    RequestSourcePass(actor.SourceDroneThrowTarget, (actor.SourceButtons & SourceDroneButtons.C) != 0);
+                return;
+            }
+
+            if (Model.Phase != GamePhase.LiveBall)
+                return;
+            if (action == SourceAction.None && command.StationInputs != null)
+            {
+                // Keep the source bitmask: A and B are separate mode branches.
+                if (actor.SourceMode == SourceActorMode.Quarterback)
+                {
+                    if ((actor.SourceNewButtons & SourceDroneButtons.B) != 0 && Model.CarrierId == actor.Id)
+                        RequestSourcePass(-1, actor.Turbo);
+                }
+                else
+                {
+                    if ((actor.SourceNewButtons & SourceDroneButtons.A) != 0 && Model.CarrierId < 0)
+                        RequestSourceLooseBallAction(actor.Id, (actor.SourceButtons & SourceDroneButtons.C) != 0);
+                    if ((actor.SourceNewButtons & SourceDroneButtons.B) != 0
+                        && (actor.SourceButtons & SourceDroneButtons.C) == 0 && Model.CarrierId == actor.Id)
+                        RequestSourceLateral(actor.Id);
+                }
+                return;
+            }
+            if (action == SourceAction.Pass && Model.CarrierId == actor.Id)
+                RequestSourcePass(command.Source.IsSpecified ? command.Source.TargetPlayerId : command.TargetPlayerId,
+                    command.Turbo && actor.Turbo01 > 0f);
+            else if (action == SourceAction.Lateral)
+                RequestSourceLateral(actor.Id);
+            else if (action == SourceAction.Catch || action == SourceAction.Jump || action == SourceAction.Hurdle
+                || action == SourceAction.Dive)
+                RequestSourceLooseBallAction(actor.Id, action == SourceAction.Dive);
+            else if ((action == SourceAction.Spin || action == SourceAction.Juke) && !actor.AnimationState.Busy)
+            {
+                if (action == SourceAction.Spin && Model.CarrierId == actor.Id)
+                    actor.SourceSpinCount = ++Model.SourceSpinCount[(int)actor.Team];
+                actor.Action = action == SourceAction.Spin ? ActorAction.Spin : ActorAction.Juke;
+                actor.AnimationState.FullBody(action == SourceAction.Spin ? "spin_anim" : "juke_c_anim", actor,
+                    Model.SourceTick, SourceDraw, AnimationSelectionEvidence.SourceVerified);
+                actor.ModeChangedTick = Model.SourceTick;
+            }
+        }
+
+        private void ReleaseSourcePunt(int actorId)
+        {
+            ActorState actor = Model.Players[actorId];
+            if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != actorId) return;
+            SourceVector3 ankle = SourceWorldJoint(actor, actor.Flipped ? 14 : 11);
+            Model.CarrierId = -1;
+            Model.BallMode = BallMode.InFlight;
+            Model.BallKind = SourceBallKind.Punt;
+            Model.ThrowerId = Model.LastTouchPlayerId = actorId;
+            Model.TargetPlayerId = -1;
+            Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(actor).X;
+            Model.SourceFlags |= SourceGameFlags.BallPunted;
+            Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.Bounce | SourceBallFlags.Bobble
+                | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            SourceBallDriver.Punt(Model, actor, ankle, SourceDrawFor("player.c:set_punt_ball_vels"));
+            actor.SourceMode = SourceActorMode.DefensiveBack;
+            EmitSource(SourceEventType.Punted, actorId);
+        }
+
+        private void ReleaseSourceFieldGoal(ActorState actor, ActorState holder)
+        {
+            actor.Action = ActorAction.Kick;
+            actor.AnimationState.FullBody("kickball_anim", actor, Model.SourceTick, SourceDraw,
+                AnimationSelectionEvidence.SourceVerified);
+            holder.AnimationState.FullBody("qbhut_unhold_ball_anim", holder, Model.SourceTick, SourceDraw,
+                AnimationSelectionEvidence.SourceVerified);
+            Model.CarrierId = -1;
+            Model.BallMode = BallMode.InFlight;
+            Model.BallKind = SourceBallKind.FieldGoal;
+            Model.ThrowerId = Model.LastTouchPlayerId = actor.Id;
+            Model.TargetPlayerId = -1;
+            Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(actor).X;
+            Model.SourceFlags |= SourceGameFlags.BallKicked;
+            Model.SourceBallPitchRate = 60;
+            Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.Bounce | SourceBallFlags.Bobble
+                | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
+            SourceBallDriver.FieldGoal(Model, actor, SourceDrawFor("player.c:set_field_goal_ball_vels"));
+            actor.SourceMode = SourceActorMode.Receiver;
+            EmitSource(SourceEventType.Kicked, actor.Id);
+        }
+
+        private void AddSourcePoints(int home, int away)
+        {
+            Model.HomeScore += home;
+            Model.AwayScore += away;
+            Model.SourceQuarterScores[Model.Quarter - 1, 0] += home;
+            Model.SourceQuarterScores[Model.Quarter - 1, 1] += away;
+        }
+
+        private void EmitSource(SourceEventType type, int actor = -1, int target = -1,
+            SourceMatchResult result = default(SourceMatchResult), int station = -1)
+        {
+            sourceStepEvents.Add(new SourceGameEvent(Model.Tick, Model.SourceTick, type,
+                actor >= 0 ? (TeamId?)Model.Players[actor].Team : Model.Possession,
+                actor, target, station, Model.BallPosition, result: result,
+                playKind: result.IsSpecified ? result.PlayKind : (SourcePlayKind)Model.SourceRules.PlayType));
         }
 
         private static bool OutsideSourceField(FieldVector position)
         {
             return Math.Abs(position.Z * SourceTiming.SourceUnitsPerYard) > 182.85f
                 || Math.Abs(SourceMatchRules.SourceWorldFromAbsoluteYards(position.X)) > 468f;
+        }
+
+        private bool OverSourceDefensiveEndZone(SourceVector3 position)
+        {
+            float directed = Model.OffenseDirection * position.X;
+            return directed >= 390f + SourceTiming.SourceUnitsPerYard && directed <= 468f
+                && Math.Abs(position.Z) <= 182.85f;
         }
 
         private static SourceBallType SourceBallTypeFor(SourceBallKind kind)

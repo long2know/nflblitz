@@ -6,11 +6,45 @@ namespace Blitz.Gameplay
 {
     public enum SimulationProfile { LegacyBaseline60Hz, OriginalRelease57Hz }
 
-    public sealed partial class GameSimulation : IGameSimulation
+    public interface ISourceCameraHeadingInput
+    {
+        int SourceCameraHeading { get; }
+        long SourceCameraHeadingSampleTick { get; }
+        void SetSourceCameraHeading(int heading, long sourceTick);
+    }
+
+    public interface ISourceWorldState
+    {
+        long SourceTick { get; }
+        SourceVector3 SourceBallWorldPosition { get; }
+        SourceVector3 SourceActorWorldPosition(int playerId);
+        SourceVector3 SourceActorPelvisPosition(int playerId);
+    }
+
+    public sealed partial class GameSimulation : ISourcePresentationSimulation, ISourceCameraHeadingInput, ISourceWorldState
     {
         private readonly List<GameEvent> stepEvents = new List<GameEvent>();
         private readonly ISourceAnimationLibrary sourceAnimations;
+        private readonly ISourceActorGeometry sourceGeometry;
+        private readonly SourceMatchConfiguration sourceConfiguration;
+        private readonly SourcePlaybook sourcePlaybook;
+        private readonly ISourceTeamRoster sourceRosters;
+        private readonly SourcePresentationSettings sourcePresentation;
+        private readonly Func<int, ISourceRandom> sourceRandomFactory;
+        private ISourceRandom sourceRandom;
+        private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
+        private readonly List<SourcePresentationCue> sourcePresentationCues = new List<SourcePresentationCue>();
         private readonly Queue<PlayerCommand> pendingSourceActions = new Queue<PlayerCommand>();
+        private readonly Queue<SourceInputFrame> pendingSourceStationInputs = new Queue<SourceInputFrame>();
+        private readonly SourceStationInput?[] sourceHeldStations = new SourceStationInput?[4];
+        private readonly Queue<SourceCommand>[] pendingSourceStationCommands = {
+            new Queue<SourceCommand>(), new Queue<SourceCommand>(),
+            new Queue<SourceCommand>(), new Queue<SourceCommand>()
+        };
+        private bool sourceStationInputSeen;
+        private int pendingSourceCameraHeading;
+        private long pendingSourceCameraSampleTick;
+        private bool executingSourceCamera;
         private uint randomState;
 
         public SimulationProfile Profile { get; }
@@ -19,13 +53,30 @@ namespace Blitz.Gameplay
             get
             {
                 return Profile == SimulationProfile.OriginalRelease57Hz
-                    ? "Original normal 57 Hz source animation/rules; provisional RNG, AI and contact coverage"
+                    ? "Original normal57 source VM/clock/rules/ball kernels; explicit RNG provenance; M1/C1/C2/I1/cinematic caller parity remains open"
                     : "Explicit approximate 60 Hz legacy baseline";
             }
         }
         internal SimulationState Model { get; private set; }
         public IGameState State { get; private set; }
         public IReadOnlyList<GameEvent> Events { get; private set; }
+        public IReadOnlyList<SourceGameEvent> SourceEvents { get; private set; }
+        public SourcePresentationCueBatch PresentationCues { get; private set; }
+        public ISourceRandom SourceRandomService { get { return sourceRandom; } }
+        public Func<IGameState, long, SourceInputFrame, SourceInputFrame> SourceStationInputTransform { get; set; }
+        public Func<IGameState, long, int> SourceCameraHeadingProvider { get; set; }
+        public int SourceCameraStageOrder { get; private set; } = -1;
+        public int SourceCameraHeading { get { return Model.SourceCameraHeading; } }
+        public long SourceCameraHeadingSampleTick { get { return Model.SourceCameraHeadingSampleTick; } }
+        public long SourceTick { get { return Model.SourceMode ? Model.SourceTick : Model.Tick; } }
+        public SourceVector3 SourceBallWorldPosition
+        {
+            get
+            {
+                if (!Model.SourceMode) throw new InvalidOperationException("Original world state requires the source profile.");
+                return Model.SourceBallPosition;
+            }
+        }
 
         public GameSimulation(int seed = 1)
         {
@@ -34,8 +85,35 @@ namespace Blitz.Gameplay
         }
 
         public GameSimulation(ISourceAnimationLibrary animations, int seed = 1)
+            : this(animations, null, null, null, seed)
+        {
+        }
+
+        public GameSimulation(ISourceAnimationLibrary animations, ISourceActorGeometry geometry, int seed = 1)
+            : this(animations, geometry, null, null, seed)
+        {
+        }
+
+        public GameSimulation(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
+            SourceMatchConfiguration configuration, Func<int, ISourceRandom> randomFactory, int seed = 1)
+            : this(animations, geometry, null, configuration, randomFactory, seed)
+        {
+        }
+
+        public GameSimulation(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
+            SourcePlaybook playbook, SourceMatchConfiguration configuration = null,
+            Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
+            SourcePresentationSettings presentation = null)
         {
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
+            sourceGeometry = geometry;
+            sourcePlaybook = playbook;
+            sourceRosters = rosters;
+            sourcePresentation = presentation;
+            sourceConfiguration = configuration ?? DefaultSourceConfiguration();
+            if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
+                throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
+            sourceRandomFactory = randomFactory;
             Profile = SimulationProfile.OriginalRelease57Hz;
             Restart(seed);
         }
@@ -44,10 +122,25 @@ namespace Blitz.Gameplay
         {
             randomState = unchecked((uint)seed) ^ 0x9E3779B9u;
             Model = new SimulationState();
+            pendingSourceCameraHeading = 0;
+            pendingSourceCameraSampleTick = 0;
             stepEvents.Clear();
-            pendingSourceActions.Clear();
+            sourceStepEvents.Clear();
+            sourcePresentationCues.Clear();
+            SourceCameraStageOrder = -1;
+            ClearPendingInput();
             if (Profile == SimulationProfile.OriginalRelease57Hz)
+            {
+                sourceRandom = sourceRandomFactory == null
+                    ? new SourceInjectedRandom(site => NextInt(16777216),
+                        new SourceRandomProvenance("OriginalRelease57Hz/preview",
+                            "Explicit legacy LCG preview provider; NOT the historical platform random()/rand() body",
+                            "GameSimulation.Restart(" + seed + ")", SourceRandomEvidence.ExternalUnverified))
+                    : sourceRandomFactory(seed);
+                if (sourceRandom == null)
+                    throw new InvalidOperationException("The source RNG factory returned no service.");
                 InitializeSource();
+            }
             else
             {
                 PlayerSimulation.LineUp(Model);
@@ -59,11 +152,17 @@ namespace Blitz.Gameplay
         public void Step(PlayerCommand command)
         {
             stepEvents.Clear();
+            sourceStepEvents.Clear();
+            sourcePresentationCues.Clear();
+            SourceCameraStageOrder = -1;
             Model.Tick++;
             if (Profile == SimulationProfile.OriginalRelease57Hz)
             {
-                if (command.Action != InputAction.None)
-                    pendingSourceActions.Enqueue(command);
+                if (command.Action != InputAction.None || HasSourceCommandEdge(command.Source))
+                    pendingSourceActions.Enqueue(new PlayerCommand(action: command.Action, play: command.Play,
+                        targetPlayerId: command.TargetPlayerId, source: command.Source));
+                if (command.StationInputs != null)
+                    CaptureSourceStationInputs(command.StationInputs);
                 Model.SourceClockRemainder += SourceTiming.DefaultTicksPerSecond;
                 if (Model.SourceClockRemainder >= SliceRules.TicksPerSecond)
                 {
@@ -72,8 +171,10 @@ namespace Blitz.Gameplay
                     PlayerCommand edge = pendingSourceActions.Count == 0 ? default(PlayerCommand)
                         : pendingSourceActions.Dequeue();
                     SourceStep(new PlayerCommand(PlayerSimulation.NormalizeInput(command.Move), command.Turbo,
-                        edge.Action, edge.Play, edge.TargetPlayerId));
+                        edge.Action, edge.Play, edge.TargetPlayerId, edge.Source,
+                        DrainSourceStationInputs()));
                 }
+
                 Publish();
                 return;
             }
@@ -98,6 +199,113 @@ namespace Blitz.Gameplay
                     break;
             }
             Publish();
+        }
+
+        public void ClearPendingInput()
+        {
+            pendingSourceActions.Clear();
+            pendingSourceStationInputs.Clear();
+            Array.Clear(sourceHeldStations, 0, sourceHeldStations.Length);
+            foreach (Queue<SourceCommand> commands in pendingSourceStationCommands) commands.Clear();
+            sourceStationInputSeen = false;
+            if (Model != null)
+            {
+                Model.SourceCurrentInput = default(PlayerCommand);
+                foreach (ActorState actor in Model.Players)
+                    if (actor.SourceControllerStation >= 0)
+                    {
+                        actor.SourceButtons = actor.SourceOldButtons = actor.SourceNewButtons = SourceDroneButtons.None;
+                        actor.SourceReleasedButtons = SourceDroneButtons.None;
+                        Array.Clear(actor.SourceButtonHistory, 0, actor.SourceButtonHistory.Length);
+                        actor.NonTurboTicks = actor.SourceNonATicks = actor.SourceNonBTicks = 0;
+                    }
+            }
+
+        }
+
+        public void SetSourceCameraHeading(int heading, long sourceTick)
+        {
+            if (Profile != SimulationProfile.OriginalRelease57Hz)
+                throw new InvalidOperationException("Source camera input belongs only to the explicit source profile.");
+            if (heading < 0 || heading > 1023) throw new ArgumentOutOfRangeException(nameof(heading));
+            if (sourceTick < 0 || sourceTick > Model.SourceTick) throw new ArgumentOutOfRangeException(nameof(sourceTick));
+            pendingSourceCameraHeading = heading;
+            pendingSourceCameraSampleTick = sourceTick;
+        }
+
+        public int DrawSourceCameraRandom(int maximum, string sourceIdentity)
+        {
+            if (!executingSourceCamera)
+                throw new InvalidOperationException("Camera RNG belongs inside the executing source camera-stage callback.");
+            return SourceDraw(maximum, sourceIdentity);
+        }
+
+        public SourceVector3 SourceActorWorldPosition(int playerId)
+        {
+            if (!Model.SourceMode) throw new InvalidOperationException("Original world state requires the source profile.");
+            if (playerId < 0 || playerId >= Model.Players.Length) throw new ArgumentOutOfRangeException(nameof(playerId));
+            return SourcePlayerDriver.WorldPosition(Model.Players[playerId]);
+        }
+
+        public SourceVector3 SourceActorPelvisPosition(int playerId)
+        {
+            SourceVector3 root = SourceActorWorldPosition(playerId);
+            return new SourceVector3(root.X, root.Y + Model.Players[playerId].SourceRoot.Y, root.Z);
+        }
+
+        private void CaptureSourceStationInputs(SourceInputFrame frame)
+        {
+            var captured = new SourceStationInput[frame.Stations.Count];
+            for (int i = 0; i < captured.Length; i++)
+            {
+                SourceStationInput input = frame.Stations[i];
+                bool configured = false;
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (station.StationId == input.StationId) { configured = true; break; }
+                if (!configured)
+                    throw new InvalidOperationException("Source input names unconfigured station " + input.StationId + ".");
+                SourceButtons previous = sourceHeldStations[input.StationId].HasValue
+                    ? sourceHeldStations[input.StationId].Value.Held : SourceButtons.None;
+                captured[i] = new SourceStationInput(input.StationId, input.StickX, input.StickZ, input.Held,
+                    input.Pressed | input.Held & ~previous, input.Released | previous & ~input.Held, input.Command);
+                sourceHeldStations[input.StationId] = new SourceStationInput(input.StationId,
+                    input.StickX, input.StickZ, input.Held);
+            }
+            sourceStationInputSeen = true;
+            pendingSourceStationInputs.Enqueue(new SourceInputFrame(captured));
+        }
+
+        private static bool HasSourceCommandEdge(SourceCommand command)
+        {
+            return command.IsSpecified && (command.Action != SourceAction.None || command.OffenseFlipped.HasValue);
+        }
+
+        private SourceInputFrame DrainSourceStationInputs()
+        {
+            if (!sourceStationInputSeen && SourceStationInputTransform == null) return null;
+            var pressed = new SourceButtons[4];
+            var released = new SourceButtons[4];
+            while (pendingSourceStationInputs.Count > 0)
+            {
+                foreach (SourceStationInput input in pendingSourceStationInputs.Dequeue().Stations)
+                {
+                    pressed[input.StationId] |= input.Pressed;
+                    released[input.StationId] |= input.Released;
+                    if (HasSourceCommandEdge(input.Command))
+                        pendingSourceStationCommands[input.StationId].Enqueue(input.Command);
+                }
+            }
+            var inputs = new SourceStationInput[sourceConfiguration.Stations.Count];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                int station = sourceConfiguration.Stations[i].StationId;
+                SourceStationInput held = sourceHeldStations[station] ?? new SourceStationInput(station);
+                SourceCommand command = pendingSourceStationCommands[station].Count == 0
+                    ? default(SourceCommand) : pendingSourceStationCommands[station].Dequeue();
+                inputs[i] = new SourceStationInput(station, held.StickX, held.StickZ, held.Held,
+                    pressed[station], released[station], command);
+            }
+            return new SourceInputFrame(inputs);
         }
 
         private void SelectPlay(PlayId play)
@@ -418,6 +626,8 @@ namespace Blitz.Gameplay
         {
             State = new GameSnapshot(Model);
             Events = Array.AsReadOnly(stepEvents.ToArray());
+            SourceEvents = Array.AsReadOnly(sourceStepEvents.ToArray());
+            PresentationCues = new SourcePresentationCueBatch(sourcePresentationCues);
         }
     }
 }

@@ -1,0 +1,7 @@
+.artifacts/
+bin/
+obj/
+__pycache__/
+!InterfaceModel.csproj
+!InterfaceChecks.csproj
+!UnityAPICompile.csproj

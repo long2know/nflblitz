@@ -47,7 +47,7 @@ namespace Blitz.Gameplay
             dot = Math.Min(1d, dot);
             double from = 1d - t;
             double to = t;
-            if (dot < 0.9995d)
+            if (1d - dot > 0.00001d)
             {
                 double angle = Math.Acos(dot);
                 double denominator = Math.Sin(angle);
@@ -116,10 +116,17 @@ namespace Blitz.Gameplay
         private int? pendingSourceFrameCount;
         private long lastAdvanceTick = -1;
         private SourceAnimationSignal signals;
+        internal Action<SourceAnimationSignal> ImmediateSignal;
+        internal Func<string, ActorState, Func<int, int>, string> DynamicScript;
+        internal Func<int, int> CStandardRandom;
+        internal Func<int> NextExecutionOrder;
+        internal Action<ActorState> BeforeInstruction;
+        internal Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> Presentation;
 
         internal int FrameOrdinal { get; private set; } = -1;
         internal uint Mode { get; private set; }
         internal long InstanceId { get; private set; }
+        internal long SourceTick { get { return lastAdvanceTick; } }
         internal int VariableFrame = -1;
         internal int VariableCount = 4;
         internal string SequenceName { get { return clip == null ? null : clip.SequenceName; } }
@@ -241,6 +248,9 @@ namespace Blitz.Gameplay
             Mode &= 0xffff0000u;
         }
 
+        internal void AddMode(uint mode) { Mode |= mode; }
+        internal void RemoveMode(uint mode) { Mode &= ~mode; }
+
         private float Fraction()
         {
             return (Mode & SourceAnimationModes.Streaming) == 0 ? 0f
@@ -254,6 +264,9 @@ namespace Blitz.Gameplay
 
         private void Execute(SourceAnimationInstruction i, ActorState actor, Func<int, int> random)
         {
+            if (BeforeInstruction != null) BeforeInstruction(actor);
+            int order = NextExecutionOrder == null ? 0 : NextExecutionOrder();
+            if (i.SourceLine > 0 && Presentation != null) Presentation(this, actor, i, order);
             switch (i.Op)
             {
                 case SourceAnimationOp.SetMode:
@@ -329,26 +342,35 @@ namespace Blitz.Gameplay
                         actor.Action = ActorAction.GetUp;
                     break;
                 case SourceAnimationOp.BranchIfHasBall:
-                    if (actor.SourceHasBall)
+                    if (HasBall(actor, random))
                     {
                         program = RequireProgram(i.Text);
                         pc = 0;
                         InstanceId = ++actor.AnimationSerial;
                     }
                     break;
+                case SourceAnimationOp.BranchIfNotHasBall:
+                    if (!HasBall(actor, random)) pc = i.A;
+                    break;
+                case SourceAnimationOp.CameraCue:
+                case SourceAnimationOp.ShakerCue:
+                    break;
+                case SourceAnimationOp.PresentationCallback:
+                    if (i.Text == "grnd_hit_snd") signals |= SourceAnimationSignal.GroundContact;
+                    break;
                 case SourceAnimationOp.ZeroVelocity:
                     actor.SourceVelocity = default(FieldVector);
                     actor.SourceVerticalVelocity = 0f;
                     break;
                 case SourceAnimationOp.SetVelocity:
-                    actor.SourceVelocity = Rotate(i.X, i.Z, actor.Facing);
+                    actor.SourceVelocity = Rotate(i.X, i.Z, actor.Facing, actor.SourceDirections);
                     actor.SourceVerticalVelocity = i.Y;
                     break;
                 case SourceAnimationOp.SetYVelocity:
                     actor.SourceVerticalVelocity = i.X;
                     break;
                 case SourceAnimationOp.FacingVelocity:
-                    actor.SourceVelocity = Rotate(0f, i.X, actor.Facing);
+                    actor.SourceVelocity = Rotate(0f, i.X, actor.Facing, actor.SourceDirections);
                     break;
                 case SourceAnimationOp.Friction:
                     actor.SourceFriction = i.X;
@@ -363,9 +385,73 @@ namespace Blitz.Gameplay
                     Mode |= SourceAnimationModes.PrepareTransition;
                     break;
                 case SourceAnimationOp.Callback:
-                    signals |= (SourceAnimationSignal)i.A;
-                    if (((SourceAnimationSignal)i.A & SourceAnimationSignal.PlayerDown) != 0)
+                    SourceAnimationSignal signal = (SourceAnimationSignal)i.A;
+                    if ((signal & SourceAnimationSignal.PlayerDown) != 0)
                         actor.Down = true;
+                    SourceAnimationSignal immediate = signal & (SourceAnimationSignal.ReleaseBall
+                        | SourceAnimationSignal.PlayerDown | SourceAnimationSignal.HikeBall
+                        | SourceAnimationSignal.PuntBall | SourceAnimationSignal.KickBall
+                        | SourceAnimationSignal.DropBall | SourceAnimationSignal.SpinBall
+                        | SourceAnimationSignal.SpikeBall | SourceAnimationSignal.FlingBall);
+                    if (ImmediateSignal != null && immediate != SourceAnimationSignal.None)
+                        ImmediateSignal(immediate);
+                    signals |= ImmediateSignal == null ? signal : signal & ~immediate;
+                    break;
+                case SourceAnimationOp.SetFlip:
+                    if (i.A >= 0) actor.Flipped = i.A != 0;
+                    break;
+                case SourceAnimationOp.SetLateHittable:
+                    actor.SourceLateHittable = i.A != 0;
+                    break;
+                case SourceAnimationOp.RotateTorso:
+                    actor.UpperFacing = actor.TargetUpperFacing = actor.Facing;
+                    break;
+                case SourceAnimationOp.FaceBall:
+                    int face = SourcePlayerDriver.Heading(PlayerSimulation.Subtract(actor.SourceBallTarget, actor.Position));
+                    if (((1024 + actor.Facing - face) % 1024) <= i.A)
+                        actor.TargetFacing = face;
+                    break;
+                case SourceAnimationOp.RotateToBall:
+                    actor.TargetFacing = SourcePlayerDriver.Heading(
+                        PlayerSimulation.Subtract(actor.SourceBallLocation, actor.Position));
+                    break;
+                case SourceAnimationOp.LeapTarget:
+                    FieldVector delta = PlayerSimulation.Scale(
+                        PlayerSimulation.Subtract(actor.SourceBallTarget, actor.Position), SourceTiming.SourceUnitsPerYard);
+                    float distance = (float)Math.Sqrt(delta.X * delta.X + delta.Z * delta.Z);
+                    float velocity = distance / 25f;
+                    if (velocity <= 1.5f * i.X)
+                    {
+                        velocity = Math.Max(i.Y, Math.Min(i.X, velocity));
+                        if (distance == 0f)
+                            throw Failure("ANI_LEAPAT_TGTX has the original zero-distance division singularity");
+                        actor.SourceVelocity = new FieldVector(delta.X / distance * velocity, delta.Z / distance * velocity);
+                    }
+                    break;
+                case SourceAnimationOp.SetLowerUninterruptible:
+                    actor.AnimationState.Primary.AddMode(SourceAnimationModes.Uninterruptible);
+                    break;
+                case SourceAnimationOp.SelectScript:
+                    if (DynamicScript == null)
+                        throw Failure("source random script selector is required: " + i.Text);
+                    Change(DynamicScript(i.Text, actor, random), actor, lastAdvanceTick, random);
+                    break;
+                case SourceAnimationOp.RandomBranch:
+                    if (i.Y != 0f && CStandardRandom == null)
+                        throw Failure("explicit source C rand() service is required");
+                    int draw = i.Y == 0f ? random(i.B) : CStandardRandom(i.B);
+                    if ((draw < i.X) != (i.Z != 0f)) pc = i.A;
+                    break;
+                case SourceAnimationOp.JumpProgram:
+                    program = RequireProgram(i.Text);
+                    pc = i.A;
+                    break;
+                case SourceAnimationOp.BranchSlowerSpin:
+                    if (actor.SourceSpinCount > 2)
+                    {
+                        program = RequireProgram(i.Text);
+                        pc = 0;
+                    }
                     break;
                 case SourceAnimationOp.WaitCondition:
                     if (!(i.A == 1 ? actor.SourceBallKicked : actor.SourceInPlay))
@@ -380,6 +466,13 @@ namespace Blitz.Gameplay
                 default:
                     throw Failure("unimplemented opcode " + i.Op);
             }
+        }
+
+        private static bool HasBall(ActorState actor, Func<int, int> random)
+        {
+            // player.c plyr_have_ball: not merely the carrier-ID comparison.
+            return !actor.SourceInPlay
+                && (actor.SourceHelmetPopped || actor.SourceIsCarrier && random(100) < 90);
         }
 
         private void BeginInterpolation(ActorState actor, SourceAnimationInstruction i)
@@ -510,15 +603,14 @@ namespace Blitz.Gameplay
                 Mode &= ~SourceAnimationModes.AnchorXZ;
             else
             {
-                FieldVector drift = Rotate(scaled.X - actor.SourceRoot.X, scaled.Z - actor.SourceRoot.Z, actor.Facing);
-                actor.Position = PlayerSimulation.Add(actor.Position,
-                    PlayerSimulation.Scale(drift, 1f / SourceTiming.SourceUnitsPerYard));
+                FieldVector drift = Rotate(scaled.X - actor.SourceRoot.X, scaled.Z - actor.SourceRoot.Z, actor.Facing,
+                    actor.SourceDirections);
+                SourcePlayerDriver.MoveSource(actor, drift);
             }
             if ((Mode & SourceAnimationModes.AnchorY) != 0)
             {
                 Mode &= ~SourceAnimationModes.AnchorY;
-                actor.Height = Math.Max(0f, actor.Height
-                    + (actor.SourceRoot.Y - anchorY * actor.ModelScale) / SourceTiming.SourceUnitsPerYard);
+                SourcePlayerDriver.MoveSourceY(actor, actor.SourceRoot.Y - anchorY * actor.ModelScale);
             }
             actor.SourceRoot = scaled;
         }
@@ -604,9 +696,10 @@ namespace Blitz.Gameplay
                 + " ordinal=" + FrameOrdinal + ": " + message;
         }
 
-        internal static FieldVector Rotate(float x, float z, int heading)
+        internal static FieldVector Rotate(float x, float z, int heading, SourceDirectionMath directions = null)
         {
-            FieldVector facing = SourcePoseMath.Facing(heading);
+            FieldVector facing = directions == null ? SourcePoseMath.Facing(heading)
+                : new FieldVector(directions.Sin(heading), directions.Cos(heading));
             return new FieldVector(z * facing.X + x * facing.Z, z * facing.Z - x * facing.X);
         }
 
@@ -614,7 +707,7 @@ namespace Blitz.Gameplay
         {
             const float a = -0.04f;
             float b = actor.SourceVerticalVelocity;
-            float c = actor.Height * SourceTiming.SourceUnitsPerYard;
+            float c = SourcePlayerDriver.WorldPosition(actor).Y;
             float discriminant = b * b - 4f * a * c;
             float squareRoot = (float)Math.Sqrt(Math.Max(0f, discriminant));
             float first = (-b + squareRoot) / (2f * a);
@@ -637,6 +730,26 @@ namespace Blitz.Gameplay
         {
             Primary = new SourceAnimationLayerState(library, actorId, false);
             Secondary = new SourceAnimationLayerState(library, actorId, true);
+        }
+
+        internal void SetScriptSelector(Func<string, ActorState, Func<int, int>, string> selector)
+        {
+            Primary.DynamicScript = Secondary.DynamicScript = selector;
+        }
+
+        internal void SetStandardRandom(Func<int, int> random)
+        {
+            Primary.CStandardRandom = Secondary.CStandardRandom = random;
+        }
+
+        internal void BindExecution(Func<int> nextOrder, Action<ActorState> beforeInstruction,
+            Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> presentation,
+            Action<SourceAnimationSignal> immediateSignal)
+        {
+            Primary.NextExecutionOrder = Secondary.NextExecutionOrder = nextOrder;
+            Primary.BeforeInstruction = Secondary.BeforeInstruction = beforeInstruction;
+            Primary.Presentation = Secondary.Presentation = presentation;
+            Primary.ImmediateSignal = Secondary.ImmediateSignal = immediateSignal;
         }
 
         internal bool Busy
@@ -698,6 +811,27 @@ namespace Blitz.Gameplay
             if (TwoPart)
                 Secondary.Advance(actor, tick, random);
             return Primary.ConsumeSignals() | Secondary.ConsumeSignals();
+        }
+
+        internal SourceAnimationSignal Advance(ActorState actor, long tick, Func<int, int> random,
+            Action<SourceAnimationSignal> immediateSignal)
+        {
+            Action<SourceAnimationSignal> oldPrimary = Primary.ImmediateSignal;
+            Action<SourceAnimationSignal> oldSecondary = Secondary.ImmediateSignal;
+            Primary.ImmediateSignal = Secondary.ImmediateSignal = immediateSignal;
+            try { return Advance(actor, tick, random); }
+            finally { Primary.ImmediateSignal = oldPrimary; Secondary.ImmediateSignal = oldSecondary; }
+        }
+
+        internal void ClearUninterruptible()
+        {
+            Primary.RemoveMode(SourceAnimationModes.Uninterruptible);
+            Secondary.RemoveMode(SourceAnimationModes.Uninterruptible);
+        }
+
+        internal void LowerBody(string script, ActorState actor, long tick, Func<int, int> random)
+        {
+            Primary.Change(script, actor, tick, random);
         }
 
         internal ActorAnimationView View(ActorState actor, long tick)

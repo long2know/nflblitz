@@ -20,6 +20,14 @@ namespace Blitz.Presentation
         [SerializeField] private int poseSourceFrame;
         [SerializeField] private string poseSha256;
         [SerializeField] private TextAsset poseSource;
+        private MeshFilter numberFilter;
+        private MeshRenderer numberRenderer;
+        private SourceTeamPresentationAsset teamAssets;
+        private int appliedModel = -1;
+        private int appliedHead = -1;
+        private string appliedUniform;
+        private SourceSkinSelector appliedSkin;
+        private string appliedPlayer;
 
         public string StableId { get { return stableId; } }
         public string Stage { get { return stage; } }
@@ -30,6 +38,44 @@ namespace Blitz.Presentation
         public string PoseSha256 { get { return poseSha256; } }
         public TextAsset PoseSource { get { return poseSource; } }
         public bool HasContinuousPose { get; private set; }
+        public SourceTeamAppearance TeamAppearance { get; private set; }
+        public string UniformIdentity { get { return TeamAppearance == null ? null : TeamAppearance.UniformIdentity; } }
+
+        public void ApplyTeamAppearance(SourceTeamPresentationAsset assets, SourceTeamAppearance appearance)
+        {
+            if (assets == null || appearance == null)
+                throw new ArgumentNullException(assets == null ? nameof(assets) : nameof(appearance));
+            if (JointCount != SourceTiming.JointCount)
+                throw new InvalidOperationException("Original team rendering requires the actual fifteen-joint player rig.");
+            int head = appearance.CustomHead == null ? -1 : appearance.CustomHead.Index;
+            if (teamAssets == assets && appliedModel == appearance.Model.Index && appliedHead == head &&
+                appliedUniform == appearance.UniformIdentity && appliedSkin == appearance.Uniform.Skin &&
+                appliedPlayer == appearance.SourcePlayerId)
+            {
+                TeamAppearance = appearance;
+                return;
+            }
+            for (int i = 0; i < JointCount; i++)
+            {
+                SourceTeamLimbAsset limb = assets.Limb(appearance, i);
+                joints[i].GetComponent<MeshFilter>().sharedMesh = limb.Mesh;
+                joints[i].GetComponent<MeshRenderer>().sharedMaterials = assets.Materials(appearance, limb);
+            }
+            if (numberFilter == null)
+            {
+                Transform numbers = new GameObject("Original BCD jersey numbers / source torso matrix 1").transform;
+                numbers.SetParent(joints[1], false);
+                numberFilter = numbers.gameObject.AddComponent<MeshFilter>();
+                numberRenderer = numbers.gameObject.AddComponent<MeshRenderer>();
+                numberRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                numberRenderer.receiveShadows = false;
+            }
+            numberFilter.sharedMesh = assets.NumberMesh(appearance);
+            numberRenderer.sharedMaterial = assets.NumberMaterial(appearance);
+            teamAssets = assets; appliedModel = appearance.Model.Index; appliedHead = head;
+            appliedUniform = appearance.UniformIdentity; appliedSkin = appearance.Uniform.Skin;
+            appliedPlayer = appearance.SourcePlayerId; TeamAppearance = appearance;
+        }
 
         // Called by the explicit editor importer; no external source files are read in a player/WebGL build.
         public void InitializeBindPose(string id, Transform[] orderedJoints, int[] parents, int[] flags)

@@ -13,6 +13,12 @@ namespace Blitz.Runtime
         private FieldScene field;
         private PlayCamera playCamera;
         private PlayHud hud;
+        private SourceInterfaceServices sourceServices;
+        private SourceCabinetUnityInput sourceInput;
+        private Blitz.Gameplay.GameSimulation simulation;
+        private Func<IGameState, long, int> sourceCameraProducer;
+        private long lastSourceCameraTick = -1;
+        private int lastSourceCameraHeading;
         private bool focused = true;
         private bool paused;
         private bool waitingForRelease;
@@ -24,8 +30,18 @@ namespace Blitz.Runtime
 #endif
 
         public IGameState State { get { return bridge == null ? null : bridge.State; } }
-        public bool InputSuspended { get { return !focused || paused; } }
+        public bool InputSuspended { get { return !focused || paused || !isActiveAndEnabled; } }
         public Camera GameCamera { get { return playCamera == null ? null : playCamera.Camera; } }
+        public bool IsSourceProfile { get { return sourceServices != null; } }
+        public string SourceFailure { get { return sourceFailure; } }
+        public SourceHudAsset SourceHudAsset { get { return sourceServices == null ? null : sourceServices.Hud; } }
+        public SourceCabinetPlaySelection SourceSelection { get; private set; }
+        public Blitz.Gameplay.GameSimulation SourceSimulation { get { return IsSourceProfile ? simulation : null; } }
+        public SourceCinematicPlayback SourcePlayback { get { return IsSourceProfile && playCamera != null ? playCamera.SourcePlayback : null; } }
+        public event Action<SourceGameEvent> SourceEventRaised;
+        public event Action<SourcePresentationCue> SourcePresentationCueRaised;
+        public event Action<IGameState> BeforeHostStep;
+        public event Action<IGameState> AfterHostStep;
 
         private void Awake()
         {
@@ -38,27 +54,88 @@ namespace Blitz.Runtime
             try
             {
                 SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode();
-                ISourceAnimationLibrary animations = SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab);
-                var simulation = animations == null ? new Blitz.Gameplay.GameSimulation(1) :
-                    new Blitz.Gameplay.GameSimulation(animations, 1);
-                bridge = new FixedStepBridge(simulation, animations == null ? null : FixedStepBridge.BindSourceInputReset(simulation));
+                ISourceAnimationLibrary animations = null;
+                if (prefab == null)
+                {
+                    if (!ExplicitGraybox(Application.absoluteURL))
+                        throw new SourceInterfaceException("Original source player assets are missing. Only explicit ?actors=graybox selects LegacyBaseline60Hz; no implicit generic source-mode substitute was created.");
+                    simulation = new Blitz.Gameplay.GameSimulation(1);
+                }
+                else
+                {
+                    sourceServices = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKey);
+                    if (sourceServices == null)
+                        throw new SourceInterfaceException("Missing actual source match/HUD services at Resources/" +
+                            SourceInterfaceServices.ResourceKey + ". Import the new pinned117/playbook/HUD resources; no legacy/font fallback is permitted.");
+                    animations = sourceServices.Animations;
+                    simulation = sourceServices.CreateSimulation(prefab);
+                    SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
+                    simulation.SourceStationInputTransform = SourceSelection.ApplyAtSourceTick;
+                    sourceInput = new SourceCabinetUnityInput(((ISourceMatchState)simulation.State).Match.Configuration,
+                        sourceServices.Hud.Data.Input, sourceServices.NativeGamepadsEnabled);
+                }
+                bridge = new FixedStepBridge(simulation);
                 field = new FieldScene(transform, prefab, animations);
+                if (IsSourceProfile)
+                {
+                    SourcePresentationSettings settings = SourceInterfacePresentation.Settings(State);
+                    field.BindSourceTeamDrawState((int)settings.DesignatedHomeSide,
+                        actor => SourceInterfacePresentation.DrawState(actor, State));
+                }
                 playCamera = new PlayCamera(transform);
+                if (IsSourceProfile)
+                {
+                    playCamera.ConfigureSourceStage(State, () => simulation.SourceCameraStageOrder,
+                        simulation.DrawSourceCameraRandom, simulation.SourceActorWorldPosition);
+                    RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
+                    simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
+                    SourcePresentationCueRaised += playCamera.ConsumeSourceCue;
+                    AfterHostStep += playCamera.ObserveSourceHostStep;
+                }
                 hud = gameObject.AddComponent<PlayHud>();
                 hud.Initialize(this);
                 bridge.EventRaised += OnGameEvent;
+                bridge.SourceEventRaised += OnSourceGameEvent;
+                bridge.SourcePresentationCueRaised += OnSourcePresentationCue;
+                bridge.BeforeHostStep += OnBeforeHostStep;
+                bridge.AfterHostStep += OnAfterHostStep;
+                if (IsSourceProfile)
+                {
+                    hud.OnSourceHostStep(bridge.State);
+                    ForwardInitialSourcePresentationCues();
+                }
                 field.Render(bridge.State, bridge.State, 1f, 0f);
                 playCamera.Render(bridge.State, true);
             }
             catch (PlayerAssetException e) { FailSourceMode(e); }
             catch (InvalidOperationException e) { FailSourceMode(e); }
             catch (NotSupportedException e) { FailSourceMode(e); }
+            catch (SourceRosterException e) { FailSourceMode(e); }
+            catch (ArgumentException e) { FailSourceMode(e); }
         }
 
         private void Update()
         {
             if (InputSuspended || bridge == null || sourceFailure != null)
                 return;
+            if (IsSourceProfile)
+            {
+                try
+                {
+                    if (waitingForRelease && Input.GetKey(KeyCode.R)) sourceInput.Clear();
+                    sourceInput.Poll(((ISourceMatchState)State).Match);
+                    if (waitingForRelease && !sourceInput.Buffer.WaitingForNeutral && !Input.GetKey(KeyCode.R))
+                        waitingForRelease = false;
+                    if (!waitingForRelease && Input.GetKeyDown(KeyCode.R)) { RestartMatch(); return; }
+                    bridge.AdvanceSource(Time.unscaledDeltaTime, sourceInput.Buffer.NextHostFrame);
+                }
+                catch (PlayerAssetException e) { FailSourceMode(e); }
+                catch (InvalidOperationException e) { FailSourceMode(e); }
+                catch (NotSupportedException e) { FailSourceMode(e); }
+                catch (SourceRosterException e) { FailSourceMode(e); }
+                catch (ArgumentException e) { FailSourceMode(e); }
+                return;
+            }
             if (waitingForRelease)
             {
                 if (!AnyGameKeyHeld())
@@ -121,11 +198,11 @@ namespace Blitz.Runtime
             }
         }
 
-        private void FailSourceMode(Exception error)
+        internal void FailSourceMode(Exception error)
         {
             sourceFailure = error.Message;
             if (bridge != null) bridge.SetActive(false);
-            Debug.LogError("SOURCE ANIMATION ERROR: " + sourceFailure);
+            Debug.LogError("SOURCE MODE ERROR: " + sourceFailure);
         }
 
         private void OnGUI()
@@ -136,13 +213,13 @@ namespace Blitz.Runtime
             GUI.color = Color.white;
             var errorStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, wordWrap = true, fontSize = 16 };
             GUI.Box(new Rect(12, 12, Mathf.Max(280, Screen.width - 24), Mathf.Min(260, Screen.height - 24)),
-                "SOURCE ANIMATION ERROR\n" + sourceFailure + "\nNo static/graybox substitute was created.", errorStyle);
+                "SOURCE MODE ERROR\n" + sourceFailure + "\nNo generic HUD/font/texture/static/graybox substitute was created.", errorStyle);
             GUI.depth = depth;
         }
 
         internal void SelectPlay(int choice)
         {
-            if (bridge == null || State.Phase != GamePhase.PlaySelect)
+            if (IsSourceProfile || bridge == null || State.Phase != GamePhase.PlaySelect)
                 return;
             PlayId play = State.Possession == TeamId.Home
                 ? (choice == 1 ? PlayId.Run : PlayId.QuickPass)
@@ -152,7 +229,7 @@ namespace Blitz.Runtime
 
         internal void PrimaryAction()
         {
-            if (State == null)
+            if (IsSourceProfile || State == null)
                 return;
             if (State.Phase == GamePhase.PreSnap)
                 QueueAction(InputAction.Snap);
@@ -162,7 +239,7 @@ namespace Blitz.Runtime
 
         internal void QueueAction(InputAction action, PlayId play = PlayId.Run, int targetPlayerId = -1)
         {
-            if (!InputSuspended && !waitingForRelease && bridge != null)
+            if (!IsSourceProfile && !InputSuspended && !waitingForRelease && bridge != null)
                 bridge.QueueAction(action, play, targetPlayerId);
         }
 
@@ -171,9 +248,18 @@ namespace Blitz.Runtime
             if (bridge == null)
                 return;
             bridge.Restart();
+            lastSourceCameraTick = -1;
+            if (sourceInput != null) sourceInput.Clear();
+            if (SourceSelection != null) SourceSelection.Clear();
             if (field != null) field.ResetRenderHistory();
             waitingForRelease = true;
             hud.ClearNotices();
+            if (IsSourceProfile)
+            {
+                hud.OnSourceHostStep(State);
+                playCamera.ObserveSourceHostStep(State);
+                ForwardInitialSourcePresentationCues();
+            }
             playCamera.Render(State, true);
         }
 
@@ -206,6 +292,80 @@ namespace Blitz.Runtime
             hud.OnGameEvent(gameEvent);
         }
 
+        private void OnSourceGameEvent(SourceGameEvent value)
+        {
+            hud.OnSourceGameEvent(value);
+            Action<SourceGameEvent> handler = SourceEventRaised;
+            if (handler != null) handler(value);
+        }
+
+        private void OnSourcePresentationCue(SourcePresentationCue cue)
+        {
+            Action<SourcePresentationCue> handler = SourcePresentationCueRaised;
+            if (handler != null) handler(cue);
+        }
+
+        private void ForwardInitialSourcePresentationCues()
+        {
+            SourcePresentationCueBatch batch = simulation.PresentationCues;
+            if (batch == null)
+                throw new SourceInterfaceException("Initial source presentation cue availability is unknown.");
+            foreach (SourcePresentationCue cue in batch.Cues)
+                OnSourcePresentationCue(cue);
+        }
+
+        private void OnBeforeHostStep(IGameState state)
+        {
+            Action<IGameState> handler = BeforeHostStep;
+            if (handler != null) handler(state);
+        }
+
+        private void OnAfterHostStep(IGameState state)
+        {
+            if (IsSourceProfile)
+            {
+                var source = (ISourceGameState)state;
+                bool cameraAwake = simulation.SourceCameraStageOrder >= 0;
+                if (cameraAwake && source.SourceTick > 0 && (lastSourceCameraTick != source.SourceTick ||
+                    simulation.SourceCameraHeadingSampleTick != source.SourceTick ||
+                    simulation.SourceCameraHeading != lastSourceCameraHeading))
+                    throw new SourceInterfaceException("Missing/stale exact source-camera-stage heading at source tick " +
+                        source.SourceTick + ". Register the verified source-stage producer; no interpolated transform/default-zero AI heading is accepted.");
+                hud.OnSourceHostStep(state);
+            }
+            Action<IGameState> handler = AfterHostStep;
+            if (handler != null) handler(state);
+        }
+
+        public void RegisterSourceCameraTickProducer(Func<IGameState, long, int> producer)
+        {
+            if (!IsSourceProfile || producer == null || sourceCameraProducer != null)
+                throw new SourceInterfaceException("Register one actual source-camera-stage producer for the original profile.");
+            sourceCameraProducer = producer;
+        }
+
+        public int SampleSourceCameraHeading(IGameState preActorState, long executingSourceTick)
+        {
+            if (sourceCameraProducer == null)
+                throw new SourceInterfaceException("No actual source camera producer is registered for the executing source stage.");
+            int heading = sourceCameraProducer(preActorState, executingSourceTick);
+            if (heading < 0 || heading > 1023 || executingSourceTick <= lastSourceCameraTick)
+                throw new SourceInterfaceException("Original camera stage requires one ordered finite 1024-heading sample per source wake.");
+            lastSourceCameraTick = executingSourceTick; lastSourceCameraHeading = heading;
+            return heading;
+        }
+
+        public void PulseSourceButton(int stationId, SourceButtons button)
+        {
+            if (sourceInput != null && !InputSuspended && sourceFailure == null)
+                sourceInput.Pulse(stationId, button);
+        }
+
+        internal void ReadSourceKeyboardEvent(Event value)
+        {
+            if (sourceInput != null && !InputSuspended && sourceFailure == null) sourceInput.KeyboardEvent(value);
+        }
+
         private void OnApplicationFocus(bool value)
         {
             focused = value;
@@ -221,6 +381,8 @@ namespace Blitz.Runtime
         private void ResetFocusInput()
         {
             waitingForRelease = true;
+            if (sourceInput != null) sourceInput.Clear();
+            if (SourceSelection != null) SourceSelection.ClearPendingInput();
             if (bridge != null)
                 bridge.SetActive(!InputSuspended);
             if (field != null)
@@ -229,8 +391,7 @@ namespace Blitz.Runtime
 
         private void OnDisable()
         {
-            if (bridge != null)
-                bridge.SetActive(false);
+            ResetFocusInput();
         }
 
         private void OnEnable()
@@ -241,10 +402,31 @@ namespace Blitz.Runtime
 
         private void OnDestroy()
         {
+            if (IsSourceProfile && playCamera != null)
+            {
+                SourcePresentationCueRaised -= playCamera.ConsumeSourceCue;
+                AfterHostStep -= playCamera.ObserveSourceHostStep;
+            }
             if (bridge != null)
+            {
                 bridge.EventRaised -= OnGameEvent;
+                bridge.SourceEventRaised -= OnSourceGameEvent;
+                bridge.SourcePresentationCueRaised -= OnSourcePresentationCue;
+                bridge.BeforeHostStep -= OnBeforeHostStep;
+                bridge.AfterHostStep -= OnAfterHostStep;
+            }
             if (field != null)
                 field.Dispose();
+        }
+
+        private static bool ExplicitGraybox(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            int start = url.IndexOf('?');
+            if (start < 0) return false;
+            foreach (string pair in url.Substring(start + 1).Split('#')[0].Split('&'))
+                if (pair == "actors=graybox") return true;
+            return false;
         }
 
         private static float Axis(KeyCode positive, KeyCode positiveArrow, KeyCode negative, KeyCode negativeArrow)

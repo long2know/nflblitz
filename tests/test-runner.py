@@ -63,7 +63,7 @@ class InventoryGuardTests(unittest.TestCase):
         dependency = root / "Assets/Scripts/AssetImport/SourceActorPoseSampler.cs"
         affected = []
         for project in sorted((root / "tests").rglob("*.csproj")):
-            if any(part in (".artifacts", "bin", "obj", "viewport", "movement", "presentation") for part in project.parts):
+            if any(part in (".artifacts", "bin", "obj", "viewport", "movement", "presentation", "interface", "audio") for part in project.parts):
                 continue
             included = set()
             declares_geometry = False
@@ -84,6 +84,7 @@ class InventoryGuardTests(unittest.TestCase):
                 self.assertIn(dependency, included, str(project) + " omits actual pose sampling.")
         self.assertEqual([
             "Blitz.Core.Tests/Blitz.Core.Tests.csproj",
+            "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)

@@ -5,7 +5,7 @@
   "files": [
     {"path":"Assets/Scripts/AssetImport/SourceEnvironmentData.cs","sha256":"4494bfb6cf0e9769e6290fa3a78fc9bfac5fe0d592bba43688696e782f81bb88"},
     {"path":"Assets/Scripts/AssetImport/SourceEnvironmentData.cs.meta","sha256":"82a2f297498376c9a4df75cf713474853e34cff02c422cf05d29bcc49ca82cfb"},
-    {"path":"Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs","sha256":"f361f5c156bbea8e04fbccde6b2f3bf71fabc6f1e5ce01c6b422bcfa00592f1a"},
+    {"path":"Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs","sha256":"1476f385b2bb6ae1b0e0dca2c2501c88b07795e1703c4155e7d3dccabd7ecf38"},
     {"path":"Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs.meta","sha256":"507f44d5d328502246275a069fa68fac44a15de82f0497ede41a683b62741e9f"},
     {"path":"Assets/Scripts/AssetImport/GeneratedPlayerData.cs","sha256":"723a50fb34f0210c96f88692a9f0bb8ec1ac6151beb5aac89fcbe61386a75a49"},
     {"path":"Assets/Scripts/AssetImport/GeneratedPlayerData.cs.meta","sha256":"b375a823372a5e3ff70a5d7f696ef6bf29040c949fcd4e06a2e0403ba59b19be"},

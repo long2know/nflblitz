@@ -21,7 +21,8 @@ python3 tests/source-oracles/fetch_inputs.py --cache .squad/.scratch/reference/n
 python3 tests/source-oracles/run.py --source-root tests/source-oracles/.artifacts/original --full-matrix
 python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json
 # Also exercise the current source-profile host adapter:
-python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
+python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel \
+  --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
 ```
 
 For separately supplied original files:
@@ -31,6 +32,9 @@ python3 tests/source-oracles/run.py --source-root path/to/verified/original/sour
 ```
 
 The input root must contain the original, case-sensitive relative paths.
+The full-kernel command also requires the actual prepared factory inputs;
+see [`../parity/README.md`](../parity/README.md) for pinned, portable preparation.
+The focused original-C comparison still needs no art/animation fixture.
 `fetch_inputs.py` uses `gh api` and checks the Git blob hash **after** base64
 decoding; it does not trust a raw-URL cache or clone the repository.
 `run.py` has no network fallback: missing or mismatched inputs fail closed.

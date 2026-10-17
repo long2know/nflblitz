@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs" Link="Production/SourceTeamRosterLibrary.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs" Link="Production/SourceInterfaceData.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs" Link="Production/SourceInterfaceMovementData.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamPresentationModel.cs" Link="Production/SourceTeamPresentationModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/FixedStepBridge.cs" Link="Production/FixedStepBridge.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceCabinetInput.cs" Link="Production/SourceCabinetInput.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs" Link="Production/SourceCabinetInputPlaySelection.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceInterfacePresentation.cs" Link="Production/SourceInterfacePresentation.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudViewport.cs" Link="Production/SourceHudViewport.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudModel.cs" Link="Production/SourceHudModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudComposer.cs" Link="Production/SourceHudComposer.cs" />
+  </ItemGroup>
+</Project>

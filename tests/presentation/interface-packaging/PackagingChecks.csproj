@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzB1Root Condition="'$(BlitzB1Root)' == ''">MISSING_EXPLICIT_FROZEN_B1/</BlitzB1Root>
+    <BlitzUiRoot Condition="'$(BlitzUiRoot)' == ''">MISSING_EXPLICIT_FROZEN_UI/</BlitzUiRoot>
+    <BlitzTeamRoot Condition="'$(BlitzTeamRoot)' == ''">MISSING_EXPLICIT_FROZEN_TEAM/</BlitzTeamRoot>
+    <BlitzPackagingRoot Condition="'$(BlitzPackagingRoot)' == ''">$(MSBuildThisFileDirectory)../../../</BlitzPackagingRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs" Link="Production/SourceTeamInterfacePackage.cs" />
+    <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs" Link="Production/SourceTeamInterfaceImporter.cs" />
+    <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs" Link="Production/SourceTeamInterfaceChecks.cs" />
+    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/Contracts/*.cs" Link="Frozen/Contracts/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs" Link="Frozen/AuthorizedAssetFiles.cs" />
+    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/GeneratedPlayerData.cs" Link="Frozen/GeneratedPlayerData.cs" />
+    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs" Link="Frozen/SourceTeamRosterLibrary.cs" />
+    <Compile Include="$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs" Link="Frozen/SourceInterfaceData.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourcePlaybook.cs" Link="Frozen/SourcePlaybook.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceDroneAI.cs" Link="Frozen/SourceDroneAI.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceRandom.cs" Link="Frozen/SourceRandom.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceMatchFlow.cs" Link="Frozen/SourceMatchFlow.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceMatchRules.cs" Link="Frozen/SourceMatchRules.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceClock.cs" Link="Frozen/SourceClock.cs" />
+  </ItemGroup>
+  <Target Name="RequireProtectedInputs" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzB1Root)Assets/Scripts/Gameplay/SourcePlaybook.cs')" Text="Explicit frozen B1 root required; Primary M1 is not a substitute." />
+    <Error Condition="!Exists('$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs')" Text="Explicit frozen UI source required." />
+    <Error Condition="!Exists('$(BlitzTeamRoot)Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs')" Text="Explicit frozen Team dependency source required." />
+  </Target>
+</Project>

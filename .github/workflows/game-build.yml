@@ -11,6 +11,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/interface/**'
       - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
@@ -30,6 +31,7 @@ on:
       - 'tools/rosters/**'
       - 'tools/playbooks/**'
       - 'tools/movement/**'
+      - 'tools/interface/**'
       - 'tools/audio/**'
       - 'tools/environments/**'
       - 'scripts/**'
@@ -51,7 +53,7 @@ jobs:
   core-and-tooling:
     name: Core inventory and build-tool units (no Unity)
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
@@ -110,8 +112,20 @@ jobs:
         run: python3 -B -m unittest discover -s tests/source-oracles -p 'test_*.py'
       - name: Execute original C reference cases
         run: python3 tests/source-oracles/run.py --source-root tests/source-oracles/.artifacts/original --full-matrix
+      - name: Fetch verified real source-kernel inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tests/parity/fetch_inputs.py --download --output .squad/.scratch/SourceData/source-kernel-original
+      - name: Prepare original animation geometry roster and playbook services
+        run: python3 tests/parity/prepare_inputs.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/SourceData/source-kernel
+      - name: Test real-input fixture and ball-runner failure gates
+        run: |
+          python3 tests/parity/test_inputs.py
+          python3 tests/ball/test_runner.py
       - name: Compare source gameplay and host adapter
-        run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel
+        run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
+      - name: Compare original ball and ordered source callers
+        run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
@@ -120,6 +134,14 @@ jobs:
         run: python3 tests/assets/run.py
       - name: Test source-camera behavior
         run: python3 tests/camera/run.py
+      - name: Test source team and impact helpers without original assets
+        run: python3 tests/presentation/run.py
+      - name: Test original HUD and cabinet interface without original assets
+        run: python3 tests/interface/run.py
+      - name: Test complete interface caller and inventory guards
+        run: python3 tests/interface/stage_followup.py
+      - name: Test original HUD resource preflight without assets or Unity
+        run: python3 tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
       - name: Test original audio package reader without banks or Unity
         run: python3 tests/audio/run.py --mutate
       - name: Test browser assertions and isolated runtime

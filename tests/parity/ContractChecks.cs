@@ -9,7 +9,7 @@ using Blitz.Gameplay;
 
 internal static class ContractChecks
 {
-    internal static void Run(string fixturePath)
+    internal static void Run(string fixturePath, FullKernelInputs fullKernelInputs)
     {
         using (JsonDocument fixture = JsonDocument.Parse(File.ReadAllBytes(fixturePath)))
         {
@@ -21,7 +21,7 @@ internal static class ContractChecks
             CheckSelectedOrdinalTrace(library, fixture.RootElement.GetProperty("source_animation"));
             CheckTwoPartsAndInterruptedBlend(library);
             CheckFailures(library);
-            HostAdapterChecks.Run(library, fixture.RootElement.GetProperty("host_clock"));
+            HostAdapterChecks.Run(fullKernelInputs, fixture.RootElement.GetProperty("host_clock"));
         }
     }
 

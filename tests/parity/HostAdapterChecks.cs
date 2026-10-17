@@ -12,10 +12,12 @@ internal static class HostAdapterChecks
     internal const bool Enabled = false;
 #endif
 
-    internal static void Run(ContractChecks.SyntheticLibrary library, JsonElement fixture)
+    internal static void Run(FullKernelInputs inputs, JsonElement fixture)
     {
 #if PARITY_FULL_KERNEL
-        var game = new GameSimulation(library, 1);
+        if (inputs == null)
+            throw new System.ArgumentNullException(nameof(inputs), "Actual prepared full-kernel inputs are required.");
+        var game = inputs.Create(1);
         Program.Equal("injected source profile", SimulationProfile.OriginalRelease57Hz, game.Profile);
         Program.Equal("legacy constructor keeps legacy profile", SimulationProfile.LegacyBaseline60Hz,
             new GameSimulation(1).Profile);
@@ -43,7 +45,7 @@ internal static class HostAdapterChecks
         Program.Equal("exact source clock remainder after sixty host steps", 0, game.Model.SourceClockRemainder);
 
         // Isolate adapter action ordering from the original opening kickoff and snap grace period.
-        game = new GameSimulation(library, 1);
+        game = inputs.Create(1);
         PrepareNormalPlaySelect(game);
         int ordinal = 0;
         foreach (JsonElement trace in fixture.GetProperty("edge_trace").EnumerateArray())
@@ -70,7 +72,7 @@ internal static class HostAdapterChecks
             ordinal++;
         }
         Program.Equal("host action fixture trace length", 4, ordinal);
-        game = new GameSimulation(library, 1);
+        game = inputs.Create(1);
         PrepareNormalPlaySelect(game);
         game.Step(new PlayerCommand(action: InputAction.SelectPlay));
         game.Restart(1);
