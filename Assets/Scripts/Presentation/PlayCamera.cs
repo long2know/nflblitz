@@ -1,3 +1,4 @@
+using Blitz.AssetImport;
 using Blitz.Contracts;
 using UnityEngine;
 
@@ -57,6 +58,9 @@ namespace Blitz.Presentation
         private System.Func<int, SourceVector3> sourceActorRoot;
         private System.Func<int, int> stageRandomDraw;
         private int stageRandomAxis;
+        private readonly SourcePlayerRig sourceProfilePrefab;
+        private readonly bool movement157;
+        private bool sourceMovementRasterConfigured;
 
         internal Camera Camera { get { return camera; } }
         internal SourceCinematicPlayback SourcePlayback
@@ -68,6 +72,20 @@ namespace Blitz.Presentation
             }
         }
         internal SourceCinematicTransform CurrentSourceCamera { get { return SourcePlayback.CurrentSourceCamera; } }
+        internal SourceCinematicTransform RequireSourceCameraAtTick(long executingSourceTick)
+        {
+            if (!sourceStageDriven || sourceCameraSuspended || lastSourceStageTick != executingSourceTick)
+                throw new System.InvalidOperationException("Sample the exact executing pre-player source camera tick before publishing its movement frame.");
+            return SourcePlayback.RequireSourceCameraAtTick(executingSourceTick);
+        }
+
+        internal void ConfigureSourceMovementRaster(float horizontalResolution, float verticalResolution)
+        {
+            if (!movement157 || sourceStageDriven)
+                throw new System.InvalidOperationException("Configure M1's explicit original DIP raster512x384 or512x256 before initializing the source camera.");
+            sourceAspect = SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
+            sourceMovementRasterConfigured = true;
+        }
         internal int SourceHeading1024
         {
             get
@@ -89,10 +107,12 @@ namespace Blitz.Presentation
             if (sourceCinematics != null)
                 throw new System.InvalidOperationException("Source camera stage is already initialized.");
             camera.rect = new Rect(0f, 0f, 1f, 1f);
-            sourceAspect = Mathf.Max(.01f, Screen.width / (float)Mathf.Max(1, Screen.height));
+            if (movement157 && !sourceMovementRasterConfigured)
+                throw new System.InvalidOperationException("Original movement source camera needs explicitly configured DIP resolution; browser viewport is not an input.");
+            if (!movement157) sourceAspect = Mathf.Max(.01f, Screen.width / (float)Mathf.Max(1, Screen.height));
             sourceNormalFrame = model.Update(initialState, sourceAspect, 0f, true);
             previousNormalSourceState = SourceSeed(sourceNormalFrame, default(SourceVector3), 0f);
-            AttachSourceCinematics(new SourceCinematicPlayback(SourcePlayerProvider.ResolveRequiredCinematicLibrary(),
+            AttachSourceCinematics(new SourceCinematicPlayback(SourcePlayerProvider.ResolveRequiredCinematicLibrary(sourceProfilePrefab),
                 previousNormalSourceState));
             sourceStageDriven = true;
         }
@@ -246,8 +266,12 @@ namespace Blitz.Presentation
                 SourceCinematicMath.Radians(-NormalCameraModel.PitchDegrees), velocity, distanceVelocity);
         }
 
-        internal PlayCamera(Transform parent)
+        internal PlayCamera(Transform parent) : this(parent, null) { }
+
+        internal PlayCamera(Transform parent, SourcePlayerRig sourcePrefab)
         {
+            sourceProfilePrefab = sourcePrefab;
+            movement157 = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsMovement157;
             camera = new GameObject("Play camera").AddComponent<Camera>();
             camera.transform.SetParent(parent, false);
             camera.tag = "MainCamera";
@@ -279,7 +303,7 @@ namespace Blitz.Presentation
             HudLayout layout = new HudLayout(Screen.width, Screen.height);
             camera.rect = sourceStageDriven ? new Rect(0f, 0f, 1f, 1f) : layout.Viewport;
             float aspect = Mathf.Max(0.01f, camera.pixelWidth / (float)Mathf.Max(1, camera.pixelHeight));
-            sourceAspect = aspect;
+            if (!movement157) sourceAspect = aspect;
             bool focused = Application.isFocused;
             ISourceGameState source = state as ISourceGameState;
             if (sourceStageDriven && immediate && source != null && lastSourceStageTick >= 0 && source.SourceTick < lastSourceStageTick)

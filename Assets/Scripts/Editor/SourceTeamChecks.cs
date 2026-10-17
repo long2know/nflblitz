@@ -20,19 +20,30 @@ namespace Blitz.Editor
         private static long assertions, vertices, indices, rgbaBytes;
 
         public static void VerifyFromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.B1Final117); }
+
+        public static void VerifyMovement157FromCommandLine()
+        { VerifyProfile(SourceTeamResourceProfile.Movement157); }
+
+        private static void VerifyProfile(SourceTeamResourceProfile profile)
         {
             assertions = vertices = indices = rgbaBytes = 0;
             string[] args = Environment.GetCommandLineArgs();
             var input = new AuthorizedAssetRoot(PlayerAssetImporter.RequiredArgument(args, "-teamAssetRoot"));
-            SourceTeamPresentationAsset asset = Resources.Load<SourceTeamPresentationAsset>(SourcePlayerProvider.TeamPresentationResourceKey);
+            SourceTeamPresentationAsset asset = Resources.Load<SourceTeamPresentationAsset>(profile.TeamResourceKey);
             if (asset == null) throw new PlayerAssetException("Native check needs the actual persisted original team Resources asset.");
             asset.ValidateGeneratedPresentation();
+            Equal(asset.Template.StableId, profile.StableId, "actual saved template/profile identity");
             SourceTeamRosterLibrary library = asset.Rosters;
             SourceTeamPresentationData catalog = asset.Catalog;
-            SourceAnimationLibraryAsset animations = Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.TeamAnimationResourceKey);
-            Check(animations != null, "actual persisted final117 animation Resources");
-            Equal(animations.InventorySha256, SourcePlayerProvider.TeamAnimationManifestSha256, "actual final117 immutable manifest identity");
+            SourceAnimationLibraryAsset animations = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
+            Check(animations != null, "actual persisted explicit animation Resources");
+            Equal(animations.InventorySha256, profile.AnimationSha256, "actual immutable animation profile manifest identity");
+            Equal(AssetDatabase.GetAssetPath(animations), profile.AnimationAssetPath, "actual saved animation Resources path/profile");
             ISourceAnimationLibrary animationLibrary = animations.Load();
+            SourceAnimationLibrary actualLibrary = animationLibrary as SourceAnimationLibrary;
+            Check(actualLibrary != null, "actual typed animation library");
+            profile.RequireInventory(animations.InventorySha256, actualLibrary.SequenceNames.Count, actualLibrary.FrameCount);
             Func<string, string> read = path =>
             {
                 byte[] bytes = input.ReadBytes(path, PlayerImportLimits.SourceBytes); catalog.VerifyInput(path, bytes);
@@ -94,7 +105,7 @@ namespace Blitz.Editor
                 Reject(() => asset.ValidateGeneratedPresentation(), "content/identity", "real matching-opponent-texture mutant");
             }
             finally { bad.mainTexture = original; asset.ValidateGeneratedPresentation(); }
-            SourceCinematicLibrary cinematics = SourcePlayerProvider.ResolveRequiredCinematicLibrary();
+            SourceCinematicLibrary cinematics = SourcePlayerProvider.ResolveRequiredCinematicLibrary(asset.Template);
             string images = VerifyActorsAndCamera(asset, animationLibrary, cinematics, input);
             string report = "{\n\"schema\":\"source-team-impact-native/v1\",\n\"assertions\":" + assertions +
                 ",\n\"actualVertices\":" + vertices + ",\n\"actualIndices\":" + indices +

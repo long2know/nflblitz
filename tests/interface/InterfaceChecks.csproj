@@ -11,6 +11,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="MovementBootstrapChecks.cs" />
     <ProjectReference Include="InterfaceModel.csproj" />
   </ItemGroup>
 </Project>

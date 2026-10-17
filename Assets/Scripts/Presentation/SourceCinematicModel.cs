@@ -5,6 +5,36 @@ using Blitz.Contracts;
 
 namespace Blitz.Presentation
 {
+    public sealed class SourceCameraFrameClock
+    {
+        private SourceCinematicTransform frame;
+        private long tick = -1;
+
+        public void Publish(long executingSourceTick, SourceCinematicTransform actualCamera)
+        {
+            if (executingSourceTick < 0 || actualCamera == null || tick >= 0 && executingSourceTick <= tick)
+                throw new InvalidOperationException("Publish one successfully executed pure camera frame per increasing source wake.");
+            frame = actualCamera; tick = executingSourceTick;
+        }
+
+        public SourceCinematicTransform RequireAtTick(long executingSourceTick, bool cameraProcessSuspended)
+        {
+            if (executingSourceTick < 0 || cameraProcessSuspended || frame == null || tick != executingSourceTick)
+                throw new InvalidOperationException("Read only the current executed source camera tick; no initial/render/stale/suspended frame.");
+            return frame;
+        }
+
+        public void Reset()
+        { frame = null; tick = -1; }
+
+        public static float RequireOriginalRasterAspect(float horizontalResolution, float verticalResolution)
+        {
+            if (horizontalResolution != 512f || verticalResolution != 384f && verticalResolution != 256f)
+                throw new InvalidOperationException("Original DIP camera raster must be explicitly512x384 or512x256, never the viewport.");
+            return horizontalResolution / verticalResolution;
+        }
+    }
+
     public sealed class SourceCinematicTransform
     {
         public SourceVector3 Position { get; }

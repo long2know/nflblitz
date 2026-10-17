@@ -122,6 +122,9 @@ namespace Blitz.Gameplay
         internal Func<int> NextExecutionOrder;
         internal Action<ActorState> BeforeInstruction;
         internal Action<SourceAnimationLayerState, ActorState, SourceAnimationInstruction, int> Presentation;
+        internal Func<ActorState, string, int, int, int, int> MovementCode;
+        internal Action<ActorState, SourceAnimationInstruction> MovementLeap;
+        private int turnHack;
 
         internal int FrameOrdinal { get; private set; } = -1;
         internal uint Mode { get; private set; }
@@ -195,6 +198,7 @@ namespace Blitz.Gameplay
             if (program == null || tick == lastAdvanceTick)
                 return;
             lastAdvanceTick = tick;
+            actor.SourceRawFlags |= 0x40;
             if (IsEnded || --hold != 0)
                 return;
             if ((Mode & SourceAnimationModes.Interpolating) != 0)
@@ -250,6 +254,8 @@ namespace Blitz.Gameplay
 
         internal void AddMode(uint mode) { Mode |= mode; }
         internal void RemoveMode(uint mode) { Mode &= ~mode; }
+        internal void SetMovementMode(uint mode) { Mode = mode; }
+        internal void SetMovementTurnHack(int value) { turnHack = value; }
 
         private float Fraction()
         {
@@ -266,7 +272,9 @@ namespace Blitz.Gameplay
         {
             if (BeforeInstruction != null) BeforeInstruction(actor);
             int order = NextExecutionOrder == null ? 0 : NextExecutionOrder();
-            if (i.SourceLine > 0 && Presentation != null) Presentation(this, actor, i, order);
+            if (i.SourceLine > 0 && Presentation != null && (i.Op == SourceAnimationOp.CameraCue
+                || i.Op == SourceAnimationOp.ShakerCue || i.Op == SourceAnimationOp.PresentationCallback
+                || i.Op == SourceAnimationOp.Callback && i.Text == "player_down")) Presentation(this, actor, i, order);
             switch (i.Op)
             {
                 case SourceAnimationOp.SetMode:
@@ -331,8 +339,12 @@ namespace Blitz.Gameplay
                     pc = i.A;
                     break;
                 case SourceAnimationOp.JumpIfNotSequence:
-                    if (!string.Equals(SequenceName, i.Text, StringComparison.Ordinal))
-                        pc = i.A;
+                    if (!string.Equals(SequenceName, i.Text, StringComparison.Ordinal)
+                        && (i.AlternateSequence == null || !string.Equals(SequenceName, i.AlternateSequence, StringComparison.Ordinal)))
+                    {
+                        if (i.Target == null) pc = i.A;
+                        else { program = RequireProgram(i.Target); pc = i.BranchPc >= 0 ? i.BranchPc : 0; }
+                    }
                     break;
                 case SourceAnimationOp.ChangeScript:
                     program = RequireProgram(i.Text);
@@ -357,6 +369,38 @@ namespace Blitz.Gameplay
                     break;
                 case SourceAnimationOp.PresentationCallback:
                     if (i.Text == "grnd_hit_snd") signals |= SourceAnimationSignal.GroundContact;
+                    break;
+                case SourceAnimationOp.MovementCode:
+                case SourceAnimationOp.MovementBranchNonzero:
+                case SourceAnimationOp.MovementBranchZero:
+                    if (MovementCode == null) throw Failure("Original movement callback is unbound: " + i.Text);
+                    int returned = MovementCode(actor, i.Text, i.A, i.B, i.C);
+                    if (i.Op != SourceAnimationOp.MovementCode
+                        && (i.Op == SourceAnimationOp.MovementBranchNonzero ? returned != 0 : returned == 0))
+                    {
+                        if (i.Target != null)
+                        {
+                            program = RequireProgram(i.Target); pc = i.BranchPc >= 0 ? i.BranchPc : 0;
+                        }
+                        else pc = i.BranchPc;
+                    }
+                    break;
+                case SourceAnimationOp.LeapAttack:
+                    if (MovementLeap == null) throw Failure("Original ANI_LEAPATT camera-cache boundary is unbound");
+                    MovementLeap(actor, i);
+                    break;
+                case SourceAnimationOp.AttackOn:
+                    actor.SourceAttackMode = i.A; actor.SourceAttackJointA = i.B; actor.SourceAttackJointB = i.C;
+                    actor.SourceAttackTime = i.Timer; actor.SourceAttackRadii = new SourceVector3(i.X, i.Y, i.Z);
+                    break;
+                case SourceAnimationOp.AttackOff:
+                    actor.SourceAttackMode = actor.SourceAttackTime = 0;
+                    break;
+                case SourceAnimationOp.TurnHack:
+                    Mode |= SourceAnimationModes.TurnHack;
+                    turnHack = i.A;
+                    actor.Facing = (actor.Facing - i.A) % 1024;
+                    actor.TargetFacing = actor.Facing;
                     break;
                 case SourceAnimationOp.ZeroVelocity:
                     actor.SourceVelocity = default(FieldVector);
@@ -389,6 +433,7 @@ namespace Blitz.Gameplay
                     if ((signal & SourceAnimationSignal.PlayerDown) != 0)
                         actor.Down = true;
                     SourceAnimationSignal immediate = signal & (SourceAnimationSignal.ReleaseBall
+                        | SourceAnimationSignal.GeneralRun
                         | SourceAnimationSignal.PlayerDown | SourceAnimationSignal.HikeBall
                         | SourceAnimationSignal.PuntBall | SourceAnimationSignal.KickBall
                         | SourceAnimationSignal.DropBall | SourceAnimationSignal.SpinBall
@@ -444,7 +489,7 @@ namespace Blitz.Gameplay
                     break;
                 case SourceAnimationOp.JumpProgram:
                     program = RequireProgram(i.Text);
-                    pc = i.A;
+                    pc = i.BranchPc >= 0 ? i.BranchPc : i.A;
                     break;
                 case SourceAnimationOp.BranchSlowerSpin:
                     if (actor.SourceSpinCount > 2)
@@ -478,6 +523,11 @@ namespace Blitz.Gameplay
         private void BeginInterpolation(ActorState actor, SourceAnimationInstruction i)
         {
             SourceJointPose origin = pendingTransitionOrigin ?? EvaluatePose();
+            if ((Mode & SourceAnimationModes.TurnHack) != 0)
+            {
+                origin = SourcePoseMath.Turn(origin, turnHack);
+                Mode &= ~SourceAnimationModes.TurnHack;
+            }
             pendingTransitionOrigin = null;
             int previousFrame = pendingSourceOrdinal ?? SourceProgressOrdinal();
             int previousCount = pendingSourceFrameCount ?? SourceProgressFrameCount();
@@ -723,7 +773,7 @@ namespace Blitz.Gameplay
     {
         internal readonly SourceAnimationLayerState Primary;
         internal readonly SourceAnimationLayerState Secondary;
-        internal bool TwoPart { get; private set; }
+        internal bool TwoPart { get { return (Secondary.Mode & SourceAnimationModes.TwoPart) != 0; } }
         internal AnimationSelectionEvidence Evidence = AnimationSelectionEvidence.Approximate;
 
         internal SourceAnimationState(ISourceAnimationLibrary library, int actorId)
@@ -752,16 +802,30 @@ namespace Blitz.Gameplay
             Primary.ImmediateSignal = Secondary.ImmediateSignal = immediateSignal;
         }
 
+        internal void BindMovementExecution(Func<ActorState, string, int, int, int, int> code,
+            Action<ActorState, SourceAnimationInstruction> leap)
+        {
+            Primary.MovementCode = Secondary.MovementCode = code;
+            Primary.MovementLeap = Secondary.MovementLeap = leap;
+        }
+
         internal bool Busy
         {
             get { return Primary.IsUninterruptible || (TwoPart && Secondary.IsUninterruptible); }
+        }
+
+        internal void BeginTwoPart(ActorState actor)
+        {
+            if (TwoPart) return;
+            Secondary.CopyFrom(Primary);
+            actor.UpperFacing = actor.Facing;
+            actor.TargetUpperFacing = actor.TargetFacing;
         }
 
         internal void FullBody(string script, ActorState actor, long tick, Func<int, int> random,
             AnimationSelectionEvidence evidence)
         {
             SourceJointPose composite = CompositePose(actor);
-            TwoPart = false;
             Secondary.ClearLowModes();
             Evidence = evidence;
             Primary.Change(script, actor, tick, random, composite);
@@ -774,7 +838,6 @@ namespace Blitz.Gameplay
             {
                 Secondary.CopyFrom(Primary);
                 actor.UpperFacing = actor.Facing;
-                TwoPart = true;
             }
             if (Primary.ScriptSymbol != lowerScript)
             {
@@ -799,7 +862,6 @@ namespace Blitz.Gameplay
             {
                 Secondary.CopyFrom(Primary);
                 actor.UpperFacing = actor.Facing;
-                TwoPart = true;
             }
             Evidence = evidence;
             Secondary.Change(script, actor, tick, random);

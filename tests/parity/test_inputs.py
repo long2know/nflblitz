@@ -21,12 +21,22 @@ class RealInputGuards(unittest.TestCase):
 
     def test_combined_actual_source_pin_inventory_has_no_conflicts(self):
         pins = fetch_inputs.input_pins()
-        self.assertEqual(51, len(pins))
+        self.assertEqual(65, len(pins))
         self.assertEqual("5744c51f30b625b9f80b92388ab49ff0ebc5bb2c", pins["player.c"])
         self.assertEqual("15b49474fb55e8bac280b6515fcf7bf59cdf8664", pins["nfl.c"])
-        self.assertEqual(17, sum(name.lower().endswith(".wan") for name in pins))
+        self.assertEqual(24, sum(name.lower().endswith(".wan") for name in pins))
         for pin in pins.values():
             self.assertRegex(pin, r"^[0-9a-f]{40}$")
+
+    def test_actual_camera_oracle_input_closure_is_acquired(self):
+        self.assertEqual({
+            "include/GAME.H", "include/ani3d.h", "include/camdefs.h", "CamData.c",
+            "cambot.c", "plyrseq.c", "detect.c", "player.c", "lib/ani3d/ANIM.C",
+            "lib/ani3d/pipe3D.c",
+        }, set(fetch_inputs.CAMERA_INPUTS))
+        pins = fetch_inputs.input_pins()
+        for name, pin in fetch_inputs.CAMERA_INPUTS.items():
+            self.assertEqual(pin, pins[name], name)
 
     def test_git_blob_pin_is_not_plain_file_sha1(self):
         self.assertEqual("d670460b4b4aece5915caf5c68d12f560a9fe3e4",
@@ -71,6 +81,21 @@ class RealInputGuards(unittest.TestCase):
                             prepare_inputs.ANIMATION_SHA)
         self.assertNotEqual("18af668aa0ff97985f91030f6c17d0552a9630fe25d40893dc5a7ac8381b7cdf",
                             prepare_inputs.ANIMATION_SHA)
+
+    def test_movement_library_identity_never_relabels_canonical117_or_selected156(self):
+        self.assertEqual("f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e",
+                         prepare_inputs.MOVEMENT_ANIMATION_SHA)
+        self.assertEqual("5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68",
+                         prepare_inputs.MOVEMENT_SELECTED_SHA)
+        self.assertEqual(3, len({prepare_inputs.ANIMATION_SHA, prepare_inputs.MOVEMENT_ANIMATION_SHA,
+                                prepare_inputs.MOVEMENT_SELECTED_SHA}))
+
+    def test_runtime_recipe_has_no_test_first_header_responses(self):
+        recipe = json.loads((fetch_inputs.ROOT / "tools/movement/runtime.schema.json").read_text())
+        data = recipe["properties"]["data"]
+        self.assertEqual({"Constants", "Tables", "Friction", "Defense"}, set(data["properties"]))
+        self.assertFalse(data["additionalProperties"])
+        self.assertNotIn("Responses", data["properties"])
 
     def test_fixture_schema_failure_precedes_original_data_loading(self):
         path = self.work / "fixture.json"

@@ -7,8 +7,9 @@ selected source frames**. Verified host build `0000063700005f540000316b000003e7`
 Docker `8080/?actors=source`. The October 15 static `QBSTANCE` and identity/legend
 checks below are earlier historical milestones.
 
-The checked-in **B1 + Team + HUD/cabinet** source instead requires the distinct
-canonical117 resource composition below. It has source/pure/API evidence, **not
+The checked-in **movement157 + Team + HUD/cabinet** source extends the distinct
+B1/canonical117 layer with actual M1 data/settings and source-camera cache
+composition. It has source/pure/API evidence, **not
 a new imported/built/browser-playable generation**. Two archived 6000.3.24 and one
 installed 6000.6.5 attempts exited 198 before import (licensing404/missing headless
 entitlement). No new resource save/reload, pixels or game build is claimed.
@@ -32,7 +33,85 @@ incompatibility is a separate issue, not permission to change versions.
   or this tree. Do not run concurrent editors/imports/builds against the same
   project/`Library/`.
 
+## Current movement157 source-mode resources
+
+Use the coherent approved movement157 candidate, not the older live56 or frozen
+B1 project. Original/converted data and generated assets remain ignored/local.
+The [permanent complete-animation recipe](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip)
+produces **157 clips / 13,490 selected frames**, manifest
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
+It first verifies an unchanged selected156 bundle, then adds the selected,
+uncompressed `R_SKIP` using the original converter's explicit retained limb-5
+buffer from `Huffrun2`. This is qualified converter-state output, not an invented
+hand pose or shipped-SEQ/target-bit equivalence. No source flags or selectors
+are changed.
+
+The selected156 input must already match manifest
+`5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68`.
+With explicit local pinned inputs, follow the producer's new-only/read-only-reuse
+rules:
+
+```sh
+SOURCE_ROOT="/absolute/path/to/nflblitz2000"
+SELECTED_BUNDLE=".squad/.scratch/source-movement-integration/bundle156"
+NEW_BUNDLE=".squad/.scratch/source-rskip-export/bundle157"
+python3 -B tools/animation/prepare_movement_complete.py \
+  --source-root "$SOURCE_ROOT" --selected-bundle "$SELECTED_BUNDLE" \
+  --catalog tools/animation/movement_complete_sequences.json \
+  --destination "$NEW_BUNDLE"
+```
+
+| Required resource | Exact movement157 identity |
+| --- | --- |
+| Team | `BlitzSourcePlayers/original-teams-movement157/team-presentation` |
+| Animation | `SourceData/local-plyr266-movement157-f0ae9395` |
+| Impact | `BlitzSourcePlayers/original-teams-movement157/impact-library` |
+| HUD, same pinned bitmap data | `BlitzSourceInterface/original-interface` |
+| Match services | `BlitzSourceInterface/original-movement157-match-services` |
+| Runtime-safe movement | `SourceData/movement`, SHA256 `89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6` |
+
+Use [all-team preparation/import](../tools/assets/README.md) and the
+[explicit movement157 packaging entrypoints](../tools/interface/packaging.md).
+The existing explicit match/team/roster/station/home/head/`pup_bigball` selections
+are still required. Additionally provide a separately SHA-pinned
+`original-source-movement-bootstrap/v1` file with **all nine** members:
+`schema`, `field_index`, `infinite_turbo_team_mask`, `speed_powerup`,
+`fast_turbo_team_mask`, `run_out_of_bounds_team_mask`, `violence_powerup`,
+`source_hres`, `source_vres`. The field is0..6, three masks are raw0..3,
+speed and violence are booleans, and original DIP is explicitly512×256 or512×384.
+Do not infer masks from physical home/station identity or resolution from a
+browser viewport. See [bootstrap semantics](../tools/interface/README.md#current-movement157-bootstrap).
+
+Runtime injects the actual immutable movement constants/selectors, all7 friction
+values and12 Line/Back/acceleration/plow rows into the real Core constructor
+after presentation. Camera raster is configured before stage initialization;
+the actual raw Core mode and tick-guarded pure source position/all12 matrix
+floats are supplied inside the existing pre-player provider, after its real
+sample and before Core consumes the heading. Core owns previous post-actor
+14×15 joint caches; no WorldJoint/render-matrix/default/second-clock substitute.
+Legacy graybox, focus/restart and single cue/host lifecycle remain explicit.
+
+Old56/117/156 animation resources and B1 services are immutable historical
+identities. Neither a missing bootstrap/data asset nor a six-argument B1
+initializer manufactures M1 defaults. Missing data and still-unbound original
+audio/FX callbacks fail visibly. Native import/reload/pixels/game/browser proof
+still require legitimate Editor entitlement; the licensing198 boundary above
+has not changed.
+
+Current source checks are **33,921 pure assertions /10 compiled bootstrap
+mutants**, **10,941 actual-data runtime-composition assertions /4 compiled
+Runtime mutants**, and33 separate Runtime/service structural mutants.
+Actual Unity6000.3.24 C#7.3/.NET Standard2.1 compilation includes **85 runtime
+sources / all16 owned UI files**, zero diagnostics for both Editor/WebGL.
+Those pure helpers are executed from the actual compiled production Runtime
+assembly, not Unity stubs or a copied test factory; no native engine calls run.
+
 ## Current B1 source-mode resources
+
+**Retained B1 source/revision only, not the current movement157 bootstrap.**
+Its117 assets/recipe and evidence remain unchanged. Use the previous B1 source
+for that full native composition; its omitted M1 inputs are rejected by the
+current M1 Core. The current recipe is above.
 
 Use an explicitly approved, isolated candidate containing the coherent checked-in
 B1/Team/UI source, not the older live-preview project or a hot M1 composition.
@@ -346,7 +425,7 @@ Editor ownership and source freezes before an actual root import/build.
 ## Host build: verified route
 
 This route has the old56 deployment proof below; it has not built the new
-combined candidate. For a new B1 build, work from the complete approved
+combined candidate. For a new movement157 build, work from the complete approved
 candidate's project root **after** the resource/import prerequisites above, using
 an existing supported, activated installation with matching Editor/WebGL module:
 
@@ -436,8 +515,9 @@ HTTP readiness, not gameplay.
 Use `http://127.0.0.1:8080/?actors=source` to require the generated source player;
 `?actors=graybox` explicitly selects the procedural baseline. Without a parameter,
 installed original-team resources may select source, but a missing resource set
-does **not** implicitly select legacy. Current source mode requires **all five
-resource keys above** and reports `SOURCE MODE ERROR` for missing/invalid data;
+does **not** implicitly select legacy. Current source mode requires the
+**movement157 resource set plus pinned bootstrap above** and reports
+`SOURCE MODE ERROR` for missing/invalid data;
 there is no old-single-player, generic HUD/font, static or primitive substitute.
 Source controls are the [raw cabinet bindings](../README.md#source-cabinet-controls);
 the old1/2/3/Space/Shift/Q/F mappings are explicit graybox controls.
@@ -456,7 +536,7 @@ builder unless `BUILDX_BUILDER` is explicitly supplied.
 ## Browser verification
 
 Everything in the following continuous/static browser evidence records belongs
-to the **older56 or static live generations**, not a new B1/Team/HUD build.
+to the **older56 or static live generations**, not a new B1/M1/Team/HUD build.
 No new resource import/build/browser session, replacement image or remeasurement
 of the existing full-viewport/RTX3070 baseline is claimed here.
 
@@ -577,6 +657,7 @@ python3 -B -m unittest discover -s tools/animation/tests
 python3 -B tests/interface/run.py
 python3 -B tests/interface/stage_followup.py
 python3 -B tests/presentation/run.py
+python3 -B tests/interface/movement_bootstrap.py
 ```
 
 See [core/metadata](../tests/README.md), [asset](../tests/assets/README.md) and

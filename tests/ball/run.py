@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes
 
 EXPECTED = {"sentinel_assertions": 36, "native_ball_assertions": 470666,
-            "caller_assertions": 18002, "geometry_caller_assertions": 32}
+            "caller_assertions": 18017, "geometry_caller_assertions": 32}
 MUTATIONS = (
     ("pelvis-strict14", "SourceCatchRules.cs", "Distance(ball, pelvis) < 14f", "Distance(ball, pelvis) <= 14f", "native", "original standard_catch case", 1),
     ("wrist-strict5", "SourceCatchRules.cs", "Distance(ball, leftWrist) < 5f", "Distance(ball, leftWrist) <= 5f", "native", "original standard_catch case", 1),
@@ -32,8 +32,9 @@ MUTATIONS = (
     ("focus-edge-flush", "GameSimulation.cs", "pendingSourceActions.Clear();", "/* isolated mutation: queue not cleared */", "geometry", "focus flush actually removes", 1),
     ("raw-released-latch", "GameSimulation.cs", "released[input.StationId] |= input.Released;",
      "/* isolated mutation: queued release discarded */", "caller", "complete between-wake press/release", 1),
-    ("raw-new-pressed", "SourcePlayerDriver.cs", "actor.SourceNewButtons |= (SourceDroneButtons)(int)input.Pressed;",
-     "/* isolated mutation: ignore latched press */", "caller", "complete B press/release actually snaps", 1),
+    ("raw-new-pressed", "SourceMovementIntegration.cs", "state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;",
+     "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
+     "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1),
     ("source-transform-wake", "GameSimulation.Source.cs", "if (SourceStationInputTransform != null)",
      "if (SourceStationInputTransform != null && Model.SourceTick % 2 == 0)", "caller", "ordered raw drain transforms exactly once", 1),
     ("off-flip-real-lineup", "GameSimulation.Source.cs",
@@ -66,7 +67,8 @@ MUTATIONS = (
 
 def source_files():
     return [path for directory in ("Contracts", "Gameplay", "AssetImport")
-            for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))]
+            for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))] + [
+                ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"]
 
 
 def hashes(paths):

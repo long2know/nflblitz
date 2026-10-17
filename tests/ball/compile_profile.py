@@ -15,9 +15,12 @@ ARTIFACTS = Path(__file__).resolve().parent / ".artifacts"
 
 
 def source_hashes():
-    return {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+    result = {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
             for directory in ("Contracts", "Gameplay", "AssetImport")
             for path in sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs"))}
+    camera = ROOT / "Assets/Scripts/Presentation/SourceCinematicModel.cs"
+    result[camera.relative_to(ROOT).as_posix()] = hashlib.sha256(camera.read_bytes()).hexdigest()
+    return result
 
 
 def compiler_path():

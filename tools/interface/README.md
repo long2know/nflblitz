@@ -61,7 +61,10 @@ analytic HUD is not used as a source fallback.
 
 ## Compiled resource composition
 
-The metadata/Editor owner creates these ignored assets after source freeze:
+The published **B1/final117** recipe is retained in the separate B1 source
+snapshot. The current movement157 source profile uses the distinct resources
+and mandatory bootstrap below; it never treats an old B1 asset as an alias.
+The metadata/Editor owner creates the ignored assets after source freeze:
 
 1. `Resources/BlitzSourceInterface/original-interface`: `SourceHudAsset`.
    Call `Initialize` with the exact manifest/pin, the three raw RGBA byte assets
@@ -69,12 +72,13 @@ The metadata/Editor owner creates these ignored assets after source freeze:
    (`Hidden/Blitz/SourceHud`). Fonts use point sampling; the original diagram
    textures repeat. A missing shader/atlas is an error, not a generic texture.
 2. `Resources/BlitzSourceInterface/original-match-services`:
-   `SourceInterfaceServices`. Supply the **new** 117-clip library manifest
+   the historical B1 `SourceInterfaceServices` identity. Its **117-clip** manifest is
    `f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274`,
    the HUD, actual playbook catalog
    `b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3`,
    explicit match configuration and explicit source presentation settings.
-   The 56-clip resource is immutable and is not overwritten.
+   The 56/117 resources are immutable and are not overwritten. This key is not
+   the current movement157 service key.
 3. `Resources/SourceData/movement`: the runtime-safe payload from
    `tools/movement/export.py`, SHA256
    `89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6`.
@@ -82,7 +86,8 @@ The metadata/Editor owner creates these ignored assets after source freeze:
    reinterprets binary32 bits. It preserves all constants, ordered selectors,
    friction and both 12×6 defense matrices. The old test `Responses` export is
    forbidden. `Movement` exposes the actual immutable `SourceMovementData`;
-   Core owns its final injection and real callback integration.
+   Current movement157 composition injects the actual typed data into Core;
+   B1 kept this accessor lazy and did not require it.
 
 Runtime passes the **same** loaded animation instance to Core, catch geometry and
 the field. Its geometry uses all fifteen absolute imported reference pivots in
@@ -91,6 +96,79 @@ WAN, archive path or network request is used by WebGL.
 
 The null RNG factory remains explicitly labeled ExternalUnverified preview RNG,
 not the historical libc/scheduler/audio draw sequence.
+
+### Current movement157 bootstrap
+
+The canonical animation manifest is
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`:
+**157 clips / 13,490 selected frames**. Use the permanent
+`tools/animation/prepare_movement_complete.py` recipe, not the56/117 or earlier156
+catalog. The original `R_SKIP` is **selected (`0x4000`) and uncompressed**
+(`A_COMPRESSED=0x1`). Its missing right-hand record is reproduced by the exact
+original converter-global buffer left by `Huffrun2`; no header flags, forced
+selection, motion alias or running-table filtering are used.
+
+Required identities are:
+
+| Resource | Exact key |
+| --- | --- |
+| Team | `BlitzSourcePlayers/original-teams-movement157/team-presentation` |
+| Animation | `SourceData/local-plyr266-movement157-f0ae9395` |
+| Impact | `BlitzSourcePlayers/original-teams-movement157/impact-library` |
+| HUD, unchanged bitmap data | `BlitzSourceInterface/original-interface` |
+| M1 match services | `BlitzSourceInterface/original-movement157-match-services` |
+| Actual runtime-safe movement | `SourceData/movement`, exact89c790 SHA above |
+
+Follow the [explicit movement157 packaging recipe](packaging.md). In addition
+to the existing explicit team/roster/station/possession/captain/home/head/
+`pup_bigball` configuration, supply a separate UTF-8 bootstrap and its trusted
+SHA256. `SourceInterfaceMovementBootstrap.Read` accepts exactly these fields:
+
+| Field | Required original meaning/range |
+| --- | --- |
+| `schema` | `original-source-movement-bootstrap/v1` |
+| `field_index` | Selected original friction field0..6 |
+| `infinite_turbo_team_mask` | Whole raw team mask0..3, not a boolean |
+| `speed_powerup` | Global boolean, not team-mask-derived |
+| `fast_turbo_team_mask` | Whole raw team mask0..3 |
+| `run_out_of_bounds_team_mask` | Whole raw team mask0..3 |
+| `violence_powerup` | Explicit boolean |
+| `source_hres` | Explicit original DIP value512 |
+| `source_vres` | Explicit original DIP value256 or384 |
+
+There are no guessed settings, browser dimensions, physical-home/station
+shortcuts or mask-to-boolean conversions. Missing/null/duplicate/unknown members,
+trailing JSON, coercions, invalid ranges and changed bytes/pins fail. The
+bootstrap records a deliberately selected source DIP mode, not a default
+implied by the schema. Original bootstrap and generated assets stay ignored.
+
+The importer uses the eight-argument `SourceInterfaceServices.Initialize`
+overload: existing animation/HUD/playbook/configuration/presentation/native-pad
+arguments, then `TextAsset movementBootstrapText` and
+`string trustedMovementBootstrapSha256`. The old six-argument prefix remains
+callable but fails explicitly in this M1 source; it does not manufacture the
+missing bootstrap. `MovementData` and `MovementSettings` are mandatory real Core
+constructor inputs after presentation. The same actual immutable movement
+instance, seven friction values and twelve Line/Back/acceleration/plow rows are
+mapped without tuning or test-only `Responses`.
+The serialized animation asset must be the canonical157 Resource at the exact
+key above, not merely another asset with the same manifest. Startup verifies the
+same loaded animation instance is used by Core, catch geometry, Team and renderer.
+
+Runtime configures `PlayCamera(transform,prefab)` with the bootstrap DIP raster
+**before** the five-argument `ConfigureSourceStage` using Core's actual
+`SourceCameraRawGameMode`. Inside the existing pre-player source provider it
+samples once, calls `RequireSourceCameraAtTick(executingTick)`, then immediately
+passes that pure frame's position/all12 transform floats and the pinned DIP
+resolution to `SetSourceMovementCameraFrame`. No renderer readback, identity
+matrix, fresh `WorldJoint`, second source clock or post-host injection is used.
+Core owns the previous post14-actor/15-joint cache and current-frame consumption.
+One cue consumer and one host/restart lifecycle remain; focus clearing does not
+advance/reset the match clock or replay held input.
+
+Actual native resource import/build/browser proof remains blocked separately
+by licensing198. Source audio/FX consumers, target RNG/scheduler, full normal
+camera/C1 and all16 full-parity rows remain open; no silence/noop is installed.
 
 ## Cabinet bindings
 
@@ -144,8 +222,9 @@ and manual kick-meter consumer state are explicit remaining requirements.
 each host `Step`, including every catch-up step. Its lifecycle calls typed
 `IPendingSourceInput.ClearPendingInput`, never private-buffer reflection.
 Camera advancement belongs to the verified in-Core RL_CAMBOT stage, not
-`LateUpdate` or an interpolated transform. Exact raw source game mode and original
-camera/effect/audio consumers remain required at integration.
+`LateUpdate` or an interpolated transform. Current M1 uses the actual raw Core
+mode and same-tick camera frame as described above; full original normal-camera
+branches and actual effect/audio consumers remain separately qualified.
 
 HUD layout uses actual canvas CSS dimensions, drawing-buffer dimensions and DPR.
 Original glyph quads and sprite/plane bounds are checked against CSS content,

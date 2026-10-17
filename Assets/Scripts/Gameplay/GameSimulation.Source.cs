@@ -7,6 +7,11 @@ namespace Blitz.Gameplay
     {
         private void InitializeSource()
         {
+            if (sourceMovementData == null || sourceMovementSettings == null)
+                throw new InvalidOperationException("Original source M1 requires actual runtime-safe SourceMovementRuntimeData "
+                    + "and explicit field/powerup SourceMovementSettings. No tuned legacy movement fallback is used.");
+            if (!(sourceGeometry is ISourceActorCameraGeometry))
+                throw new InvalidOperationException("Original M1 requires real fifteen-bone camera-cache geometry, not WorldJoint substitution.");
             if (sourceGeometry == null)
                 throw new InvalidOperationException("The source profile requires Contracts.ISourceActorGeometry backed "
                     + "by the actual original pose library and imported reference pivots.");
@@ -17,6 +22,8 @@ namespace Blitz.Gameplay
             BeginSourceProcess("game_proc", -1, 0);
             Model.SourceConfiguration = sourceConfiguration;
             Model.SourcePresentation = sourcePresentation;
+            Model.SourceMovementData = sourceMovementData;
+            Model.SourceMovementSettings = sourceMovementSettings;
             Model.SourceRosters = sourceRosters;
             Model.SourcePlaybook = sourcePlaybook;
             if (sourcePlaybook != null)
@@ -83,17 +90,9 @@ namespace Blitz.Gameplay
                                 Model.SourceKickApproach = true;
                         }
                     }
-                    else
-                    {
-                        Model.PreSnapTicksRemaining--;
-                        if (Model.PreSnapTicksRemaining < 1)
-                            SnapSource(Model.PreSnapTicksRemaining == 0);
-                    }
                     break;
                 case GamePhase.LiveBall:
                     Model.LiveTicks++;
-                    if (Model.SourceDisallowPassTicks > 0)
-                        Model.SourceDisallowPassTicks--;
                     break;
                 case GamePhase.DeadBall:
                     if (action == SourceAction.SelectKickoff && command.Source.KickoffChoice.HasValue)
@@ -114,6 +113,7 @@ namespace Blitz.Gameplay
             if (Model.Phase == GamePhase.PlaySelect)
                 return;
 
+            UpdateSourceStationMovementResources(command);
             // id.h RL_CAMBOT=0x100 precedes RL_PLAYER-1 and all actors.
             if (SourceCameraHeadingProvider != null)
             {
@@ -127,12 +127,17 @@ namespace Blitz.Gameplay
             }
             Model.SourceCameraHeading = pendingSourceCameraHeading;
             Model.SourceCameraHeadingSampleTick = pendingSourceCameraSampleTick;
+            if (SourceCameraHeadingProvider == null || Model.SourceMovementCameraTick != Model.SourceTick)
+                throw new InvalidOperationException("M1 requires actual cambot position/xform/resolution from the executing source camera provider.");
 
             SourceClockStep clock = SourceClock.Step(Model.SourceClock,
                 new SourceClockInput(Model.SourceTick, Model.ClockActive, Model.Quarter - 1,
                     sourceConfiguration.TimeAdjustment));
             Model.SourceClock = clock.State;
             UpdateSourceClockView();
+            foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;
+            CacheSourceGeometry();
+            Model.SourceAiFrame = BuildSourceAiFrame();
             if (Model.Phase == GamePhase.LiveBall)
             {
                 Model.SourceAiFrame = BuildSourceAiFrame();
@@ -147,9 +152,8 @@ namespace Blitz.Gameplay
                 Model.SourceAiFrame = BuildSourceAiFrame();
                 Model.SourceReceivers = SourceDroneAI.UpdateReceiverData(Model.SourceAiFrame);
             }
-            SourcePlayerDriver.Update(Model, command, SourceDraw, SourceAnimationSideEffect, TrySourceCatch,
-                id => BeginSourceProcess("player_proc", id, id + 1), SourceCarrierControl,
-                SourceDroneMove, SourceActorActions, ApplySourceDroneAnimation);
+            UpdateSourceMovementPlayers(command);
+            CacheSourcePlayerCameraJoints();
             // Active last_player_proc clears HICOUNT for all fourteen actors.
             foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x04;
             if (Model.SourceKickApproach)
@@ -506,7 +510,10 @@ namespace Blitz.Gameplay
             if (Model.SourceRules.PlayType == SourcePlayType.Kickoff || Model.SourceDisallowPassTicks > 0)
                 return;
             ActorState quarterback = Model.Players[quarterbackId];
-            if (quarterback.Role != ActorRole.Quarterback || quarterback.AnimationState.Busy || quarterback.PendingThrowTarget >= 0
+            string lowerSequence = quarterback.AnimationState.Primary.SequenceName;
+            bool upperBusy = (quarterback.AnimationState.Secondary.Mode & SourceAnimationModes.Uninterruptible) != 0;
+            bool lowerThrow = !upperBusy && (lowerSequence == "HURDLE" || lowerSequence == "SPIN" || lowerSequence == "QB_STIFF");
+            if (quarterback.Role != ActorRole.Quarterback || (quarterback.AnimationState.Busy && !lowerThrow) || quarterback.PendingThrowTarget >= 0
                 || (Model.SourceFlags & SourceGameFlags.BallCrossedLine) != 0)
                 return;
             if (targetId == -1 && quarterback.SourceControllerStation >= 0)
@@ -517,8 +524,7 @@ namespace Blitz.Gameplay
                 return;
             ActorState target = Model.Players[targetId];
             SourceVector3 from = SourcePlayerDriver.WorldPosition(quarterback), to = SourcePlayerDriver.WorldPosition(target);
-            float dx = to.X - from.X, dz = to.Z - from.Z;
-            float distance = (float)Math.Sqrt(dx * dx + dz * dz) / SourceTiming.SourceUnitsPerYard;
+            float distance = Model.SourceDistances[quarterbackId, targetId] / SourceTiming.SourceUnitsPerYard;
             int fromField = SourceMatchRules.FieldPosition(from.X, (int)Model.Possession);
             int toField = SourceMatchRules.FieldPosition(to.X, (int)Model.Possession);
             if (distance < 7f && fromField > toField)
@@ -530,17 +536,27 @@ namespace Blitz.Gameplay
             quarterback.SourceThrowing = true;
             quarterback.PendingThrowTurbo = turbo;
             quarterback.Action = ActorAction.Throw;
-            int targetHeading = SourcePlayerDriver.Heading(PlayerSimulation.Subtract(target.Position, quarterback.Position));
+            int targetHeading = Model.SourceAngles[quarterbackId, targetId];
             int bearing = Math.Abs(((targetHeading - quarterback.Facing + 512) & 1023) - 512);
+            if (quarterback.AnimationState.Primary.IsUninterruptible && lowerThrow)
+            {
+                quarterback.AnimationState.BeginTwoPart(quarterback);
+                quarterback.TargetFacing = quarterback.TargetUpperFacing = targetHeading;
+                quarterback.AnimationState.UpperBody(quarterback.Flipped ? "qb_rthrow_sl_anim" : "qb_rthrow_sr_anim",
+                    quarterback, Model.SourceTick, SourceDraw, AnimationSelectionEvidence.SourceVerified);
+                return;
+            }
             if (distance < 15f && fromField <= toField
                 && bearing <= 320)
             {
                 quarterback.TargetUpperFacing = targetHeading;
+                quarterback.SourceUpperTurnRate = bearing / 4;
                 quarterback.AnimationState.UpperBody(quarterback.Flipped ? "qb_rthrow_sl_anim" : "qb_rthrow_sr_anim",
                     quarterback, Model.SourceTick, SourceDraw, AnimationSelectionEvidence.SourceVerified);
                 return;
             }
             quarterback.TargetFacing = targetHeading;
+            quarterback.SourceTurnRate = bearing / 4;
             string script = distance >= 35f ? quarterback.Flipped ? "qb_throw_ll_anim" : "qb_throw_lr_anim"
                 : quarterback.Flipped ? "qb_throw_sl_anim" : "qb_throw_sr_anim";
             quarterback.AnimationState.FullBody(script, quarterback, Model.SourceTick, SourceDraw,
@@ -1305,6 +1321,8 @@ namespace Blitz.Gameplay
                 Model.Players[id].SourceUnblockable = after.UnblockableByActor[id];
                 Model.SourceDrones[id] = Model.SourceDrones[id].WithQuarterbackPlan(after.QuarterbackPlan);
             }
+            Array.Clear(Model.SourceSpinCount, 0, Model.SourceSpinCount.Length);
+            Array.Clear(Model.SourceHurdleCount, 0, Model.SourceHurdleCount.Length);
             Model.SourceAiFrame = null;
             if (SourceContactDriver.IsHumanTeam(Model, Model.Possession)
                 && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.FakeFieldGoal)) != 0)
@@ -1370,8 +1388,8 @@ namespace Blitz.Gameplay
                 if ((lower & SourceAnimationModes.Uninterruptible) != 0) flags |= SourceAiActorFlags.LowerUninterruptible;
                 if ((upper & SourceAnimationModes.Uninterruptible) != 0) flags |= SourceAiActorFlags.UpperUninterruptible;
                 if ((lower & SourceAnimationModes.Reacting) != 0) flags |= SourceAiActorFlags.Reacting;
-                if ((lower & 0x00400000u) != 0) flags |= SourceAiActorFlags.Puppet;
-                if ((lower & 0x00800000u) != 0) flags |= SourceAiActorFlags.Puppeteer;
+                if ((lower & (uint)SourceMovementModes.Puppet) != 0) flags |= SourceAiActorFlags.Puppet;
+                if ((lower & (uint)SourceMovementModes.Puppeteer) != 0) flags |= SourceAiActorFlags.Puppeteer;
                 if (actor.SourceReverseRoute) flags |= SourceAiActorFlags.ReverseRoute;
                 if (actor.SourceThrowing) flags |= SourceAiActorFlags.Throwing;
                 if ((upper & 0x1000u) != 0) flags |= SourceAiActorFlags.RunningPush;
@@ -1679,6 +1697,7 @@ namespace Blitz.Gameplay
 
         private void SourceAnimationSideEffect(int actorId, SourceAnimationSignal signal)
         {
+            if ((signal & SourceAnimationSignal.GeneralRun) != 0) SourceGeneralRun(Model.Players[actorId]);
             if ((signal & SourceAnimationSignal.ReleaseBall) != 0) ReleaseSourceBall(actorId);
             if ((signal & SourceAnimationSignal.PlayerDown) != 0) SourcePlayerDown(actorId);
             if ((signal & SourceAnimationSignal.PuntBall) != 0) ReleaseSourcePunt(actorId);
@@ -1713,6 +1732,7 @@ namespace Blitz.Gameplay
 
         private void BindSourceAnimation(ActorState actor)
         {
+            actor.AnimationState.BindMovementExecution(SourceMovementAnimationCode, SourceMovementLeapAttack);
             actor.AnimationState.BindExecution(() => Model.SourcePresentationOrder++,
                 SynchronizeSourceAnimationActor, SourceAnimationPresentation,
                 signal =>

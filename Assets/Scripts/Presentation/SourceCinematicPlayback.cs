@@ -70,6 +70,14 @@ namespace Blitz.Presentation
         public long LastCameraTick { get { return lastCameraTick; } }
         public SourcePresentationContext LastObservedPlayerDown { get; private set; }
         public SourceCinematicTransform CurrentSourceCamera { get; private set; }
+        private readonly SourceCameraFrameClock executingSourceCamera = new SourceCameraFrameClock();
+
+        public SourceCinematicTransform RequireSourceCameraAtTick(long executingSourceTick)
+        {
+            if (lastCameraTick != executingSourceTick)
+                throw new InvalidOperationException("The source camera process has not executed the requested movement tick.");
+            return executingSourceCamera.RequireAtTick(executingSourceTick, cameraProcessSuspended);
+        }
         public int SourceHeading1024 { get { return (int)(camera.State.Theta * (1024f / SourceCinematicMath.TwoPi)) & 1023; } }
         public event Action<SourceImpactCallback> SourceCallback;
 
@@ -167,6 +175,7 @@ namespace Blitz.Presentation
                 throw new InvalidOperationException("An active source transient/resume cannot be replaced by a render-only normal camera seed.");
             camera.Reset(actualCurrentCamera);
             CurrentSourceCamera = SourceCinematicTransform.FromState(actualCurrentCamera);
+            executingSourceCamera.Reset();
         }
 
         public bool ExecuteCameraOpcode(long sourceTick, int processOrder, int actorId,
@@ -263,6 +272,7 @@ namespace Blitz.Presentation
             }
             Frame = frame;
             CurrentSourceCamera = SourceCinematicTransform.FromState(camera.State);
+            executingSourceCamera.Publish(sourceTick, CurrentSourceCamera);
             HasRenderFrame = wasActive || resumingNormal || shake;
             return frame;
         }
@@ -274,6 +284,7 @@ namespace Blitz.Presentation
             resumingNormal = false; HasRenderFrame = false; Frame = default(SourceCinematicFrame);
             cameraProcessSuspended = allowResumedTickGap = false; LastObservedPlayerDown = default(SourcePresentationContext);
             CurrentSourceCamera = SourceCinematicTransform.FromState(normalCamera);
+            executingSourceCamera.Reset();
         }
 
         private bool Select(string table, int actualOrdinal, int actor)

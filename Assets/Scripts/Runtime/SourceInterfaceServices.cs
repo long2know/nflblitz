@@ -8,6 +8,29 @@ using UnityEngine;
 
 namespace Blitz.Runtime
 {
+    public static class SourceInterfaceMovementComposition
+    {
+        public static SourceMovementRuntimeData RuntimeData(SourceMovementData movement, SourceInterfaceMovementData actual)
+        {
+            if (movement == null || actual == null)
+                throw new ArgumentNullException(movement == null ? nameof(movement) : nameof(actual));
+            var rows = new SourceMovementDefenseRow[actual.Defense.Count];
+            for (int i = 0; i < rows.Length; i++)
+            {
+                SourceInterfaceDefenseRow row = actual.Defense[i];
+                rows[i] = new SourceMovementDefenseRow(row.Line, row.Back, row.Base, row.Range, row.Plow);
+            }
+            return new SourceMovementRuntimeData(movement, actual.Friction, rows);
+        }
+
+        public static SourceMovementSettings Settings(SourceInterfaceMovementBootstrap actual)
+        {
+            if (actual == null) throw new ArgumentNullException(nameof(actual));
+            return new SourceMovementSettings(actual.FieldIndex, actual.InfiniteTurboTeamMask,
+                actual.SpeedPowerup, actual.FastTurboTeamMask, actual.RunOutOfBoundsTeamMask, actual.ViolencePowerup);
+        }
+    }
+
     [Serializable]
     public sealed class SourceInterfaceStation
     {
@@ -54,8 +77,8 @@ namespace Blitz.Runtime
 
     public sealed class SourceInterfaceServices : ScriptableObject
     {
-        public const string ResourceKey = "BlitzSourceInterface/original-match-services";
-        public const string ExpandedAnimationSha256 = "f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274";
+        public const string ResourceKey = "BlitzSourceInterface/original-movement157-match-services";
+        public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
         public const string PlaybookSha256 = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3";
         [SerializeField] private SourceAnimationLibraryAsset originalAnimations;
         [SerializeField] private SourceHudAsset originalHud;
@@ -77,10 +100,15 @@ namespace Blitz.Runtime
         [SerializeField] private int[] stationHeads;
         [SerializeField] private int pupBigBall;
         [SerializeField] private bool nativeGamepadsEnabled;
+        [SerializeField] private TextAsset originalMovementBootstrap = null;
+        [SerializeField] private string movementBootstrapSha256 = null;
         private ISourceAnimationLibrary animations;
         private SourcePlaybook playbook;
         private SourceInterfaceMovementData movementRuntime;
         private SourceMovementData movement;
+        private SourceMovementRuntimeData movementData;
+        private SourceInterfaceMovementBootstrap movementBootstrap;
+        private SourceMovementSettings movementSettings;
 
         public SourceHudAsset Hud { get { Validate(); return originalHud; } }
         public bool NativeGamepadsEnabled { get { return nativeGamepadsEnabled; } }
@@ -88,16 +116,60 @@ namespace Blitz.Runtime
         public SourcePlaybook Playbook { get { Validate(); return playbook; } }
         public SourceMovementData Movement { get { LoadMovement(); return movement; } }
         public SourceInterfaceMovementData MovementRuntime { get { LoadMovement(); return movementRuntime; } }
+        public SourceInterfaceMovementBootstrap MovementBootstrap
+        {
+            get
+            {
+                if (movementBootstrap == null)
+                {
+                    if (originalMovementBootstrap == null)
+                        throw new SourceInterfaceException("M1 requires an explicit SHA-pinned movement settings/source-DIP bootstrap; no defaults are inferred.");
+                    movementBootstrap = SourceInterfaceMovementBootstrap.Read(originalMovementBootstrap.bytes, movementBootstrapSha256);
+                }
+                return movementBootstrap;
+            }
+        }
+        public SourceMovementRuntimeData MovementData
+        {
+            get
+            {
+                if (movementData == null)
+                    movementData = SourceInterfaceMovementComposition.RuntimeData(Movement, MovementRuntime);
+                return movementData;
+            }
+        }
+        public SourceMovementSettings MovementSettings
+        {
+            get
+            {
+                if (movementSettings == null)
+                    movementSettings = SourceInterfaceMovementComposition.Settings(MovementBootstrap);
+                return movementSettings;
+            }
+        }
         public SourcePresentationSettings PresentationSettings
         { get { return new SourcePresentationSettings(designatedHomeSide, stationHeads, pupBigBall); } }
 
         public void Initialize(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
             SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads = false)
         {
+            throw new SourceInterfaceException("This M1 resource needs explicit SHA-pinned movement settings/source-DIP data. Use the eight-argument Initialize; a B1/117 resource is not an M1 fallback.");
+        }
+
+        public void Initialize(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256)
+        {
             if (configuration == null || actualPresentation == null)
                 throw new ArgumentNullException(configuration == null ? nameof(configuration) : nameof(actualPresentation));
             if (animations != null || configuration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new SourceInterfaceException("Original match service resources require one immutable explicit 57-Hz configuration.");
+            if (movementBootstrapText == null)
+                throw new SourceInterfaceException("An explicit pinned M1 movement/source-DIP bootstrap is required.");
+            SourceInterfaceMovementBootstrap actualBootstrap =
+                SourceInterfaceMovementBootstrap.Read(movementBootstrapText.bytes, trustedMovementBootstrapSha256);
+            originalMovementBootstrap = movementBootstrapText; movementBootstrapSha256 = trustedMovementBootstrapSha256;
+            movementBootstrap = actualBootstrap;
             originalAnimations = animationAsset; originalHud = hud; originalPlaybook = playbookText;
             homeTeamIndex = configuration.HomeTeam.TeamIndex; awayTeamIndex = configuration.AwayTeam.TeamIndex;
             homeRosterIndices = new int[7]; awayRosterIndices = new int[7];
@@ -144,20 +216,29 @@ namespace Blitz.Runtime
             var pivots = new SourceVector3[SourceTiming.JointCount];
             for (int i = 0; i < pivots.Length; i++) pivots[i] = prefab.GetUnityReferencePivot(i);
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, pivots);
-            SourceTeamPresentationAsset teams = SourcePlayerProvider.ResolveRequiredTeamPresentation();
+            SourceTeamPresentationAsset teams = SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab);
             Debug.LogWarning("Original source services use explicit ExternalUnverified legacy-LCG preview RNG when no oracle factory is supplied. Historical libc/scheduler/audio draw parity is NOT established.");
             return new GameSimulation(animations, geometry, playbook, Configuration(), null, 1,
-                rosters: teams.Rosters, presentation: PresentationSettings);
+                rosters: teams.Rosters, presentation: PresentationSettings,
+                movementData: MovementData, movementSettings: MovementSettings);
         }
 
         private void Validate()
         {
             if (animations != null) return;
+            SourceAnimationLibraryAsset canonical = Resources.Load<SourceAnimationLibraryAsset>(
+                SourcePlayerProvider.MovementAnimationResourceKey);
+            if (canonical == null || !ReferenceEquals(originalAnimations, canonical))
+                throw new SourceInterfaceException("M1 services must reference the SAME canonical157 animation asset at Resources/" +
+                    SourcePlayerProvider.MovementAnimationResourceKey + "; matching hashes on another asset are not aliases.");
             if (originalAnimations == null || originalAnimations.InventorySha256 != ExpandedAnimationSha256 ||
                 originalHud == null || originalPlaybook == null ||
                 AuthorizedAssetRoot.Sha256(originalPlaybook.bytes) != PlaybookSha256)
                 throw new SourceInterfaceException("Source mode requires Resources/" + ResourceKey +
-                    " with the NEW pinned117 library, actual converted playbook and original HUD. The immutable56 library, ignored raw files and runtime network loading are not substitutes.");
+                    " with the NEW pinned157 library, actual converted playbook and original HUD. Immutable56/117/156 libraries, ignored raw files and runtime network loading are not substitutes.");
+            SourceInterfaceMovementBootstrap bootstrap = MovementBootstrap;
+            if (bootstrap.ContentSha256 != movementBootstrapSha256)
+                throw new SourceInterfaceException("The explicit M1 bootstrap pin changed after configuration.");
             ISourceAnimationLibrary actual = originalAnimations.Load();
             SourcePlaybook book;
             using (var reader = new StringReader(originalPlaybook.text)) book = SourcePlaybook.LoadConverted(reader);

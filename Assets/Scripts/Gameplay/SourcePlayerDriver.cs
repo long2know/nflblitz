@@ -42,6 +42,7 @@ namespace Blitz.Gameplay
                     placed.Position.Z / UnitsPerYard);
                 SetSourcePosition(actor, new SourceVector3(placed.Position.X, 0f, placed.Position.Z));
                 actor.SnapPosition = actor.Position;
+                actor.SourceMotionSnapX = placed.Position.X;
                 actor.SourceMode = placed.Slot.Mode;
                 actor.SourceTarget = placed.CoverageTarget;
                 actor.SourceReverseRoute = false;
@@ -125,28 +126,12 @@ namespace Blitz.Gameplay
                     float line = model.SourceLinePosition * UnitsPerYard;
                     actor.SourceReverseRoute = model.Possession == TeamId.Home ? z < line - 2f : z > line + 2f;
                 }
-                actor.ModeChangedTick = model.SourceTick;
-                if (actor.SourceMode == SourceActorMode.LinePreSnap) actor.SourceMode = SourceActorMode.Line;
-                else if (actor.SourceMode == SourceActorMode.QuarterbackPreSnap) actor.SourceMode = SourceActorMode.Quarterback;
-                else if (actor.SourceMode == SourceActorMode.ReceiverPreSnap) actor.SourceMode = SourceActorMode.Receiver;
-                else if (actor.SourceMode == SourceActorMode.DefensiveBackPreSnap) actor.SourceMode = SourceActorMode.DefensiveBack;
-                int slot = id % SliceRules.PlayersPerTeam;
-                if (slot < 3)
-                {
-                    string script = actor.Team != model.Possession ? "charge_anim"
-                        : slot == 1 ? "center_snap_anim" : "stance3pt_jumpback_anim";
-                    actor.Action = ActorAction.Block;
-                    actor.AnimationState.FullBody(script, actor, model.SourceTick, random,
-                        AnimationSelectionEvidence.SourceVerified);
-                }
-                else
-                {
-                    actor.Action = ActorAction.Idle;
-                    actor.AnimationState.FullBody(actor.Role == ActorRole.Quarterback ? "qb_stance_anim"
-                        : actor.Id == model.ControlledPlayerId ? "safty2pt_anim_rnd" : "breath2_anim",
-                        actor, model.SourceTick, random, AnimationSelectionEvidence.SourceVerified);
-                }
             }
+            ActorState center = model.Players[model.OffenseOffset + 1];
+            center.Action = ActorAction.Block;
+            center.AnimationState.FullBody("center_snap_anim", center, model.SourceTick, random,
+                AnimationSelectionEvidence.SourceVerified);
+            model.Players[model.OffenseOffset + 3].SourceMode = SourceActorMode.Quarterback;
         }
 
         internal static void Update(SimulationState model, PlayerCommand command, Func<int, int> random,

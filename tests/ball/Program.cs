@@ -22,6 +22,7 @@ internal static class Program
                 throw new ArgumentException("BallChecks actual-fixture.json original-C-case-directory all|native|caller|sentinel|geometry");
             FullKernelInputs real = FullKernelInputs.Load(args[0]);
             result["real_input_fixture_sha256"] = real.ManifestSha256;
+            result["canonical_B1_animation_manifest"] = real.Animations.InventorySha256;
             string section = args[2];
             if (section != "all" && section != "native" && section != "caller" && section != "sentinel" && section != "geometry")
                 throw new ArgumentException("Unknown bounded ball section.");
@@ -30,7 +31,12 @@ internal static class Program
             if (section == "all" || section == "native")
                 result["native_ball_assertions"] = NativeBallChecks.Run(real, args[1]);
             if (section == "all" || section == "caller")
-                result["caller_assertions"] = SourceCallerChecks.Run(real, args[1]);
+            {
+                // These public callers now execute M1 scripts; keep their explicit157 identity separate from B1's117.
+                FullKernelInputs movementReal = FullKernelInputs.Load(args[0], movementLibrary: true);
+                result["caller_runtime_animation_manifest"] = movementReal.Animations.InventorySha256;
+                result["caller_assertions"] = SourceCallerChecks.Run(movementReal, args[1]);
+            }
             if (section == "all" || section == "geometry")
                 result["geometry_caller_assertions"] = GeometryCallerChecks.Run(real);
             result["status"] = "passed";

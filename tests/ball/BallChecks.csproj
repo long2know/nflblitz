@@ -15,6 +15,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="../parity/FullKernelInputs.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="NativeBallChecks.cs" />
     <Compile Include="SourceCallerChecks.cs" />

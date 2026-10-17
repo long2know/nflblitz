@@ -30,6 +30,8 @@ namespace Blitz.Gameplay
         private readonly SourcePlaybook sourcePlaybook;
         private readonly ISourceTeamRoster sourceRosters;
         private readonly SourcePresentationSettings sourcePresentation;
+        private readonly SourceMovementRuntimeData sourceMovementData;
+        private readonly SourceMovementSettings sourceMovementSettings;
         private readonly Func<int, ISourceRandom> sourceRandomFactory;
         private ISourceRandom sourceRandom;
         private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
@@ -68,6 +70,7 @@ namespace Blitz.Gameplay
         public int SourceCameraStageOrder { get; private set; } = -1;
         public int SourceCameraHeading { get { return Model.SourceCameraHeading; } }
         public long SourceCameraHeadingSampleTick { get { return Model.SourceCameraHeadingSampleTick; } }
+        public int SourceCameraRawGameMode { get { return (int)MovementPhase; } }
         public long SourceTick { get { return Model.SourceMode ? Model.SourceTick : Model.Tick; } }
         public SourceVector3 SourceBallWorldPosition
         {
@@ -103,13 +106,16 @@ namespace Blitz.Gameplay
         public GameSimulation(ISourceAnimationLibrary animations, ISourceActorGeometry geometry,
             SourcePlaybook playbook, SourceMatchConfiguration configuration = null,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
-            SourcePresentationSettings presentation = null)
+            SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
+            SourceMovementSettings movementSettings = null)
         {
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
             sourceGeometry = geometry;
             sourcePlaybook = playbook;
             sourceRosters = rosters;
             sourcePresentation = presentation;
+            sourceMovementData = movementData;
+            sourceMovementSettings = movementSettings;
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
@@ -238,6 +244,15 @@ namespace Blitz.Gameplay
             if (!executingSourceCamera)
                 throw new InvalidOperationException("Camera RNG belongs inside the executing source camera-stage callback.");
             return SourceDraw(maximum, sourceIdentity);
+        }
+
+        public void SetSourceMovementCameraFrame(SourceMovementCameraFrame frame, long sourceTick)
+        {
+            if (Profile != SimulationProfile.OriginalRelease57Hz || !executingSourceCamera)
+                throw new InvalidOperationException("Actual M1 cambot data belongs inside the executing source camera provider.");
+            if (sourceTick != Model.SourceTick) throw new ArgumentOutOfRangeException(nameof(sourceTick));
+            Model.SourceMovementCamera = frame ?? throw new ArgumentNullException(nameof(frame));
+            Model.SourceMovementCameraTick = sourceTick;
         }
 
         public SourceVector3 SourceActorWorldPosition(int playerId)

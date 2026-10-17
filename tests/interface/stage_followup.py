@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = "Assets/Scripts/Runtime/BlitzRuntime.cs"
 HUD = "Assets/Scripts/Presentation/PlayHud.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
+SERVICES = "Assets/Scripts/Runtime/SourceInterfaceServices.cs"
 LIVE_OVERRIDES = (RUNTIME, HUD)
 REQUIRED_OWNED_UI = (RUNTIME, HUD, BRIDGE)
 BASE_SHA = "419a8b2d53abbaaa59008f23040e940e0466d0612fb2cb7e6f648ad77526e986"
@@ -148,14 +149,15 @@ def validate_runtime(source):
     code = compact(uncomment(source))
     awake = compact(method(source, "Awake"))
     configure = ("playCamera.ConfigureSourceStage(State,()=>simulation.SourceCameraStageOrder,"
-                 "simulation.DrawSourceCameraRandom,simulation.SourceActorWorldPosition);")
+                 "simulation.DrawSourceCameraRandom,state=>simulation.SourceCameraRawGameMode,"
+                 "simulation.SourceActorWorldPosition);")
     register = "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);"
     attach = "simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;"
-    require(awake.count(configure) == 1, "source stage must bind exact Core ordinal/shared RNG/canonical roots via four-argument Configure")
+    require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots via five-argument Configure")
     require(awake.count(register) == 1, "actual Team SampleAtSourceTick must be registered exactly once")
     require(awake.count(attach) == 1 and awake.index(configure) < awake.index(register) < awake.index(attach),
             "configure/register before exposing Core's executing-source callback")
-    source_block = awake[awake.index("playCamera=newPlayCamera(transform);"):awake.index("hud=gameObject.AddComponent<PlayHud>();")]
+    source_block = awake[awake.index("playCamera=newPlayCamera(transform,prefab);"):awake.index("hud=gameObject.AddComponent<PlayHud>();")]
     require("if(IsSourceProfile){" in source_block, "source camera registration must not activate in explicit legacy")
     require("SourcePresentationCueRaised+=playCamera.ConsumeSourceCue;" in source_block
             and awake.count("SourcePresentationCueRaised+=playCamera.ConsumeSourceCue;") == 1,
@@ -199,9 +201,9 @@ def validate_runtime(source):
     require(destroy.count("SourcePresentationCueRaised-=playCamera.ConsumeSourceCue;") == 1
             and destroy.count("AfterHostStep-=playCamera.ObserveSourceHostStep;") == 1,
             "source stage subscriptions must be removed once on destruction")
-    require("SourceCameraRawGameMode" not in code and "actualRawGameMode" not in code
-            and "SourceHeading1024" not in code and "AdvanceSourceCameraAtStage" not in code,
-            "base caller must not invent raw GM or substitute the last-render heading")
+    require("SourceHeading1024" not in code and "AdvanceSourceCameraAtStage" not in code
+            and "(int)state.Phase" not in code and "worldToCameraMatrix" not in code and "WorldJoint" not in code,
+            "M1 caller must not invent raw GM, renderer matrices/joints or last-render heading")
     require("if(prefab==null){if(!ExplicitGraybox(Application.absoluteURL))thrownewSourceInterfaceException(" in awake
             and awake.count("simulation=newBlitz.Gameplay.GameSimulation(1);") == 1,
             "explicit graybox keeps the original legacy constructor; implicit source fallback is forbidden")
@@ -211,7 +213,62 @@ def validate_runtime(source):
             "missing new source resources must fail visibly, not silently select legacy")
     require("bridge.AdvanceSource(Time.unscaledDeltaTime,sourceInput.Buffer.NextHostFrame);" in compact(method(source, "Update")),
             "the actual source raw input/Step caller must remain connected")
-    return 16
+    raster = "playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution,bootstrap.VerticalResolution);"
+    require(awake.count(raster) == 1 and awake.index(raster) < awake.index(configure),
+            "explicit source DIP raster must be configured before source camera initialization")
+    require("SourceInterfaceMovementBootstrapbootstrap=sourceServices.MovementBootstrap;" in source_block,
+            "source camera raster must come from the required pinned bootstrap, not defaults")
+    frame = "SourceCinematicTransformframe=playCamera.RequireSourceCameraAtTick(executingSourceTick);"
+    inject = ("simulation.SetSourceMovementCameraFrame(newBlitz.Gameplay.SourceMovementCameraFrame("
+              "frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution),executingSourceTick);")
+    require(sample.count(frame) == 1 and sample.count(inject) == 1,
+            "M1 must inject the actual tick-guarded position/full transform and original DIP, not zero or render data")
+    require(sample.index("sourceCameraProducer(preActorState,executingSourceTick)") < sample.index(frame)
+            < sample.index(inject) < sample.index("lastSourceCameraTick=executingSourceTick;") < sample.index("returnheading;"),
+            "actual source sample/frame injection must occur in-order inside the existing pre-player provider")
+    require(code.count("simulation.SetSourceMovementCameraFrame(") == 1 and ".SetSourceMovementCameraFrame(" not in after,
+            "M1 frame must not be repeated or injected by post-host/render observers")
+    require("SourcePlayerProvider.ResolveActorMode(true)" in awake,
+            "M1 activation must select the explicit157 team/resource profile, not old B1 resources")
+    require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake,
+            "Core/geometry/Team/renderer must share the actual canonical157 animation instance")
+    return 23
+
+
+def validate_services(source):
+    code = compact(uncomment(source))
+    require('ResourceKey="BlitzSourceInterface/original-movement157-match-services"' in code
+            and 'ExpandedAnimationSha256="f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e"' in code,
+            "M1 services need distinct157 resource identity and exact converter-replay manifest")
+    require("rosters:teams.Rosters,presentation:PresentationSettings,movementData:MovementData,movementSettings:MovementSettings)" in code,
+            "actual full Core constructor must receive mandatory typed M1 data/settings after presentation")
+    require("newSourceMovementDefenseRow(row.Line,row.Back,row.Base,row.Range,row.Plow)" in code
+            and "newSourceMovementRuntimeData(movement,actual.Friction,rows)" in code
+            and "for(inti=0;i<rows.Length;i++)" in code
+            and "movementData=SourceInterfaceMovementComposition.RuntimeData(Movement,MovementRuntime)" in code,
+            "M1 composition must map every actual Line/Back/friction/handicap row, not tuned or swapped substitutes")
+    require("newSourceMovementSettings(actual.FieldIndex,actual.InfiniteTurboTeamMask,actual.SpeedPowerup,"
+            "actual.FastTurboTeamMask,actual.RunOutOfBoundsTeamMask,actual.ViolencePowerup)" in code
+            and "movementSettings=SourceInterfaceMovementComposition.Settings(MovementBootstrap)" in code,
+            "settings must preserve all original team masks and global speed without Home/bool conversion")
+    require("SourceInterfaceMovementBootstrap.Read(originalMovementBootstrap.bytes,movementBootstrapSha256)" in code
+            and "SourceInterfaceMovementBootstrap.Read(movementBootstrapText.bytes,trustedMovementBootstrapSha256)" in code
+            and "if(originalMovementBootstrap==null)thrownewSourceInterfaceException(" in code,
+            "serialized settings/source DIP need explicit pinned bytes and missing-bootstrap failure")
+    require("SourceInterfaceMovementData.Read(movementAsset.bytes,SourceInterfaceMovementData.ContentSha256)" in code
+            and "Resources.Load<TextAsset>(SourceInterfaceMovementData.ResourceKey)" in code
+            and "if(movementAsset==null)thrownewSourceInterfaceException(" in code,
+            "mandatory movement data must use the strict original89c790 resource, never Responses or defaults")
+    require("SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)" in code
+            and "newSourceCatchGeometry(animations,pivots)" in code
+            and "prefab.GetUnityReferencePivot(i)" in code,
+            "M1 requires per-prefab157 rosters and same actual animation/15-pivot geometry")
+    require("TextAssetmovementBootstrapText,stringtrustedMovementBootstrapSha256)" in code,
+            "M1 importer must have the explicit eight-argument initializer rather than a default bootstrap")
+    require("Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.MovementAnimationResourceKey)" in code
+            and "!ReferenceEquals(originalAnimations,canonical)" in code,
+            "matching157 hashes on an arbitrary serialized asset must not bypass canonical Resource identity")
+    return 9
 
 
 def validate_hud_scope(source):
@@ -233,7 +290,10 @@ def assert_compile_inventory(compiled, expected_owned):
 
 class CallerGuards(unittest.TestCase):
     def test_actual_caller(self):
-        self.assertEqual(validate_runtime((SOURCE_ROOT / RUNTIME).read_text()), 16)
+        self.assertEqual(validate_runtime((SOURCE_ROOT / RUNTIME).read_text()), 23)
+
+    def test_actual_movement_services(self):
+        self.assertEqual(validate_services((SOURCE_ROOT / SERVICES).read_text()), 9)
 
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
@@ -242,10 +302,9 @@ class CallerGuards(unittest.TestCase):
             ("render-getter", "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);",
              "RegisterSourceCameraTickProducer((state, tick) => playCamera.SourceHeading1024);"),
             ("fixed-order", "() => simulation.SourceCameraStageOrder", "() => 0"),
-            ("fake-random", "simulation.DrawSourceCameraRandom, simulation.SourceActorWorldPosition",
-             "(bound, site) => 0, simulation.SourceActorWorldPosition"),
-            ("yard-root", "simulation.DrawSourceCameraRandom, simulation.SourceActorWorldPosition",
-             "simulation.DrawSourceCameraRandom, id => default(SourceVector3)"),
+            ("fake-random", "simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode",
+             "(bound, site) => 0, state => simulation.SourceCameraRawGameMode"),
+            ("yard-root", "simulation.SourceActorWorldPosition", "id => default(SourceVector3)"),
             ("double-cue", "Action<SourcePresentationCue> handler = SourcePresentationCueRaised;",
              "playCamera.SourcePlayback.Execute(new SourcePresentationCueBatch(new[] { cue }));\n"
              "Action<SourcePresentationCue> handler = SourcePresentationCueRaised;"),
@@ -259,12 +318,62 @@ class CallerGuards(unittest.TestCase):
             ("silent-legacy", 'if (!ExplicitGraybox(Application.absoluteURL))', "if (false)"),
             ("resource-tolerance", "if (sourceServices == null)", "if (false)"),
             ("missing-unsubscribe", "SourcePresentationCueRaised -= playCamera.ConsumeSourceCue;", ""),
+            ("guessed-raw-mode", "state => simulation.SourceCameraRawGameMode", "state => (int)state.Phase"),
+            ("missing-raster", "playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution);", ""),
+            ("stale-frame", "playCamera.RequireSourceCameraAtTick(executingSourceTick)",
+             "playCamera.RequireSourceCameraAtTick(executingSourceTick - 1)"),
+            ("zero-matrix", "frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution",
+             "frame.Position, new float[12], bootstrap.HorizontalResolution, bootstrap.VerticalResolution"),
+            ("browser-raster", "frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution",
+             "frame.Position, frame.Transform, Screen.width, Screen.height"),
+            ("wrong-frame-tick", "bootstrap.VerticalResolution), executingSourceTick);",
+             "bootstrap.VerticalResolution), preActorState.Tick);"),
+            ("old-team-profile", "SourcePlayerProvider.ResolveActorMode(true)", "SourcePlayerProvider.ResolveActorMode()"),
+            ("different-library-instance", "!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))",
+             "false"),
+            ("missing-movement-frame",
+             "simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(\n"
+             "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);",
+             ""),
+            ("duplicate-movement-frame",
+             "simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(\n"
+             "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);",
+             "simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(\n"
+             "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);\n"
+             "simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(\n"
+             "                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);"),
         ]
         for name, old, new in mutants:
             with self.subTest(name=name):
                 self.assertEqual(source.count(old), 1, name)
                 with self.assertRaises(AssertionError, msg=name):
                     validate_runtime(source.replace(old, new, 1))
+
+    def test_isolated_actual_service_mutants(self):
+        source = (SOURCE_ROOT / SERVICES).read_text()
+        mutants = (
+            ("omitted-data", "movementData: MovementData, movementSettings: MovementSettings",
+             "movementData: null, movementSettings: MovementSettings"),
+            ("omitted-settings", "movementData: MovementData, movementSettings: MovementSettings",
+             "movementData: MovementData, movementSettings: null"),
+            ("swapped-defense", "row.Line, row.Back, row.Base, row.Range, row.Plow",
+             "row.Back, row.Line, row.Base, row.Range, row.Plow"),
+            ("fake-friction", "new SourceMovementRuntimeData(movement, actual.Friction, rows)",
+             "new SourceMovementRuntimeData(movement, new float[7], rows)"),
+            ("mask-as-bool", "actual.SpeedPowerup, actual.FastTurboTeamMask, actual.RunOutOfBoundsTeamMask",
+             "actual.SpeedPowerup, actual.FastTurboTeamMask == 0 ? 0 : 1, actual.RunOutOfBoundsTeamMask"),
+            ("speed-from-side-mask", "actual.SpeedPowerup, actual.FastTurboTeamMask",
+             "actual.InfiniteTurboTeamMask != 0, actual.FastTurboTeamMask"),
+            ("missing-bootstrap-tolerance", "if (originalMovementBootstrap == null)", "if (false)"),
+            ("legacy-team-resource", "SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)",
+             "SourcePlayerProvider.ResolveRequiredTeamPresentation()"),
+            ("hash-only-animation-alias", "!ReferenceEquals(originalAnimations, canonical)", "false"),
+        )
+        for name, old, new in mutants:
+            with self.subTest(name=name):
+                self.assertEqual(source.count(old), 1, name)
+                with self.assertRaises(AssertionError, msg=name):
+                    validate_services(source.replace(old, new, 1))
 
     def test_actual_hud_scope(self):
         source = (SOURCE_ROOT / HUD).read_text()
@@ -490,6 +599,9 @@ def compile_actual(editor_data, args):
                        "command": command}
             if process.returncode == 0:
                 profile["assembly_sha256"] = digest(output.read_bytes())
+                preserved = ARTIFACTS / output.name
+                shutil.copyfile(output, preserved)
+                profile["assembly_path"] = str(preserved)
             results.append(profile)
             evidence["status"] = "running" if process.returncode == 0 else "failed"
             (ARTIFACTS / "api-inventory.json").write_text(json.dumps(evidence, indent=2) + "\n")
@@ -564,7 +676,8 @@ def main(argv=None):
                         help="Run the copied permanent default in a clean selected release layout without .squad/assets/Unity.")
     args = parser.parse_args(argv)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    report = {"schema": "source-interface-stage-followup-checks/v1", "status": "failed",
+    report = {"schema": "source-interface-stage-followup-checks/v2", "status": "failed",
+              "source_profile": "original-movement157",
               "whole_game_parity_claimed": False, "native_editor_browser_executed": False}
     try:
         args.source_root = args.source_root.resolve(strict=True)
@@ -575,7 +688,8 @@ def main(argv=None):
             dependency_bytes(args.dependency_overlay, args.dependency_overlay_sha256)
         result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(CallerGuards))
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
-        report.update(guard_contracts=16, rejected_actual_source_guard_mutants=14,
+        report.update(guard_contracts=32, rejected_actual_source_guard_mutants=24,
+                      rejected_actual_service_guard_mutants=9,
                       hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=6,
                       root_overlay_project_negative_guards=11, guard_tests=result.testsRun,
                       source_mode="explicit-protected-snapshots" if snapshot else "current-release-checkout",
@@ -587,7 +701,7 @@ def main(argv=None):
         if args.unity_editor_data:
             report["actual_Unity_API"] = compile_actual(args.unity_editor_data.resolve(strict=True), args)
         report["status"] = "passed"
-        print(json.dumps({"status": "passed", "guard_contracts": 16, "rejected_guard_mutants": 14,
+        print(json.dumps({"status": "passed", "guard_contracts": 32, "rejected_guard_mutants": 33,
                           "hud_scope_mutants": 1, "owned_inventory_mutants": 6,
                           "actual_Unity_API_compiled": args.unity_editor_data is not None, "native_claimed": False}))
         return 0

@@ -5,10 +5,11 @@
 Pinned default-branch revision:
 [`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`](https://github.com/historicalsource/nflblitz2000/commit/89f840d58d152a2a9f230cb8d0cdffbd554c8ded),
 with a non-truncated source tree. The target is the original NFL Blitz 2000
-appearance and logic, not a generic football graybox. Checked-in **B1 + Team +
-HUD/cabinet** source now composes actual ball/input/cue services, canonical117
-animation, all31-team presentation, original bitmap HUD/selection and raw
-two/four-station input. Source/pure/API evidence is separate from the **older
+appearance and logic, not a generic football graybox. Checked-in **movement157 +
+Team + HUD/cabinet** source extends the frozen B1/canonical117 layer with
+mandatory real M1 data/settings and same-tick source-camera cache composition.
+It retains actual ball/input/cue services, all31-team presentation, original
+bitmap HUD/selection and raw two/four-station input. Source/pure/API evidence is separate from the **older
 live56 WebGL generation**. No combined native resource import, game build,
 new pixels/browser session or actual game-audio consumer is established.
 It is not a complete port of the original C engine or every shipped
@@ -19,12 +20,46 @@ stopping point. No deferred feature below is removed from the completion target.
 
 Archive-source links below pin that revision; line numbers refer to the raw source's
 physical lines. Original inputs and converted art stay in ignored local storage;
-the [current B1 resource contract](build.md#current-b1-source-mode-resources)
+the [current movement157 resource contract](build.md#current-movement157-source-mode-resources)
 uses explicit local inputs. The older single-player/56 recipes are retained as
 historical controls, not sufficient source-mode setup. Original motion is not a
 published test fixture.
 
+## Current movement157 bootstrap boundary
+
+The [complete animation producer](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip)
+pins the new157 manifest
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`
+and **13,490 selected frames**. The old claim that `R_SKIP` was unselected was
+incorrect: `A_SELECTED=0x4000`, `A_COMPRESSED=0x1`. The selected uncompressed
+sequence omits limb5; the named original converter-global last writer
+`Huffrun2` supplies the retained quaternion record under a narrowly pinned
+replay policy. This is not authored missing-hand data, identity fill,
+whole-clip alias, altered flags or shipped-SEQ/target-bit proof.
+
+The [movement157 resource/bootstrap contract](../tools/interface/README.md#current-movement157-bootstrap)
+uses new `original-teams-movement157` team/impact keys, animation
+`SourceData/local-plyr266-movement157-f0ae9395`, service
+`BlitzSourceInterface/original-movement157-match-services` and mandatory
+`SourceData/movement` hash89c790. Old56/117/156 assets remain immutable.
+The operator must separately pin all movement field/masks/global booleans and
+the actual512×256 or512×384 DIP mode, retaining every existing explicit
+match/team/station/home/head/pup selection. No browser/physical-home/default
+inference is a source setting.
+
+Actual `SourceInterfaceServices.CreateSimulation` injects the real typed data
+and settings. Inside the existing camera provider, the actual source sample
+precedes the tick-guarded pure frame read and Core frame injection; raw Core
+game mode is used rather than a semantic phase cast. Core retains ownership of
+previous post14-actor/15-joint geometry. No render matrix, WorldJoint or
+second57-Hz accumulator is substituted. Source/pure/API evidence below does not
+constitute native resource import, game pixels or all-M1/full-normal/C1/RNG/
+scheduler parity.
+
 ## Current B1 resource and activation boundary
+
+**Retained previous B1/final117 source/revision only.** This contract/evidence is
+not relabeled as movement157; the current M1 bootstrap is above.
 
 The [exact117 recipe](../tools/animation/README.md#reproduce-exactly-the-expanded-b1b2-117-sequence-library)
 uses `--catalog tools/animation/ball_sequences.json` and must reproduce manifest
@@ -72,6 +107,7 @@ build or rendering was rerun for this documentation update.
 | Original HUD/cabinet source — October 16 | [Interface checks](../tests/interface/README.md): **16,215 assertions / thirteen rejected production mutants**, nine converter and four interop tests. Complete data has **381 images / six fonts / 104 selection planes**. Actual bitmap metrics, packed source HUD state, raw49 A/B/C edges, station/captain mapping, focus clearing and CSS/DPR layouts including360×740/DPR2 are checked. | Repacked authored art is not missing Composit/Texus runtime-pixel equivalence. No native/browser HUD pixels, physical cabinet ADC timing, full custom/random/power-up selection, manual kick meters or game-audio proof. |
 | B1 stage caller / complete-owned-UI API — October 16 | [Stage follow-up](../tests/interface/STAGE.md): **80 runtime sources including all16 owned UI files**, actual Unity6000.3.24 C#7.3/.NET Standard2.1, zero diagnostics for both `UNITY_EDITOR` and `UNITY_WEBGL`, plus **21 caller/scope/inventory guards**. Source camera is registered before the first wake; cue/lifecycle forwarding has one owner. | Runtime-with-defines is not a separate Editor assembly or native execution. The earlier three-adapter-only API project excluded existing Runtime/HUD files and was not complete UI proof. Semantic B1 camera lifecycle is not all original raw modes. |
 | HUD/match-service packaging — October 16 | **107 actual-data assertions / eighteen rejected production mutants**. The final integrated API snapshot passes **82 runtime sources / separate5 Editor sources**, actual6000.3.24 references, zero diagnostics after parent public-`DecodeUtf8` and four-null-initializer repairs. | No new native import/save/reload, atlas GPU pixels, game build or browser proof. Pre-repair internal-access/CS0649 reports are historical, not current blockers; licensing198 and actual audio/FX consumers remain open. |
+| Current movement157 Runtime bootstrap — October 16 | **33,921 pure assertions / ten compiled production bootstrap mutants**; **10,941 actual89c790 production Runtime-composition assertions / four compiled Runtime mutants**. All field/team-mask/global-power/DIP combinations, every original friction/Line/Back/acceleration/plow value and real constructor/helper wiring are exercised or structurally guarded. **33 separate structural Runtime/service mutants** protect frame order, raw mode, mandatory settings/resources, canonical shared animation identity and lifecycle. Actual Unity6000.3.24 C#7.3/.NET Standard2.1 profiles compile **85 runtime sources / all16 owned UI**, zero diagnostics for Editor/WebGL. | The actual compiled Runtime's pure helper executes under .NET, not Unity native. Structural caller guards are not physics execution or target-MIPS proof. This does not replace QA's Core caller or Team's camera campaigns, provide imported157 assets/game/browser proof, or close M1/C1/full normal camera/audio/RNG/scheduler. |
 | Legacy rules/interaction/replay | **156 core cases**, zero skipped; six runner guards. Actual-source thirty-to-ten-yard mutation was rejected. Fourteen IDs, phase/rule transitions, passing, defense, scoring, final/restart and detached deterministic state/events pass. | These preserve the asset-free legacy constructor, not original AI, physics, timing or a rendered full match. |
 | Original movement/evasion helpers — October 16 | **14,047 original-C cases / 813,702 production assertions**, **sixteen rejected implementation mutants** and **fifteen publication guards**. The explicit SDK C# 7.3/.NET Standard 2.1 profile passes; a separate actual Unity-reference API mode is preserved. The runtime-safe producer retains exact constants, selectors, friction and both 12×6 defense tables without test-only animation responses. | Pure helpers and static data, not completed Core callers, source animation/control callbacks, cached camera-joint integration, target RNG/scheduling or native/browser gameplay. SDK API success is explicitly not Unity validation. All sixteen matrix rows remain open. |
 | Pure asset parser/mesh/pose | Permanent [asset suite](../tests/assets/README.md): **2,751 assertions** = original **419** parser/mesh + **2,332** original synthetic pose checks; **eight rejected mutations**, **seven production-file hash guards**, including `SourcePlayerPose.cs`. Clean-source and missing/zero/stale-count gates passed. | No original pose/art fixtures; native Editor/runtime adapters and actual-source vertex comparison remain separate. |
@@ -220,7 +256,7 @@ does not close a row.
 | ID / kind / status | Active source targets | Minimum discriminating cases / reference expectations |
 | --- | --- | --- |
 | A1 animation clock, poses, transitions — L/D/V, V/P; continuous increment partial | `player.c:player_proc` L750–1177; `plyrseq.c:qb_stance_anim` L1075–1084, `qb_run_anim/qb_t_run_anim` L306–343; `lib/ani3d/ANIM.C:_animate_block/_next_frame/_ani_inttoseq/_ani_runtoend/_ani_intstream/_ani_streamtoend`; `models/skeleton.h` | Different role stances and moving/action clips on fourteen actors; stance loops at one selected frame/tick; turbo QB streaming uses **0.81 ticks/frame**, not a universal FPS. Verify first/middle/last/loop frames, hold counts, interrupted transition, two-part torso heading, root anchors and no double drift. Authentic clip + approximate selector is still partial. |
-| M1 locomotion/turbo/evasion — L/D, V/P | `player.c:standard_run/qb_run/_mode_qb/_mode_wpn/_mode_db/maybe_dive`; `include/player.h` L175–203; `playbook.c` route opcodes | Neutral/49-way stick, reverse/backpedal, turbo exhaustion/recharge, spin, juke, hurdle, dive and field friction. Reference base constants are archive units/tick: QB **1.30**, carrier **1.35**, human defender **1.45**, turbo defender **1.85**; apply actual stat/handicap/friction branches, not those constants alone. Turbo re-press with `0 < non_turbo_time < 9` flags the double tap (`player.c` L952–974). |
+| M1 locomotion/turbo/evasion — L/D, V/P; helpers/callers/bootstrap partial | `player.c:standard_run/qb_run/_mode_qb/_mode_wpn/_mode_db/maybe_dive`; `include/player.h` L175–203; `playbook.c` route opcodes | Neutral/49-way stick, reverse/backpedal, turbo exhaustion/recharge, spin, juke, hurdle, dive and field friction. Reference base constants are archive units/tick: QB **1.30**, carrier **1.35**, human defender **1.45**, turbo defender **1.85**; apply actual stat/handicap/friction branches, not those constants alone. Turbo re-press with `0 < non_turbo_time < 9` flags the double tap (`player.c` L952–974). |
 | C1 blocking/contact/get-up — L/D/V, V/P | `detect.c:player_detect_proc/do_collision/evade_vs_tackle/block_vs_rush/fumble_or_bobble`; `player.c:player_down`, `plyrseq.c` attack/get-up scripts | Attacker/victim order, block vs rush, dive vs spin/hurdle, uninterruptible/puppet/contact windows, landing/get-up, late hit and helmet/ball consequences. Compare attack volumes and source joint positions, not the legacy 1.15/2.4-yard tackle radii. Offscreen actors must still have collision matrices (`player.c` L6634–6675). |
 | C2 on-fire/tuning — L/D/V, V/P | `player.c:check_receiver_fire/reset_team_fire/maybe_plyr_fire`; **active** `nfl.c` L1445–1512; `handicap.c:set_handicaps`; `ADJUST.C` | Same receiver's **third** consecutive completion enables offense fire; two qualifying loss-of-yard results enable defense fire; reset/turnover/loss and on-fire gameplay effects must match. `detect.c:update_onfire_stuff` is inside `#if 0` and is **not** the defense oracle. Default difficulty **5**, allowed **0..10**; compare seeded decisions across settings. |
 | B1 throw/receiver/catch/control — L/D/V, V/P | `player.c:_mode_qb/pick_receiver/qb_release_ball/set_ball_vels/standard_catch/wpn_change_player/db_change_player`; `plyrseq.c` throw callbacks; `include/GAME.H:CONTROL_TIME` | Intent vs actual release tick; normal/turbo throws, receiver selection and exact human-control versus possession-credit/TD ordering (**CONTROL_TIME=18** ticks; not an assumed controller-transfer delay). Active catch proximity is **<14 source units** to pelvis or **<5** to a wrist, not the nearby commented 12. Reject self-catch at flight time **<=10**, other offensive receiver **<=15**, fumble/bobble **<=30**; test each boundary and actual catch/deflect/interception outcome. |

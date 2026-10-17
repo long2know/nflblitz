@@ -86,6 +86,7 @@ class InventoryGuardTests(unittest.TestCase):
             "Blitz.Core.Tests/Blitz.Core.Tests.csproj",
             "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
+            "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)
 

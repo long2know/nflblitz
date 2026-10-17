@@ -1,5 +1,11 @@
 # Original B1 HUD and match-service resource packaging
 
+**M1 checkout:** use the explicit **Movement157** section below. The B1 recipe
+and dated qualification are retained as historical profiles, not instructions
+to call157 bytes117. The shared UTF-8 visibility repair and serialized-field
+initializers are already present in this checkout; current separate-runtime/
+Editor API checks are green. That is not an Editor/native execution claim.
+
 This is an explicit, local-only **B1/final117** importer, not another game inspector.
 It packages the complete original HUD/selection atlases, actual converted P1
 playbook, and an operator-selected source match configuration for the existing
@@ -225,3 +231,171 @@ with `--webgl-module`.
 - Original audio decoding is not a complete source sound consumer. Synchronous
   actor-stage RNG/state, DSP3 mixing/timing, and actual impact/FX consumers remain
   separately qualified blockers; no silence/noop/fake-click consumer is bound.
+
+## Explicit Movement157 profile — not a117/56 replacement
+
+The completed original selected bundle has **157 clips /13,490 frames** and
+manifest SHA256
+`f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
+The exact new runtime identities are:
+
+| Resource | New identity |
+| --- | --- |
+| Team/template stable ID | `original-teams-movement157` |
+| Team presentation | `BlitzSourcePlayers/original-teams-movement157/team-presentation` |
+| Animation `SourceAnimationLibraryAsset` | `SourceData/local-plyr266-movement157-f0ae9395` |
+| Original impact catalog | `BlitzSourcePlayers/original-teams-movement157/impact-library` |
+| Match services | `BlitzSourceInterface/original-movement157-match-services` |
+| Identical shared HUD | `BlitzSourceInterface/original-interface` |
+| Runtime movement `TextAsset` | `SourceData/movement` |
+
+The animation asset path is
+`Assets/Imported/original-teams-movement157/Resources/SourceData/local-plyr266-movement157-f0ae9395.asset`.
+The old `original-teams`117 asset, old56 assets, and intermediate156 identity
+remain distinct. A mismatch in stable ID, key, manifest, clip count, or frame
+count fails visibly. Providers, template creation, field team selection,
+cinematic lookup, and services import all use the same explicit profile.
+
+`R_SKIP` is **selected/uncompressed**, not an unselected asset: original
+`A_SELECTED=0x4000`, `A_COMPRESSED=1`. Its missing right-hand limb5 is reproduced
+by the authorized original `wan2seq` global-buffer replay from preceding
+selected `Huffrun2`, not guessed poses, a flag rewrite, or an alias. The sole
+typed reader extension and completed converter recipe are documented in
+[`../animation/README.md`](../animation/README.md). All156 preceding clip bytes
+are unchanged. No resource asset has yet been imported under a licensed Editor.
+
+### Mandatory actual movement/settings inputs
+
+The M1 importer additionally requires the actual runtime movement payload
+(`9520` bytes), SHA256
+`89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6`,
+not test `Responses`. It also requires a separately SHA-pinned explicit
+bootstrap. Its exact nine flat keys are:
+
+```json
+{
+  "schema": "original-source-movement-bootstrap/v1",
+  "field_index": 6,
+  "infinite_turbo_team_mask": 2,
+  "speed_powerup": true,
+  "fast_turbo_team_mask": 1,
+  "run_out_of_bounds_team_mask": 3,
+  "violence_powerup": false,
+  "source_hres": 512,
+  "source_vres": 256
+}
+```
+
+This is a **deliberately selected example**, not historical default settings.
+Supply the actual intended values. The three masks retain side bits0..3;
+`speed_powerup` is global, not a team mask. Source DIP raster is **only512x384
+or512x256**. Browser/window/render dimensions are not substitutes. Missing,
+unknown, duplicate, coerced, or differently pinned data fails.
+
+The match/presentation configuration from the earlier section is independently
+mandatory. No home side, heads, roster selection, pup value, field, turbo mask,
+or raster is inferred. `SourceInterfaceServices.Initialize` uses the actual
+eight-argument overload ending in `(TextAsset bootstrap, string trustedSHA)`;
+the historical six-argument call cannot silently create an M1 match.
+
+### Future isolated licensed import
+
+**Not authorized to execute while the installed Editor exits198.** Parent must
+first approve a legitimately licensed isolated candidate composed from the
+matching M1 Core/UI/Team/reader sources. No root Editor, activation workaround,
+hosting change, or standalone viewer qualifies this game.
+
+Use the same actual prepared all31 team/impact inputs, but the completed157
+animation bundle and these **new** entrypoints:
+
+```text
+-executeMethod Blitz.Editor.SourceTeamImporter.ImportMovement157FromCommandLine
+-teamAssetRoot <ABS_PREPARED_ALL31>
+-teamCatalogSha256 c9e875052544c2d7e30d6cdab4bcf9a3b38d552adfa9deef8da5d35ab0ceb62c
+-teamAnimationRoot <ABS_COMPLETED157_BUNDLE>
+-teamImpactRoot <ABS_PREPARED_ORIGINAL_IMPACT>
+-teamImpactSha256 794b1fa2865733677d08d5c465dad6a002966750a7d0523138f61f3a25be1fb3
+```
+
+Then use all earlier explicit HUD/P1/match configuration arguments, a **fresh**
+stable ID such as `original-movement157-interface-v1`, and additionally:
+
+```text
+-executeMethod Blitz.Editor.SourceTeamInterfaceImporter.ImportMovement157FromCommandLine
+-interfaceMovementRoot <ABS_RUNTIME_MOVEMENT_DIRECTORY>
+-interfaceMovement <EXPLICIT_RELATIVE_RUNTIME_MOVEMENT_JSON>
+-interfaceMovementSha256 89c79007e04e9a17894c126c34dc66c199eb5a5961a4c749b1eb6b3e0e3951d6
+-interfaceBootstrapRoot <ABS_EXPLICIT_BOOTSTRAP_DIRECTORY>
+-interfaceBootstrap <EXPLICIT_RELATIVE_BOOTSTRAP_JSON>
+-interfaceBootstrapSha256 <ACTUAL_TRUSTED_BOOTSTRAP_SHA256>
+```
+
+Same-content shared HUD/movement resources are checked and reused **without
+overwrite**; duplicate keys, changed pins, or matching-uniform substitutes fail.
+New services/configuration/playbook/bootstrap are saved under the new interface
+destination. Runtime movement is a real `.json` TextAsset in
+`Resources/SourceData/movement.json`; bootstrap is a saved serialized reference
+`Resources/BlitzSourceInterface/movement-bootstrap.json`. Every generated art,
+catalog, resource, and metadata file remains ignored under `Assets/Imported`.
+
+Fresh-domain checking entrypoints:
+
+- `Blitz.Editor.SourceTeamChecks.VerifyMovement157FromCommandLine`
+- `Blitz.Editor.SourceTeamInterfaceChecks.VerifyMovement157BindingsFromCommandLine`
+  (same explicit arguments, binding proof only).
+- `Blitz.Editor.SourceTeamInterfaceChecks.VerifyMovement157FromCommandLine`
+  (real graphics required, verifies every atlas pixel; no `-nographics`).
+
+### Current-camera producer boundary
+
+Runtime constructs `PlayCamera(transform, actualPrefab)`, explicitly configures
+`ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution)`,
+then registers the existing raw-mode camera overload with
+`simulation.SourceCameraRawGameMode`. Inside the **existing pre-player callback**:
+
+1. `SampleAtSourceTick(state, tick)` executes once.
+2. `RequireSourceCameraAtTick(tick)` returns the immutable cached
+   `SourceCinematicTransform` (`Position`, all12 `Transform` floats).
+3. Core receives `SetSourceMovementCameraFrame(new SourceMovementCameraFrame(
+   frame.Position, frame.Transform, explicitHres, explicitVres), tick)` before
+   the provider returns.
+
+The pure frame stamp rejects initial/render-only, stale, future, suspended,
+duplicate, and reset generations. Render does not advance that clock or alter
+M1's original-DIP source aspect. Core retains its actual post-actor14x15 joint
+cache and previous-cache/current-matrix LEAP semantics; no fresh `WorldJoint`,
+Unity matrix, yard-space conversion, or fabricated heading is used by the
+frame getter.
+
+`update_cambot_xform`/`magv`/`norm`/`vxv` match **all12 binary32 floats across
+15,242 unchanged original-C camera frames**. This proves matrix algebra and
+cached frame transport, **not** complete original C1 normal-camera targeting:
+the existing qualified normal-target model is retained, with B1/graybox
+implementation unchanged. Native/browser pixels, target scheduler/libc, sound
+DSP/SPFX, complete gameplay parity, and all16 full-parity rows remain open.
+
+### Permanent current-checkout checks
+
+No default command uses an ignored authoring snapshot or assumes ROOT is hot:
+
+```sh
+python3 -B tests/presentation/movement-stage/run.py
+python3 -B tests/presentation/movement-stage/mutations.py
+python3 -B tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
+python3 -B tests/presentation/movement-stage/api_compile.py --unity-editor-data "$UNITY_DATA"
+```
+
+The API command compiles ALL current runtime and Editor sources as **separate**
+assemblies, C#7.3/netstandard2.1, warnings as errors, against real6000.3.24
+Editor and WebGL APIs. It does not execute an Editor.
+
+For original-C, actual157, and real package-data proof, explicitly add:
+
+```sh
+python3 -B tests/presentation/movement-stage/run.py \
+  --original-source-root "$ORIGINAL_SOURCE" --bundle157-root "$BUNDLE157" \
+  --hud-root "$HUD_ROOT" --playbook-root "$P1_ROOT" --movement-data "$MOVEMENT_JSON"
+```
+
+The pre-existing approximate60-frame/s browser preview is untouched; no new
+M1 browser performance or visual parity is claimed.

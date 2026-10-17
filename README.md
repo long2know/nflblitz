@@ -7,14 +7,15 @@ not a finished or whole-game-parity recreation.
 
 ## Checked-in source versus the recorded live player
 
-The checked-in **B1 + Team + HUD/cabinet** composition requires the canonical
-**117-clip** library, original opposing-team/impact resources, and original
-HUD/match-service resources with an **explicit selected configuration**.
-The old single-player/56-clip import is not sufficient for a fresh source build.
+The checked-in **movement157 + Team + HUD/cabinet** composition extends the frozen
+B1/final117 layer with mandatory original movement data/settings and a same-tick
+pure source-camera frame. It requires the distinct **157-clip** library/team
+resources and explicitly pinned match/movement/DIP configuration. The old
+single-player56, B1/117 and earlier156 resources are not aliases or fallbacks.
 Source/pure/API checks have passed, but this composition has **no new native
 asset-import, game-build, pixel or browser proof**. The attempted imports stopped
 before import with licensing exit 198; see the
-[build boundaries](docs/build.md#current-b1-source-mode-resources).
+[build boundaries](docs/build.md#current-movement157-source-mode-resources).
 
 **Recorded live-generation proof, October 16, 2026 (PDT):** original player
 mesh/rig/textures run with **continuous original animation: 56 clips / 3,731
@@ -23,7 +24,7 @@ Unity **6000.3.24f1** host build `0000063700005f540000316b000003e7` is promoted
 at Docker `8080/?actors=source`. Native vertex comparisons and a real
 **219.875-second browser recording** prove the bounded increment: twelve actors
 with non-rigid motion, eight observed actions and zero runtime errors.
-That is the older live preview, not evidence that the new B1/Team/HUD source
+That is the older live preview, not evidence that the new movement157/Team/HUD source
 has been imported, built or deployed. Its payload and captures are not replaced
 or relabeled by the new headless/API results. **All sixteen full-parity rows
 remain OPEN.** The ledger also retains the October 15 static-pose/title history.
@@ -36,19 +37,26 @@ described by the packaging recipe.
 
 1. Install Unity **6000.3.24f1** with WebGL Build Support and provide an existing
    externally activated editor environment. Docker with Compose serves the result.
-2. Follow the [current B1 resource preparation/import order](docs/build.md#current-b1-source-mode-resources)
+2. Follow the [current movement157 preparation/import order](docs/build.md#current-movement157-source-mode-resources)
    in an approved, isolated candidate using explicit pinned original inputs:
-   - Prepare the [exact final117 catalog](tools/animation/README.md#reproduce-exactly-the-expanded-b1b2-117-sequence-library)
-     with `--catalog tools/animation/ball_sequences.json`. Required manifest:
-     `f3c34d90337c1432a0eb7a7a59fd3d583e9130946283ae8d929e008e0e1fd274`.
+   - Prepare the [exact movement-complete157 catalog](tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip).
+     Required manifest:
+     `f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e`.
+     Its70-frame `R_SKIP` uses explicitly qualified original converter-state
+     replay, not a forced selection bit or guessed missing-hand pose.
    - Prepare/import [all 31 original teams and impact data](tools/assets/README.md),
      including actual rosters, model/skin/uniform/BCD-number bindings and the
-     shared final117 asset under the new `original-teams` identity.
+     new `original-teams-movement157` identity and animation key
+     `SourceData/local-plyr266-movement157-f0ae9395`.
    - Prepare the [original HUD/cabinet data](tools/interface/README.md), then
      [package the HUD and match services](tools/interface/packaging.md) with the
      actual P1 catalog and an explicitly chosen, SHA-pinned configuration.
      Teams, seven roster records/side, stations, possession, captain, home side,
-     heads and power-up settings are not inferred defaults.
+     heads and power-up settings are not inferred defaults. M1 additionally
+     requires pinned `SourceData/movement` and a separate
+     `original-source-movement-bootstrap/v1` file: explicit field0..6,
+     three team masks0..3, global speed/violence booleans and original
+     DIP512×256 or512×384. Browser dimensions are not source resolution.
    - Import the [original world](tools/environments/README.txt) separately when
      requiring `environment=source`.
 
@@ -57,7 +65,9 @@ described by the packaging recipe.
    [single-player import](docs/build.md#prepare-and-import-a-local-source-player),
    [56-clip recipe](docs/build.md#prepare-and-import-continuous-original-animation)
    and [frame-0 pose](docs/build.md#apply-qbstance-frame-0) remain diagnostic/
-   historical controls, not the new source-mode setup.
+   historical controls, not the new source-mode setup. The
+   [B1/final117 recipe](docs/build.md#current-b1-source-mode-resources) remains
+   a separate immutable historical source composition.
 3. **Only after** legitimate isolated imports and resource verification, build
    and serve from that complete candidate's project root:
 
@@ -71,7 +81,7 @@ described by the packaging recipe.
    Serving builds the static runtime image locally and runs in the foreground;
    Ctrl-C stops it. See [build, activation and generation proof](docs/build.md).
 4. For a newly built candidate, `http://127.0.0.1:8080/?actors=source` **requires**
-   the complete team/final117/impact/HUD/match-service resources. Missing or
+   the complete movement157/team/impact/HUD/match-service/bootstrap resources. Missing or
    invalid inputs show `SOURCE MODE ERROR`; no generic font, matching-uniform,
    static-player or graybox substitute is installed.
    `http://127.0.0.1:8080/?actors=graybox` explicitly selects LegacyBaseline60Hz.
@@ -82,8 +92,9 @@ described by the packaging recipe.
 The resource set is necessary, not a finished-game guarantee: original audio/FX
 consumers remain unbound and fail explicitly when reached. The offline audio
 decoder is not complete game audio; do not bind noops, silence or fake clicks
-to make a source session appear successful. No M1/156-animation injection is
-part of this B1/final117 setup.
+to make a source session appear successful. M1 now injects real typed data/settings
+and the pure camera frame inside Core's existing pre-player callback. It does
+not establish full C1/normal-camera/RNG/scheduler or whole-game parity.
 
 For interactive editing, open `Assets/Scenes/Boot.unity`. Never run concurrent
 editors/imports/builds against the same project and `Library/`.
@@ -152,6 +163,7 @@ python3 -B -m unittest discover -s tools/animation/tests
 python3 -B tests/interface/run.py
 python3 -B tests/interface/stage_followup.py
 python3 -B tests/presentation/run.py
+python3 -B tests/interface/movement_bootstrap.py
 ```
 
 See [core/metadata coverage](tests/README.md), [asset regressions](tests/assets/README.md),
@@ -188,6 +200,13 @@ coverage is separate from animation/browser acceptance.
 - Full browser match/final restart, new cabinet/focus/DPR layout in the actual
   game, original audio/FX consumers and representative hardware performance
   remain unqualified. Pure/API success is not new pixels or a fresh deployment.
+
+Current movement-bootstrap evidence is **33,921 pure assertions / ten compiled
+bootstrap mutants**, **10,941 actual-data runtime-composition assertions / four
+compiled Runtime mutants**, and separate structural ordering/resource/lifecycle
+guards. Complete **85-source / all16-owned-UI** real Unity6000.3.24
+C#7.3/.NET Standard2.1 API profiles pass for Editor/WebGL. These results do not
+instantiate native engine objects or replace the retained B1/Team/HUD evidence.
 
 The [source-parity ledger](docs/source-parity.md) records the pinned references,
 provenance boundary and exact evidence limits. Original inputs, converted art,

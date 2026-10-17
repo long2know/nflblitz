@@ -8,13 +8,15 @@ assembly, public debug command, reflection-based field editing, or historical
 source/asset import. Assertions target the bounded slice in
 `docs/architecture.md` and `docs/source-parity.md`, **not whole-game parity**.
 
-The checked-in B1/Team/HUD source is distinct from the recorded live56 browser
-player. Fresh source mode needs [canonical117 animation](../tools/animation/README.md#reproduce-exactly-the-expanded-b1b2-117-sequence-library),
+The checked-in movement157/Team/HUD source is distinct from the recorded live56
+browser player and frozen B1/canonical117 source. Fresh source mode needs
+[complete157 animation](../tools/animation/README.md#explicit-movement-complete-extension-156-unchanged-clips-plus-r_skip),
 [all31-team/impact resources](../tools/assets/README.md),
 [original HUD data](../tools/interface/README.md) and
 [explicit match-service packaging](../tools/interface/packaging.md).
 Teams/rosters, stations/possession/captain, designated home side, station heads
-and power-up values are operator-supplied, not inferred defaults.
+and power-up values are operator-supplied, not inferred defaults. Mandatory
+M1 data/settings and explicit original DIP raster are additional pinned inputs.
 `?actors=graybox` preserves legacy controls; source uses
 [raw cabinet bindings](../README.md#source-cabinet-controls) and rejects missing
 resources or unbound original audio/FX instead of substituting them.
@@ -146,6 +148,40 @@ single-player56 fixture or invented joint positions.
 
 ## Original HUD/cabinet, stage caller and team/impact presentation
 
+### Current movement157 runtime gate
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
+# Optional complete real engine APIs and actual movement-data composition:
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py \
+  --unity-editor-data "$UNITY_EDITOR_DATA" \
+  --movement tools/movement/.artifacts/source-movement-runtime.json
+```
+
+The default is current-checkout/asset-free: **33,921 pure assertions / ten
+compiled bootstrap source mutants**, plus33 separate structural Runtime/service
+mutants and complete-owned-file/clean-checkout guards. It validates all selected
+fields, team masks, global power booleans and both original DIP modes without
+inventing defaults.
+
+The actual-data option executes the actual production Runtime assembly's pure
+composition helper: **10,941 assertions / four compiled Runtime mutants** for
+every real89c790 friction/Line/Back/acceleration/plow value and original settings.
+Both actual Unity6000.3.24 C#7.3/.NET Standard2.1 API profiles compile **85 runtime
+sources including all16 owned UI**, zero diagnostics. No fake Unity types,
+native engine objects or copied test factory are used.
+
+Actual Runtime calls these helpers and injects mandatory M1 data/settings.
+Its existing pre-player callback samples the real source camera, requires the
+same executing tick's pure frame, then injects position/all12 matrix floats/
+original DIP into Core before returning the heading. Raw game mode, restart,
+focus, one cue owner and one host lifecycle are guarded. This is not a new
+native/browser/full-M1 qualification; QA/Team source campaigns remain separate.
+The selected, uncompressed `R_SKIP` is now supplied through exact named original
+converter-state replay, not the old mistaken unselected-asset stop.
+
+### Retained B1/Team/HUD evidence
+
 These independent asset-free commands compile real production sources without
 launching an Editor or requiring original art:
 
@@ -195,7 +231,8 @@ wake and forwards each ordered cue once, including catch-up steps. This bounded
 semantic B1 lifecycle does not close all raw normal/kickoff/gopher camera modes.
 Original actual audio/FX consumers remain unbound and fail explicitly; no silence,
 fake-click or noop consumer is evidence. M1/156 animation/camera/settings
-injection is **not** part of this B1 resource composition.
+injection was **not** part of that frozen B1 resource composition. Current
+movement157 source wiring is recorded separately above.
 
 ## Original movement and evasion helpers
 

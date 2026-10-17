@@ -7,7 +7,7 @@ physics implementation, generic clip fallback, or invented roster/formation.
 
 ## Clean CI / explicit original inputs
 
-Requirements: selected .NET SDK, Python 3, GCC/Clang, and (only for optional
+Requirements: selected .NET SDK, Python 3.10+, GCC/Clang, and (only for optional
 download) authenticated `gh` with public Git blob/tree read access. No Unity
 Editor, native game executable, server or browser is launched.
 
@@ -46,6 +46,14 @@ historical `18af…`/`2baec…` manifests are **not aliases**. Complete animatio
 data, original matrices, catalog tables, headers, generated C, native binaries
 and numeric cases remain ignored. No machine-specific source path is a default.
 
+The shared fixture additionally prepares strict movement data and distinct
+selected156/complete157 libraries. Numeric ball/original-pose cases keep
+canonical117. The longer public raw-B caller campaign explicitly uses complete157
+because actual movement can reach clips absent from117; its receipt records both
+manifest identities. Simulation and geometry always share the same selected
+library. Mandatory movement settings and a named source-DIP test camera are
+injected without claiming production camera/render parity.
+
 All output goes below this checkout's ignored `.squad/.scratch/SourceData/` or
 `tests/ball/.artifacts/`. Existing prepared fixtures require explicit `--reuse`,
 which verifies their bytes read-only. Missing/mismatched inputs fail rather than
@@ -58,7 +66,7 @@ The default command requires these exact nonempty assertion inventories:
 | Layer | Assertions / cases | Boundary |
 | --- | --- | --- |
 | Ball/catch numeric comparison | **470,666** assertions on **46,096** native-C cases | Catch decision prefix, complete deflection, fumble/bobble decisions and launch, ball-process physics prefix plus original LOS-crossing block |
-| Input/camera/cue callers | **18,002** assertions, including **800** original-C `plyr_have_ball` and **12,544** original-C receiver cases | Real source raw input drain/transform, actual VM cue callers, scoped internal predicate/VM setups and public raw-B snap→center wrist→QB catch→selected throw/wrist flow |
+| Input/camera/cue callers | **18,017** assertions, including **800** original-C `plyr_have_ball` and **12,544** original-C receiver cases | Real source raw input drain/transform, actual VM cue callers, scoped internal predicate/VM setups and public raw-B snap→center wrist→QB catch→selected throw/wrist flow |
 | Original-pose geometry/lifecycle/control | **32** assertions | Fifteen original matrix-vs-quaternion pivot results; genuine wrist-only strict `<5` reach beyond pelvis `<14`; actual throw frame; PlayerDown/wobble ordering; focus/restart/raw49; direct actual catch/carry caller ownership and credit at ticks 0/17/18 |
 | PAT/kickoff sentinel | **36** assertions plus one native original touchdown-assignment witness | Actual `Resolve`/free-PAT states retain `Down=-1` through `SourceAiFrame`; no clamp; existing normal 0..4 constructor range and invalid limits remain protected |
 
@@ -91,6 +99,39 @@ Internal predicate, VM and catch/carry setups are clearly scoped test seams.
 The raw-B flow separately uses public commands without state mutation. Neither
 layer proves complete original match, scheduler, M1, C1/C2, presentation,
 native-MIPS or browser parity.
+
+### Active M1 fresh-press causality
+
+The complete inventory is now **488,751 assertions**, up **15** from488,736;
+the other layers and all prior caller assertions remain.
+
+Pinned `player.c` blob `5744c51f30b625b9f80b92388ab49ff0ebc5bb2c`
+stores prior physical buttons/history at lines832–840, acquires current
+switches at878–885, and computes `but_new = but_cur & ~but_old` at900.
+Its release `_mode_qbps` branch at1641–1650 decrements the auto-hike counter
+and permits A/B **new** buttons only after the grace period; expiration is a
+separate automatic branch.
+
+The active Core path is now `UpdateSourceMovementPlayers`, not the compatibility
+`SourcePlayerDriver.Update`. `SourceMovement.BeginTick` recomputes current/old/
+new fields from acquired held state; the consumed host-latched press must be
+merged into **`state.NewButtons` after BeginTick and before ApplySourceMovement**.
+The `raw-new-pressed` mutant deletes precisely that production wire. Mutating the
+old compatibility `actor.SourceNewButtons` merge no longer exercises this path.
+
+The public scenario now verifies first held B, repeated held B, physical release,
+old/history fields and the original early-grace rejection. It drives two
+identically seeded real simulations by the same public commands until a complete
+B press/release straddles a skipped source wake. The paired no-tap control stays
+pre-snap at the same source tick/countdown. The real tap must produce fresh B
+with **held zero**, unchanged physical held history, exactly one `Snapped` event
+on the first executed wake and a **positive** manual-hike counter, then clear
+the fresh edge without replay. No forced state or automatic-hike timing can
+stand in for the press.
+
+Ignored `native/raw-B-input-causality.json` records actual source ticks,
+countdown, physical/fresh button fields and the negative control. Native cases,
+real117/157 library identities and the unfiltered VM programs are unchanged.
 
 ## Real-source mutations and API profile
 

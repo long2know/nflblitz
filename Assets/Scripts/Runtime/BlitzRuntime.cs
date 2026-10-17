@@ -53,7 +53,7 @@ namespace Blitz.Runtime
 #endif
             try
             {
-                SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode();
+                SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(true);
                 ISourceAnimationLibrary animations = null;
                 if (prefab == null)
                 {
@@ -66,8 +66,10 @@ namespace Blitz.Runtime
                     sourceServices = Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKey);
                     if (sourceServices == null)
                         throw new SourceInterfaceException("Missing actual source match/HUD services at Resources/" +
-                            SourceInterfaceServices.ResourceKey + ". Import the new pinned117/playbook/HUD resources; no legacy/font fallback is permitted.");
+                            SourceInterfaceServices.ResourceKey + ". Import the new pinned157/playbook/HUD/movement/settings resources; no B1/legacy/font fallback is permitted.");
                     animations = sourceServices.Animations;
+                    if (!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab)))
+                        throw new SourceInterfaceException("M1 Core, catch geometry, Team and renderer must share the SAME canonical157 animation instance.");
                     simulation = sourceServices.CreateSimulation(prefab);
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
                     simulation.SourceStationInputTransform = SourceSelection.ApplyAtSourceTick;
@@ -82,11 +84,14 @@ namespace Blitz.Runtime
                     field.BindSourceTeamDrawState((int)settings.DesignatedHomeSide,
                         actor => SourceInterfacePresentation.DrawState(actor, State));
                 }
-                playCamera = new PlayCamera(transform);
+                playCamera = new PlayCamera(transform, prefab);
                 if (IsSourceProfile)
                 {
+                    SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;
+                    playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution);
                     playCamera.ConfigureSourceStage(State, () => simulation.SourceCameraStageOrder,
-                        simulation.DrawSourceCameraRandom, simulation.SourceActorWorldPosition);
+                        simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode,
+                        simulation.SourceActorWorldPosition);
                     RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
                     SourcePresentationCueRaised += playCamera.ConsumeSourceCue;
@@ -351,6 +356,10 @@ namespace Blitz.Runtime
             int heading = sourceCameraProducer(preActorState, executingSourceTick);
             if (heading < 0 || heading > 1023 || executingSourceTick <= lastSourceCameraTick)
                 throw new SourceInterfaceException("Original camera stage requires one ordered finite 1024-heading sample per source wake.");
+            SourceCinematicTransform frame = playCamera.RequireSourceCameraAtTick(executingSourceTick);
+            SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;
+            simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(
+                frame.Position, frame.Transform, bootstrap.HorizontalResolution, bootstrap.VerticalResolution), executingSourceTick);
             lastSourceCameraTick = executingSourceTick; lastSourceCameraHeading = heading;
             return heading;
         }

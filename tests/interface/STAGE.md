@@ -1,4 +1,60 @@
-# Narrow B1 camera-stage caller follow-up
+# Source-stage caller: movement157 and retained B1 history
+
+## Current M1 composition and complete API checks
+
+The current isolated movement157 source requires explicit pinned movement data,
+settings and original DIP resolution, the distinct157 Team/animation/service
+resources, and the actual source camera matrix. B1 source/assets remain a
+separate immutable profile; no resource identity aliases the new bytes.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
+# Optional real engine API + actual original movement-data composition:
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py \
+  --unity-editor-data "$UNITY_EDITOR_DATA" \
+  --movement tools/movement/.artifacts/source-movement-runtime.json
+```
+
+The default is asset-free and current-checkout-only. The optional mode references
+actual Unity6000.3.24 .NET Standard2.1/engine/WebGL assemblies, C#7.3, warnings as
+errors. Every actual Runtime/HUD/Bridge dependency and all16 owned UI file hashes
+are recorded in both profiles; no shim or omitted existing file may pass.
+Pure actual-runtime data-composition execution uses that compiled production
+assembly, not a copied factory. It does not execute Unity native calls.
+
+The source wiring invariants are:
+
+1. Explicit157 actor resolution and the matching prefab-bound camera/rosters.
+2. All actual movement rows/friction are mapped into `SourceMovementRuntimeData`
+   and all field/global-power/team-mask settings into `SourceMovementSettings`;
+   both go to the real Core constructor. The separately SHA-pinned bootstrap
+   preserves only actual512×256 or512×384 DIP, never browser dimensions.
+3. Configure source raster **before** five-argument source-stage initialization.
+   The raw getter is `simulation.SourceCameraRawGameMode`, not a phase cast.
+4. Once per executing camera wake: real `SampleAtSourceTick`, then
+   `RequireSourceCameraAtTick(executingSourceTick)`, then
+   `SetSourceMovementCameraFrame` with its pure position/all12 matrix floats,
+   original DIP and that same tick, before Core consumes the returned heading.
+   No second source/render clock, WorldJoint, identity or renderer matrix.
+5. One cue consumer, one host/restart lifecycle, every catch-up event, once-per-
+   source-wake input transform and unchanged focus/physical-neutral hygiene.
+
+The actual compiled bootstrap mutants, Runtime/services structural mutants,
+owned-source omission/hash mutants and actual Runtime mapping mutants have
+different scopes and are recorded separately. Structural failure is not native
+behavior or original-platform proof. QA's Core/movement and Team's pure-camera
+campaigns remain separate evidence; no all16/native/browser claim is made.
+
+`stage_followup.py` itself remains usable directly with no arguments or optional
+`--unity-editor-data`; `--verify-clean-checkout` runs its copied default/API in
+a selected release layout without `.squad`/original assets/hidden overlays.
+The old explicit protected-B1 options are not permission to combine a B1 kernel
+with M1 Runtime; use the historical B1 runner/revision for that old evidence.
+
+## Historical B1 stage receipt
+
+**The following records the previous B1 source/revision and commands only.**
+It is retained without relabeling the80-source B1 proof as current movement157.
 
 This layer changes `Runtime/BlitzRuntime.cs`, the authorized brace/scope repair in
 `Presentation/PlayHud.cs`, and focused caller checks. It does not replace or

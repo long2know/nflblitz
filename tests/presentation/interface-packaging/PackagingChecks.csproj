@@ -19,16 +19,12 @@
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs" Link="Production/SourceTeamInterfaceImporter.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs" Link="Production/SourceTeamInterfaceChecks.cs" />
     <Compile Include="$(BlitzTeamRoot)Assets/Scripts/Contracts/*.cs" Link="Frozen/Contracts/%(Filename)%(Extension)" />
-    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs" Link="Frozen/AuthorizedAssetFiles.cs" />
-    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/GeneratedPlayerData.cs" Link="Frozen/GeneratedPlayerData.cs" />
-    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs" Link="Frozen/SourceTeamRosterLibrary.cs" />
+    <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/*.cs"
+             Exclude="$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs;$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs;$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs"
+             Link="Explicit/AssetImport/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs" Link="Frozen/SourceInterfaceData.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourcePlaybook.cs" Link="Frozen/SourcePlaybook.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceDroneAI.cs" Link="Frozen/SourceDroneAI.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceRandom.cs" Link="Frozen/SourceRandom.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceMatchFlow.cs" Link="Frozen/SourceMatchFlow.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceMatchRules.cs" Link="Frozen/SourceMatchRules.cs" />
-    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/SourceClock.cs" Link="Frozen/SourceClock.cs" />
+    <Compile Include="$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs" Link="Explicit/SourceInterfaceMovementData.cs" />
+    <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/*.cs" Link="Explicit/Gameplay/%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="RequireProtectedInputs" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzB1Root)Assets/Scripts/Gameplay/SourcePlaybook.cs')" Text="Explicit frozen B1 root required; Primary M1 is not a substitute." />

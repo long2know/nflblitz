@@ -1,0 +1,79 @@
+{
+  "schema": "original-wan-movement-complete-catalog/v1",
+  "source": {
+    "repository": "historicalsource/nflblitz2000",
+    "commit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded"
+  },
+  "selected_base": {
+    "catalog": "movement_sequences.json",
+    "catalog_sha256": "e7a3e9c2962274eb68aa0b820d6226a0e25fa43f012d6a5107ef86188d902316",
+    "manifest_sha256": "5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68",
+    "sequence_count": 156,
+    "source_frame_count": 18104,
+    "selected_frame_count": 13420
+  },
+  "sequence_count": 157,
+  "source_frame_count": 18174,
+  "selected_frame_count": 13490,
+  "extension": {
+    "runtime_name": "R_SKIP",
+    "source_path": "anim/misc99.wan",
+    "source_git_blob_sha1": "256acb7ddb838627312193ae19db66abd18ac146",
+    "source_frames": 70,
+    "selected_frames": 70,
+    "source_first": 0,
+    "source_last": 69
+  },
+  "converter_replay": {
+    "policy": "wan2seq-retained-limb/v1",
+    "missing_source_limb_id": 5,
+    "retained_authoring_name": "Huffrun2",
+    "retained_chunk_number": 12,
+    "retained_chunk_byte_offset": 2801562,
+    "retained_chunk_end_byte_offset": 2868026,
+    "retained_animation_flags": 16384,
+    "retained_source_frame_count": 90,
+    "retained_record_offset": 2820414,
+    "retained_data_offset": 2820422,
+    "retained_stride": 48,
+    "frame_mapping": "same-authoring-index",
+    "source_reference_path": "plyrseq.c",
+    "source_reference_git_blob_sha1": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
+    "source_reference_symbol": "r_skip_anim",
+    "shipped_binary_verified": false
+  },
+  "code_references": [
+    {
+      "path": "plyrseq.c",
+      "git_blob_sha1": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
+      "lines": [6397, 6420]
+    },
+    {
+      "path": "player.c",
+      "git_blob_sha1": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+      "lines": [363, 367]
+    },
+    {
+      "path": "anim/MAKEFILE",
+      "git_blob_sha1": "2e77acc8baa9e5f915a54a12dab7c55e59e29f81",
+      "lines": [51, 57]
+    },
+    {
+      "path": "anim/seattle.mak",
+      "git_blob_sha1": "19f043e713eedcaaf5a8545801f7b3dca2331fd5",
+      "lines": [68, 76]
+    }
+  ],
+  "source_playback_evidence": {
+    "profile": "normal57Hz/USE_OLD_QB=FALSE",
+    "script": "r_skip_anim",
+    "cycle": "r_skip_cyc",
+    "steady_cycle": "ANI_NEWSEQ SEQ_R_SKIP; ANI_RUNTOEND,1; ANI_GOTO r_skip_cyc",
+    "steady_exported_frames": 70,
+    "steady_frames_per_source_tick": 1,
+    "steady_frames_per_second_at_57Hz": 57,
+    "entry": "From R_TRB_WB/RUN_WB: MODE=0 then ANI_INTTOSEQ,4 with AA_PROPFRAME; otherwise jump to r_skip_cyc with one-shot MODE_ANCHORXZ.",
+    "anchors": "Original runtime applies and clears one-shot MODE_ANCHORXZ; exporter does not zero, place or discard root motion.",
+    "shipped_SEQ_quantization_claimed": false
+  }
+}

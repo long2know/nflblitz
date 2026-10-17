@@ -177,7 +177,8 @@ internal static class ContractChecks
         var state = new SourceAnimationState(library, 3);
         Func<int, int> random = bound => 0;
         state.FullBody("qb_stance_anim", actor, 0, random, AnimationSelectionEvidence.Approximate);
-        state.Split("qb_run_anim", "qb_throw_sr_anim", actor, 1, random);
+        // The source running throw retains MODE_TWOPART; the planted throw deliberately clears it.
+        state.Split("qb_run_anim", "qb_rthrow_sr_anim", actor, 1, random);
         ActorAnimationView split = state.View(actor, 1);
         Program.Equal("two-part primary output mask", SourceTiming.LowerBodyJoints, split.Primary.JointMask);
         Program.Equal("two-part secondary output mask", SourceTiming.UpperBodyJoints, split.Secondary.JointMask);
@@ -185,7 +186,7 @@ internal static class ContractChecks
         Program.Equal("lower independent +X heading", 1f, split.Primary.FacingDirection.X);
         Program.Equal("upper independent +Z heading", 1f, split.Secondary.FacingDirection.Z);
         Program.Equal("lower script", "qb_run_anim", split.Primary.ScriptSymbol);
-        Program.Equal("upper script", "qb_throw_sr_anim", split.Secondary.ScriptSymbol);
+        Program.Equal("upper script", "qb_rthrow_sr_anim", split.Secondary.ScriptSymbol);
         state.FullBody("breath_anim", actor, 2, random, AnimationSelectionEvidence.Approximate);
         SourceJointPose interrupted = state.Primary.EvaluatePose();
         state.FullBody("breath3_anim", actor, 3, random, AnimationSelectionEvidence.Approximate);

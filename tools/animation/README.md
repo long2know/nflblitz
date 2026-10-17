@@ -100,6 +100,143 @@ exports; all other decoded data must agree. Use the **newly printed**
 native import. This bounded preparation is not all-source-animation or
 whole-gameplay completion.
 
+## Explicit movement-complete extension: 156 unchanged clips plus R_SKIP
+
+`movement_complete_sequences.json` is a **new composite catalog**, not a change
+to any selected catalog. It pins `movement_sequences.json` and its immutable
+156-clip manifest, then adds one explicitly qualified sequence: **157 clips,
+13,490 selected frames, 18,174 authoring frames**. All 156 base inventory entries
+and decoded clip bytes are copied unchanged after fresh, read-only verification
+by the existing selected producer. The old 56/117/156 manifests, resources and
+catalogs are never overwritten, repaired or aliased.
+
+### The actual R_SKIP issue is an omitted record, not selection
+
+The pinned original `wan2seq.c` defines `A_SELECTED=0x4000` and
+`A_COMPRESSED=0x1`. The original `anim/misc99.wan` blob
+`256acb7ddb838627312193ae19db66abd18ac146` contains `r_skip`, chunk 13, with raw
+flags **0x4000: selected, uncompressed**. All 70 authoring frames are selected.
+However, the chunk contains only fourteen matrix records: **record 5, the
+right-hand rotation, is absent**. The unchanged ordinary readers correctly
+reject this incomplete record set. Changing selection bits cannot fix it.
+
+There is a deterministic **source-converter** result, distinct from a claim of
+complete authored R_SKIP motion. The original converter's global
+`frames[frame][limb]` buffer is not cleared between sequences
+(`wan2seq.c:72,314–555`). Its immediately preceding selected chunk is
+`Huffrun2`, chunk 12: a complete, uncompressed 90-frame sequence. Thus the
+original converter retains its already-written limb-5 quaternions at authoring
+indices 0–69 when exporting R_SKIP. This is a named, byte-addressed last-writer
+dependency, **not a guessed hand pose, a whole-clip alias, identity fill or a
+claim that R_SKIP contains those matrices**. Earlier compressed chunks cannot
+influence these frames because the complete uncompressed writer replaces them.
+Compressed retained writers/targets are deliberately not qualified; the
+converter can mutate quaternion signs during compressed output.
+
+`read_wan_replay.py` implements only this explicit policy. It validates the
+actual omitted record, the last preceding selected writer, its exact name,
+flags, chunk/record bounds and every required same-index frame. It validates
+the complete writer using the existing reader, including frames after the last
+retained frame. There is no default fallback or generic unselected export.
+`prepare_movement_complete.py` additionally verifies pinned original
+`plyrseq.c`, `player.c`, `anim/MAKEFILE` and `anim/seattle.mak` bytes and active
+source-reference ranges before preparing anything.
+
+The new clip uses `original-wan-converter-replay-clip/v1`. Its
+`record_layout` truthfully contains **16 actual records** (flags, root and
+fourteen limbs), while `converter_replay` separately identifies the retained
+record outside the target chunk. All original names, flags, maps, roots and
+matrix-derived rotations are retained. The inventory must carry the same
+explicit qualification. The production `SourceAnimationLibrary.Read` supports
+this narrowly pinned format and exposes immutable `SourceAnimationClip.ConverterReplay`
+provenance; public standalone `ReadClip` still refuses an unqualified replay.
+Ordinary v1 libraries remain compatible, with selected/unsupported flags checked.
+No `Contracts`, sampling, actor pose, gameplay or native importer API is changed.
+
+This is normalized binary32-WAN matrix conversion plus qualified converter-state
+replay, **not verification against a shipped SEQ, its compression/quantization
+or the original executable**. The catalog makes no such claim.
+
+### Offline preparation and timing
+
+Supply a local pinned tree containing both the case-sensitive WAN paths and the
+four code/build reference files above. The selected bundle must already be the
+complete immutable movement156 bundle with manifest SHA-256
+`5e8fc7c5f2011303fd7b1aea87e6f957b1acdf4cbb15a43fd82f978d4b944b68`.
+No source retrieval, historical makefiles/scripts or Unity process is run:
+
+```sh
+SOURCE_ROOT=/absolute/path/to/local/pinned/nflblitz2000
+SELECTED_BUNDLE=.squad/.scratch/source-movement-integration/bundle156
+NEW_BUNDLE=.squad/.scratch/source-rskip-export/bundle157
+
+python3 -B tools/animation/prepare_movement_complete.py \
+  --source-root "$SOURCE_ROOT" --selected-bundle "$SELECTED_BUNDLE" \
+  --catalog tools/animation/movement_complete_sequences.json \
+  --destination "$NEW_BUNDLE"
+```
+
+The command prints the **new actual manifest hash and resource identity**
+`SourceData/local-plyr266-movement157-<manifest-first-eight>`. Do not use the old
+156 identity or silently replace an existing Unity library. Native asset
+creation, GUID ownership and runtime resource binding are separate handoffs.
+An existing destination requires `--reuse`, which freshly verifies every output
+byte without changing it. Producer source hashes participate in the new manifest;
+changing a producer requires a new bundle identity, not reuse of old output.
+The original selected producers/readers are unchanged.
+
+`source_playback_evidence` records the active `r_skip_anim -> r_skip_cyc`
+program, not an invented universal playback policy. At the normal 57 Hz
+profile, its steady cycle advances one exported frame per tick (57 FPS, 70
+frames). Entry from `R_TRB_WB`/`RUN_WB` clears the mode before the four-tick
+proportional transition; the other branch enters the cycle with one-shot
+`MODE_ANCHORXZ`. Runtime code applies and clears that anchor. The exporter does
+not zero root axes, resample, add a closing pose or replace the existing script.
+The clip's general playback fields remain explicitly runtime-bound.
+
+### Actual-data and independent checks
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/animation/tests -q
+
+python3 -B tools/animation/tests/run_movement_complete_checks.py \
+  --bundle "$NEW_BUNDLE" --selected-bundle "$SELECTED_BUNDLE" \
+  --source-root "$SOURCE_ROOT" \
+  --converter-source .squad/.scratch/reference/midwayvideo/tools/wan2seq/wan2seq.c \
+  --model .squad/.scratch/reference/nflblitz2000/models/plyr266.h \
+  --skeleton .squad/.scratch/reference/nflblitz2000/models/skeleton.h \
+  --baseline56 .squad/.scratch/player-animation-edc6193-recipe \
+  --baseline117 .squad/.scratch/player-animation-ball-recipe/bundle \
+  --output .squad/.scratch/source-rskip-export/verification
+```
+
+The check output directory must be new. Python synthetic tests require no
+original motion. The actual-data check requires the local inputs above, GCC and
+the existing .NET SDK: actual production sources compile as **C# 7.3 /
+netstandard2.1**, with a separate .NET 10 check executable and no Unity types.
+It reads all three old libraries and the new library using the production
+loader; compares every old frame, inventory entry and clip byte; and exercises
+malformed flags/payloads and explicit qualification guards on actual emitted JSON.
+
+An independent bounded C WAN parser replays the original pinned C
+`mat2quat`/`adjust_quat` functions, extracted only into ignored local outputs,
+and records every frame's actual last writer and raw matrix address. All 1,050
+R_SKIP quaternions and all roots are checked against that path. Separately, an
+independent C# raw-matrix hierarchy evaluates every actual model vertex at all
+70 frames, three headings/scales, against the production
+`SourceActorPoseSampler`/`SourceAnimationMatrices` path. That hierarchy does not
+decode quaternions or reuse the Python exporter. Synthetic self-roundtrips are
+not described as independent original-data evidence.
+
+Four isolated production-source mutations (qualification agreement, qualified
+record identity, raw flags and pose basis), plus two well-formed, repinned actual
+artifact mutations (retained pose and root), must fail their named assertions,
+not compilation. Isolated source/artifact copies are removed; original inputs
+and production sources are checked unchanged. These checks are not an Editor
+import, browser run, public gameplay replay or whole-M1 acceptance. All decoded
+motion, raw source and oracle outputs remain ignored and local-only; no asset
+redistribution rights are implied.
+
 ## Existing Unity importer arguments
 
 The printed `manifest_sha256` is the actual bundle manifest pin. With the
