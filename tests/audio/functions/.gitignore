@@ -1,0 +1,5 @@
+!*.csproj
+.artifacts/
+bin/
+obj/
+__pycache__/

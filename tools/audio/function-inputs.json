@@ -1,0 +1,27 @@
+{
+  "schema": "source-audio-function-inputs/v1",
+  "payload_schema": "SAFN1",
+  "repository": "historicalsource/nflblitz2000",
+  "commit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "blobs": {
+    "sounds.c": "f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9",
+    "include/sndcalls.h": "69f6c483502fb689eb1991169e0e31858378c763",
+    "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+    "plyrseq.c": "28cef0d1082f2b0c9241930fdc8886de4c8f5438"
+  },
+  "function_roles": {
+    "get_hit_snd": [
+      "HitLine", "HitCarrierRandom", "HitCarrierExplicit",
+      "HitCarrierFlyRandom", "HitCarrierFlyExplicit", "HitCarrierThird",
+      "HitOtherRandom", "HitOtherExplicit",
+      "HitOtherFlyRandom", "HitOtherFlyExplicit", "HitOtherThird"
+    ],
+    "grnd_hit_snd": [
+      "GroundRandom", "GroundExplicit", "GroundNeckRandom",
+      "GroundNeckExplicit", "GroundGruntRandom", "GroundGruntExplicit"
+    ]
+  },
+  "vm_scripts": ["fall_04", "h_front1_anim", "t_dshoul_anim"],
+  "rights": "Original tables, parameters, routines, payloads and generated oracle sources remain local/ignored; public availability is not redistribution permission."
+}
