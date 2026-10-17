@@ -21,12 +21,22 @@ class RealInputGuards(unittest.TestCase):
 
     def test_combined_actual_source_pin_inventory_has_no_conflicts(self):
         pins = fetch_inputs.input_pins()
-        self.assertEqual(61, len(pins))
+        self.assertEqual(65, len(pins))
         self.assertEqual("5744c51f30b625b9f80b92388ab49ff0ebc5bb2c", pins["player.c"])
         self.assertEqual("15b49474fb55e8bac280b6515fcf7bf59cdf8664", pins["nfl.c"])
         self.assertEqual(24, sum(name.lower().endswith(".wan") for name in pins))
         for pin in pins.values():
             self.assertRegex(pin, r"^[0-9a-f]{40}$")
+
+    def test_actual_camera_oracle_input_closure_is_acquired(self):
+        self.assertEqual({
+            "include/GAME.H", "include/ani3d.h", "include/camdefs.h", "CamData.c",
+            "cambot.c", "plyrseq.c", "detect.c", "player.c", "lib/ani3d/ANIM.C",
+            "lib/ani3d/pipe3D.c",
+        }, set(fetch_inputs.CAMERA_INPUTS))
+        pins = fetch_inputs.input_pins()
+        for name, pin in fetch_inputs.CAMERA_INPUTS.items():
+            self.assertEqual(pin, pins[name], name)
 
     def test_git_blob_pin_is_not_plain_file_sha1(self):
         self.assertEqual("d670460b4b4aece5915caf5c68d12f560a9fe3e4",

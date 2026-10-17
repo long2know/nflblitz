@@ -84,6 +84,14 @@ fallback. Optional presentation settings stay explicitly unknown unless a test
 supplies named settings. Standalone synthetic VM tests remain synthetic and
 separate; their toy clip mapping is never fed to the real simulation geometry.
 
+The fixture also contains separately pinned selected156 and complete157
+movement libraries plus the strict runtime movement export. The short host
+adapter retains canonical117; longer public ball and movement callers explicitly
+select complete157. No library identity is aliased. The factory supplies actual
+movement data, named settings and a controlled 512×384 source-DIP camera frame
+inside the pre-player callback. This is not the production camera or rendering
+proof; those contracts are exercised separately by `tests/presentation/movement-stage`.
+
 Prepare once with explicit pinned original inputs:
 
 ```sh
@@ -99,9 +107,12 @@ python3 tests/parity/test_inputs.py
 Alternatively supply your own complete exact source root (including the pinned
 recursive `tree.json`). `fetch_inputs.py` offers explicit read-only cache and
 individual verified-file overrides; wrong blob bytes cannot become fixtures.
+Its 65-blob union includes the complete original-C camera-oracle dependencies,
+not only the animation/gameplay inputs.
 Preparation invokes the permanent `tools/animation/prepare_player_sequences.py`
 with `ball_sequences.json`, `tools/playbooks/convert.py`, and
-`tools/rosters/export_rosters.py`, plus the existing original pose/header reader.
+`tools/rosters/export_rosters.py`, the separate movement156/complete157 recipes,
+the runtime-only movement exporter, and the existing original pose/header reader.
 No ignored Primary-worktree helper, absolute machine path, copied stand-in,
 source artwork in Git, or Unity import is needed. All generated inputs remain
 ignored in this checkout. Existing fixtures require explicit read-only `--reuse`.

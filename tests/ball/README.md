@@ -7,7 +7,7 @@ physics implementation, generic clip fallback, or invented roster/formation.
 
 ## Clean CI / explicit original inputs
 
-Requirements: selected .NET SDK, Python 3, GCC/Clang, and (only for optional
+Requirements: selected .NET SDK, Python 3.10+, GCC/Clang, and (only for optional
 download) authenticated `gh` with public Git blob/tree read access. No Unity
 Editor, native game executable, server or browser is launched.
 
@@ -45,6 +45,14 @@ The canonical 117-clip/10,288-selected-frame manifest pin is
 historical `18af…`/`2baec…` manifests are **not aliases**. Complete animation
 data, original matrices, catalog tables, headers, generated C, native binaries
 and numeric cases remain ignored. No machine-specific source path is a default.
+
+The shared fixture additionally prepares strict movement data and distinct
+selected156/complete157 libraries. Numeric ball/original-pose cases keep
+canonical117. The longer public raw-B caller campaign explicitly uses complete157
+because actual movement can reach clips absent from117; its receipt records both
+manifest identities. Simulation and geometry always share the same selected
+library. Mandatory movement settings and a named source-DIP test camera are
+injected without claiming production camera/render parity.
 
 All output goes below this checkout's ignored `.squad/.scratch/SourceData/` or
 `tests/ball/.artifacts/`. Existing prepared fixtures require explicit `--reuse`,

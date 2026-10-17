@@ -13,6 +13,18 @@ ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "historicalsource/nflblitz2000"
 REVISION = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded"
 TREE = "a7e0352125d46075b7d98e87253ab89b9160a4c7"
+CAMERA_INPUTS = {
+    "include/GAME.H": "09d65c92971c32c44b1dc49fb4e4e98b371b1cd3",
+    "include/ani3d.h": "826c6322467fcfe503b8402b540e4731671f9b6b",
+    "include/camdefs.h": "8586d537afe10067e110722f6ba42bb3f9f07952",
+    "CamData.c": "4bfc54c6b9633b076f01163c2142c7fce799a0e0",
+    "cambot.c": "00c9c913bc6a697dfd590666bf5597f2c2bc1eb7",
+    "plyrseq.c": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
+    "detect.c": "68c239fa2e617988107fbebeb4dfeff5bbfe9233",
+    "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+    "lib/ani3d/ANIM.C": "97d7856d67a432937e249be274ef67a9ad354dc1",
+    "lib/ani3d/pipe3D.c": "0966ecaf0d7eef7d9c635a97899a421ce1eeea41",
+}
 
 
 def blob_sha1(data):
@@ -61,6 +73,8 @@ def input_pins():
         add(entry["path"], entry["git_blob_sha1"])
     original = json.loads((ROOT / "tests/source-oracles/pins.json").read_bytes())
     for name, pin in original["blobs"].items():
+        add(name, pin)
+    for name, pin in CAMERA_INPUTS.items():
         add(name, pin)
     return dict(sorted(pins.items()))
 

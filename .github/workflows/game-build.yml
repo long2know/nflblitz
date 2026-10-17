@@ -122,10 +122,13 @@ jobs:
         run: |
           python3 tests/parity/test_inputs.py
           python3 tests/ball/test_runner.py
+          python3 tests/movement-callers/test_runner.py
       - name: Compare source gameplay and host adapter
         run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
       - name: Compare original ball and ordered source callers
         run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
+      - name: Compare original movement callers and post-animation physics
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
@@ -140,8 +143,14 @@ jobs:
         run: python3 tests/interface/run.py
       - name: Test complete interface caller and inventory guards
         run: python3 tests/interface/stage_followup.py
+      - name: Test actual movement bootstrap and source-frame binding
+        run: python3 tests/interface/movement_bootstrap.py
       - name: Test original HUD resource preflight without assets or Unity
         run: python3 tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
+      - name: Compare original source-camera matrices and complete animation identity
+        run: python3 tests/presentation/movement-stage/run.py --original-source-root .squad/.scratch/SourceData/source-kernel-original --bundle157-root .squad/.scratch/SourceData/source-kernel/movement-animation
+      - name: Test source-camera frame and resource mutations
+        run: python3 tests/presentation/movement-stage/mutations.py
       - name: Test original audio package reader without banks or Unity
         run: python3 tests/audio/run.py --mutate
       - name: Test actor sound input preparation and SDK boundaries
