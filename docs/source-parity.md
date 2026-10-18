@@ -239,12 +239,56 @@ the missing target, and performs no angle lookup or RNG draw. StrictSource
 retains the exact visible fault; valid targets behave identically in both modes.
 This does not mask unrelated missing-state or invalid-target branches.
 
+The carrierless defensive-switch increment is a separate Portable policy.
+Original `player.c:db_change_player` selects a player target for Pass,
+FieldGoal and Kickoff, then indexes the angle table with the absent carrier
+`-1`; its native memory value is undefined. Portable defers that switch,
+retaining the executing controlled actor and all station owners. A distinct
+private deferred result prevents B+C from treating the actor as the closest
+player, starting a push, issuing a second switch or consuming RNG. The
+existing lazy `pushHere`, drone and play-over/onscreen exits still precede
+this boundary. Valid carriers and nonseeking Punt/Fumble/Bobble/Lateral
+selection remain unchanged; other unsupported negative carrier indices
+still reject. StrictSource retains the exact prior visible exception.
+The separate focused suite has1,142 assertions and thirteen compiled
+causal controls;88 defined-domain cases match the pinned original C
+selection prefix through an explicitly authored structure/constants adapter.
+No undefined carrierless seeking case is executed in C, and this does not
+qualify native transfer tails, uninterruptible sequence ranges, a public
+full-match recording or whole-game/native Unity parity. The existing325
+compatibility assertions/twelve controls and eight M1 caller controls are
+retained separately without changing their inventories.
+
+Locally, the current generation passed the unchanged named12k Portable M1
+gate:2,270,287 uninstrumented and9,591,252 observed assertions, all three cache
+and eight caller controls, byte-identical uninstrumented/observed state/RNG/
+poses, and664 actual post-VM inputs/5,312 exact original-C physics assertions.
+The changed production file has a new exact observer pin; the removable hook,
+source474 golden, public input, positive R_SKIP requirements and prior dated
+qualification are not relabelled or weakened.
+
+An additional actual C# WASM/WebGL match used all four human stations, original
+assets and the unchanged544-file private bundle. It reached all four quarters
+and genuine GameOver at source27914/play number101, score14-0, in519.577s,
+including43 naturally executed typed switch deferrals through source27809.
+All four stations had measured movement; real tab-focus loss stopped the
+source clock and cleared inputs; fresh input resumed; public `R` only after
+GameOver started epoch1 at0-0 and accepted all four controllers again. The
+renderer was NVIDIA RTX3070/ANGLE Vulkan, not software rendering. These are
+one-run functional observations, not a performance threshold or native pixel
+qualification; screenshots retain their actual source-tick brackets.
+The existing separate terminal-notification gap remains explicit: this match
+has `GameOver`/`MatchEnded` phase but zero typed `SourceEventType.MatchEnded`
+events. No native Unity, DSP or sixteen-row whole-game acceptance is claimed.
+
 `GameSimulation.Compatibility` is immutable, including across restart. Match
 snapshots publish the mode, raw/effective team handicap and lifetime repair
 count with an immutable chronological tail of at most64 typed repairs
 (kind, subject/team or actor, raw/effective index, source tick/context).
 For `TargetlessRunningPush`, both target indices remain `-1`; the distinct
 nullable `RetainedStick` field reports the actual continued control value.
+For `CarrierlessDefensiveSwitch`, the subject is the retained controlled
+actor, both carrier indices stay `-1`, and `RetainedStick` is null.
 Actor `Handicap` is its effective index; `RawHandicap` retains the raw value.
 Diagnostics consume no RNG and do not generate per-frame UI notifications.
 

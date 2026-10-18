@@ -312,7 +312,7 @@ internal static partial class Program
             if (portablePolicy && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
                 throw new ArgumentException("Portable public policy requires explicit --source-compatibility portable.");
             if (!canonical && !m1Replay && !portablePolicy && (args.Length != 3 && args.Length != 4 ||
-                !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility" }.Contains(args[2])))
+                !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility", "carrierless-switch" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
             fixtureRoot = Path.GetDirectoryName(Path.GetFullPath(args[0]));
@@ -330,13 +330,14 @@ internal static partial class Program
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
             if (portablePolicy) return AuthorPortablePublicPolicy(args[5], result);
-            if (args[2] == "compatibility")
+            if (args[2] == "compatibility" || args[2] == "carrierless-switch")
             {
                 compatibilitySoundFunctions = args[3];
-                CompatibilityChecks();
+                if (args[2] == "compatibility") CompatibilityChecks();
+                else CarrierlessSwitchChecks();
                 result["status"] = "passed";
                 result["assertions"] = assertions;
-                result["mode"] = "compatibility";
+                result["mode"] = args[2];
                 Console.WriteLine(JsonSerializer.Serialize(result));
                 return 0;
             }

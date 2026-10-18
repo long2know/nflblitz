@@ -5,7 +5,10 @@ using System.Collections.ObjectModel;
 namespace Blitz.Contracts
 {
     public enum SourceGameplayCompatibility { StrictSource = 0, Portable = 1 }
-    public enum SourceCompatibilityRepairKind { HandicapConsumerIndex, BlockCountConsumerIndex, TargetlessRunningPush }
+    public enum SourceCompatibilityRepairKind
+    {
+        HandicapConsumerIndex, BlockCountConsumerIndex, TargetlessRunningPush, CarrierlessDefensiveSwitch
+    }
 
     public readonly struct SourceCompatibilityRepair
     {
