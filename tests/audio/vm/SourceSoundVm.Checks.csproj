@@ -17,4 +17,5 @@
     <Compile Include="*.cs" />
   </ItemGroup>
   <Import Project="SourceSoundVmSources.props" />
+  <Import Project="../../parity/FullKernelSources.props" />
 </Project>

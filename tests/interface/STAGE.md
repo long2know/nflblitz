@@ -1,6 +1,20 @@
-# Source-stage caller: movement157 and retained B1 history
+# Source-stage caller: current C1/C2 and retained movement/B1 history
 
-## Next synchronous SoundVM runtime
+## Current caller and factory contract
+
+The asset-free current-checkout guard follows the selected Contact272,
+Contact281C2, or explicit Contact281C2M1 profile through the real resource key,
+canonical animation instance, compatibility argument, and production factory.
+Both real sound factories must validate SAFN and complete typed inputs, construct
+same-library fifteen-pivot geometry, then bind sound exactly once before
+returning to any bridge wake. The resolved route flushes its actual native
+prefix before returning instead of falling through to generic selection.
+
+The 32 Runtime, 15 service, and eight factory source mutations are recorded
+separately from compiled bootstrap/transport controls. They are structural
+regression evidence, not native Unity, DSP, or complete-game execution.
+
+## Retained movement157 synchronous SoundVM receipt
 
 The sound-runtime candidate retains the M1 camera/data invariants below and
 adds mandatory canonical SAFN binding, per-Step finally-drain, exact OriginalCue
@@ -9,7 +23,7 @@ real M1 constructor and before the first executing57 wake. Raw observation
 precedes consumer failure. Resolved0 is legitimate; nonempty output has no real
 consumer and fails explicitly, never a muted/Unity-audio substitute.
 
-The complete current API inventory contains **all17 owned files**, including
+That receipt's complete API inventory contains **all17 owned files**, including
 the new pure `Runtime/SourceSoundVmTransport.cs`, existing `BlitzRuntime`,
 `PlayHud` and `FixedStepBridge`. Actual Unity6000.3.24 Editor/WebGL profiles
 compile **89 runtime sources**, warnings as errors, with exact owned source
@@ -27,12 +41,12 @@ See [compiled transport/real Core cases](../audio/runtime/README.md).
 No source selector/RNG/PlayerDown replay or native/DSP/audible claim is made.
 The next sound binding is not relabeled as published M1/B1 evidence.
 
-## Current M1 composition and complete API checks
+## Current movement composition and complete API checks
 
-The current isolated movement157 source requires explicit pinned movement data,
-settings and original DIP resolution, the distinct157 Team/animation/service
-resources, and the actual source camera matrix. B1 source/assets remain a
-separate immutable profile; no resource identity aliases the new bytes.
+The current source runtime requires explicit pinned movement data, settings and
+original DIP resolution, its selected C1/C2 Team/animation/service resources,
+and the actual source camera matrix. Historical157 and B1 resources remain
+separate identities; they are not aliases for current contact data.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py
@@ -44,14 +58,15 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B tests/interface/movement_bootstrap.py \
 
 The default is asset-free and current-checkout-only. The optional mode references
 actual Unity6000.3.24 .NET Standard2.1/engine/WebGL assemblies, C#7.3, warnings as
-errors. Every actual Runtime/HUD/Bridge dependency and all16 owned UI file hashes
+errors. Every actual Runtime/HUD/Bridge dependency and all17 owned UI file hashes
 are recorded in both profiles; no shim or omitted existing file may pass.
 Pure actual-runtime data-composition execution uses that compiled production
 assembly, not a copied factory. It does not execute Unity native calls.
 
 The source wiring invariants are:
 
-1. Explicit157 actor resolution and the matching prefab-bound camera/rosters.
+1. Explicit selected-profile actor resolution and its matching prefab-bound
+   camera/rosters; compatibility reaches the actual production factory.
 2. All actual movement rows/friction are mapped into `SourceMovementRuntimeData`
    and all field/global-power/team-mask settings into `SourceMovementSettings`;
    both go to the real Core constructor. The separately SHA-pinned bootstrap

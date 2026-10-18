@@ -32,6 +32,7 @@ namespace Blitz.Gameplay
         private readonly SourcePresentationSettings sourcePresentation;
         private readonly SourceMovementRuntimeData sourceMovementData;
         private readonly SourceMovementSettings sourceMovementSettings;
+        private readonly SourceHandicapSettings sourceHandicapSettings;
         private readonly Func<int, ISourceRandom> sourceRandomFactory;
         private ISourceRandom sourceRandom;
         private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
@@ -50,10 +51,13 @@ namespace Blitz.Gameplay
         private uint randomState;
 
         public SimulationProfile Profile { get; }
+        public SourceGameplayCompatibility Compatibility { get; }
         public string ReferenceProfile
         {
             get
             {
+                if (Profile == SimulationProfile.OriginalRelease57Hz && Compatibility == SourceGameplayCompatibility.Portable)
+                    return "Portable Source57/M1: explicit consumer-index corrections; NOT original hardware/ABI/RNG equivalence";
                 return Profile == SimulationProfile.OriginalRelease57Hz
                     ? "Original normal57 source VM/clock/rules/ball kernels; explicit RNG provenance; M1/C1/C2/I1/cinematic caller parity remains open"
                     : "Explicit approximate 60 Hz legacy baseline";
@@ -107,8 +111,16 @@ namespace Blitz.Gameplay
             SourcePlaybook playbook, SourceMatchConfiguration configuration = null,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
             SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
-            SourceMovementSettings movementSettings = null)
+            SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null,
+            SourceHandicapSettings handicapSettings = null,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
         {
+            if (compatibility != SourceGameplayCompatibility.StrictSource && compatibility != SourceGameplayCompatibility.Portable)
+                throw new ArgumentOutOfRangeException(nameof(compatibility));
+            if (compatibility == SourceGameplayCompatibility.Portable
+                && (c2Bootstrap == null || c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
+                throw new NotSupportedException("Portable gameplay requires the explicit actual M1 source bootstrap.");
+            Compatibility = compatibility;
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
             sourceGeometry = geometry;
             sourcePlaybook = playbook;
@@ -116,6 +128,8 @@ namespace Blitz.Gameplay
             sourcePresentation = presentation;
             sourceMovementData = movementData;
             sourceMovementSettings = movementSettings;
+            sourceHandicapSettings = handicapSettings ?? new SourceHandicapSettings();
+            sourceC2Bootstrap = c2Bootstrap;
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
@@ -128,13 +142,17 @@ namespace Blitz.Gameplay
         {
             randomState = unchecked((uint)seed) ^ 0x9E3779B9u;
             Model = new SimulationState();
+            Model.SourceCompatibility = Compatibility;
             pendingSourceCameraHeading = 0;
             pendingSourceCameraSampleTick = 0;
             stepEvents.Clear();
             sourceStepEvents.Clear();
             sourcePresentationCues.Clear();
+            sourceContactEvents.Clear();
+            unresolvedContactSounds.Clear();
             sourceSoundVmPending.Clear();
             sourceSoundVmFailed = false;
+            sourceC2Events.Clear();
             SourceCameraStageOrder = -1;
             ClearPendingInput();
             if (Profile == SimulationProfile.OriginalRelease57Hz)
@@ -159,9 +177,15 @@ namespace Blitz.Gameplay
 
         public void Step(PlayerCommand command)
         {
+            if (Profile == SimulationProfile.OriginalRelease57Hz && Model.SourceAnimationFailure != null)
+                throw new InvalidOperationException("Original source execution failed; Restart is required, not a retry: "
+                    + Model.SourceAnimationFailure);
             stepEvents.Clear();
             sourceStepEvents.Clear();
             sourcePresentationCues.Clear();
+            sourceContactEvents.Clear();
+            unresolvedContactSounds.Clear();
+            sourceC2Events.Clear();
             SourceCameraStageOrder = -1;
             Model.Tick++;
             if (Profile == SimulationProfile.OriginalRelease57Hz)

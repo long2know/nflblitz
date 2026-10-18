@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Linq;
 using Blitz.Gameplay;
 
 internal static class Program
@@ -203,6 +204,12 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        string c2Inputs = null;
+        if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
+        {
+            c2Inputs = args[args.Length - 1];
+            args = args.Take(args.Length - 2).ToArray();
+        }
         if (HostAdapterChecks.Enabled ? args.Length != 3 && args.Length != 4 : args.Length != 2)
         {
             Console.Error.WriteLine("Usage: ParityChecks original-C-cases.json synthetic-contract-traces.json [actual-fixture.json in full-kernel mode]");
@@ -236,7 +243,7 @@ internal static class Program
                 Check("nonempty production comparison group " + required, Compared.ContainsKey(required) && Compared[required] > 0);
             int beforeContracts = assertions;
             FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2],
-                soundFunctionsPath: args.Length == 4 ? args[3] : null) : null;
+                soundFunctionsPath: args.Length == 4 ? args[3] : null, c2InputsPath: c2Inputs) : null;
             ContractChecks.Run(args[1], fullKernelInputs);
             int contractAssertions = assertions - beforeContracts;
             Check("nonzero contract assertions", contractAssertions >= 60);
@@ -250,6 +257,7 @@ internal static class Program
                 contract_assertions = contractAssertions,
                 full_kernel_host_adapter_exercised = HostAdapterChecks.Enabled,
                 real_input_fixture_sha256 = fullKernelInputs == null ? null : fullKernelInputs.ManifestSha256,
+                real_animation_library_sha256 = fullKernelInputs == null ? null : fullKernelInputs.Animations.InventorySha256,
                 failures,
                 failure_details = FailureDetails,
                 full_gameplay_parity_claimed = false,

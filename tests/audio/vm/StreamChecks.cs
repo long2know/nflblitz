@@ -79,34 +79,73 @@ internal static partial class Program
 
     private static void CollisionProcess(GameSimulation game, InputStream stream)
     {
+        long tick = game.SourceTick + 2;
+        stream.Armed = false;
+        foreach (ActorState value in game.Model.Players)
+        {
+            value.SourceRawFlags |= 0x20;
+            value.SourceAttackMode = value.SourceAttackTime = 0;
+            value.SourcePuppetLinkId = -1;
+        }
         ActorState attacker = game.Model.Players[5], victim = game.Model.Players[9];
         ActorInputs(game, attacker, 2, 9, 0, null, carrier: victim.Id);
         ActorInputs(game, victim, 2, 7, -1, null, carrier: victim.Id);
         game.Model.Phase = GamePhase.LiveBall;
-        attacker.Turbo = true;
-        long tick = game.SourceTick + 2;
+        game.Model.Possession = TeamId.Away;
+        game.Model.SourceLastPossession = 1;
+        game.Model.SourceRules = new SourceRulesState(1, 1, 1, 30, 100, SourcePlayType.Normal);
+        game.Model.SourceOffensePlay = real.Playbook.GetPlay("play_spider");
+        game.Model.SourceDefensePlay = real.Playbook.GetPlay("play_safe_cover");
+        game.Model.SourceFlags = SourceGameFlags.None;
+        game.Model.SourceNoFumbles = true;
+        game.Model.SourceSpinCount[0] = game.Model.SourceSpinCount[1] = 0;
+        game.Model.CatchSourceTick = tick - 100;
+        game.Model.BallMode = BallMode.Held;
+        game.Model.BallKind = SourceBallKind.Pass;
         game.Model.SourceTick = tick;
+        attacker.Facing = attacker.TargetFacing = 640;
+        victim.Facing = victim.TargetFacing = 896;
+        attacker.AnimationState.FullBody("run_anim", attacker, tick,
+            Bind<Func<int, int>>(game, "SourceDraw"), AnimationSelectionEvidence.SourceVerified);
+        victim.AnimationState.FullBody("run_wb_anim", victim, tick,
+            Bind<Func<int, int>>(game, "SourceDraw"), AnimationSelectionEvidence.SourceVerified);
+        SourcePlayerDriver.SetSourcePosition(attacker, new SourceVector3(9f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(victim, new SourceVector3(0f, 0f, 0f));
+        attacker.Turbo = true;
+        var focus = new SourceVector3(0f, 14f, 0f);
+        var eye = new SourceVector3(-120f, 85f, -40f);
+        float theta = (float)Math.Atan2(focus.X - eye.X, focus.Z - eye.Z);
+        SourceCinematicTransform camera = SourceCinematicTransform.FromState(
+            new SourceCinematicSeed(eye, focus, 150f, theta, -.4f));
+        game.Model.SourceMovementCamera = new SourceMovementCameraFrame(camera.Position, camera.Transform, 512f, 384f);
+        game.Model.SourceMovementCameraTick = tick;
+        Bind<Action>(game, "CacheSourceGeometry")();
+        Bind<Action>(game, "CacheSourcePlayerCameraJoints")();
+        game.TakeSourceSoundVmDispatches();
         game.Model.SourceDispatchOrdinal = 10;
         game.Model.SourcePresentationOrder = 200;
-        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("detect_after_ball", -1, 17);
-        stream.Start(173, 179, 181, 191, 193);
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("detect_proc", -1, 0x500);
+        stream.Start(173, 99, 99, 3, 0, 179, 181, 99, 0, 191, 193);
         Bind<Func<int, int>>(game, "SourceDraw")(97);
-        SourcePlayerDriver.Contact(game.Model, attacker.Id, victim.Id, Bind<Func<int, int>>(game, "SourceDraw"));
+        Bind<Action>(game, "SourceContacts")();
+        Check(attacker.AnimationState.Primary.ScriptSymbol == "t_dshoul_anim"
+            && victim.AnimationState.Primary.ScriptSymbol == "fall_04",
+            "real C1 side/turbo tables, capsules and actor mutations replace provisional Contact in sound regression");
         SourceSoundVmBatch batch = game.TakeSourceSoundVmDispatches();
         Equal(2, batch.Dispatches.Count, "real collision executes attacker and victim sound ANI_CODE synchronously");
         Equal(SourceAudioHitPresence.Present, batch.Dispatches[0].StateAtCall.HitPartner.Presence,
             "do_collision assignment precedes attacker's actual get_hit ANI_CODE");
         Equal((int)victim.SourceMode, batch.Dispatches[0].StateAtCall.HitPartner.RawPlayerMode.Value,
             "actual hit partner mode, not ActorRole or inferred target");
-        Equal("detect_after_ball", batch.Dispatches[0].RandomContext.Process, "source collision process name preserved");
-        Equal("detect_after_ball", batch.Dispatches[1].RandomContext.Process, "same actual collision process, not cue-order process");
-        Equal(1, batch.Dispatches[0].RandomContext.FirstCallIndex, "attacker preserves existing process call offset");
-        Equal(1, batch.Dispatches[1].RandomContext.FirstCallIndex, "zero-draw explicit hit does not consume/reset offset");
+        Equal("detect_proc", batch.Dispatches[0].RandomContext.Process, "source collision process name preserved");
+        Equal("detect_proc", batch.Dispatches[1].RandomContext.Process, "same actual collision process, not cue-order process");
+        Equal(5, batch.Dispatches[0].RandomContext.FirstCallIndex, "attacker preserves prefix and four actual C1 selection draws");
+        Equal(5, batch.Dispatches[1].RandomContext.FirstCallIndex, "zero-draw explicit hit does not consume/reset offset");
         Check(batch.Dispatches[0].RandomContext.ProcessOrder < batch.Dispatches[1].RandomContext.ProcessOrder,
             "existing Core receiver subdispatch order distinguishes actual actors without cue-order substitution");
-        Equal(3, game.Model.SourceRandomCallIndex, "victim sound draw accounting precedes following collision work");
+        Equal(9, game.Model.SourceRandomCallIndex, "victim sound accounting precedes actual C1 fumble and CSI calls");
         Bind<Func<int, int>>(game, "SourceDraw")(101);
-        Equal(3, stream.Random.Trace.Last().Site.CallIndex, "following collision function sees advanced cursor");
+        Equal(9, stream.Random.Trace.Last().Site.CallIndex, "following collision function sees advanced cursor");
         Begin(game, game.Model.Players[10], tick, 30);
         Bind<Func<int, int>>(game, "SourceDraw")(103);
         Equal(0, stream.Random.Trace.Last().Site.CallIndex, "next actual actor begins its own process cursor only at source dispatch");
@@ -149,7 +188,8 @@ internal static partial class Program
             game.Model.SourceCurrentPlayerBank = "players";
             bool retryBlocked = false;
             try { game.Step(default(PlayerCommand)); game.Step(default(PlayerCommand)); }
-            catch (InvalidOperationException error) { retryBlocked = error.Message.Contains("never retry"); }
+            catch (InvalidOperationException error)
+            { retryBlocked = game.Model.SourceAnimationFailure != null && error.Message.Contains("Restart is required"); }
             Check(retryBlocked, "partially advanced execution cannot be retried/reset/muted on another source wake");
             Equal(1, stream.Random.Trace.Count - before, "failed source wake never consumes another draw");
             game.Restart();

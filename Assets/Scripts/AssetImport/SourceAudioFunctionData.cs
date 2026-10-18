@@ -19,12 +19,17 @@ namespace Blitz.AssetImport
 
     public sealed class SourceAudioCalleeSite
     {
-        public string SourcePath { get { return "sounds.c"; } }
+        public string SourcePath { get; }
         public string SourceGitBlob { get; }
         public string FunctionSymbol { get; }
         public int SourceLine { get; }
         internal SourceAudioCalleeSite(string blob, string function, int line)
+            : this("sounds.c", blob, function, line) { }
+        internal SourceAudioCalleeSite(string path, string blob, string function, int line)
         {
+            if (path != "sounds.c" && path != "player.c")
+                throw new ArgumentException("Expected a canonical qualified original sound-function source path.", nameof(path));
+            SourcePath = path;
             SourceGitBlob = blob; FunctionSymbol = function; SourceLine = line;
         }
     }

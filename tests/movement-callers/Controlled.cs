@@ -20,6 +20,12 @@ internal static partial class Program
             .CreateDelegate(typeof(T), game);
     }
 
+    private static SourceHandicapSettings HistoricalC1CacheHandicapSettings()
+    {
+        // handicap.c random_drones selects TEAM_BEARS; the source474 golden predates dynamic rows.
+        return new SourceHandicapSettings(randomDrones: true);
+    }
+
     private static GameSimulation NormalFixture(int selection)
     {
         var random = new Random(800 + selection);

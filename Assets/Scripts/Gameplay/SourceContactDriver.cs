@@ -5,11 +5,8 @@ namespace Blitz.Gameplay
 {
     internal enum SourceBallLoss { None, Fumble, Bobble }
 
-    internal static class SourceContactDriver
+    internal static partial class SourceContactDriver
     {
-        private const uint NoCylinder = 0x0200;
-        private const uint PuppetModes = 0x00c00000;
-        private const float BodyDiameter = 10f;
         private static readonly int[] BobbleHuman = { 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 100 };
         private static readonly int[] BobbleHumanTeam = { 30, 35, 40, 45, 50, 55, 64, 73, 82, 91, 100, 100 };
         private static readonly int[] BobbleDrone = { 40, 45, 50, 55, 60, 65, 72, 79, 86, 93, 100, 100 };
@@ -25,15 +22,7 @@ namespace Blitz.Gameplay
             return false;
         }
 
-        // detect.c:do_collision 912-913, before the selected collision function/animation.
-        internal static void RecordCollision(ActorState attacker, ActorState defender)
-        {
-            defender.SourceHitPartnerId = attacker.Id;
-            attacker.SourceHitPartnerId = defender.Id;
-        }
-
-        // detect.c 2545-2970. Attack dispatch supplies the original base pair;
-        // this does not substitute for C1's collision/puppet/reaction selection.
+        // detect.c 2545-2970. The active dispatcher supplies each caller's original base pair.
         internal static SourceBallLoss FumbleOrBobble(SimulationState model, ActorState victim,
             ActorState attacker, int bobbleBase, int fumbleBase, Func<int, int> random, out int high)
         {
@@ -160,105 +149,5 @@ namespace Blitz.Gameplay
             return random(100) < bobble ? SourceBallLoss.Bobble : SourceBallLoss.None;
         }
 
-        // detect.c 555-662, 1012-1099, blob 68c239fa2e617988107fbebeb4dfeff5bbfe9233.
-        // This is att_none's cylinder response, not the unported attack/evade/
-        // block-vs-rush decision tables preceding that response.
-        internal static void ResolveBodyCylinders(SimulationState model)
-        {
-            var distances = new float[model.Players.Length, model.Players.Length];
-            var angles = new int[model.Players.Length, model.Players.Length];
-            for (int i = 0; i < model.Players.Length; i++)
-                for (int j = i + 1; j < model.Players.Length; j++)
-                {
-                    SourceVector3 a = SourcePlayerDriver.WorldPosition(model.Players[i]);
-                    SourceVector3 b = SourcePlayerDriver.WorldPosition(model.Players[j]);
-                    float x = b.X - a.X, z = b.Z - a.Z;
-                    distances[i, j] = (float)Math.Sqrt(x * x + z * z);
-                    distances[j, i] = distances[i, j];
-                    angles[i, j] = model.SourcePlaybook.Directions.Heading(new SourcePlanar(a.X, a.Z), new SourcePlanar(b.X, b.Z));
-                    angles[j, i] = (angles[i, j] + 512) & 1023;
-                }
-            model.SourceDistances = distances;
-            model.SourceAngles = angles;
-            for (int i = 0; i < model.Players.Length; i++)
-            {
-                for (int j = i + 1; j < model.Players.Length; j++)
-                {
-                    ActorState a = model.Players[i];
-                    ActorState d = model.Players[j];
-                    uint modes = a.AnimationState.Primary.Mode | d.AnimationState.Primary.Mode;
-                    if ((modes & NoCylinder) != 0 || distances[i, j] >= BodyDiameter)
-                        continue;
-                    if ((modes & PuppetModes) != 0)
-                        throw new NotSupportedException("Unported source puppet cylinder: actor=" + i + " target=" + j);
-                    if (Math.Abs(SourcePlayerDriver.WorldPosition(a).Y - SourcePlayerDriver.WorldPosition(d).Y) > 30f)
-                        continue;
-                    // Carrier contact is dispatched by the tackle/evade owner;
-                    // do not push the pair apart before that dispatch sees it.
-                    if (a.Team != d.Team && (a.Id == model.CarrierId || d.Id == model.CarrierId))
-                        continue;
-                    if (a.Team == model.Possession)
-                    {
-                        ActorState swap = a;
-                        a = d;
-                        d = swap;
-                    }
-                    Respond(model, a, d, distances[i, j]);
-                }
-            }
-        }
-
-        private static void Respond(SimulationState model, ActorState a, ActorState d, float distance)
-        {
-            RecordCollision(a, d);
-            SourceVector3 pa = SourcePlayerDriver.WorldPosition(a), pd = SourcePlayerDriver.WorldPosition(d);
-            var connecting = new FieldVector(pd.X - pa.X, pd.Z - pa.Z);
-            float squared = PlayerSimulation.DistanceSquared(connecting, default(FieldVector));
-            connecting = squared < 0.001f ? new FieldVector(1f, 0f)
-                : PlayerSimulation.Scale(connecting, 1f / (float)Math.Sqrt(squared));
-            float da = Math.Abs(a.SourceVelocity.X * connecting.X + a.SourceVelocity.Z * connecting.Z);
-            float dd = Math.Abs(d.SourceVelocity.X * connecting.X + d.SourceVelocity.Z * connecting.Z);
-            if (Math.Abs(da) < 0.001 && Math.Abs(dd) < 0.001)
-                da = dd = 1f;
-            if (d.Role == ActorRole.Receiver && d.Id != model.CarrierId)
-                da += 6f;
-            if (d.AnimationState.Primary.IsUninterruptible)
-                da += 6f;
-            if (a.AnimationState.Primary.IsUninterruptible)
-                dd += 6f;
-            bool ending = (model.SourceFlags & SourceGameFlags.PlayEnding) != 0;
-            if ((d.AnimationState.Primary.Mode & SourceAnimationModes.Reacting) != 0
-                && !ending && pd.Y > 6.5f)
-            {
-                da = 0f;
-                dd = 1f;
-            }
-            if ((a.AnimationState.Primary.Mode & SourceAnimationModes.Reacting) != 0
-                && !ending && pa.Y > 6.5f)
-            {
-                dd = 0f;
-                da = 1f;
-            }
-            if (model.Phase == GamePhase.PreSnap && d.Role == ActorRole.Lineman)
-            {
-                da = 1f;
-                dd = 0f;
-            }
-            if (model.Phase == GamePhase.PreSnap && a.Role == ActorRole.Lineman)
-            {
-                da = 0f;
-                dd = 1f;
-            }
-            float response = (BodyDiameter - distance) / (da + dd);
-            Move(a, PlayerSimulation.Scale(connecting, -da * response));
-            Move(d, PlayerSimulation.Scale(connecting, dd * response));
-        }
-
-        private static void Move(ActorState actor, FieldVector delta)
-        {
-            SourcePlayerDriver.MoveSource(actor, delta);
-            actor.Velocity = PlayerSimulation.Add(actor.Velocity,
-                PlayerSimulation.Scale(delta, SourceTiming.DefaultTicksPerSecond / SourceTiming.SourceUnitsPerYard));
-        }
     }
 }

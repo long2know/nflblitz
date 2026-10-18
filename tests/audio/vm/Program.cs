@@ -49,11 +49,17 @@ internal static partial class Program
         };
         try
         {
+            string c2Inputs = null;
+            if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
+            {
+                c2Inputs = args[args.Length - 1];
+                args = args.Take(args.Length - 2).ToArray();
+            }
             if (args.Length < 3 || args.Length > 5)
                 throw new ArgumentException("SourceSoundVm.Checks fixture.json sound-functions.safn output-dir [actual-C-cases actual-C-results]");
             output = Path.GetFullPath(args[2]);
             Directory.CreateDirectory(output);
-            real = FullKernelInputs.Load(args[0], movementLibrary: true, soundFunctionsPath: args[1]);
+            real = FullKernelInputs.Load(args[0], movementLibrary: true, soundFunctionsPath: args[1], c2InputsPath: c2Inputs);
             functions = real.SoundFunctions;
             CurrentInputState();
             BootstrapAndTransport();
@@ -114,7 +120,17 @@ internal static partial class Program
     private static GameSimulation Create(InputStream stream, bool bind = true)
     {
         GameSimulation game;
-        if (bind) game = real.Create(randomFactory: seed => stream.NewRandom());
+        if (bind && real.IsC2Profile)
+        {
+            var configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+                SourceStationLayout.TwoStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+                new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+                new[] { new SourceStationConfiguration(0, TeamId.Home) }, TeamId.Home, SourceCaptainSlot.First);
+            game = real.Create(configuration: configuration,
+                presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0),
+                randomFactory: seed => stream.NewRandom());
+        }
+        else if (bind) game = real.Create(randomFactory: seed => stream.NewRandom());
         else
         {
             game = new GameSimulation(real.Animations, real.Geometry, real.Playbook, seed: 1,

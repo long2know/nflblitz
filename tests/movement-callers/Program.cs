@@ -24,6 +24,7 @@ internal static partial class Program
     private static int assertions;
     private static bool mutationRun;
     private static string outputRoot;
+    private static string fixtureRoot;
     private static bool missingRSkip;
     private static long smokeSourceTick;
     private static int smokeRSkipFrames;
@@ -31,6 +32,243 @@ internal static partial class Program
     private static int smokeSoundDispatches;
     private static int smokeSoundDraws;
     private static bool smokeRSkipAdvanced;
+    private static SourceCacheWitness smokeCache;
+    private static GameSimulation activeGame;
+
+    private static bool SameBits(SourceVector3 first, SourceVector3 second)
+    {
+        return BitConverter.SingleToInt32Bits(first.X) == BitConverter.SingleToInt32Bits(second.X)
+            && BitConverter.SingleToInt32Bits(first.Y) == BitConverter.SingleToInt32Bits(second.Y)
+            && BitConverter.SingleToInt32Bits(first.Z) == BitConverter.SingleToInt32Bits(second.Z);
+    }
+
+    private sealed class CacheSample
+    {
+        internal PlayerView View;
+        internal SourceVector3 Root;
+        internal SourceMovementCameraFrame Camera;
+        internal SourceVector3[] Joints;
+        internal string PoseBasis;
+        internal string Script, Sequence;
+        internal int Ordinal;
+    }
+
+    private sealed class SourceCacheWitness : ISourceActorGeometry, ISourceActorCameraGeometry
+    {
+        private readonly SourceCatchGeometry inner;
+        private GameSimulation game;
+        private List<CacheSample> samples = new List<CacheSample>();
+        private CacheSample[] previous;
+        private long tick = -1, previousTick = -1;
+        private SourceMovementCameraFrame executingCamera;
+        private int[] executingCameraBits;
+        private readonly List<object> frames = new List<object>();
+        private object contact474;
+        internal int AddedAssertions, GeometryCalls, CurrentRows, PreviousRows, OrdinaryRows, ReferenceRows;
+        internal int ContactFrames, DisplacedActors, FrameCount, LegacyRows, SkippedHosts, CurrentMatrixFrames;
+
+        internal SourceCacheWitness(SourceCatchGeometry geometry) { inner = geometry; }
+        internal void Bind(GameSimulation simulation) { game = simulation; }
+        private void Assert(bool condition, string identity, bool retainedOldCheck = false)
+        {
+            if (!retainedOldCheck) AddedAssertions++;
+            Check(condition, identity);
+        }
+
+        private static string PoseBasis(PlayerView actor)
+        {
+            return JsonSerializer.Serialize(new { actor.ModelScale, actor.FacingDirection, actor.Animation },
+                new JsonSerializerOptions { IncludeFields = true });
+        }
+
+        private static int[] CameraBits(SourceMovementCameraFrame camera)
+        {
+            return camera.Transform.Concat(new[] { camera.Position.X, camera.Position.Y, camera.Position.Z,
+                camera.HorizontalResolution, camera.VerticalResolution }).Select(BitConverter.SingleToInt32Bits).ToArray();
+        }
+
+        public SourceVector3 WorldJoint(PlayerView actor, int joint) { return inner.WorldJoint(actor, joint); }
+
+        public IReadOnlyList<SourceVector3> CameraJoints(PlayerView actor, SourceVector3 root,
+            SourceMovementCameraFrame camera)
+        {
+            Assert(game != null && game.SourceTick == tick && game.Model.SourceRandomProcess == "player_proc"
+                && game.Model.SourceCameraJointTick < tick,
+                "actual cache geometry is sampled only post-player and BEFORE RL_COLLIS, never refreshed after contact");
+            Assert(samples.Count < 14 && actor.Id == samples.Count,
+                "actual source cache observes every actor exactly once in original0..13 order");
+            ActorState live = game.Model.Players[actor.Id];
+            SourceVector3 liveRoot = SourcePlayerDriver.WorldPosition(live);
+            Assert(SameBits(root, liveRoot), "actual source cache call uses the real post-player canonical root");
+            Assert(ReferenceEquals(camera, executingCamera) && ReferenceEquals(camera, game.Model.SourceMovementCamera)
+                && CameraBits(camera).SequenceEqual(executingCameraBits) && game.Model.SourceMovementCameraTick == tick,
+                "actual source cache call uses this executing source camera matrix, never an old/world transform");
+            long draws = game.Model.SourceRandomDraws;
+            int cursor = game.Model.SourceRandomCallIndex;
+            IReadOnlyList<SourceVector3> actual = inner.CameraJoints(actor, root, camera);
+            IReadOnlyList<SourceVector3> reference = inner.CameraJoints(
+                GameSnapshot.SourcePlayerView(live, tick, true), liveRoot, game.Model.SourceMovementCamera);
+            Assert(actual.Count == 15 && reference.Count == 15,
+                "actual source cache observer delegates all15 joints to the real production geometry");
+            for (int joint = 0; joint < 15; joint++)
+            {
+                Assert(SameBits(actual[joint], reference[joint]),
+                    "actual cache call contains the current post-player pose/root/current matrix " + actor.Id + "/" + joint);
+                ReferenceRows++;
+            }
+            Assert(game.Model.SourceRandomDraws == draws && game.Model.SourceRandomCallIndex == cursor,
+                "passive real geometry observations do not draw or change the source random cursor");
+            samples.Add(new CacheSample { View = actor, Root = root, Camera = camera,
+                Joints = actual.ToArray(), PoseBasis = PoseBasis(actor),
+                Script = live.AnimationState.Primary.ScriptSymbol,
+                Sequence = live.AnimationState.Primary.SequenceName,
+                Ordinal = live.AnimationState.Primary.FrameOrdinal });
+            GeometryCalls++;
+            return actual;
+        }
+
+        internal void CameraStage(long sourceTick)
+        {
+            Assert(game.Model.SourceMovementCameraTick == sourceTick,
+                "new current camera is supplied before actor VMs while previous jpos stays untouched");
+            if (previous == null)
+                Assert(game.Model.SourceCameraJointTick == -1,
+                    "initial absent source jpos generation remains explicitly unavailable, not fabricated zero geometry");
+            else
+            {
+                Assert(game.Model.SourceCameraJointTick == previousTick,
+                    "pre-player source camera stage retains the preceding actual post-player cache generation");
+                for (int id = 0; id < 14; id++)
+                    for (int joint = 0; joint < 15; joint++)
+                    {
+                        Assert(SameBits(game.Model.SourceCameraJoints[id, joint], previous[id].Joints[joint]),
+                            "previous14x15 source cache survives contact until next last_player_proc " + id + "/" + joint);
+                        PreviousRows++;
+                    }
+            }
+            tick = sourceTick;
+            executingCamera = game.Model.SourceMovementCamera;
+            executingCameraBits = CameraBits(executingCamera);
+            samples = new List<CacheSample>();
+        }
+
+        internal int AfterHostStep(long beforeTick, GamePhase beforePhase, int beforeCalls, int host)
+        {
+            if (game.SourceTick == beforeTick || game.SourceTick != tick)
+            {
+                Assert(GeometryCalls == beforeCalls && game.Model.SourceCameraJointTick == previousTick
+                    && (game.SourceTick == beforeTick || game.Model.Phase == GamePhase.PlaySelect),
+                    "skipped or source-suspended host wake cannot fabricate or refresh a player cache");
+                SkippedHosts++;
+                return 0;
+            }
+            Assert(samples.Count == 14 && GeometryCalls == beforeCalls + 14
+                && game.Model.SourceCameraJointTick == tick,
+                "actual source wake generates exactly one complete14x15 post-player cache");
+            SourceMovementCameraFrame camera = samples[0].Camera;
+            Assert(ReferenceEquals(camera, game.Model.SourceMovementCamera)
+                && game.Model.SourceMovementCameraTick == tick
+                && CameraBits(game.Model.SourceMovementCamera).SequenceEqual(executingCameraBits),
+                "cached source joints and post-contact observations retain the same current source camera matrix");
+            CurrentMatrixFrames++;
+            bool retained = beforePhase == GamePhase.DeadBall && game.State.Phase == GamePhase.DeadBall;
+            int rows = 0, retainedRows = 0, ordinary = 0;
+            var displaced = new List<int>();
+            for (int id = 0; id < 14; id++)
+            {
+                CacheSample sample = samples[id];
+                ActorState live = game.Model.Players[id];
+                SourceVector3 afterRoot = SourcePlayerDriver.WorldPosition(live);
+                PlayerView afterView = GameSnapshot.SourcePlayerView(live, tick, true);
+                IReadOnlyList<SourceVector3> afterJoints = inner.CameraJoints(afterView, afterRoot, camera);
+                bool rootChanged = !SameBits(afterRoot, sample.Root);
+                bool ordinaryBasis = !rootChanged && PoseBasis(afterView) == sample.PoseBasis;
+                if (rootChanged) displaced.Add(id);
+                IReadOnlyList<SourceVector3> expected = sample.Joints;
+                for (int joint = 0; joint < 15; joint++)
+                {
+                    Assert(SameBits(game.Model.SourceCameraJoints[id, joint], expected[joint]),
+                        "all source-time cached joint bits equal the actual PRE-RL_COLLIS geometry result " + id + "/" + joint,
+                        retainedOldCheck: retained);
+                    CurrentRows++; rows++;
+                    if (retained) { LegacyRows++; retainedRows++; }
+                    if (ordinaryBasis)
+                    {
+                        Assert(SameBits(game.Model.SourceCameraJoints[id, joint], afterJoints[joint]),
+                            "ordinary unchanged pose/root still has exact post-step camera-joint equality " + id + "/" + joint);
+                        OrdinaryRows++; ordinary++;
+                    }
+                }
+            }
+            Assert(rows == 14 * 15,
+                "all14x15 cache comparisons include EVERY contact wake and EVERY displaced actor, without dropped checks");
+            bool contact = game.ContactEvents.Any(e => e.Kind == SourceContactEventKind.Collision);
+            if (contact) ContactFrames++;
+            DisplacedActors += displaced.Count; FrameCount++;
+            frames.Add(new { sourceTick = tick, host, cacheRows = rows, retainedOldRows = retainedRows,
+                ordinaryRows = ordinary, contact, displacedActors = displaced.ToArray() });
+            if (tick == 474)
+            {
+                CacheSample sample = samples[12];
+                ActorState actor = game.Model.Players[12];
+                SourceVector3 afterRoot = SourcePlayerDriver.WorldPosition(actor);
+                PlayerView afterView = GameSnapshot.SourcePlayerView(actor, tick, true);
+                IReadOnlyList<SourceVector3> after = inner.CameraJoints(afterView, afterRoot, camera);
+                Assert(sample.Script == "spin_a_anim" && sample.Sequence == "SPIN_A" && sample.Ordinal == 26
+                    && game.ContactEvents.Any(e => e.Kind == SourceContactEventKind.Collision
+                        && e.ActorPlayerId == 12 && e.OtherPlayerId == 13)
+                    && !SameBits(sample.Root, afterRoot) && sample.PoseBasis == PoseBasis(afterView),
+                    "actual unfiltered source474 records12->13 cylinder root displacement with unchanged real SPIN_A26 pose");
+                Assert(new[] { B(sample.Joints[0].X), B(sample.Joints[0].Y), B(sample.Joints[0].Z) }
+                        .SequenceEqual(new[] { "1115870891", "3248888060", "1120589844" })
+                    && new[] { B(after[0].X), B(after[0].Y), B(after[0].Z) }
+                        .SequenceEqual(new[] { "1115875196", "3248881154", "1120592457" }),
+                    "actual source474 pre/post pelvis bits reproduce the pinned failed-contract trace without state overrides");
+                Assert(SameBits(game.Model.SourceCameraJoints[12, 0], sample.Joints[0])
+                    && !SameBits(sample.Joints[0], after[0]),
+                    "source474 cache correctly retains PRE-contact jpos despite observed POST-contact root delta");
+                contact474 = new { sourceTick = tick, host, actor = 12, joint = 0,
+                    sample.Script, sample.Sequence, sample.Ordinal, rootBefore = sample.Root, rootAfter = afterRoot,
+                    rootDelta = new SourceVector3(afterRoot.X - sample.Root.X, afterRoot.Y - sample.Root.Y,
+                        afterRoot.Z - sample.Root.Z),
+                    cameraPosition = camera.Position, currentMatrix = camera.Transform,
+                    currentMatrixBits = camera.Transform.Select(B).ToArray(),
+                    cacheBits = Enumerable.Range(0, 15).Select(j => new[] {
+                        B(game.Model.SourceCameraJoints[12, j].X), B(game.Model.SourceCameraJoints[12, j].Y),
+                        B(game.Model.SourceCameraJoints[12, j].Z) }).ToArray(),
+                    capturedPreContactBits = sample.Joints.Select(j => new[] { B(j.X), B(j.Y), B(j.Z) }).ToArray(),
+                    actualPostContactBits = after.Select(j => new[] { B(j.X), B(j.Y), B(j.Z) }).ToArray(),
+                    actualContacts = game.ContactEvents, all14x15Rows = rows };
+            }
+            previous = samples.ToArray(); previousTick = tick;
+            return retainedRows;
+        }
+
+        internal object Evidence()
+        {
+            return new { schema = "source-time-M1-cache-contract/v1",
+                trace = "source-sound-smoke/raw-vector-v1", FrameCount, GeometryCalls, CurrentRows,
+                PreviousRows, ReferenceRows, OrdinaryRows, LegacyRows, ContactFrames, DisplacedActors, CurrentMatrixFrames,
+                SkippedHosts, AddedAssertions, contact474, frames,
+                geometry = "Passive wrapper returns unchanged actual SourceCatchGeometry results; SAME real272 library",
+                stateMutation = false, siteBasedRandomFiltering = false, fullM1Qualified = false };
+        }
+
+        internal object Summary()
+        {
+            return new { FrameCount, GeometryCalls, CurrentRows, PreviousRows, ReferenceRows, OrdinaryRows,
+                LegacyRows, ContactFrames, DisplacedActors, SkippedHosts, CurrentMatrixFrames, AddedAssertions,
+                source474Observed = contact474 != null, lastObservedSourceTick = previousTick };
+        }
+
+        internal void RequireTarget()
+        {
+            Assert(contact474 != null && CurrentRows == FrameCount * 14 * 15
+                && ReferenceRows == CurrentRows && PreviousRows == (FrameCount - 1) * 14 * 15
+                && OrdinaryRows >= 210 && ContactFrames > 0 && DisplacedActors > 0,
+                "targeted source474 proof retains every14x15/current-matrix/previous-cache/contact and ordinary comparison");
+        }
+    }
 
     private static void Check(bool value, string identity)
     {
@@ -40,23 +278,100 @@ internal static partial class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length == 6 && args[0] == "snap-hike") return SnapHikeChecks(args);
         var result = new Dictionary<string, object> {
             { "schema", "source-movement-caller-checks/v1" }, { "status", "error" },
             { "whole_M1_or_full_gameplay_qualified", false }, { "native_or_browser_qualified", false }
         };
         try
         {
-            if (args.Length != 3 && args.Length != 4 || !new[] { "bounded", "complete", "controlled" }.Contains(args[2]))
-                throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled");
+            string c2Inputs = null;
+            string c2M1Inputs = null;
+            bool compatibilitySpecified = false;
+            while (args.Length >= 2 && args[args.Length - 2].StartsWith("--", StringComparison.Ordinal))
+            {
+                string flag = args[args.Length - 2], value = args[args.Length - 1];
+                if (flag == "--c2-m1-inputs" && c2M1Inputs == null) c2M1Inputs = value;
+                else if (flag == "--c2-inputs" && c2Inputs == null) c2Inputs = value;
+                else if (flag == "--compatibility-old-inputs" && compatibilityOldInputs == null) compatibilityOldInputs = value;
+                else if (flag == "--source-compatibility" && !compatibilitySpecified)
+                {
+                    gameplayCompatibility = SourceGameplayCompatibilityOptions.Parse(value);
+                    compatibilitySpecified = true;
+                }
+                else throw new ArgumentException("Unknown or duplicate option " + flag);
+                args = args.Take(args.Length - 2).ToArray();
+            }
+            bool canonical = args.Length == 5 && (args[2] == "canonical281" || args[2] == "canonical281-observed");
+            bool m1Replay = args.Length == 6 && new[] {
+                "m1-complete", "m1-complete-observed", "historical-canonical-replay", "historical-canonical-replay-observed"
+            }.Contains(args[2]);
+            bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
+            if (!canonical && !m1Replay && (args.Length != 3 && args.Length != 4 ||
+                !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility" }.Contains(args[2])))
+                throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
+            fixtureRoot = Path.GetDirectoryName(Path.GetFullPath(args[0]));
             Directory.CreateDirectory(outputRoot);
             mutationRun = args[2] == "controlled";
             real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded",
-                soundFunctionsPath: args.Length == 4 ? args[3] : null);
+                soundFunctionsPath: args.Length >= 4 ? args[3] : null,
+                c2InputsPath: canonical || historicalReplay ? args[4] : c2Inputs,
+                c2M1InputsPath: m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
+            if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile)
+                throw new ArgumentException("Portable gameplay requires --c2-m1-inputs and the actual M1 factory.");
+            result["gameplay_compatibility"] = gameplayCompatibility.ToString();
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
+            if (args[2] == "compatibility")
+            {
+                compatibilitySoundFunctions = args[3];
+                CompatibilityChecks();
+                result["status"] = "passed";
+                result["assertions"] = assertions;
+                result["mode"] = "compatibility";
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
+            if (m1Replay)
+            {
+                M1CompleteReplay(args[5], args[2].EndsWith("-observed", StringComparison.Ordinal), historicalReplay);
+                result["status"] = historicalReplay ? "historical-canonical-vector-replayed" : "passed";
+                result["assertions"] = assertions;
+                result["mode"] = args[2];
+                result["public_R_SKIP_gate_qualified"] = !historicalReplay && m1ReplayPositive;
+                result["actual_factory_replay"] = m1ReplayEvidence;
+                result["whole_M1_or_full_gameplay_qualified"] = false;
+                result["complete_publication_qualification"] = false;
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
+            if (canonical)
+            {
+                CanonicalEntry(args[2] == "canonical281-observed");
+                result["status"] = "canonical-entry-window-only";
+                result["assertions"] = assertions;
+                result["mode"] = args[2];
+                result["full_M1_qualified"] = false;
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
+            if (args[2] == "cache-contract")
+            {
+                Smoke(cacheContractOnly: true);
+                result["status"] = "cache-contract-passed";
+                result["mode"] = "targeted-source474-cache-contract-only";
+                result["assertions"] = assertions;
+                result["retained_old_smoke_assertions"] = assertions - smokeCache.AddedAssertions;
+                result["source_time_cache"] = smokeCache.Summary();
+                result["public_smoke_trace"] = "source-sound-smoke/raw-vector-v1";
+                result["public_smoke_source_tick"] = smokeSourceTick;
+                result["complete_publication_qualification"] = false;
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
             if (mutationRun)
             {
                 ControlledCallers();
@@ -64,13 +379,15 @@ internal static partial class Program
             }
             else
             {
-                Smoke();
+                if (args[2] != "campaigns") Smoke();
                 RawMovementCampaign();
                 MaybeDivePublicCampaign();
                 ControlledCallers();
                 InputAndStationCallers();
             }
             result["assertions"] = assertions;
+            result["retained_M1_assertions"] = assertions - (smokeCache == null ? 0 : smokeCache.AddedAssertions);
+            if (smokeCache != null) result["source_time_cache"] = smokeCache.Summary();
             result["actual_Hurdle_VM_scripts"] = 16;
             result["actual_MaybeDive_windows_per_hurdle"] = 7;
             result["actual_Core_post_VM_physics_cases"] = physicsCases.Count;
@@ -86,7 +403,8 @@ internal static partial class Program
             if (args[2] == "complete" && missingRSkip)
                 throw new MovementCallerAssertion("Actual original R_SKIP is missing; full publication smoke is not qualified.");
             result["status"] = missingRSkip ? "bounded-passed" : "passed";
-            result["complete_publication_qualification"] = !mutationRun && !missingRSkip;
+            result["complete_publication_qualification"] = args[2] == "complete" && !mutationRun && !missingRSkip;
+            result["mode"] = args[2];
             Console.WriteLine(JsonSerializer.Serialize(result));
             return 0;
         }
@@ -95,12 +413,35 @@ internal static partial class Program
             result["status"] = "failed";
             result["failed_assertion"] = error.Message;
             result["assertions"] = assertions;
+            if (smokeCache != null)
+            {
+                result["source_time_cache"] = smokeCache.Summary();
+                Save("source-time-cache-failure.json", JsonSerializer.Serialize(
+                    new { error = error.Message, actualObservations = smokeCache.Evidence() },
+                    new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+            }
+            if (outputRoot != null && File.Exists(Path.Combine(outputRoot, "first-cache-contract-failure.json")))
+                result["actual_cache_failure_trace"] = Path.Combine(outputRoot, "first-cache-contract-failure.json");
             Console.WriteLine(JsonSerializer.Serialize(result));
             return 1;
         }
         catch (Exception error)
         {
             result["error"] = error.ToString();
+            result["assertions"] = assertions;
+            if (smokeCache != null) result["source_time_cache"] = smokeCache.Summary();
+            if (outputRoot != null && File.Exists(Path.Combine(outputRoot, "first-public-smoke-failure.json")))
+                result["actual_partial_smoke_trace"] = Path.Combine(outputRoot, "first-public-smoke-failure.json");
+            if (outputRoot != null && activeGame != null)
+            {
+                string failurePath = Path.Combine(outputRoot, "first-current-source-failure.json");
+                Save("first-current-source-failure.json", JsonSerializer.Serialize(new {
+                    error = error.ToString(), actual = CanonicalObservation(activeGame, -1, -1, null),
+                    allSharedRawDraws = (activeGame.SourceRandomService as SourceInjectedRandom) == null
+                        ? null : ((SourceInjectedRandom)activeGame.SourceRandomService).Trace
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+                result["actual_current_source_failure"] = failurePath;
+            }
             Console.WriteLine(JsonSerializer.Serialize(result));
             return 2;
         }
@@ -111,16 +452,40 @@ internal static partial class Program
         if (!mutationRun) File.WriteAllText(Path.Combine(outputRoot, name), content);
     }
 
+    private static SourceGameplayCompatibility gameplayCompatibility = SourceGameplayCompatibility.StrictSource;
+
     private static GameSimulation Create(bool camera = true, Func<int, ISourceRandom> random = null,
-        SourceMovementSettings settings = null)
+        SourceMovementSettings settings = null, SourceCacheWitness cacheWitness = null,
+        SourceGameplayCompatibility? compatibility = null, SourceHandicapSettings handicapSettings = null)
     {
         var config = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
             SourceStationLayout.TwoStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
             new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
             new[] { new SourceStationConfiguration(0, TeamId.Home) }, TeamId.Away, SourceCaptainSlot.First);
-        return real.Create(configuration: config, randomFactory: random,
-            presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0),
-            movementSettings: settings ?? new SourceMovementSettings(0, 0, false, 0, 0, false), camera: camera);
+        var presentation = new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0);
+        SourceMovementSettings movementSettings = settings ?? new SourceMovementSettings(0, 0, false, 0, 0, false);
+        if (cacheWitness == null)
+        {
+            activeGame = real.Create(configuration: config, randomFactory: random,
+                presentation: presentation, movementSettings: movementSettings, camera: camera,
+                compatibility: compatibility ?? gameplayCompatibility, handicapSettings: handicapSettings);
+            return activeGame;
+        }
+        if (real.IsC2M1Profile)
+            throw new InvalidOperationException("M1 successor cache proof must use actual SourceC2Composition and canonical call-site observation, never a proxy constructor.");
+        var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, random, 1,
+            real.Rosters, presentation, real.MovementRuntime, movementSettings, handicapSettings: handicapSettings);
+        game.BindSourceSoundVmData(real.SoundFunctions);
+        activeGame = game;
+        cacheWitness.Bind(game);
+        if (camera)
+            game.SourceCameraHeadingProvider = (snapshot, tick) =>
+            {
+                int heading = FullKernelInputs.SetControlledMovementCamera(game, snapshot, tick);
+                cacheWitness.CameraStage(tick);
+                return heading;
+            };
+        return game;
     }
 
     private static PlayerCommand Raw(SourceButtons held, SourceButtons pressed = SourceButtons.None,
@@ -130,7 +495,43 @@ internal static partial class Program
             new SourceStationInput(0, x, z, held, pressed, released) }));
     }
 
-    private static void Smoke()
+    private static object ActualRouteArgumentSources(GameSimulation game)
+    {
+        int id = game.Model.SourceRandomActor;
+        if (id < 0 || id >= game.Model.Players.Length) return null;
+        ActorState actor = game.Model.Players[id];
+        SourceRouteState route = game.Model.SourceDrones[id];
+        return new {
+            qualification = "Actual model/argument sources at exception; rejected SourceRouteInput was NOT constructed or normalized",
+            actor.Id, actor.Facing, actor.TargetFacing, actor.SourceMode, actor.SourceJob,
+            actor.SourceControllerStation, actor.SourceTarget, actor.SourceButtons, actor.SourceNewButtons,
+            actor.SourcePuppetLinkId, actor.SourceHitPartnerId,
+            actor.AnimationState.Primary.ScriptSymbol, actor.AnimationState.Primary.SequenceName,
+            actor.AnimationState.Primary.FrameOrdinal,
+            nextProgramCounter = typeof(SourceAnimationLayerState).GetField("pc",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .GetValue(actor.AnimationState.Primary),
+            aiActor = game.Model.SourceAiFrame == null ? (object)null : game.Model.SourceAiFrame.Actors[id],
+            routeIdentity = route.Program == null ? null : route.Program.Identity,
+            routeSourceBlob = route.Program == null ? null : route.Program.SourceBlob,
+            routeSourceLine = route.Program == null ? (int?)null : route.Program.SourceLine,
+            route.WordIndex, route.Flags, route.Target, route.Job, route.LastSourceTick, route.Stick,
+            route.Buttons, route.WaitTicks, route.ThinkTicks,
+            formationSlot = game.Model.SourceFormationSlots == null ? (object)null : game.Model.SourceFormationSlots[id],
+            game.Model.SourceMotionDirection, game.Model.SourceDronesLose, game.Model.SourceDronesWinning,
+            game.Model.SourceSpinCount, game.Model.ThrowerId, game.Model.CarrierId, game.Model.TargetPlayerId,
+            game.Model.SourceCurrentInput, game.Model.SourceRules,
+            aiParameters = game.Model.SourceAiParameters == null ? null : (object)new {
+                game.Model.SourceAiParameters.Side0Handicap, game.Model.SourceAiParameters.Side1Handicap },
+            actualDistances = Enumerable.Range(0, 14).Select(other => game.Model.SourceDistances[id, other]).ToArray(),
+            actualAngles = Enumerable.Range(0, 14).Select(other => game.Model.SourceAngles[id, other]).ToArray(),
+            actualHandicapTableRecords = File.ReadAllLines(Path.Combine(fixtureRoot, "playbook/catalog.tsv"))
+                .Where(line => line.StartsWith("handicap\t", StringComparison.Ordinal)).ToArray(),
+            tableLibrarySha256 = FullKernelInputs.PlaybookSha256
+        };
+    }
+
+    private static void Smoke(bool cacheContractOnly = false)
     {
         GameSimulation legacy = new GameSimulation(27);
         legacy.Step(default(PlayerCommand));
@@ -145,11 +546,14 @@ internal static partial class Program
             2147483645, 2147483646, 2147483647 };
         int rawCursor = 0;
         SourceInjectedRandom shared = null;
+        smokeCache = new SourceCacheWitness(geometry);
         game = Create(random: seed => shared = new SourceInjectedRandom(
             site => rawVector[rawCursor++ % rawVector.Length],
             new SourceRandomProvenance("source-sound-smoke/raw-vector-v1",
                 "Explicit repeated raw test vector shared by ALL sites, never target libc PRNG",
-                "unfiltered public M1157 + synchronous original sound", SourceRandomEvidence.ExternalUnverified)));
+                "unfiltered public M1157 + synchronous original sound", SourceRandomEvidence.ExternalUnverified)),
+            cacheWitness: smokeCache,
+            handicapSettings: cacheContractOnly ? HistoricalC1CacheHandicapSettings() : null);
         var events = new List<object>();
         var rSkipSamples = new List<object>();
         var rSkipOrdinals = new HashSet<int>();
@@ -164,6 +568,7 @@ internal static partial class Program
         {
             GamePhase beforePhase = game.State.Phase;
             long beforeSourceTick = game.SourceTick;
+            int beforeGeometryCalls = smokeCache.GeometryCalls;
             PlayerCommand command = default(PlayerCommand);
             if (game.State.Phase == GamePhase.PlaySelect)
                 command = new PlayerCommand(action: InputAction.SelectPlay,
@@ -186,6 +591,31 @@ internal static partial class Program
                         "only the explicit selected156 control may report an actual unfiltered missing R_SKIP");
                     break;
                 }
+                Save("first-public-smoke-failure.json", JsonSerializer.Serialize(new {
+                    schema = "source-contact-M1-public-smoke-failure/v1",
+                    status = "failed-not-complete-smoke", trace = "source-sound-smoke/raw-vector-v1",
+                    actual_library = real.Animations.InventorySha256, host, hostTicks, maximumHosts,
+                    sourceTick = game.SourceTick, priorSourceTick = beforeSourceTick, beforePhase,
+                    phase = game.Model.Phase.ToString(), exception = error.ToString(), command,
+                    rawVector, rawCursor, stableCacheAssertions, resolvedSound, soundDraws,
+                    rSkipSamples, rSkipAdvanced, events, soundDispatches,
+                    game.Model.SourceAnimationFailure, game.Model.SourceRandomProcess,
+                    game.Model.SourceRandomActor, game.Model.SourceRandomProcessOrder, game.Model.SourceRandomCallIndex,
+                    actors = game.Model.Players.Select(actor => new {
+                        actor.Id, actor.Facing, actor.TargetFacing, actor.SourceMode, actor.SourceJob,
+                        actor.SourceControllerStation, actor.SourceTarget, actor.SourceHitPartnerId, actor.SourcePuppetLinkId,
+                        actor.AnimationState.Primary.ScriptSymbol, actor.AnimationState.Primary.SequenceName,
+                        actor.AnimationState.Primary.FrameOrdinal, actor.AnimationState.Primary.InstanceId
+                    }).ToArray(),
+                    actualRouteArgumentSources = ActualRouteArgumentSources(game),
+                    allSharedRawDraws = shared.Trace.Select(draw => new {
+                        draw.Order, draw.Raw, draw.Value, draw.Site.SourceTick, draw.Site.Process,
+                        draw.Site.ActorId, draw.Site.ProcessOrder, draw.Site.CallIndex,
+                        draw.Site.SourceIdentity, draw.Site.BoundOrModulus
+                    }).ToArray(),
+                    stateMutation = false, siteBasedRandomFiltering = false,
+                    targetPrngCameraDspOrWholeMatchClaimed = false
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
                 throw;
             }
             foreach (SourceGameEvent item in game.SourceEvents)
@@ -234,22 +664,12 @@ internal static partial class Program
                         layer.InstanceId, ordinal = layer.FrameOrdinal, selected = actual.SelectedSourceFrames[layer.FrameOrdinal],
                         root = game.SourceActorWorldPosition(actor.Id), joints = pose });
                 }
-            if (beforePhase == GamePhase.DeadBall && game.State.Phase == GamePhase.DeadBall
-                && game.SourceTick > beforeSourceTick && game.Model.SourceCameraJointTick == game.SourceTick)
-                foreach (ActorState actor in game.Model.Players)
-                {
-                    IReadOnlyList<SourceVector3> actual = geometry.CameraJoints(
-                        GameSnapshot.SourcePlayerView(actor, game.SourceTick, true),
-                        game.SourceActorWorldPosition(actor.Id), game.Model.SourceMovementCamera);
-                    for (int joint = 0; joint < 15; joint++)
-                    {
-                        SourceVector3 stored = game.Model.SourceCameraJoints[actor.Id, joint];
-                        Check(B(actual[joint].X) == B(stored.X) && B(actual[joint].Y) == B(stored.Y)
-                            && B(actual[joint].Z) == B(stored.Z),
-                            "real Core cache records post-player current source pose/root, never pre-player/render interpolation");
-                        stableCacheAssertions++;
-                    }
-                }
+            stableCacheAssertions += smokeCache.AfterHostStep(beforeSourceTick, beforePhase, beforeGeometryCalls, host);
+            if (cacheContractOnly && game.SourceTick >= 474)
+            {
+                smokeCache.RequireTarget();
+                break;
+            }
             if (game.SourceTick >= 2375 && rSkipAdvanced && rSkipOrdinals.Count >= 2 && stableCacheAssertions >= 35910
                 && resolvedSound > 0 && soundDraws > 0)
                 break;
@@ -269,9 +689,17 @@ internal static partial class Program
             rawVector, rawCursor, hostTicks, maximumHosts, sourceTick = game.SourceTick,
             stableCacheAssertions, resolvedSound, soundDraws, rSkipSamples, rSkipAdvanced, soundDispatches,
             actualSharedRawDraws = shared.Trace.Count,
+            allSharedRawDraws = shared.Trace.Select(draw => new {
+                draw.Order, draw.Raw, draw.Value, draw.Site.SourceTick, draw.Site.Process,
+                draw.Site.ActorId, draw.Site.ProcessOrder, draw.Site.CallIndex,
+                draw.Site.SourceIdentity, draw.Site.BoundOrModulus
+            }).ToArray(),
             tauntDraws = shared.Trace.Where(draw => draw.Site.SourceIdentity == "player.c:standard_run:taunt").ToArray(),
             stateMutation = false, siteBasedRandomFiltering = false,
             targetPrngCameraDspOrWholeMatchClaimed = false }));
+        Save("source-time-cache-contract.json", JsonSerializer.Serialize(smokeCache.Evidence(),
+            new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+        if (cacheContractOnly) return;
         Check(game.SourceTick > 500, "actual whole Core M1 caller/physics survives representative source time");
         Check(missingRSkip || game.Model.SourceCameraJointTick == game.SourceTick || game.State.Phase == GamePhase.PlaySelect,
             "actual post-player camera cache generated every executing gameplay wake");

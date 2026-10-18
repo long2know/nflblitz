@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceC2Composition.cs" />
+  </ItemGroup>
+  <Target Name="RequireActualCanonicalKernelComposition" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceC2Composition.cs')"
+           Text="Canonical281 requires the actual frozen SourceC2Composition, never a proxy or test constructor." />
+  </Target>
+</Project>

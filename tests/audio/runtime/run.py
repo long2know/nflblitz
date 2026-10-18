@@ -30,7 +30,9 @@ MUTANTS = (
      "paired nonempty sound cannot be silently undelivered"),
     ("replayed-callback", TRANSPORT, "if (paired.ContainsKey(cue))", "if (paired.ContainsKey(cue) && pending.Count < 0)",
      "duplicate original raw cue cannot replay"),
-    ("forged-dispatch", TRANSPORT, "!ReferenceEquals(actual, dispatch)", "actual == null",
+    ("forged-dispatch", TRANSPORT,
+     "paired.TryGetValue(dispatch.OriginalCue, out actual) && ReferenceEquals(actual, dispatch) &&",
+     "paired.TryGetValue(dispatch.OriginalCue, out actual) && actual != null &&",
      "forged dispatch with same cue cannot replace Core result"),
     ("unsupported-is-resolved", TRANSPORT, "RequireHealthy();\n            SourceSoundVmDispatch actual;",
      "RequireHealthy();\n            if (dispatch.Status == SourceSoundVmStatus.Unsupported) return;\n            SourceSoundVmDispatch actual;",
@@ -39,10 +41,11 @@ MUTANTS = (
      "FailedDispatch = null;\n                }", "partial failure retains calls and context across empty drains"),
     ("partial-not-sticky", TRANSPORT, 'failure = "Original sound selection failed after partial execution: " + dispatch.Detail + ". Restart is required.";',
      'failure = null;', "partial selection faults until explicit restart"),
-    ("subcall-cue-alias", TRANSPORT, "!ReferenceEquals(dispatch.Result.Calls[i].OriginalCue, dispatch.OriginalCue)",
-     "dispatch.Result.Calls[i].OriginalCue == null", "raw subcall cannot replace exact OriginalCue identity"),
-    ("subcall-order", TRANSPORT, "dispatch.Result.Calls[i].SubcallOrder != i",
-     "dispatch.Result.Calls[i].SubcallOrder < 0", "raw subcalls must retain zero-based order"),
+    ("subcall-cue-alias", TRANSPORT,
+     "call.HasOriginalAnimationCue && ReferenceEquals(call.OriginalCue, dispatch.OriginalCue)",
+     "call.HasOriginalAnimationCue && call.OriginalCue != null", "raw subcall cannot replace exact OriginalCue identity"),
+    ("subcall-order", TRANSPORT, "call.SubcallOrder != i",
+     "call.SubcallOrder < 0", "raw subcalls must retain zero-based order"),
     ("unpaired-drop", TRANSPORT, "if (pending.Count != 0)", "if (pending.Count < 0)",
      "unpaired drained record is visible failure"),
     ("skip-empty-step-drain", BRIDGE, "if (drained != null) drained();",
@@ -88,8 +91,11 @@ def main(argv=None):
         paths.extend(sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs")))
     paths += [ROOT / name for name in (
         "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
+        "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
         "Assets/Scripts/Presentation/SourceCinematicModel.cs",
-        TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs")]
+        "Assets/Scripts/Runtime/SourceC2Composition.cs",
+        TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs",
+        "tests/parity/FullKernelSources.props")]
     source = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in paths}
     guarded = {name: digest(data) for name, data in source.items()}
     result = {"schema": "source-sound-runtime-gate/v1", "status": "failed", "source_sha256": guarded,

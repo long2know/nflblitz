@@ -1,5 +1,21 @@
 # Synchronous original sound-function VM hook
 
+For explicit current281 testing, append
+`--input-profile contact272 --c2-inputs "$CANONICAL281_INPUTS"` to the runner:
+the unchanged fixture supplies non-animation/legacy controls, while the frozen
+288-file C2 output supplies the actual281 library/bootstrap. Positive kernels
+use real `SourceC2Composition`, its own sealed geometry, genuine constructor
+bank draws and old SAFN before wake; intentionally unbound negative controls
+remain separately identified. `--output` requires a new ignored child.
+
+The resumed current run passes142 short checks,800,735 full VM assertions /
+15,912 unchanged original-C cases, all11 successfully compiled named controls,
+and the final unchanged original-C baseline. The eleventh `post-host-selection`
+control now uniquely anchors the actual `ExecuteSourceSoundVm` binding-required
+guard before the C2 dispatch branch; its deferral behavior and causal assertion
+are unchanged. The prior10/11 stale-anchor failure remains preserved, not
+counted as a kill. This is not whole-game/DSP/native acceptance.
+
 This is a pure Core regression suite, not an audio player or Unity/DSP test.
 It requires explicit prepared **read-only** real-input paths. It never downloads
 inputs, starts Unity, reads license files, modifies those fixtures, or substitutes
@@ -98,7 +114,7 @@ semantics.
   Compilation errors, generic crashes, status-only success and fallback
   playback do not qualify.
 
-The unchanged C# VM inventory is **141 short assertions**, then **800,734
+The C1-integrated C# VM inventory is **142 short assertions**, then **800,735
 assertions / 15,912 actual-C cases**. All **11** source mutants must fail their
 individual named contracts, followed by another exact800,734 baseline. The
 runner rejects wrong counts, missing tuples,117/156 aliases, untrusted SAFN,
@@ -146,3 +162,16 @@ synthetic checks remain a separately labelled layer.
 Original platform PRNG/state sharing, complete C1/C2/scheduler, other sound
 functions/SPFX, DSP allocation/gain/pan/priority/mixing/playback, native/browser
 and whole-game parity remain open.
+## Current Contact272 generation
+
+Select `--input-profile contact272` with the new
+`source-contact-kernel-real-inputs/v1` fixture for current C1 callers. The actual
+library pin is then `9cae962b…ede9` (272 clips/24,892 frames), never an old157
+fixture relabeled current. `--functions` still names the immutable real
+SAFN/audit/original-include directory. Legacy CLI defaults retain their old
+library identity for historical diagnostics.
+The exact full15912 original-C cases/800735 current-C1 VM assertions, six
+synchronous tuples, shared RNG/Who/FIFO/restart contracts and all11 compiled
+named mutants remain required. The142-assertion short is not a substitute.
+Preparation or a package/pose preflight cannot qualify these campaigns, speech,
+direct/deferred sound producers, audible output, DSP or full gameplay.

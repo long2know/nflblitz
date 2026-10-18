@@ -1,5 +1,206 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Explicit portable compatibility (not original-hardware evidence)
+
+Default constructors, factories and CLI select `StrictSource`. Only actual M1
+accepts the trailing `compatibility: SourceGameplayCompatibility.Portable`.
+The browser uses `source-compatibility=portable` alongside the existing M1
+profile selector. Unsupported profiles/values/duplicates reject, never promote.
+The complete query is
+`?sourceprofile=original-teams-contact281-c2-m1&source-compatibility=portable`.
+
+Run the focused real-factory compatibility contract, including C1/old-nine
+strict defaults, actual M1 strict/portable lineup and detect callers, unchanged
+raw values/counts, coherent effective indices, exact diagnostic metadata,
+in-domain RNG identity and seven compiled production controls:
+
+```sh
+python3 -B tests/movement-callers/compatibility.py \
+  --fixture-manifest "$PRODUCTION272_FIXTURE" --sound-functions "$SAFN" \
+  --c2-m1-inputs "$M1_INPUTS" --old-c2-inputs "$OLD_NINE_INPUTS" \
+  --output .squad/.scratch/portable-focused
+```
+
+There are74 declared component assertions, separate from all retained strict
+original-C case/control inventories. MovementCallerChecks now explicitly links
+the actual C1 factory for these unsupported-option/default tests; the shared
+production fingerprint closure remains67, with no new production source/GUID.
+
+For an explicitly authorized **single** changed-behavior observation, append
+`--source-compatibility portable --single-public-attempt` to the full M1 command.
+This does not alter the immutable public input, provider, seed or R_SKIP gate.
+It reports source faults and unmet R_SKIP as nonzero and cannot claim the full
+eight-caller/three-cache control closure. Full portable gate success is labelled
+`passed-portable-M1-public-caller-gate`, never original/native equivalence.
+
+The retained source474 C1 cache golden is a separate historical trajectory
+contract. Its cache-only fixture now explicitly declares the original
+random-opponent handicap mode that supplies its historical neutral rows; it
+does not change the current default game mode. Before that declaration,
+the unchanged `12->13 cylinder root displacement / SPIN_A26` assertion
+rejected at433,564 assertions on both this increment and exact source+harness
+base `5f570c132288871de2d1461860e19f85975caf5f`. The literal assertion,
+all15-joint checks,437,452 baseline inventory and three compiled controls
+are unchanged. The eight declared M1 caller controls remain independently executable with
+`compatibility.py --retained-caller-controls-only`; this does not run a public
+12k vector or qualify R_SKIP.
+
+## Tracked exact public replay input
+
+### Explicit named Portable recording
+
+The required workflow now selects
+`portable-cabinet-wide-pass-clearance-12000`, not the old canonical recording.
+Its unchanged66,078-byte gzip contains only12,000 contiguous public host/
+command rows, including already-supported public stations. It expands to the
+exact8,534,249-byte JSONL qualified on frozen published `a4c0798` and the
+unmodified public runner/harness, with explicit Portable, seed1, current5/11
+and the same unfiltered provider. It is not an original/native-identical trajectory.
+
+| Named recording identity | SHA-256 |
+| --- | --- |
+| Qualified public JSONL | `830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e` |
+| Bit-exact tracked gzip | `802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9` |
+| Minimal public metadata | `1f82c109e2988215b1258590e135cd62bd7c38116901cfaaf29e76ee00ed4bbb` |
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+```
+
+No controller/policy code, private recipe/proof links, observations or original
+payloads are required. The public metadata is closed and pinned to verified
+case/epoch/profile/mode/provider/seed/default-opponent and file identities, not
+arbitrary exporter claims. Shared public validation rejects private fields at
+every depth, duplicate JSON keys, nonfinite/wrong types, invalid station axes
+(outside[-3,3]), ABC masks(outside0..7) and specified SourceAction(outside0..20).
+Count/order and decoded/gzip/metadata byte identities stay hard requirements.
+No generation or runtime execution occurs in preparation.
+
+The published **full** Portable M1 qualification passed17 zero-diagnostic builds,
+eight caller/three canonical-cache compiled named causal controls and664
+original-C rows/5,312 comparisons. Baseline/observer/final raw/state/pose bytes
+agree;26 R_SKIP frames for actor12/instance208 after2299 contain the required
+two actual ordinals/two real15-joint poses. The historical C1 cache three-control
+receipt is retained, not newly executed by M1 dispatch. See the
+[receipt and scope](../../docs/source-parity.md#published-portable-m1-qualification).
+This is not green hosted CI, native/Unity/DSP/build or whole-game acceptance.
+
+### Historical canonical input — unchanged and unqualified
+
+`fixtures/canonical-public-12000.jsonl.gz` contains only the unchanged12,000
+recorded public `host`/`command` rows, not source/game observations. Its decoded
+canonical JSONL is4,494,350 bytes; deterministic standard gzip (empty filename,
+mtime0, level9) is43,395 bytes. No new policy, seed, state-derived command
+generator, compression dependency or gameplay abstraction is introduced.
+
+| Identity | SHA-256 |
+| --- | --- |
+| Exact public JSONL | `a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6` |
+| Tracked gzip | `7ffc168a44fe7599982b7ab369ec63194b2dda1d3fccd3688121f4b3f8d20fd4` |
+| Authoring-only reviewed mixed artifact | `2a028f90b9b8f9342fe67546c2fb4424d2ccc045bfcdef9363e5e4d20f5360d1` |
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py verify
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --fixture tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz \
+  --output .squad/.scratch/SourceData/m1-public-12000.jsonl
+python3 -B tests/movement-callers/test_public_replay.py -q
+```
+
+`source-public-replay-inputs/v1` validates exactly12000 contiguous hosts, public
+fields at every depth, JSON types/finite values, unique JSON keys, canonical
+identity and gzip hash. Missing/corrupt data never falls back to simulation.
+Private actor/model/geometry/pose/phase snapshots, RNG draws/state/seeds,
+sound/audio observations and original data cannot be fixture fields.
+Tests mutate the actual fixture to reject extra fields, missing/duplicate/
+reordered hosts, count and valid-public-command/hash changes.
+
+For an explicitly authorized author-only re-export, supply the exact reviewed
+mixed artifact; it remains ignored and is never copied wholesale:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py export \
+  --source "$EXACT_REVIEWED_MIXED_ARTIFACT"
+```
+
+This projects only the already-recorded commands and verifies the fixed source
+and public identities; it does not regenerate them from CURRENT game state.
+An existing different destination is never overwritten. CI only prepares the
+tracked fixture, so it does not need this mixed artifact or a private cache.
+The no-case preparer still selects this historical input. Its zero-R_SKIP
+UNMET result, including hosted39102061602, is not relabelled by the separately
+named recording. The actual full-M1 gate below remains required; valid input
+preparation does not turn zero R_SKIP or any unrelated exception into PASS.
+
+The full-M1 runner persists `<output>/result.json` and prints its terminal
+status and report path. `UNMET-public-R_SKIP` remains a nonzero failure and
+prints the exact required advancement/pose assertion to stderr, rather than
+silently exiting after the independent physics comparison passes. Other
+failures and changed-generation outcomes also remain nonzero. The console
+summary does not dump the recorded model, RNG or pose observations.
+
+## Current281 canonical entry and honest coverage boundary
+
+The retained component commands/results below keep their recorded
+117/156/157/272/281 generations; they do not replace the separately named
+published Portable qualification above. The explicit canonical test adapter
+loads frozen288 producer outputs in addition to the unchanged real-input
+fixture, and calls the actual `SourceC2Composition` with its sealed geometry,
+the same281 library, real pre-constructor bootstrap/two bank draws and the
+unchanged old six SAFN before wake.
+
+```sh
+python3 -B tests/movement-callers/canonical.py \
+  --fixture-manifest "$PRODUCTION272_FIXTURE" --sound-functions "$SAFN" \
+  --c2-inputs "$CANONICAL281_INPUTS" --source-root "$PINNED_ORIGINAL_PLAYER_ROOT" \
+  --output tests/movement-callers/.artifacts/qa-current281
+python3 -B -m unittest discover -s tests/movement-callers -p 'test*.py'
+```
+
+The permanent observer harness hash-checks the exact original cache-call source,
+requires one unique injection site, and proves removing only its local
+argument capture/read-observer restores the original bytes. It compiles an
+**isolated source copy**, never mutates a live assembly/readonly geometry, never
+replaces the factory/geometry, and adds no geometry calls, RNG or model writes.
+Actual call arguments/results and every14x15 row are recorded before contact.
+ReferenceRows use offline captured-view pose/matrix arithmetic, not post-contact
+resampling and not an independent original-C geometry oracle.
+
+An independent **uninstrumented** real-composition stream is compared
+bit-for-bit with the separately labelled isolated witness: every host's complete
+serialized public snapshot, explicit actor/model/cache state, source/contact/C2
+events and guarded sound-call projections, plus all shared raw draw/site/order
+records. Receipts preserve original/instrumented source hashes and hashes of
+the immutable actual compile/input closure. Instrumented output is never called
+untouched production.
+
+The first scoped canonical run completed12,000 hosts /11,400 source ticks /
+25,641 shared draws with identical streams and strict current/previous/reference
+cache coverage. It observed **zero R_SKIP frames**. Therefore the preserved
+full-M1 R_SKIP advancement/pose assertions are **uncovered**, not deleted,
+reinterpreted or replaced by a bounded-window success. The old36,948 gate and
+historical source474/cache controls are unchanged.
+
+The extended tracked runner now separately executes a final untouched baseline,
+three canonical cache controls, all original eight M1 controls and the existing
+caller campaigns through the explicit281 factory. The resumed current run
+compiled/rejected all11 controls causally, completed the original664 post-VM
+inputs /5,312 exact original-C physics assertions, and reran controlled/caller
+baselines. These results are new receipts, **not relabelled first-scoped proof**.
+They did not cover the missing R_SKIP advancement/pose witness; full M1 was
+incomplete in that snapshot. The source135 timing contract was subsequently split under a
+bounded test-only authorization. New campaigns paused again at the retained B1
+source439 flip-only menu assertion, with no queue/input/extra-wake adaptation.
+All16 parity rows remain OPEN.
+
+The C2 no-eligible-candidate policy is an autonomous semantic portability repair,
+**not user-approved**, not target-memory/instruction/ABI equivalence. Callback
+draw3829 and natural post-host raw4039 are different observation times.
+
 This suite promotes the frozen Core caller checks, not a new movement
 implementation. It compiles the actual gameplay/helpers/Contracts/AssetImport
 closure and the existing pure cinematic-transform producer. No production
@@ -209,3 +410,259 @@ python3 tests/ball/compile_profile.py \
 This only compiles against actual .NET Standard2.1 APIs, without starting an
 Editor/native/IL2CPP/WebGL/browser process. No complete M1/C1/C2/normal-camera,
 other sound functions/SPFX, target libc/scheduler or all-row/full-match claim is made.
+## Current Contact272 generation
+
+For the C1+Sound generation, add `--input-profile contact272` with the explicit
+`source-contact-kernel-real-inputs/v1` fixture from
+[`../parity/prepare_contact_inputs.py`](../parity/prepare_contact_inputs.py).
+Complete and controlled modes use the actual production272 library and its
+same-instance15-bone geometry. `--bounded156-diagnostic` keeps the separately
+identified historical156 negative control; neither157 nor156 is relabeled272.
+The existing unfiltered raw-vector smoke, R_SKIP advancement,14×15 cache,
+664 original-C physics cases, all hurdle/caller/control cases and eight named
+mutants remain requirements. Counts in the historical section above are not a
+new-generation pass. Report the first actual C2/software fault precisely; do
+not force a target animation/state, filter the trace or call the LCG historical.
+The success trace retains every shared raw draw. An unhandled public-smoke
+exception saves `first-public-smoke-failure.json` with the full raw prefix,
+actual actors/source process/cursor and command before rethrowing unchanged;
+that file is explicitly partial, never completed-smoke evidence.
+
+The accepted **blocked** generation first failed its old post-step resample
+expectation at source474, actor12/pelvis0, after12→13 C1 cylinder contact.
+That receipt remains failed and preserved. The focused source-time correction
+below changes the invalid observation basis, not production or the strict-bit
+contract. Full R_SKIP/callers/original-C physics and all eight original mutants
+remain unqualified until the parent confirms a new complete source freeze.
+No software or missing-asset failure becomes green.
+
+## Source-time cache observation, not post-contact reconstruction
+
+Pinned NFL2000 `89f840d58d152a2a9f230cb8d0cdffbd554c8ded` establishes:
+
+- `nfl.c:694–721` creates the named camera/player/post-player/collision/ball
+  run levels; `player.c:6533–6547` explicitly places `last_player_proc` after
+  all players and before collision checks.
+- `player.c:1001–1010,1090–1155` animates/integrates players first.
+  `player.c:6568–6675` uses the executing camera and actual actor roots/poses
+  to generate all14 actors' matrices/jpos, onscreen or not.
+- `detect.c:517–675` consumes that existing jpos. Its `att_none` body moves
+  world X/Z at `detect.c:1091–1095`, without regenerating those joint matrices.
+- `_ani_leapatt`, `ANIM.C:2462–2472`, reads the preceding jpos with the current
+  camera transform. The prior-cache/current-matrix contract is intentional.
+
+`Program.cs` therefore wraps the **actual** `SourceCatchGeometry` interfaces.
+It returns the original delegate result unchanged and retains the same real272
+animation object in Core and geometry; real SAFN is still bound before wake.
+It captures actual caller arguments/results at the real post-player geometry
+call, independently checks them against the actual live actor/current camera
+at that instant, and compares **all210 stored joint vectors** after `Step`
+against those captured results. It never invents a pose, modifies a snapshot,
+patches model/RNG state, forces a clip, or sets a collision-suppression flag.
+
+The pre-player camera callback validates every preceding14×15 cached value,
+including values from prior contact wakes. Every current camera's matrix,
+position and resolution are checked by exact float bits. Every post-contact
+frame still checks all14×15 stored results, including every displaced actor.
+Where the actual pose/root basis is unchanged, the ordinary post-step resample
+is also compared strictly. That extra comparison is not used to skip any
+source-time comparison.
+
+The named source474 observation retains all210 rows. Actual actor12/SPIN_A26
+moves from `(-215.51158,0,-17.88577)` to
+`(-215.47853,0,-17.90938)` after the cache call. Its cached pelvis bits remain
+`[1115870891,3248888060,1120589844]`, matching the actual pre-contact result;
+the actual post-contact resample is
+`[1115875196,3248881154,1120592457]`. All15 actor12 joints and all other actors
+are validated, not just this pelvis example.
+
+### Declared historical C1 cache inputs
+
+The literal trace was introduced before the fire/handicap engine, when both
+AI sides inherited scalar `Difficulty=5`. The source-defined engine correctly
+replaced that default with dynamic rows: this one-human, tied Cardinals/Falcons
+fixture now defaults to5/11. That is not a cache or portable-policy regression.
+`HistoricalC1CacheHandicapSettings()` declares only
+`new SourceHandicapSettings(randomDrones: true)` for `cache-contract`.
+Original `handicap.c:140–174` chooses `TEAM_BEARS` in this mode; its active
+`teamdata.c` drone base is5, independently yielding5/5 with zero user/streak/
+powerup adjustments. This is a raw source input, not a forced row or fallback.
+
+The existing private factory in `Program.cs` forwards that optional setting
+before construction on both its real-helper and cache-witness paths.
+`FullKernelInputs.cs` is unchanged. All other callers retain null/default
+settings, including the full smoke and actual M1/portable callers.
+The constructor's52 raw draws are identical between the two declared modes.
+For example, draw41/raw1234567 gives67: Away actor7's original post-lineup
+superman threshold is80 at row11 versus5 at row5, changing its unblockable
+flag without changing the draw. The first later draw-record divergence is at source377/order179 in
+`detect.c:block_vs_rush`, not a missing or filtered RNG call.
+With this explicit historical input the unchanged cache-only vector recovers
+the exact source474 roots,SPIN_A26 and pelvis bits above.
+This fixture does **not** assert the current-default or native full trajectory.
+
+### Focused command while Core is mutable
+
+Use an **explicit immutable** local source copy sealed as
+`source-contact-cache-compile-snapshot/v1`. The focused runner reads that copy,
+not a moving live production generation. It copies the real project/test
+closure, including unchanged `FullKernelInputs.cs` and mandatory real
+`SourceSoundVmSources.props`, into each isolated compile. No new framework,
+production API, stub or omitted dependency is used.
+
+```sh
+python3 -B tests/movement-callers/run.py --input-profile contact272 \
+  --source-root .squad/.scratch/SourceData/contact-kernel-original \
+  --fixture-manifest .squad/.scratch/SourceData/contact-kernel272/fixture.json \
+  --sound-functions tools/audio/.artifacts/functions/contact-sound-v1/sound-functions.safn \
+  --cache-contract-only \
+  --frozen-source-root tests/movement-callers/.artifacts/cache-contract-frozen-source \
+  --frozen-source-map tests/movement-callers/.artifacts/cache-contract-frozen-source/source-manifest.json
+python3 -B tests/movement-callers/test_runner.py
+python3 -B tests/movement-callers/test_canonical.py -q
+```
+
+This **targeted-only** trace stops at source474 after499 unchanged public host
+inputs and431 shared raw draws, under the declared historical raw handicap mode.
+No host command, provider/seed, random-site predicate or game state is tuned.
+It does not claim a full smoke, R_SKIP, new AI fix, full M1/B1,
+native/browser or all-row acceptance.
+
+The baseline/final count is437452:
+
+| Contract | Strict vector/assertion count |
+|---|---:|
+| Retained original smoke checks |422 = two original headers +420 dead-ball cache rows |
+| Additional current cache rows outside that retained subset |99120 |
+| Actual current-pose/root/current-matrix reference rows |99540 |
+| Previous cached rows at next camera stage |99330 |
+| Additional ordinary unchanged-basis post-step rows |96825 |
+| Actual geometry phase/order/root/camera/count/no-RNG checks |39816 |
+| Camera/cache lifecycle checks |948 |
+| Frame cache/current-matrix/completeness checks |1422 |
+| Skipped-host cache preservation |25 |
+| Exact474 provenance and final coverage |4 |
+
+The original393rd assertion is now correctly based on the actual pre-contact
+result; the remaining29 original rows in that prefix are completed, not dropped.
+There are474 full cache frames,79 contact frames and178 displaced-actor
+occurrences. Each frame, including all contact frames, checks210 stored rows.
+
+Three **additional**, isolated controls must successfully compile and fail their
+named contract: production refresh after contact; checker using the wrong
+current-root basis; checker dropping displaced-actor comparisons. The original
+eight real M1 mutants remain unchanged and are not replaced by these controls.
+
+For later full runs the observer's added assertions are recorded separately
+from `retained_M1_assertions`. The old36948/12792 and controlled808 inventories,
+minimum35910 retained cache rows, all16×7 hurdle windows,664/5312 original-C
+physics,36-byte LEAPATT operands and unfiltered R_SKIP requirements remain gates.
+Legitimate whole-trace count changes must still be measured/source-explained
+after the new complete freeze; this targeted milestone does not waive them.
+
+## Persistent current-generation cache-control wiring
+
+After an approved complete source freeze, the existing full runner seals its
+current production snapshot and requires the cache baseline, all three compiled
+cache controls and final cache baseline before the full M1 smoke and all eight
+original gameplay mutants. Archived pre-AI evidence is never current acceptance.
+
+The same explicit input recipe can independently exercise only the current
+cache contracts after a freeze:
+
+```sh
+python3 -B tests/movement-callers/run.py --input-profile contact272 \
+  --source-root .squad/.scratch/SourceData/contact-kernel-original \
+  --fixture-manifest .squad/.scratch/SourceData/contact-kernel272/fixture.json \
+  --sound-functions tools/audio/.artifacts/functions/contact-sound-v1/sound-functions.safn \
+  --cache-contract-only --cache-contract-current
+```
+
+`--cache-contract-current` explicitly captures current sources; it is not
+permission to run against moving production. Do not combine it with historical
+`--frozen-source-root`/`--frozen-source-map` inputs. Neither cache-only route
+qualifies full R_SKIP/callers/664 original-C physics/all8 gameplay mutants.
+
+The next frozen-generation full attempt passes the current cache controls but
+stops at source858/host index903: `SourceRouteInput.targetFacing` rejects actual
+actor7 raw target/facing `-437`. The unchanged unfiltered prefix has1144 draws;
+the active route is `db_rush_qb`, WordIndex0, flags1146888, station-1. This is a
+production source-domain boundary failure, not an asset/native/C2 guess or
+permission to normalize state. The actual failure trace now also retains raw
+facing/target, actual route argument sources, formation/cache inputs and all34
+real handicap table records. Full M1/R_SKIP/original8 mutants remain blocked.
+# Explicit C2 M1 successor full public-input gate
+
+## Source57 snap request versus actual HikeBall
+
+Original `player.c:1643–1696` starts the real center animation and clock and sets
+`GF_HIKING_BALL`, but remains `GM_PRE_SNAP`. The actual `hike_ball` callback
+(`player.c:5656–5679`, `plyrseq.c:8750–8758`) changes game mode and marks the holder
+only after `ANI_INTSTREAM21,4`. Live and the published `Snapped` event therefore
+belong to that opcode group, not the QB request. Existing Legacy60 immediate
+snap behavior is unchanged. Request clock activation remains at the original
+request boundary; no kick-meter/default timing is fabricated.
+
+```sh
+python3 -B tests/movement-callers/run.py --snap-hike-only \
+  --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
+  --sound-functions "$UNCHANGED_OLD6_SAFN" \
+  --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
+  --output .squad/.scratch/source-snap-hike-focused
+```
+
+These421 named assertions cover real-factory Source57 normal and field-goal
+requests, single real release, repeated actual snap commands, reentrant hiking
+guard, source-derived VM wake timing, live holder-variable reads despite an
+immutable preactor frame, all14x15 cache rows, invalid live/receiver-1 rejection
+and separate Legacy60 behavior. The release delay is derived by executing the
+unchanged21/4 stream in the existing VM and compared with actual source wakes,
+not assumed to mean four host frames. Three compiled controls restore early
+Live, stale holder variables or a missing hiking guard and must fail named
+assertions with zero compile diagnostics.
+
+The kicker variable facade uses current ball/mode/holder globals but copies the
+captured geometry matrices unchanged; it does not replace the shared AI frame,
+redesign AI decisions or assign a holder early. Controlled timing cases are
+**not** a public R_SKIP witness. Tests requiring immediate Source57 Live must
+use the actual HikeBall boundary explicitly; old bank/data/pose inputs, Legacy60
+contracts and unrelated assertions must not be rebased to restore early Live.
+
+The old C1 modes and old-nine `canonical.py --c2-inputs` scoped window remain
+separate. The M1 successor must use its actual production
+`SourceC2Composition.CreateM1Simulation`, internal real geometry, original two
+bank draws before AI, and unchanged SAFN before wake. It cannot use the old
+`SourceCacheWitness` proxy constructor.
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+python3 -B tests/movement-callers/run.py \
+  --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
+  --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
+  --sound-functions "$UNCHANGED_OLD6_SAFN" \
+  --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl \
+  --output .squad/.scratch/m1-successor-full-qualification \
+  --source-compatibility portable
+```
+
+The explicit sidecar is not a272 relabel. The replay accepts complete recorded
+`commands` JSON or per-host command JSONL, reconstructs every public command,
+and never regenerates inputs from the changed successor state. The same fixed
+unfiltered15-value provider/seed/config is retained. New original running-taunt
+draws legitimately change subsequent gameplay/RNG; they must not be removed or
+normalized to an old hash.
+
+Independent uninstrumented and unique-hash/reversible actual-cache observation
+runs compare every recorded state/input/pose/raw draw. All3 canonical-cache and8 caller
+controls remain mandatory with zero-diagnostic compilation and named causal
+failures. The after2299 same-actor/same-instance two-ordinal/two-real15-pose R_SKIP
+assertion remains a hard gate. A zero result reports **UNMET**, never full M1 or
+the old36948 acceptance. Any unrelated source fault stops the replay without an
+extra wake, queue reset, seed search, substituted state or next policy.
+The separate historical C1 cache controls are not part of M1 dispatch and are
+not counted as three additional fresh rejections.

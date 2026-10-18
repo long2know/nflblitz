@@ -1,7 +1,55 @@
 # Unity source-port integration contract v1
 
-**Owner:** Lead. **Contract checked:** October 16, 2026 (PDT).
-**Status:** continuous original animation is implemented and verified on Unity
+**Owner:** Lead. **Contract checked:** October 17, 2026 (PDT).
+**Current source boundary:** default/empty selection remains Contact272;
+old-nine Contact281C2 and StageB Contact281C2M1 are separate explicit opt-ins,
+not a new playable build. StageA's tracked `c2_sequences.json` supplies only
+extra9 preparation metadata. The M1 successor keeps the same 281 animation
+bytes and uses fourteen bindings/482 impact sites, strict new callback/
+services identities and actual `SourceC2Composition.CreateM1Simulation`.
+Producer `--profile contact281-c2-m1` is explicit; an omitted C2 producer
+profile still means old-nine, independently of the runtime's C1 default.
+See the [current factories/resources/build selection](build.md#current-contactc2-source-mode-resources)
+and [current blockers and generation-scoped evidence](source-parity.md#current-contactc2-boundary).
+Historical constructor/resource descriptions below retain their original
+generation meaning; old56/117/156/157 assets are not current-engine fallbacks.
+The two timing profiles below are distinct from these three resource profiles.
+
+**Qualification boundary:** Source57 now retains PreSnap/HikingBall until the
+actual `hike_ball` stream callback; request-time Live/holder assignment is not
+the source contract. That source-derived fix does not define the remaining
+original six-int automatic-array `bc_adjust[6]` read. StrictSource remains the
+default and rejects undefined consumer domains. Explicit M1 Portable is an
+authored consumer-index correction, not target-memory/native emulation;
+raw values, settings and repair diagnostics remain visible.
+The published full Portable M1 gate now passes on the separately named
+`portable-cabinet-wide-pass-clearance-12000` recording and frozen `a4c0798`
+source/harness, including26 R_SKIP frames with the required real-pose witness.
+The old `a33b1765...` recording remains historical/unqualified. Clean CI now
+explicitly prepares the new named12,000-command recording and bound minimal
+metadata without any source-state regeneration, plus
+strict Contact272 and explicit M1 data. Historical69/443 numeric controls remain
+separate; the source callers no longer use the old157 library as their closure.
+Hosted39102061602 still records the old-input UNMET failure; it is not a pass.
+The updated required full-M1 gate
+now deliberately selects `--source-compatibility portable` exactly once.
+It still requires the complete controls/physics/final and positive R_SKIP,
+not an accepted source boundary or scoped/single-attempt substitute.
+[Current post-snap defined-domain QA](source-parity.md#current-post-snap-defined-domain-qa)
+qualifies the named B1, snap, running-binding, package and archived-API surfaces
+only on that pre-portable snapshot; its fingerprint excludes all seven mutable
+Frontend paths. It is not
+full-generation acceptance. Actual updated CI/PR21 merge and all sixteen parity rows
+remain OPEN.
+
+The existing parent-autonomous no-eligible-candidate return/diagnostic before
+`maybe_taunt`'s original `bearing(me,-1)` has no captured explicit user approval.
+It is not target-memory/instruction/ABI emulation and does not implicitly
+authorize another fallback; the explicit Portable correction is separate.
+Native/DSP/Unity entitlement remain
+unqualified; no current whole-game or browser proof follows from source/API work.
+
+**Recorded live status:** continuous original animation is implemented and verified on Unity
 6000.3.24f1 host WebGL build `0000063700005f540000316b000003e7`, promoted to
 Docker `8080/?actors=source`. The shared library contains **56 original clips /
 3,731 selected source frames**. Actual native vertex checks and a

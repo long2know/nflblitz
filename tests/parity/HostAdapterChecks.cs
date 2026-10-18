@@ -17,7 +17,7 @@ internal static class HostAdapterChecks
 #if PARITY_FULL_KERNEL
         if (inputs == null)
             throw new System.ArgumentNullException(nameof(inputs), "Actual prepared full-kernel inputs are required.");
-        var game = inputs.Create(1);
+        var game = Create(inputs);
         Program.Equal("injected source profile", SimulationProfile.OriginalRelease57Hz, game.Profile);
         Program.Equal("legacy constructor keeps legacy profile", SimulationProfile.LegacyBaseline60Hz,
             new GameSimulation(1).Profile);
@@ -45,7 +45,7 @@ internal static class HostAdapterChecks
         Program.Equal("exact source clock remainder after sixty host steps", 0, game.Model.SourceClockRemainder);
 
         // Isolate adapter action ordering from the original opening kickoff and snap grace period.
-        game = inputs.Create(1);
+        game = Create(inputs);
         PrepareNormalPlaySelect(game);
         int ordinal = 0;
         foreach (JsonElement trace in fixture.GetProperty("edge_trace").EnumerateArray())
@@ -72,7 +72,7 @@ internal static class HostAdapterChecks
             ordinal++;
         }
         Program.Equal("host action fixture trace length", 4, ordinal);
-        game = inputs.Create(1);
+        game = Create(inputs);
         PrepareNormalPlaySelect(game);
         game.Step(new PlayerCommand(action: InputAction.SelectPlay));
         game.Restart(1);
@@ -86,6 +86,17 @@ internal static class HostAdapterChecks
     }
 
 #if PARITY_FULL_KERNEL
+    private static GameSimulation Create(FullKernelInputs inputs)
+    {
+        if (!inputs.IsC2Profile) return inputs.Create(1);
+        var configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            SourceStationLayout.TwoStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home) }, TeamId.Home, SourceCaptainSlot.First);
+        return inputs.Create(1, configuration: configuration,
+            presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0));
+    }
+
     private static void PrepareNormalPlaySelect(GameSimulation game)
     {
         game.Model.Phase = GamePhase.PlaySelect;

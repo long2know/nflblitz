@@ -4,6 +4,58 @@ using System.Collections.ObjectModel;
 
 namespace Blitz.Contracts
 {
+    public enum SourceGameplayCompatibility { StrictSource = 0, Portable = 1 }
+    public enum SourceCompatibilityRepairKind { HandicapConsumerIndex, BlockCountConsumerIndex }
+
+    public readonly struct SourceCompatibilityRepair
+    {
+        public long Sequence { get; }
+        public long SourceTick { get; }
+        public SourceCompatibilityRepairKind Kind { get; }
+        public int SubjectId { get; }
+        public int RawIndex { get; }
+        public int EffectiveIndex { get; }
+        public string SourceContext { get; }
+
+        public SourceCompatibilityRepair(long sequence, long sourceTick, SourceCompatibilityRepairKind kind,
+            int subjectId, int rawIndex, int effectiveIndex, string sourceContext)
+        {
+            Sequence = sequence; SourceTick = sourceTick; Kind = kind; SubjectId = subjectId;
+            RawIndex = rawIndex; EffectiveIndex = effectiveIndex; SourceContext = sourceContext;
+        }
+    }
+
+    public static class SourceGameplayCompatibilityOptions
+    {
+        public static SourceGameplayCompatibility Parse(string value)
+        {
+            if (value == "strict") return SourceGameplayCompatibility.StrictSource;
+            if (value == "portable") return SourceGameplayCompatibility.Portable;
+            throw new ArgumentException("source-compatibility must be exactly strict or portable.", nameof(value));
+        }
+
+        public static SourceGameplayCompatibility FromUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return SourceGameplayCompatibility.StrictSource;
+            int query = url.IndexOf('?');
+            int fragment = url.IndexOf('#');
+            if (query < 0 || fragment >= 0 && fragment < query) return SourceGameplayCompatibility.StrictSource;
+            string tail = url.Substring(query + 1).Split('#')[0];
+            SourceGameplayCompatibility result = SourceGameplayCompatibility.StrictSource;
+            bool seen = false;
+            foreach (string part in tail.Split('&'))
+            {
+                string[] pair = part.Split('=');
+                if (Uri.UnescapeDataString(pair[0]) != "source-compatibility") continue;
+                if (seen || pair.Length != 2)
+                    throw new ArgumentException("Specify source-compatibility exactly once with a value.", nameof(url));
+                seen = true;
+                result = Parse(Uri.UnescapeDataString(pair[1]));
+            }
+            return result;
+        }
+    }
+
     public enum SourcePlayKind { Normal = 0, Kickoff = 1, FieldGoal = 2, Punt = 3, ExtraPoint = 4 }
     public enum SourceResultKind
     {
@@ -153,6 +205,40 @@ namespace Blitz.Contracts
         }
     }
 
+    public readonly struct SourceTeamGameplayView
+    {
+        public bool IsSpecified { get; }
+        public TeamId Team { get; }
+        public bool OnFire { get; }
+        public int LastReceiverPlayerId { get; }
+        public int ConsecutiveCompletions { get; }
+        public int ConsecutiveLosses { get; }
+        public int Handicap { get; }
+
+        public int EffectiveHandicap { get; }
+        public int RawHandicap { get { return Handicap; } }
+
+        public SourceTeamGameplayView(TeamId team, bool onFire, int lastReceiverPlayerId,
+            int consecutiveCompletions, int consecutiveLosses, int handicap, int? effectiveHandicap = null)
+        {
+            SourceContractGuard.Team(team, nameof(team));
+            SourceContractGuard.Player(lastReceiverPlayerId, nameof(lastReceiverPlayerId));
+            if (lastReceiverPlayerId >= 0 && lastReceiverPlayerId / SliceRules.PlayersPerTeam != (int)team)
+                throw new ArgumentException("A fire receiver belongs to its actor's team.", nameof(lastReceiverPlayerId));
+            SourceContractGuard.Range(consecutiveCompletions, 0, int.MaxValue, nameof(consecutiveCompletions));
+            SourceContractGuard.Range(consecutiveLosses, 0, int.MaxValue, nameof(consecutiveLosses));
+            SourceContractGuard.Range(effectiveHandicap ?? handicap, 0, 11, nameof(effectiveHandicap));
+            Team = team;
+            OnFire = onFire;
+            LastReceiverPlayerId = lastReceiverPlayerId;
+            ConsecutiveCompletions = consecutiveCompletions;
+            ConsecutiveLosses = consecutiveLosses;
+            Handicap = handicap;
+            EffectiveHandicap = effectiveHandicap ?? handicap;
+            IsSpecified = true;
+        }
+    }
+
     public sealed class SourceMatchView
     {
         public SourceMatchConfiguration Configuration { get; }
@@ -170,6 +256,15 @@ namespace Blitz.Contracts
         public TeamId? KickingTeam { get; }
         public TeamId? ReceivingTeam { get; }
         public bool? OffenseFlipped { get; }
+        public SourceTeamGameplayView HomeGameplay { get; }
+        public SourceTeamGameplayView AwayGameplay { get; }
+        public int ForwardCatcherPlayerId { get; }
+        public bool DronesLose { get; }
+        public bool DronesWinning { get; }
+        public int HandicapRepetitionBonus { get; }
+        public SourceGameplayCompatibility Compatibility { get; }
+        public long CompatibilityRepairCount { get; }
+        public ReadOnlyCollection<SourceCompatibilityRepair> CompatibilityRepairs { get; }
         public ReadOnlyCollection<SourceQuarterScore> QuarterScores { get; }
         public ReadOnlyCollection<SourceStationView> Stations { get; }
 
@@ -181,7 +276,13 @@ namespace Blitz.Contracts
             SourcePlaySelection awayPlay = default(SourcePlaySelection),
             int selectionCountdown = -1, SourcePatOption patChoice = SourcePatOption.Unselected,
             SourcePatStatus patStatus = SourcePatStatus.NotExtraPoint, SourceKickoffType? kickoff = null,
-            TeamId? kickingTeam = null, TeamId? receivingTeam = null, bool? offenseFlipped = null)
+            TeamId? kickingTeam = null, TeamId? receivingTeam = null, bool? offenseFlipped = null,
+            SourceTeamGameplayView homeGameplay = default(SourceTeamGameplayView),
+            SourceTeamGameplayView awayGameplay = default(SourceTeamGameplayView),
+            int forwardCatcherPlayerId = -1, bool dronesLose = false, bool dronesWinning = false,
+            int handicapRepetitionBonus = 0,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            long compatibilityRepairCount = 0, IReadOnlyList<SourceCompatibilityRepair> compatibilityRepairs = null)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -210,6 +311,15 @@ namespace Blitz.Contracts
                 SourceContractGuard.Team(receivingTeam.Value, nameof(receivingTeam));
             if (kickingTeam.HasValue && receivingTeam.HasValue && kickingTeam.Value == receivingTeam.Value)
                 throw new ArgumentException("Kicking and receiving teams must differ.", nameof(receivingTeam));
+            if (homeGameplay.IsSpecified && homeGameplay.Team != TeamId.Home
+                || awayGameplay.IsSpecified && awayGameplay.Team != TeamId.Away)
+                throw new ArgumentException("Gameplay views must retain home/away team ownership.");
+            SourceContractGuard.Player(forwardCatcherPlayerId, nameof(forwardCatcherPlayerId));
+            SourceContractGuard.Range(handicapRepetitionBonus, 0, 5, nameof(handicapRepetitionBonus));
+            SourceContractGuard.Range((int)compatibility, 0, 1, nameof(compatibility));
+            if (compatibilityRepairCount < 0) throw new ArgumentOutOfRangeException(nameof(compatibilityRepairCount));
+            var repairCopy = new SourceCompatibilityRepair[compatibilityRepairs == null ? 0 : compatibilityRepairs.Count];
+            for (int i = 0; i < repairCopy.Length; i++) repairCopy[i] = compatibilityRepairs[i];
             var scoresCopy = new SourceQuarterScore[quarterScores.Count];
             int previousQuarter = -1;
             for (int i = 0; i < scoresCopy.Length; i++)
@@ -257,6 +367,15 @@ namespace Blitz.Contracts
             KickingTeam = kickingTeam;
             ReceivingTeam = receivingTeam;
             OffenseFlipped = offenseFlipped;
+            HomeGameplay = homeGameplay;
+            AwayGameplay = awayGameplay;
+            ForwardCatcherPlayerId = forwardCatcherPlayerId;
+            DronesLose = dronesLose;
+            DronesWinning = dronesWinning;
+            HandicapRepetitionBonus = handicapRepetitionBonus;
+            Compatibility = compatibility;
+            CompatibilityRepairCount = compatibilityRepairCount;
+            CompatibilityRepairs = Array.AsReadOnly(repairCopy);
             QuarterScores = Array.AsReadOnly(scoresCopy);
             Stations = Array.AsReadOnly(stationsCopy);
         }

@@ -11,10 +11,29 @@ namespace Blitz.Gameplay
 
     public sealed class SourceSoundVmDispatch
     {
-        public SourceCallbackCue OriginalCue { get; }
+        private readonly SourceCallbackCue originalCue;
+        private readonly SourceAudioFunctionState? stateAtCall;
+        public bool HasOriginalAnimationCue { get { return originalCue != null; } }
+        public SourceCallbackCue OriginalCue
+        {
+            get
+            {
+                if (originalCue == null) throw new InvalidOperationException("Native process sound has no original animation cue.");
+                return originalCue;
+            }
+        }
         public SourcePresentationContext OriginalCueContext { get { return OriginalCue.Context; } }
+        public SourceC2SoundContext C2Context { get; }
+        public SourceC2SoundState? C2StateAtCall { get; }
         public SourceRandomContext RandomContext { get; }
-        public SourceAudioFunctionState StateAtCall { get; }
+        public SourceAudioFunctionState StateAtCall
+        {
+            get
+            {
+                if (!stateAtCall.HasValue) throw new InvalidOperationException("Native process sound has no actor function state.");
+                return stateAtCall.Value;
+            }
+        }
         public SourceSoundVmStatus Status { get; }
         public SourceAudioFunctionResult Result { get; }
         public string Detail { get; }
@@ -22,7 +41,16 @@ namespace Blitz.Gameplay
         internal SourceSoundVmDispatch(SourceCallbackCue cue, SourceRandomContext context,
             SourceAudioFunctionState state, SourceSoundVmStatus status, SourceAudioFunctionResult result, string detail)
         {
-            OriginalCue = cue; RandomContext = context; StateAtCall = state;
+            originalCue = cue; RandomContext = context; stateAtCall = state;
+            Status = status; Result = result; Detail = detail;
+        }
+
+        internal SourceSoundVmDispatch(SourceC2SoundContext c2Context, SourceRandomContext context,
+            SourceC2SoundState state, SourceAudioFunctionState? actorState, SourceSoundVmStatus status,
+            SourceAudioFunctionResult result, string detail)
+        {
+            C2Context = c2Context; C2StateAtCall = state; RandomContext = context; stateAtCall = actorState;
+            originalCue = c2Context.HasOriginalAnimationCue ? c2Context.OriginalAnimationCue : null;
             Status = status; Result = result; Detail = detail;
         }
     }
@@ -117,6 +145,21 @@ namespace Blitz.Gameplay
         private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
         {
             RequireSourceSoundVmBinding();
+            if (SourceC2Enabled)
+            {
+                foreach (SourceC2VmBinding candidate in sourceC2Bootstrap.Data.Bindings)
+                {
+                    if (!candidate.Matches(cue)) continue;
+                    SourceRandomContext execution = SourceAnimationRandomContext(actor);
+                    var c2Context = new SourceC2SoundContext(candidate.FunctionKind, Model.SourceTick, execution.Process,
+                        execution.ProcessOrder, actor.Id, cue.Context.SourcePath, cue.FunctionSymbol,
+                        cue.Context.SourceLine, cue.Argument0, cue.Argument1, cue.Argument2, cue,
+                        firstCallIndex: execution.FirstCallIndex);
+                    SourceAudioFunctionState actorState = SourceSoundState(actor);
+                    ExecuteSourceC2Sound(c2Context, C2SoundState(actorState), actorState, execution);
+                    return;
+                }
+            }
             SourceAudioVmBinding binding = null;
             foreach (SourceAudioVmBinding candidate in sourceSoundVmData.VmBindings)
                 if (candidate.SourcePath == cue.Context.SourcePath && candidate.ScriptSymbol == cue.Context.ExecutingSymbol
@@ -154,6 +197,45 @@ namespace Blitz.Gameplay
         {
             Model.SourceRandomCallIndex = checked(context.FirstCallIndex + result.RandomCalls);
             Model.SourceRandomDraws += result.RandomCalls;
+        }
+
+        private SourceC2SoundState C2SoundState(SourceAudioFunctionState actorState)
+        {
+            SourceAudioHitPartner hit = actorState.HitPartner;
+            bool? present = hit.Presence == SourceAudioHitPresence.Unknown ? (bool?)null
+                : hit.Presence == SourceAudioHitPresence.Present;
+            return new SourceC2SoundState(Model.SourceTauntBank, Model.SourceCurrentPlayerBank,
+                actorState.ActorFlags, actorState.ActorRawPlayerMode, actorState.ActorPlayerNumber,
+                actorState.ActorStation, present, hit.RawPlayerMode, hit.Station,
+                actorState.CurrentBallCarrier, actorState.CurrentIntendedReceiver);
+        }
+
+        private void ExecuteSourceC2NativeSound(SourceC2SoundContext context)
+        {
+            RequireSourceSoundVmBinding();
+            ExecuteSourceC2Sound(context, new SourceC2SoundState(Model.SourceTauntBank, Model.SourceCurrentPlayerBank),
+                null, CurrentSourceRandomContext());
+        }
+
+        private void ExecuteSourceC2Sound(SourceC2SoundContext context, SourceC2SoundState state,
+            SourceAudioFunctionState? actorState, SourceRandomContext execution)
+        {
+            try
+            {
+                SourceAudioFunctionResult result = SourceC2SoundFunctions.Select(sourceC2Bootstrap.Data,
+                    context.Kind, context, state, sourceRandom, execution);
+                AdvanceSourceSoundRandom(execution, result);
+                sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,
+                    SourceSoundVmStatus.Resolved, result, null));
+            }
+            catch (SourceAudioMissingInputException error)
+            {
+                AdvanceSourceSoundRandom(execution, error.PartialResult);
+                sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,
+                    SourceSoundVmStatus.MissingInput, error.PartialResult, error.Field));
+                sourceSoundVmFailed = true;
+                throw;
+            }
         }
     }
 }

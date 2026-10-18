@@ -2,6 +2,7 @@
 """Test the result-inventory guard, not gameplay."""
 
 import importlib.util
+import hashlib
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -56,8 +57,11 @@ class InventoryGuardTests(unittest.TestCase):
         self.assertTrue(dependencies, "The actual pure AssetImport dependency must not be omitted.")
         for path in dependencies:
             self.assertIn(path.relative_to(root).as_posix(), actual)
-        self.assertIn("Assets/Scripts/Presentation/SourceAudioFunctions.cs", actual,
-                      "The imported actual sound selector must be covered by the legacy source hash guard.")
+        for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+            path = root / "Assets/Scripts/Presentation" / name
+            relative = path.relative_to(root).as_posix()
+            self.assertIn(relative, actual, "The actual sound selectors must be covered by the legacy source hash guard.")
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), actual[relative])
 
     def test_projects_compiling_actual_catch_geometry_include_its_actual_dependency(self):
         root = Path(__file__).resolve().parents[1]
@@ -88,9 +92,30 @@ class InventoryGuardTests(unittest.TestCase):
             "Blitz.Core.Tests/Blitz.Core.Tests.csproj",
             "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
+            "contact/ContactChecks.csproj",
+            "fire-handicap/FireHandicapChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)
+
+    def test_presentation_catalog_includes_its_actual_interface_package_dependencies(self):
+        root = Path(__file__).resolve().parents[1]
+        project = root / "tests/presentation/PresentationChecks.csproj"
+        included = set()
+        for item in ET.parse(project).findall(".//Compile"):
+            prefix = "$(BlitzSourceRoot)"
+            for pattern in item.attrib.get("Include", "").split(";"):
+                if not pattern.startswith(prefix):
+                    continue
+                paths = set(root.glob(pattern[len(prefix):]))
+                for exclusion in item.attrib.get("Exclude", "").split(";"):
+                    if exclusion.startswith(prefix):
+                        paths.difference_update(root.glob(exclusion[len(prefix):]))
+                included.update(paths)
+        for name in ("SourceCinematicLibrary.cs", "SourceTeamInterfacePackage.cs",
+                     "SourceInterfaceData.cs", "SourceInterfaceMovementData.cs"):
+            self.assertIn(root / "Assets/Scripts/AssetImport" / name, included,
+                          str(project) + " omits a real cinematic/package dependency: " + name)
 
 
 if __name__ == "__main__":

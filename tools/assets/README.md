@@ -1,5 +1,31 @@
 # Original player/team presentation inputs
 
+**Explicit C2-M1 successor resource registry:** `original-teams-contact281-c2-m1`
+uses the same canonical e874 animation but strict new fourteen-binding callback
+JSON,482-site catalog and services keys. See
+`../interface/packaging.md`. Explicit URL/build admission uses Parent's
+authorized single shared-selector guard addition; default/old-nine behavior
+is unchanged. This is not M1/gameplay/CI/native qualification or a rendering
+change.
+
+**Explicit C2 successor:** `original-teams-contact281-c2` binds canonical281/
+26,230 frames,477 original impact/callback sites and separately pinned C2 JSON/
+ONE7538 sound extension. Use the C2 producer and package sections in
+`../animation/README.md` and `../interface/packaging.md`. C1 remains default;
+the C2 URL/build/import entrypoints are explicit and do not replace old assets.
+No mesh/shader/team art, source-DIP or roster/head/jersey/pup redesign is made.
+
+**Current C1 generation:** use the explicit `original-teams-contact272` profile,
+`SourceTeamImporter.ImportContact272FromCommandLine` and
+`SourceTeamInterfaceImporter.ImportContact272FromCommandLine` (future licensed
+surfaces, not authorization to launch Unity). Actual272 motion is prepared by
+`tools/animation/prepare_contact_profile.py`, manifest
+`9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9`;
+its new impact catalog is explicitly bound to that same manifest. All31 team
+art/roster/skin/head/BCD-number semantics remain unchanged. Historical157
+resources below are not a C1 fallback. See the current Contact272 section of
+`../interface/packaging.md`; no native import/browser/DSP proof is asserted.
+
 The dependent sound-runtime service uses a **new** services key
 `BlitzSourceInterface/original-movement157-soundvm-match-services` and exact1983-byte
 SAFN1 data at `SourceData/sound-functions-safn1-4a557304`. It does not rename or

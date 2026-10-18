@@ -19,6 +19,10 @@ on:
       - 'Dockerfile'
       - 'compose.yaml'
       - '.dockerignore'
+      - 'README.md'
+      - 'docs/build.md'
+      - 'docs/source-parity.md'
+      - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
   push:
     branches: [main]
@@ -39,6 +43,10 @@ on:
       - 'Dockerfile'
       - 'compose.yaml'
       - '.dockerignore'
+      - 'README.md'
+      - 'docs/build.md'
+      - 'docs/source-parity.md'
+      - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
   workflow_dispatch:
 
@@ -53,7 +61,7 @@ jobs:
   core-and-tooling:
     name: Core inventory and build-tool units (no Unity)
     runs-on: ubuntu-24.04
-    # PR19 took17m36; added sound gates measured6m28 locally. Keep every check.
+    # Existing budget retained; corrected full-M1 hosted timing/green is not claimed.
     timeout-minutes: 30
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
@@ -75,7 +83,10 @@ jobs:
       - name: Core tests with exact case inventory and source hash guard
         run: python3 tests/run-core.py
       - name: Test the inventory failure gates
-        run: python3 tests/test-runner.py
+        run: |
+          python3 tests/test-runner.py
+          python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
+          python3 -B tests/movement-callers/test_public_replay.py -q
       - name: Test detached source match and input contracts
         run: |
           python3 tests/contracts/test_runner.py
@@ -114,27 +125,52 @@ jobs:
       - name: Execute original C reference cases
         run: python3 tests/source-oracles/run.py --source-root tests/source-oracles/.artifacts/original --full-matrix
       - name: Fetch verified real source-kernel inputs
+        # The explicit78 union preserves all69 historical pins; no fixture is relabelled.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tests/parity/fetch_inputs.py --download --cache tests/source-oracles/.artifacts/original --output .squad/.scratch/SourceData/source-kernel-original
+        run: python3 tests/parity/fetch_inputs.py --profile contact272 --download --cache tests/source-oracles/.artifacts/original --output .squad/.scratch/SourceData/source-kernel-original
       - name: Prepare original animation geometry roster and playbook services
         run: python3 tests/parity/prepare_inputs.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/SourceData/source-kernel
+      - name: Prepare strict current Contact272 and explicit C2 M1 inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B tests/contact/prepare.py --source-root .squad/.scratch/SourceData/source-kernel-original --operand-root .squad/.scratch/SourceData/source-kernel-original --base-bundle .squad/.scratch/SourceData/source-kernel/movement-animation --download
+          python3 -B tools/animation/prepare_contact_profile.py prepare --source-root .squad/.scratch/SourceData/source-kernel-original --base-bundle .squad/.scratch/SourceData/source-kernel/movement-animation --destination .squad/.scratch/SourceData/contact-profile/animation272
+          python3 -B tools/assets/prepare_cinematics.py --source-root .squad/.scratch/SourceData/source-kernel-original --destination .squad/.scratch/SourceData/contact-profile/impact-base
+          python3 -B tools/animation/prepare_contact_impact.py --base-catalog .squad/.scratch/SourceData/contact-profile/impact-base/impact-presentation.json --plyrseq .squad/.scratch/SourceData/source-kernel-original/plyrseq.c --contact-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Contact.cs --animation-manifest .squad/.scratch/SourceData/contact-profile/animation272/export-inventory.json --destination .squad/.scratch/SourceData/contact-profile/impact272
+          python3 -B tests/parity/prepare_contact_inputs.py --profile contact272 --legacy-fixture .squad/.scratch/SourceData/source-kernel/fixture.json --production-bundle .squad/.scratch/SourceData/contact-profile/animation272 --supplemental-bundle tests/contact/.artifacts/contact-extra --impact .squad/.scratch/SourceData/contact-profile/impact272/impact-presentation.json --output .squad/.scratch/SourceData/source-kernel-contact272
+          python3 -B tools/animation/prepare_player_sequences.py --source-root .squad/.scratch/SourceData/source-kernel-original --catalog tools/animation/c2_sequences.json --destination .squad/.scratch/SourceData/c2-extra9
+          python3 -B tools/animation/prepare_c2_profile.py --source-root .squad/.scratch/SourceData/source-kernel-original --base-bundle .squad/.scratch/SourceData/source-kernel-contact272/contact-animation --extra-bundle .squad/.scratch/SourceData/c2-extra9 --destination .squad/.scratch/SourceData/c2-old9
+          python3 -B tools/animation/prepare_c2_impact.py --base-catalog .squad/.scratch/SourceData/contact-profile/impact272/impact-presentation.json --callback-data .squad/.scratch/SourceData/c2-old9/c2-callback-data.json --plyrseq .squad/.scratch/SourceData/source-kernel-original/plyrseq.c --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs --destination .squad/.scratch/SourceData/contact-profile/impact-old9
+          python3 -B tools/animation/prepare_c2_profile.py --source-root .squad/.scratch/SourceData/source-kernel-original --base-bundle .squad/.scratch/SourceData/source-kernel-contact272/contact-animation --extra-bundle .squad/.scratch/SourceData/c2-extra9 --profile contact281-c2-m1 --destination .squad/.scratch/SourceData/c2-m1
+          python3 -B tools/animation/prepare_c2_impact.py --base-catalog .squad/.scratch/SourceData/contact-profile/impact272/impact-presentation.json --callback-data .squad/.scratch/SourceData/c2-m1/c2-callback-data.json --plyrseq .squad/.scratch/SourceData/source-kernel-original/plyrseq.c --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs --profile contact281-c2-m1 --destination .squad/.scratch/SourceData/contact-profile/impact-m1
+      - name: Prepare exact public replay input without simulation
+        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
       - name: Test real-input fixture and ball-runner failure gates
         run: |
           python3 tests/parity/test_inputs.py
+          python3 tests/parity/test_contact_inputs.py
           python3 tests/ball/test_runner.py
+          python3 tests/contact/test_runner.py
           python3 tests/movement-callers/test_runner.py
+          python3 tests/movement-callers/test_canonical.py
           python3 tests/audio/vm/test_runner.py
       - name: Compare source gameplay and host adapter
-        run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
+        # Retained historical numeric/short-adapter comparison, not current caller qualification.
+        run: python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json --full-kernel --input-profile legacy --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
       - name: Compare original ball and ordered source callers
-        run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
+        run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn
       - name: Compare original movement callers and post-animation physics
-        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json
+        # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
-        run: python3 -B -m unittest discover -s tools/animation/tests
+        run: |
+          python3 -B -m unittest discover -s tools/animation/tests
+          python3 -B tools/animation/prepare_contact_impact.py --help > /dev/null
+          python3 -B tools/animation/prepare_c2_impact.py --help > /dev/null
       - name: Test generated-player parsing and geometry
         run: python3 tests/assets/run.py
       - name: Test source-camera behavior
@@ -165,15 +201,23 @@ jobs:
           python3 tools/audio/prepare_functions.py --name publication-original
           python3 tests/audio/functions/run.py --original tools/audio/.artifacts/functions/publication-original --reproduce publication-repeat --mutate
       - name: Compare synchronous original sound VM and source mutants
-        run: python3 -B tests/audio/vm/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json --functions .squad/.scratch/SourceData/source-kernel/audio-functions --source-root .squad/.scratch/SourceData/source-kernel-original --mutations
+        run: python3 -B tests/audio/vm/run.py --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions --source-root .squad/.scratch/SourceData/source-kernel-original --mutations
       - name: Test resolved sound Runtime and actual Core batches
-        run: |
-          python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
-          python3 -B tests/audio/runtime/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel/audio-functions/sound-functions.safn
+        run: python3 -B tests/audio/runtime/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn
       - name: Test explicit sound resources and resolved consumer without Unity
         run: |
           python3 -B tests/presentation/sound-runtime/run.py
           python3 -B tests/presentation/sound-runtime/mutations.py
+      - name: Test Contact272 SDK preflight and callers without original assets
+        run: |
+          python3 -B -m unittest discover -s tests/presentation/contact-runtime -p 'test_callers.py' -q
+          python3 -B tests/presentation/contact-runtime/run.py
+          python3 -B tests/presentation/contact-runtime/mutations.py
+      - name: Test opt-in Contact281C2 SDK preflight and callers without original assets
+        run: |
+          python3 -B -m unittest discover -s tests/presentation/c2-runtime -p 'test_callers.py' -q
+          python3 -B tests/presentation/c2-runtime/run.py
+          python3 -B tests/presentation/c2-runtime/mutations.py
       - name: Test browser assertions and isolated runtime
         run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
       - name: Validate Unity metadata and script references

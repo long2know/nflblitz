@@ -1,5 +1,215 @@
 # Original B1 HUD and match-service resource packaging
 
+## Explicit C2-M1 fourteen-binding successor
+
+The new profile is `original-teams-contact281-c2-m1`. It retains the exact281/
+26,230-frame `e87401c8...` animation and unchanged old6/ONE7538 sound payloads,
+but **does not** alias the old-nine callback/service/catalog identities:
+
+| Successor artifact | Identity |
+| --- | --- |
+| Services | `BlitzSourceInterface/original-contact281-c2-m1-match-services` |
+| Callback JSON | `SourceData/source-c2-m1-callbacks-b0c02e55` |
+| Callback SHA-256 | `b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a` |
+| Payload profile | `OriginalRelease57Hz-C2-M1-InitSoundBanks-v1` |
+| Catalog schema/sites | `original-impact-contact281-c2-m1/v1` /482 |
+| Catalog SHA-256 | `2fee43a7a20dad06d8846b1d558a69d8648041368091ab12677c941e19b66cd1` |
+
+The new five running-taunt sites6373/6401/6428/6480(-4) and6508(-5) retain
+actual source caller/callee/process/RNG context. No new clip, camera, ground
+fallback or DSP behavior is invented. The old-nine reader/factory remains
+strictly old-nine; `ReadC2M1Callbacks`, `WithContact281C2M1`,
+`InitializeContact281C2M1` and actual `SourceC2Composition.CreateM1Simulation`
+are selected only for this explicit successor.
+
+Future licensed resource surfaces are
+`SourceTeamImporter.ImportContact281C2M1FromCommandLine`,
+`SourceTeamInterfaceImporter.ImportContact281C2M1FromCommandLine`,
+`SourceTeamChecks.VerifyContact281C2M1FromCommandLine` and
+`SourceTeamInterfaceChecks.VerifyContact281C2M1BindingsFromCommandLine`.
+Use the same explicit flags below, with the new prepared M1 callback root,
+the new482 catalog and a fresh interface stable ID. A single unique canonical
+e874 animation asset may be reused from either explicit C2 generation; only
+that byte-identical animation is shared. Callback, team/template, catalog and
+service resources remain generation-specific.
+
+After Core's holder diagnosis went idle, Parent authorized the **single**
+shared URL-selection guard addition. Explicit selection is now
+`?actors=source&sourceprofile=original-teams-contact281-c2-m1`; the build methods
+`PrepareContact281C2M1Project` / `BuildContact281C2M1` check that same public
+selector before any preparation. No private selector/proxy factory bypass
+is installed. Existing C1/default and old-nine C2 selection is unchanged;
+conflicting pinned build/URL generations still fail. No Editor or resource
+import/build has been executed.
+
+The current public M1 remains **unqualified**: canonical and first saved
+window contain zero R_SKIP observations, and a distinct saved second vector
+stops at source5590/actor13 in kicker-holder/int_receiver=-1 handling. No
+new probes, seed/vector changes or gameplay repair is performed by resource
+wiring. CI, playability, fullM1/all16/native/DSP are not claimed passed.
+The separately disclosed parent-autonomous portability repair below remains
+not explicit user approval and not target-memory/ABI emulation.
+
+## Explicit Contact281C2 production binding
+
+C2 is **opt-in**, not a silent change to existing C1 or explicit graybox/
+legacy flight. Runtime selection is
+`?actors=source&sourceprofile=original-teams-contact281-c2`; omitting
+`sourceprofile` retains Contact272. A built C2 profile and conflicting URL fail
+clearly. Old profile assets/keys/data are not rewritten or aliased.
+
+Prepare the exact canonical281/C2/ONE7538/477 artifacts with the existing-encoder
+recipes in `tools/animation/README.md`. Required new identities:
+
+| Resource | Identity |
+| --- | --- |
+| Team/template | `original-teams-contact281-c2` |
+| Animation | `SourceData/local-plyr266-contact281-c2-e87401c8` |
+| Team / impact | `BlitzSourcePlayers/original-teams-contact281-c2/{team-presentation,impact-library}` |
+| Services | `BlitzSourceInterface/original-contact281-c2-match-services` |
+| C2 JSON | `SourceData/source-c2-callbacks-9d2cb7ac` |
+| ONE7538 SAFN | `SourceData/sound-functions-c2-hit7538-bb978454` |
+
+The old exact1983-byte/six-tuple SAFN remains separately required at its
+unchanged `SourceData/sound-functions-safn1-4a557304` key. C2 JSON and hit data
+are actual `TextAsset`s, canonical-reference checked independently; matching
+hashes on copied assets are not a canonical resource reference.
+
+`SourceTeamInterfaceImporter.PlanFromContact281C2Arguments` uses all existing
+explicit HUD/P1/movement/configuration/bootstrap/old-SAFN flags, plus:
+
+```text
+-interfaceC2Root <explicit authorized prepared C2 root>
+-interfaceC2Data c2-callback-data.json
+-interfaceC2HitExtension m-qbfite-hit-extension.safn
+```
+
+The pure `SourceInterfacePackagePlan.WithContact281C2` validates these exact
+pins/schema and preserves all original HUD/uniform/roster/head/BCD/pup/movement/
+DIP choices. Future licensed entrypoints (not authorization to launch Unity):
+
+- `SourceTeamImporter.ImportContact281C2FromCommandLine` with actual281 and
+  new477 impact roots/hashes, leaving every old imported profile intact.
+- `SourceTeamInterfaceImporter.ImportContact281C2FromCommandLine` with a fresh
+  interface stable ID. Its saved initializer is `InitializeContact281C2`,
+  retaining the original ten inputs plus the two required C2 TextAssets.
+- Fresh-domain `SourceTeamChecks.VerifyContact281C2FromCommandLine` and
+  `SourceTeamInterfaceChecks.VerifyContact281C2BindingsFromCommandLine`.
+  The separate pixel check still requires actual licensed GPU execution.
+- `WebGlBuild.PrepareContact281C2Project` / `BuildContact281C2` explicitly
+  preserve the281 selector on the future Boot component. Ordinary
+  `PrepareProject` / `Build` retain the unpinned C1 default, permitting an
+  explicit C2 URL when its resources are installed. No scene/settings/build
+  has been executed by this work.
+
+`SourceC2Composition.CreateSimulation` passes
+`SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(data)` as the appended
+Core constructor input: announcer then taunt bank draws happen **before**
+initial AI. The same actual281 library object supplies Core, real collision/
+camera geometry and rendering. The unchanged old SAFN is bound after the
+constructor and before first source wake. A post-constructor C2 bind, old272/
+277 subset, copied canonical asset or changed data fails visibly.
+
+This is an explicit original sound-bank **entry boundary**, not a claim that
+pre-boundary boot/coin/load RNG was replayed, that old goldens remain equivalent,
+or that a stock original boot was reproduced. Bank reloads/restarts retain
+Core's actual epoch/source-order behavior.
+
+One sound FIFO carries old six, eight speech, hit7538, deferred actorless
+whistle and immediate real-actor calls. Consumers inspect
+`HasOriginalAnimationCue`/`C2Context` before guarded legacy getters. Hit7538
+retains the real OriginalCue even though its reused original call algorithm
+leaves `call.C2Context` null; dispatch C2 kind remains authoritative.
+Native whistle is never an actor0/ANI/camera substitute. Raw source words and
+statuses are published before output delivery; with no real backend, nonempty
+output fails visibly with **nothing played**. Playlist0 is legitimate raw
+output, not mute; no DSP/speech/audio-device implementation is installed.
+
+**Source-semantic portability repair disclosure:** this generation separately
+includes Core's narrow, parent-selected early-return diagnostic when original
+`bearing(4,-1)` would dereference an invalid carrier and both candidate identity
+predicates are false. This is a source-semantic portability repair, **not**
+bit-exact target/native behavior or user-approved original semantics. No
+undefined original C was executed as an oracle. Full gameplay/all16/native/
+DSP acceptance remains open; resource/API coherence is not that qualification.
+
+## Current C1 engine: explicit Contact272 successor
+
+The current engine generation selects `SourceTeamResourceProfile.Contact272`
+and **only** `BlitzSourceInterface/original-contact272-soundvm-match-services`.
+Historical B1/Movement157/SoundVM plans, catalog bytes and keys below remain
+historical, not silently upgraded. Calling their services factory in the C1
+engine fails clearly; it never restores the old approximate contact path.
+
+Prepare the actual272 animation and explicitly bound C1 impact catalog with
+`tools/animation/prepare_contact_profile.py` / `prepare_contact_impact.py`
+(full commands and source/selection/replay provenance in the animation README).
+The272 manifest is
+`9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9`,
+24,892 actual selected fifteen-bone frames. New resource identities are:
+
+| Consumer | Required identity |
+| --- | --- |
+| Team/template stable ID | `original-teams-contact272` |
+| Team | `BlitzSourcePlayers/original-teams-contact272/team-presentation` |
+| Animation | `SourceData/local-plyr266-contact272-9cae962b` |
+| Impact | `BlitzSourcePlayers/original-teams-contact272/impact-library` |
+| Impact catalog SHA-256 | `738d712b6f80d8a9456338548e7bbce1fdf88baa46f342a7c45efffd02a8f23a` |
+| Match services | `BlitzSourceInterface/original-contact272-soundvm-match-services` |
+| Shared exact SAFN bytes | `SourceData/sound-functions-safn1-4a557304`,1983 bytes |
+| SAFN SHA-256 | `4a557304d3b041ee04dff8ed1354714fc5665abaeb1c3d458d94171adf1a0280` |
+
+`SourceTeamInterfaceImporter.PlanFromContact272Arguments` and
+`SourceInterfacePackagePlan.WithContact272` require the existing complete
+HUD/P1/configuration/movement/bootstrap/SoundVM inputs. All existing flags and
+explicit source-DIP settings are retained. No team/roster/head/pup/jersey/HUD/
+movement value is inferred or rewritten. Old six-argument movement settings
+still explicitly mean normal zero C1 block/blitzer masks; this adds no new
+configuration format.
+
+**Future licensed import surfaces only; do not run while Editor entitlement
+is blocked or without new authorization:**
+
+1. `SourceTeamImporter.ImportContact272FromCommandLine`: retain original all31
+   `-teamAssetRoot` / `-teamCatalogSha256`; supply the new272
+   `-teamAnimationRoot`, new bound `-teamImpactRoot` and exact impact SHA above.
+   Only new ignored `Assets/Imported/original-teams-contact272` is created.
+2. `SourceTeamInterfaceImporter.ImportContact272FromCommandLine`: retain every
+   explicit SoundVM/M1/HUD/P1/config/bootstrap flag below; choose a **fresh**
+   `-interfaceStableId`. Only the new services key is created. The serialized
+   `resourceProfile` tag is explicitly `original-teams-contact272`.
+3. Fresh-domain `SourceTeamChecks.VerifyContact272FromCommandLine` and
+   `SourceTeamInterfaceChecks.VerifyContact272BindingsFromCommandLine`
+   verify new profile/paths/content/references. The corresponding
+   `VerifyContact272FromCommandLine` interface check additionally requires
+   actual atlas-pixel readback; reference compilation is not that evidence.
+
+Services require the same canonical animation `ScriptableObject`, not merely
+a matching hash on a copied asset, and the same canonical team template.
+`SourceContactComposition.CreateSimulation` supplies the **same272 library
+instance** to actual `SourceCatchGeometry` and `GameSimulation`, then binds
+the exact trusted SAFN object before returning/first source wake. The renderer
+receives that same instance. All fifteen reference pivots are mandatory;
+actual actor-camera geometry remains enabled.
+
+The actor root and pose consumer use current C1 hit/puppet/attack/release
+snapshots, including actual program frame/root/facing, without render-only
+interpolation across those seams. Ordinary M1 movement interpolation and
+camera source-stage ownership are unchanged. New impact metadata covers all
+360 C1 presentation sites while preserving the complete old416 catalog sites
+and original camera math. This is **not** new helmet physics, speech, SPFX or
+DSP playback. `BlitzRuntime.UnresolvedContactSoundCalls` exposes the actual
+Core unresolved call metadata separately; it is never queued as resolved
+audio. Existing resolved raw output still needs an actual output consumer;
+unsupported callbacks fail visibly, not silently or with a preview substitute.
+
+Run the dedicated asset-free and explicit actual-data preflights in
+`tests/presentation/contact-runtime/README.md`. They use production sources,
+meaningful compiled mutants and real Unity6000.3.24f1 assembly references
+without launching Unity. No source/derived art, motion, audio or resource
+metadata is publishable; all generated bundles/imports/proofs remain ignored.
+Native/browser/full-match/parity16/DSP acceptance remains separate.
+
 **Sound-runtime checkout:** use the explicit **SoundVM profile** below.
 Historical B1 and eight-argument M1 data/APIs are retained, not silently
 reclassified as this new mandatory sound-function version.

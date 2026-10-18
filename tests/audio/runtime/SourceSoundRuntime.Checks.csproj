@@ -14,6 +14,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/FixedStepBridge.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceSoundVmTransport.cs" />
@@ -21,4 +22,5 @@
     <Compile Include="Program.cs" />
     <Compile Include="ActualCore.cs" />
   </ItemGroup>
+  <Import Project="../../parity/FullKernelSources.props" />
 </Project>

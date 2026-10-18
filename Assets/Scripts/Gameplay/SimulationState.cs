@@ -67,6 +67,7 @@ namespace Blitz.Gameplay
         internal int SourceForcedMoveHeading = -1;
         internal bool SourceThrowing;
         internal int SourceHandicap = 5;
+        internal int SourceRawHandicap = 5;
         internal string SourcePendingCatch;
         internal string SourceRequestedScript;
         internal int SourceCatchLaunchTime;
@@ -107,6 +108,9 @@ namespace Blitz.Gameplay
         internal bool SourceReturnedFromMovementMode;
         internal int SourceImmediateGeneralRuns;
         internal int? SourceHitPartnerId;
+        internal int SourcePuppetLinkId = -1;
+        internal long SourcePuppetReleaseTick;
+        internal int SourceBlockCount;
 
         internal ActorState(int id)
         {
@@ -160,6 +164,11 @@ namespace Blitz.Gameplay
         internal float SourcePlayEndZ;
         internal bool SourceHasContactSpot;
         internal float SourceVictimHeight;
+        internal string SourceVictimSequence;
+        internal FieldVector SourceCollisionVelocity;
+        internal bool SourceQbEvaded;
+        internal bool SourcePlowSoundPending;
+        internal readonly int[] SourceTackles = new int[2];
         internal readonly int[] SourceOffensivePlays = new int[2];
         internal readonly int[] SourceLostFumbles = new int[2];
         internal readonly int[] SourceInterceptions = new int[2];
@@ -168,7 +177,35 @@ namespace Blitz.Gameplay
         internal readonly int[] SourceBobbles = new int[2];
         internal readonly int[] SourceLastReceiver = { -1, -1 };
         internal readonly int[] SourceConsecutiveCompletions = new int[2];
+        internal readonly int[] SourceConsecutiveLosses = new int[2];
         internal readonly bool[] SourceTeamFire = new bool[2];
+        internal int SourceForwardCatcher = -1;
+        internal readonly int[] SourceTeamHandicap = new int[2];
+        internal readonly int[] SourceEffectiveTeamHandicap = new int[2];
+        internal SourceGameplayCompatibility SourceCompatibility;
+        internal long SourceCompatibilityRepairCount;
+        internal readonly System.Collections.Generic.List<SourceCompatibilityRepair> SourceCompatibilityRepairs =
+            new System.Collections.Generic.List<SourceCompatibilityRepair>();
+
+        internal int ResolveCompatibilityIndex(SourceCompatibilityRepairKind kind, int subject, int raw,
+            int length, string context)
+        {
+            if (length < 1) throw new ArgumentOutOfRangeException(nameof(length));
+            if (raw >= 0 && raw < length) return raw;
+            if (SourceCompatibility != SourceGameplayCompatibility.Portable
+                || kind == SourceCompatibilityRepairKind.BlockCountConsumerIndex && raw < 0)
+                throw new NotSupportedException(context + ": unsupported consumer index " + raw + ".");
+            int effective = Math.Max(0, Math.Min(length - 1, raw));
+            SourceCompatibilityRepairCount++;
+            // Retain a bounded chronological tail, plus the lifetime count; never notify per frame.
+            if (SourceCompatibilityRepairs.Count == 64) SourceCompatibilityRepairs.RemoveAt(0);
+            SourceCompatibilityRepairs.Add(new SourceCompatibilityRepair(SourceCompatibilityRepairCount,
+                SourceTick, kind, subject, raw, effective, context));
+            return effective;
+        }
+        internal readonly SourcePlayDefinition[] SourceHandicapPlayHistory = new SourcePlayDefinition[5];
+        internal SourceHandicapSettings SourceHandicapSettings;
+        internal int SourceHandicapRepetitionBonus;
         internal readonly int[] SourceSpinCount = new int[2];
         internal readonly int[] SourceHurdleCount = new int[2];
         internal int SourceFumblesOnPlay;
@@ -190,7 +227,18 @@ namespace Blitz.Gameplay
         internal int SourceRandomCallIndex;
         internal int SourceDispatchOrdinal;
         internal int SourcePresentationOrder;
+        internal string SourceAnimationFailure;
         internal string SourceCurrentPlayerBank;
+        internal bool SourceC2Enabled;
+        internal bool? SourceTaunted;
+        internal string SourceAnnouncerSwappedBank;
+        internal string SourceTauntBank;
+        internal long SourceC2EndEpoch;
+        internal long SourceC2BankEpoch;
+        internal SourceC2PendingEnd SourceC2PendingResult;
+        internal IReadOnlyDictionary<string, SourceAnimationProgram> SourceC2Programs;
+        internal readonly List<SourceC2WhistleProcess> SourceC2Whistles = new List<SourceC2WhistleProcess>();
+        internal long SourceC2WhistleSerial;
         internal readonly uint[] SourceAnimationUniqueMasks = new uint[6];
         internal SourcePlaybook SourcePlaybook;
         internal SourcePlayDefinition SourceOffensePlay;

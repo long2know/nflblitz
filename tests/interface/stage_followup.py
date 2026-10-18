@@ -18,6 +18,10 @@ RUNTIME = "Assets/Scripts/Runtime/BlitzRuntime.cs"
 HUD = "Assets/Scripts/Presentation/PlayHud.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 SERVICES = "Assets/Scripts/Runtime/SourceInterfaceServices.cs"
+SOUND_FACTORIES = (
+    ("Assets/Scripts/Runtime/SourceContactComposition.cs", "CreateSimulation", "soundFunctions"),
+    ("Assets/Scripts/Runtime/SourceC2Composition.cs", "CreateChecked", "legacySoundFunctions"),
+)
 LIVE_OVERRIDES = (RUNTIME, HUD)
 REQUIRED_OWNED_UI = (RUNTIME, HUD, BRIDGE, "Assets/Scripts/Runtime/SourceSoundVmTransport.cs")
 BASE_SHA = "419a8b2d53abbaaa59008f23040e940e0466d0612fb2cb7e6f648ad77526e986"
@@ -205,13 +209,17 @@ def validate_runtime(source):
     require("SourceHeading1024" not in code and "AdvanceSourceCameraAtStage" not in code
             and "(int)state.Phase" not in code and "worldToCameraMatrix" not in code and "WorldJoint" not in code,
             "M1 caller must not invent raw GM, renderer matrices/joints or last-render heading")
-    require("if(prefab==null){if(!ExplicitGraybox(Application.absoluteURL))thrownewSourceInterfaceException(" in awake
-            and awake.count("simulation=newBlitz.Gameplay.GameSimulation(1);") == 1,
-            "explicit graybox keeps the original legacy constructor; implicit source fallback is forbidden")
-    require("sourceServices=Resources.Load<SourceInterfaceServices>(SourceInterfaceServices.ResourceKey);" in awake
+    require("if(prefab==null){if(profile.UsesC2Data)thrownewSourceInterfaceException(" in awake
+            and "if(!ExplicitGraybox(Application.absoluteURL))thrownewSourceInterfaceException(" in awake
+            and awake.count("simulation=newBlitz.Gameplay.GameSimulation(1);") == 1
+            and awake.index("if(profile.UsesC2Data)") < awake.index("if(!ExplicitGraybox(") <
+            awake.index("simulation=newBlitz.Gameplay.GameSimulation(1);"),
+            "only explicit non-C2 graybox keeps the legacy constructor; C2 and implicit source fallbacks are forbidden")
+    require("stringserviceKey=SourceInterfaceServices.ResourceKeyFor(profile);" in awake
+            and "sourceServices=Resources.Load<SourceInterfaceServices>(serviceKey);" in awake
             and "if(sourceServices==null)thrownewSourceInterfaceException(" in awake
-            and "simulation=sourceServices.CreateSimulation(prefab);" in awake,
-            "missing new source resources must fail visibly, not silently select legacy")
+            and "simulation=sourceServices.CreateSimulation(prefab,compatibility);" in awake,
+            "missing selected-profile resources must fail visibly and preserve explicit compatibility, not select legacy")
     require("bridge.AdvanceSource(Time.unscaledDeltaTime,sourceInput.Buffer.NextHostFrame);" in compact(method(source, "Update")),
             "the actual source raw input/Step caller must remain connected")
     raster = "playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution,bootstrap.VerticalResolution);"
@@ -229,8 +237,9 @@ def validate_runtime(source):
             "actual source sample/frame injection must occur in-order inside the existing pre-player provider")
     require(code.count("simulation.SetSourceMovementCameraFrame(") == 1 and ".SetSourceMovementCameraFrame(" not in after,
             "M1 frame must not be repeated or injected by post-host/render observers")
-    require("SourcePlayerProvider.ResolveActorMode(true)" in awake,
-            "M1 activation must select the explicit157 team/resource profile, not old B1 resources")
+    require("SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL,sourceResourceProfile)" in awake
+            and "SourcePlayerProvider.ResolveActorMode(profile)" in awake,
+            "activation must preserve the selected C1/C2 team/resource profile, not historical B1/157 resources")
     require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake,
             "Core/geometry/Team/renderer must share the actual canonical157 animation instance")
     require(awake.count("bridge.AfterSimulationStep+=OnAfterSimulationStep;") == 1
@@ -245,7 +254,8 @@ def validate_runtime(source):
     require("callback.Kind!=SourcePresentationCueKind.PlayerDownCallback" in route
             and "soundTransport.TakeForCue(callback)" in route
             and "dispatch.Status==SourceSoundVmStatus.Resolved" in route
-            and "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);return;" in route
+            and "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);"
+            "soundTransport.FlushNativePrefix();return;" in route
             and route.count("playCamera.ConsumeSourceCue(cue);") == 1,
             "paired resolved sounds must bypass generic callbacks once; Unsupported/PlayerDown are not replayed as sound")
     require("SourcePresentationCueObserved" in cue and cue.index("observed(cue);") < cue.index("handler(cue);"),
@@ -258,11 +268,21 @@ def validate_runtime(source):
 
 def validate_services(source):
     code = compact(uncomment(source))
-    require('ResourceKey="BlitzSourceInterface/original-movement157-soundvm-match-services"' in code
+    require("ResourceKey=SourceInterfacePackagePlan.ContactServicesResourceKey;" in code
+            and "C2ResourceKey=SourceInterfacePackagePlan.C2ServicesResourceKey;" in code
+            and "C2M1ResourceKey=SourceInterfacePackagePlan.C2M1ServicesResourceKey;" in code
+            and "HistoricalSoundVmResourceKey=SourceInterfacePackagePlan.SoundVmServicesResourceKey;" in code
             and 'ExpandedAnimationSha256="f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e"' in code,
-            "M1 services need distinct157 resource identity and exact converter-replay manifest")
-    require("rosters:teams.Rosters,presentation:PresentationSettings,movementData:MovementData,movementSettings:MovementSettings)" in code,
-            "actual full Core constructor must receive mandatory typed M1 data/settings after presentation")
+            "current C1/C2 resource identities and historical157 manifest must remain distinct")
+    create = compact(method(source, "CreateSimulation"))
+    require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create
+            and "SourceC2Composition.CreateSimulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap)" in create
+            and "SourceC2Composition.CreateM1Simulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
+            "compatibility:compatibility)" in create,
+            "all actual C1/C2 factories must receive mandatory typed movement/settings and sound inputs")
     require("newSourceMovementDefenseRow(row.Line,row.Back,row.Base,row.Range,row.Plow)" in code
             and "newSourceMovementRuntimeData(movement,actual.Friction,rows)" in code
             and "for(inti=0;i<rows.Length;i++)" in code
@@ -281,19 +301,20 @@ def validate_services(source):
             and "if(movementAsset==null)thrownewSourceInterfaceException(" in code,
             "mandatory movement data must use the strict original89c790 resource, never Responses or defaults")
     require("SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)" in code
-            and "newSourceCatchGeometry(animations,pivots)" in code
-            and "prefab.GetUnityReferencePivot(i)" in code,
-            "M1 requires per-prefab157 rosters and same actual animation/15-pivot geometry")
+            and "prefab.JointCount!=SourceTiming.JointCount" in create
+            and "prefab.GetUnityReferencePivot(i)" in create,
+            "source factories require per-prefab rosters and all fifteen actual reference pivots")
     require("TextAssetmovementBootstrapText,stringtrustedMovementBootstrapSha256," in code
             and "TextAssetsoundVmFunctions,stringtrustedSoundVmSHA)" in code,
             "sound profile must retain M1 prefix plus explicit SAFN bytes/pin")
-    require("Resources.Load<SourceAnimationLibraryAsset>(SourcePlayerProvider.MovementAnimationResourceKey)" in code
+    require("Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey)" in code
             and "!ReferenceEquals(originalAnimations,canonical)" in code,
-            "matching157 hashes on an arbitrary serialized asset must not bypass canonical Resource identity")
-    create = compact(method(source, "CreateSimulation"))
-    require("actual.BindSourceSoundVmData(SoundVmData);" in create and
-            create.index("newGameSimulation(") < create.index("actual.BindSourceSoundVmData(SoundVmData);") <
-            create.index("returnactual;"), "immutable sound data must bind after actual M1 construction before any bridge wake")
+            "matching hashes on another profile or copied asset cannot bypass canonical Resource identity")
+    require("SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data)" in create
+            and create.index("SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data)") <
+            create.index("SourceC2Composition.CreateM1Simulation(")
+            and "newGameSimulation(" not in create and "BindSourceSoundVmData(" not in create,
+            "services delegate immutable binding to the actual factories, with C2 bootstrap before construction")
     require('SoundVmFunctionsResourceKey="SourceData/sound-functions-safn1-4a557304"' in code
             and "Resources.Load<TextAsset>(SoundVmFunctionsResourceKey)" in code
             and "!ReferenceEquals(originalSoundVmFunctions,canonical)" in code
@@ -301,6 +322,30 @@ def validate_services(source):
             and "SourceAudioFunctionData.Read(originalSoundVmFunctions.bytes,GameSimulation.SourceSoundVmDataSha256)" in code,
             "SAFN must use the canonical original1983-byte TextAsset and Core trusted4a557 pin, not a resource alias")
     return 11
+
+
+def validate_sound_factory(source, method_name, sound_parameter):
+    create = compact(method(source, method_name))
+    construction = "newGameSimulation(animations,geometry,playbook,configuration,randomFactory,seed,"
+    require(construction + "rosters,presentation,movementData,movementSettings," in create,
+            "actual sound factory must pass complete typed kernel inputs to the real constructor")
+    pin = sound_parameter + ".PayloadSha256!=SourceInterfacePackagePlan.SoundVmFunctionsSha256"
+    require(pin in create and create.index(pin) < create.index(construction),
+            "actual sound factory must validate the trusted SAFN before construction")
+    geometry = "newSourceCatchGeometry(animations,referencePivots)"
+    require("referencePivots.Count!=SourceTiming.JointCount" in create and geometry in create
+            and create.index(geometry) < create.index(construction),
+            "actual sound factory must use all fifteen real pivots for its same-library geometry")
+    binding = "game.BindSourceSoundVmData(" + sound_parameter + ");"
+    require(create.count("BindSourceSoundVmData(") == 1 and binding in create and "returngame;" in create
+            and create.index(construction) < create.index(binding) < create.index("returngame;"),
+            "actual sound factory must bind immutable SAFN exactly once before returning to any bridge wake")
+    return 4
+
+
+def validate_sound_factories(source_root):
+    return sum(validate_sound_factory((source_root / name).read_text(), method_name, sound_parameter)
+               for name, method_name, sound_parameter in SOUND_FACTORIES)
 
 
 def validate_hud_scope(source):
@@ -327,6 +372,9 @@ class CallerGuards(unittest.TestCase):
     def test_actual_movement_services(self):
         self.assertEqual(validate_services((SOURCE_ROOT / SERVICES).read_text()), 11)
 
+    def test_actual_factories_bind_immutable_sound_before_returning(self):
+        self.assertEqual(validate_sound_factories(SOURCE_ROOT), 8)
+
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
         mutants = [
@@ -348,6 +396,9 @@ class CallerGuards(unittest.TestCase):
             ("unused-delegate", "int heading = sourceCameraProducer(preActorState, executingSourceTick);", "int heading = 0;"),
             ("no-consumed-check", "simulation.SourceCameraHeadingSampleTick != source.SourceTick", "false"),
             ("silent-legacy", 'if (!ExplicitGraybox(Application.absoluteURL))', "if (false)"),
+            ("C2-graybox-fallback",
+             "if (profile.UsesC2Data)\n                        throw new SourceInterfaceException(\"Explicit C2 entry cannot silently select legacy graybox/old bank initialization.\");",
+             "if (false)\n                        throw new SourceInterfaceException(\"Explicit C2 entry cannot silently select legacy graybox/old bank initialization.\");"),
             ("resource-tolerance", "if (sourceServices == null)", "if (false)"),
             ("missing-unsubscribe", "SourcePresentationCueRaised -= ConsumeSourcePresentationCue;", ""),
             ("guessed-raw-mode", "state => simulation.SourceCameraRawGameMode", "state => (int)state.Phase"),
@@ -360,7 +411,13 @@ class CallerGuards(unittest.TestCase):
              "frame.Position, frame.Transform, Screen.width, Screen.height"),
             ("wrong-frame-tick", "bootstrap.VerticalResolution), executingSourceTick);",
              "bootstrap.VerticalResolution), preActorState.Tick);"),
-            ("old-team-profile", "SourcePlayerProvider.ResolveActorMode(true)", "SourcePlayerProvider.ResolveActorMode()"),
+            ("old-team-profile", "SourcePlayerProvider.ResolveActorMode(profile)", "SourcePlayerProvider.ResolveActorMode(true)"),
+            ("fixed-profile-resource", "SourceInterfaceServices.ResourceKeyFor(profile)", "SourceInterfaceServices.ResourceKey"),
+            ("missing-explicit-profile", "SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL, sourceResourceProfile)",
+             "SourceTeamResourceProfile.Contact272"),
+            ("compatibility-disconnected", "sourceServices.CreateSimulation(prefab, compatibility)", "sourceServices.CreateSimulation(prefab)"),
+            ("native-prefix-flush-removed",
+             "soundTransport.FlushNativePrefix();\n                    return;", "return;"),
             ("different-library-instance", "!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))",
              "false"),
             ("missing-movement-frame",
@@ -387,11 +444,20 @@ class CallerGuards(unittest.TestCase):
 
     def test_isolated_actual_service_mutants(self):
         source = (SOURCE_ROOT / SERVICES).read_text()
+        c1 = ("SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
+              "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData)")
+        c2 = ("SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
+              "                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap)")
+        m1 = ("SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),\n"
+              "                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,\n"
+              "                        compatibility: compatibility)")
         mutants = (
-            ("omitted-data", "movementData: MovementData, movementSettings: MovementSettings",
-             "movementData: null, movementSettings: MovementSettings"),
-            ("omitted-settings", "movementData: MovementData, movementSettings: MovementSettings",
-             "movementData: MovementData, movementSettings: null"),
+            ("omitted-data", c1, c1.replace("MovementData,", "null,")),
+            ("omitted-settings", c1, c1.replace("MovementSettings,", "null,")),
+            ("omitted-c2-data", c2, c2.replace("MovementData,", "null,")),
+            ("omitted-c2-settings", c2, c2.replace("MovementSettings,", "null,")),
+            ("omitted-m1-data", m1, m1.replace("MovementData,", "null,")),
+            ("omitted-m1-settings", m1, m1.replace("MovementSettings,", "null,")),
             ("swapped-defense", "row.Line, row.Back, row.Base, row.Range, row.Plow",
              "row.Back, row.Line, row.Base, row.Range, row.Plow"),
             ("fake-friction", "new SourceMovementRuntimeData(movement, actual.Friction, rows)",
@@ -404,7 +470,7 @@ class CallerGuards(unittest.TestCase):
             ("legacy-team-resource", "SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)",
              "SourcePlayerProvider.ResolveRequiredTeamPresentation()"),
             ("hash-only-animation-alias", "!ReferenceEquals(originalAnimations, canonical)", "false"),
-            ("missing-SAFN-binding", "actual.BindSourceSoundVmData(SoundVmData);", ""),
+            ("missing-SAFN-input", c1, c1.replace("SoundVmData)", "null)")),
             ("SAFN-resource-alias", "!ReferenceEquals(originalSoundVmFunctions, canonical)", "false"),
         )
         for name, old, new in mutants:
@@ -412,6 +478,25 @@ class CallerGuards(unittest.TestCase):
                 self.assertEqual(source.count(old), 1, name)
                 with self.assertRaises(AssertionError, msg=name):
                     validate_services(source.replace(old, new, 1))
+
+    def test_isolated_actual_factory_mutants(self):
+        for name, method_name, sound_parameter in SOUND_FACTORIES:
+            source = (SOURCE_ROOT / name).read_text()
+            binding = "game.BindSourceSoundVmData(" + sound_parameter + ");"
+            for label, old, new, assertion in (
+                ("missing-binding", binding, "", "bind immutable SAFN"),
+                ("wrong-binding", binding, "game.BindSourceSoundVmData(null);", "bind immutable SAFN"),
+                ("omitted-movement",
+                 "new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,\n"
+                 "                rosters, presentation, movementData, movementSettings,",
+                 "new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,\n"
+                 "                rosters, presentation, null, movementSettings,", "complete typed kernel inputs"),
+                ("omitted-geometry", "new SourceCatchGeometry(animations, referencePivots)", "null", "fifteen real pivots"),
+            ):
+                with self.subTest(factory=name, mutant=label):
+                    self.assertEqual(source.count(old), 1, label)
+                    with self.assertRaisesRegex(AssertionError, assertion):
+                        validate_sound_factory(source.replace(old, new, 1), method_name, sound_parameter)
 
     def test_actual_hud_scope(self):
         source = (SOURCE_ROOT / HUD).read_text()
@@ -715,7 +800,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     report = {"schema": "source-interface-stage-followup-checks/v2", "status": "failed",
-              "source_profile": "original-movement157-soundvm",
+              "source_profile": "explicit-contact272-or-contact281-c2-services",
               "whole_game_parity_claimed": False, "native_editor_browser_executed": False}
     try:
         args.source_root = args.source_root.resolve(strict=True)
@@ -726,21 +811,27 @@ def main(argv=None):
             dependency_bytes(args.dependency_overlay, args.dependency_overlay_sha256)
         result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(CallerGuards))
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
-        report.update(guard_contracts=39, rejected_actual_source_guard_mutants=27,
-                      rejected_actual_service_guard_mutants=11,
+        report.update(guard_contracts=47, rejected_actual_source_guard_mutants=32,
+                      rejected_actual_service_guard_mutants=15, rejected_actual_factory_guard_mutants=8,
                       hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=8,
                       root_overlay_project_negative_guards=11, guard_tests=result.testsRun,
                       source_mode="explicit-protected-snapshots" if snapshot else "current-release-checkout",
                       implicit_protected_state_required=False,
                       runtime_sha256=digest((SOURCE_ROOT / RUNTIME).read_bytes()),
-                      playhud_sha256=digest((SOURCE_ROOT / HUD).read_bytes()))
+                      playhud_sha256=digest((SOURCE_ROOT / HUD).read_bytes()),
+                      sound_factory_sha256={name: digest((SOURCE_ROOT / name).read_bytes())
+                                            for name, _, _ in SOUND_FACTORIES})
         if args.verify_clean_checkout:
             report["clean_checkout_default"] = verify_clean_checkout(args)
         if args.unity_editor_data:
             report["actual_Unity_API"] = compile_actual(args.unity_editor_data.resolve(strict=True), args)
         report["status"] = "passed"
-        print(json.dumps({"status": "passed", "guard_contracts": 39, "rejected_guard_mutants": 38,
-                          "hud_scope_mutants": 1, "owned_inventory_mutants": 8,
+        print(json.dumps({"status": report["status"], "guard_contracts": report["guard_contracts"],
+                          "rejected_guard_mutants": report["rejected_actual_source_guard_mutants"] +
+                              report["rejected_actual_service_guard_mutants"] +
+                              report["rejected_actual_factory_guard_mutants"],
+                          "hud_scope_mutants": report["hud_scope_mutants_rejected"],
+                          "owned_inventory_mutants": report["owned_inventory_mutants_rejected"],
                           "actual_Unity_API_compiled": args.unity_editor_data is not None, "native_claimed": False}))
         return 0
     except (AssertionError, OSError, ValueError, ET.ParseError, subprocess.SubprocessError) as error:
