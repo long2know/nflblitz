@@ -308,9 +308,15 @@ itself and its public source/Docker dependencies. Its read-only, ten-minute job
 uses the same pinned checkout/Node/.NET10.0.100 setup as `game-build.yml`. It
 compiles the actual native Checks/Core projects with an empty local NuGet feed,
 runs the existing three cabinet-input tests, the two named public preparation
-failure gates, the three hosting guards, and workflow mutation guards. Hosting
+failure gates, the four hosting guards, and workflow mutation guards. Hosting
 checks use the existing Compose CLI parser with an unavailable daemon endpoint;
 the job does not install Docker, Chrome or browser-WASM workloads.
+
+Hosting guards normalize the known Compose 2/5 JSON bind-flag dialects: omitted
+means `false` in Compose 2 and the `true` default in Compose 5. Enabled, malformed,
+removed no-create settings and unknown dialects remain rejected. Both authored
+mounts must retain their explicit read-only/no-create declaration. The checks explicitly
+disable implicit dotenv loading. The Compose service and live bundle are unchanged.
 
 This is **not** host3479, Node10, data3, loader5, GPU/gameplay or Unity qualification.
 Host3479 requires the complete private `data/manifest.json` and its518 original
