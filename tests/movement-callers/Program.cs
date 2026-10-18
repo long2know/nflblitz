@@ -279,6 +279,7 @@ internal static partial class Program
     private static int Main(string[] args)
     {
         if (args.Length == 6 && args[0] == "snap-hike") return SnapHikeChecks(args);
+        if (args.Length == 1 && args[0] == "portable-public-policy-checks") return PortablePolicyChecks();
         var result = new Dictionary<string, object> {
             { "schema", "source-movement-caller-checks/v1" }, { "status", "error" },
             { "whole_M1_or_full_gameplay_qualified", false }, { "native_or_browser_qualified", false }
@@ -307,7 +308,10 @@ internal static partial class Program
                 "m1-complete", "m1-complete-observed", "historical-canonical-replay", "historical-canonical-replay-observed"
             }.Contains(args[2]);
             bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
-            if (!canonical && !m1Replay && (args.Length != 3 && args.Length != 4 ||
+            bool portablePolicy = args.Length == 6 && args[2] == "portable-public-policy";
+            if (portablePolicy && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
+                throw new ArgumentException("Portable public policy requires explicit --source-compatibility portable.");
+            if (!canonical && !m1Replay && !portablePolicy && (args.Length != 3 && args.Length != 4 ||
                 !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
@@ -317,7 +321,7 @@ internal static partial class Program
             real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded",
                 soundFunctionsPath: args.Length >= 4 ? args[3] : null,
                 c2InputsPath: canonical || historicalReplay ? args[4] : c2Inputs,
-                c2M1InputsPath: m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
+                c2M1InputsPath: portablePolicy || m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
             if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile)
@@ -325,6 +329,7 @@ internal static partial class Program
             result["gameplay_compatibility"] = gameplayCompatibility.ToString();
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
+            if (portablePolicy) return AuthorPortablePublicPolicy(args[5], result);
             if (args[2] == "compatibility")
             {
                 compatibilitySoundFunctions = args[3];

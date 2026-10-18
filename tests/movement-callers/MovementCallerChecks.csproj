@@ -21,6 +21,7 @@
     <Compile Include="Controlled.cs" />
     <Compile Include="InputAndStation.cs" />
     <Compile Include="Canonical.cs" />
+    <Compile Include="PortablePublicPolicy.cs" />
     <Compile Include="SnapHikeChecks.cs" />
     <Compile Include="CompatibilityChecks.cs" />
   </ItemGroup>
