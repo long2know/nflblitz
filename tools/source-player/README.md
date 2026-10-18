@@ -301,6 +301,26 @@ These are browser-input/render functional tests, **not** a rerun or claim of the
 parent's fullM1/source traces, R_SKIP coverage or native arcade qualification.
 All evidence stays in ignored `tools/source-player/artifacts/`.
 
+### Asset-free pull-request CI
+
+`.github/workflows/source-player.yml` independently covers `tools/source-player/**`,
+itself and its public source/Docker dependencies. Its read-only, ten-minute job
+uses the same pinned checkout/Node/.NET10.0.100 setup as `game-build.yml`. It
+compiles the actual native Checks/Core projects with an empty local NuGet feed,
+runs the existing three cabinet-input tests, the two named public preparation
+failure gates, the three hosting guards, and workflow mutation guards. Hosting
+checks use the existing Compose CLI parser with an unavailable daemon endpoint;
+the job does not install Docker, Chrome or browser-WASM workloads.
+
+This is **not** host3479, Node10, data3, loader5, GPU/gameplay or Unity qualification.
+Host3479 requires the complete private `data/manifest.json` and its518 original
+inputs. Seven Node artifact tests require saved `artifacts/portable-player/evidence.json`.
+The third preparation test verifies private data and otherwise skips, so CI
+explicitly selects only its other two public cases rather than reporting that
+skip as asset coverage. Full private-data and emitted-browser checks retain their
+documented local commands above; no private inputs, live bundle, screenshots,
+credentials or source-download steps are supplied to this workflow.
+
 ## Supported platform documentation
 
 - [Microsoft: WebAssembly browser app withJSImport/JSExport](https://learn.microsoft.com/en-us/aspnet/core/client-side/dotnet-interop/wasm-browser-app?view=aspnetcore-10.0)

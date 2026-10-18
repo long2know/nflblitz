@@ -1,0 +1,68 @@
+name: Source player asset-free checks
+
+on:
+  pull_request:
+    paths:
+      - 'Assets/**'
+      - 'Dockerfile'
+      - 'tools/source-player/**'
+      - '.github/workflows/game-build.yml'
+      - '.github/workflows/source-player.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Assets/**'
+      - 'Dockerfile'
+      - 'tools/source-player/**'
+      - '.github/workflows/game-build.yml'
+      - '.github/workflows/source-player.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  asset-free:
+    name: Public host compile and asset-free regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.11.1'
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: '10.0.100'
+      - name: Select the tested SDK
+        run: |
+          printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json
+      - name: Guard workflow coverage and resource boundaries
+        run: python3 -B tools/source-player/test_ci.py
+      - name: Compile the actual public host without private inputs
+        run: |
+          mkdir -p tools/source-player/.runtime/empty-nuget
+          SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh restore tools/source-player/SourcePlayer.Checks.csproj --source "$PWD/tools/source-player/.runtime/empty-nuget" -p:NuGetAudit=false --nologo
+          SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-restore --nologo
+      - name: Test public cabinet input
+        run: node --test tools/source-player/input.test.mjs
+      - name: Test public preparation failure gates
+        working-directory: tools/source-player
+        run: python3 -B -m unittest prepare_test.PreparationChecks.test_relative_explicit_input_roots_are_normalized_without_allowing_traversal prepare_test.PreparationChecks.test_real_source_artifact_mutation_is_rejected_by_name
+      - name: Test standalone hosting configuration without a daemon
+        env:
+          DOCKER_HOST: unix://${{ github.workspace }}/.source-player-ci-no-daemon.sock
+        run: |
+          docker compose version
+          python3 -B tools/source-player/hosting_test.py
