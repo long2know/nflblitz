@@ -1,0 +1,24 @@
+{
+  "schema": "original-free-ball-source-pins/v1",
+  "sourceRepository": "historicalsource/nflblitz2000",
+  "sourceRevision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "sourceAuthoringReconstructionNotNativeGeneratedHeader": true,
+  "drawPath": "player.c:ball_proc -> create_object(draw_ball) -> render_limb(limb_medball_obj_big) -> xform_limb_fs/draw_tris",
+  "modelRecipe": "models/models.mak:medball2.h <- medball2.sdl; cvtmod -name medball2 -append _big; factor1; original authoring origin",
+  "inputs": [
+    {"path": "player.c", "sha256": "61fb1be76029663294630e8633574ed065496da1ef6329071817e80622870b52"},
+    {"path": "models/models.mak", "sha256": "9cb90b266698af06170de993fb469dc3a07d8100be52ecae30d070ac87e6a5f2"},
+    {"path": "models/medball2.sdl", "bytes": 13635, "gitBlobSha1": "ede5c3590475f55011340f2b6bcfb4b51304e1f0", "sha256": "d54218dd7d0fc45fe7ad7072cb39b12913dfed80687999f69d5e93a269bc9704"},
+    {"path": "lib/ani3d/pipe3D.c", "sha256": "ad9ae52d41d90931c138f08511c49a997f16b798a4541567b4fcc34fcc375eb4"},
+    {"path": "lib/ani3d/TRIGS.H", "gitBlobSha1": "a07d76798931f1240bdf7f3b8e753ebd7832763a", "sha256": "ae169332068a0561759bf5eb6ccaac4400a54ca5465d3b302908539388cf0ed4"},
+    {"path": "lib/ani3d/geom.s", "gitBlobSha1": "fecf16a0511ab5d14a7f5e3a96742407e1d43aa6", "sha256": "f6c729fa3b0a70fcdaca41df8151729a747b8cdc8a4fdcf4f06b094156bb643a"},
+    {"path": "img3d/hedshu.tga", "gitBlobSha1": "f0d83461cc66bc6876fc8d005dae55ec18d07569", "sha256": "b2a5795cc67286d6a9a1c60c21f92f393134ab81f18dedfad84ffe405edb3fa3"},
+    {"path": "img3d/hedshu2.tga", "gitBlobSha1": "49397b2648f721bc03184c56328980894b0b637e", "sha256": "b59af47bf7baf6a2bcffacd4fb68af206229099102c00baf608d771f4ac5836e"}
+  ],
+  "sourceGeometry": {"vertices": 26, "textureCoordinates": 66, "triangles": 48, "rawTextureCode": 0, "sourceSUnits": 256, "sourceTUnits": 256},
+  "uvRepresentation": "The private source-authored header uses an explicit256-unit importer intermediate, normalized back to SDL UVs before GPU upload. It is not the absent native header layout: active geom.s draw_tris expects normalized ST then applies aspect-dependent Glide units; player draw_tris_noar is a different path.",
+  "calibration": "The exact original plyr266/plyr498 SDL-generated pairs from prepare_popped_head.py prove binary32/printed coordinates, expanded topology/winding/materials and HEDSHU UV precision; not native medball2.h byte equivalence.",
+  "readOnlyRuntimeProjection": ["SourceBallHeading", "SourceBallElevation", "SourceBallRoll", "SourceBallScale", "SourceBallPosition", "SourceBallFlags", "CarrierId", "SourceTick", "SourcePresentation.PupBigBall"],
+  "matrixOrder": "source row-major affine3x4: Y(fwd) * X(-fwd2) * Z(phi); scale basis only; position minus camera eye; camera * relative ball",
+  "limits": ["Original generated medball2.h is absent.", "The bound original HEDSHU authoring atlas and SDL UV footprint are red/orange. No brown recolor, BALL.WMS swap or unsupported native texture equivalence is asserted.", "Native Composit, Texus/WMS quantization, compiler/FMA, global render-counter state, scheduler and pixels remain unqualified.", "Main-ball alpha255 is source initialization, not the independently scheduled trail_ball_proc objects.", "This consumer projects actual current Core orientation fields; it does not repair or claim whole-ball_proc lifecycle parity.", "Public archive availability does not establish reuse rights; original source, artwork and derived numeric payloads remain private and ignored."]
+}

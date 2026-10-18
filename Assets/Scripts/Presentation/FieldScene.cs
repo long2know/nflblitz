@@ -149,11 +149,14 @@ namespace Blitz.Presentation
 
             ball = new GameObject("Ball / simulation flight height").transform;
             ball.SetParent(root, false);
-            Primitive("Original football", PrimitiveType.Sphere, ball, Vector3.zero,
-                new Vector3(0.46f, 0.42f, 0.75f), Lit("Football / leather", new Color32(143, 70, 32, 255)));
-            Box("Football laces", ball, new Vector3(0f, 0.208f, 0f), new Vector3(0.07f, 0.03f, 0.32f), trim, false);
-            for (int stitch = -1; stitch <= 1; stitch++)
-                Box("Lace stitch", ball, new Vector3(0f, 0.226f, stitch * 0.1f), new Vector3(0.2f, 0.025f, 0.025f), trim, false);
+            if (sourcePrefab == null)
+            {
+                Primitive("Explicit graybox football", PrimitiveType.Sphere, ball, Vector3.zero,
+                    new Vector3(0.46f, 0.42f, 0.75f), Lit("Football / leather", new Color32(143, 70, 32, 255)));
+                Box("Football laces", ball, new Vector3(0f, 0.208f, 0f), new Vector3(0.07f, 0.03f, 0.32f), trim, false);
+                for (int stitch = -1; stitch <= 1; stitch++)
+                    Box("Lace stitch", ball, new Vector3(0f, 0.226f, stitch * 0.1f), new Vector3(0.2f, 0.025f, 0.025f), trim, false);
+            }
             ballShadow = Primitive("Ball ground shadow", PrimitiveType.Cylinder, root, Vector3.zero,
                 new Vector3(0.85f, 0.007f, 0.85f), shadow, false).transform;
             ballTrail = new GameObject("Recent real ball flight").AddComponent<LineRenderer>();
@@ -166,6 +169,9 @@ namespace Blitz.Presentation
             ballTrail.shadowCastingMode = ShadowCastingMode.Off;
             ballTrail.receiveShadows = false;
             ballTrail.positionCount = 0;
+            ball.gameObject.SetActive(sourcePrefab == null);
+            ballShadow.gameObject.SetActive(sourcePrefab == null);
+            ballTrail.gameObject.SetActive(sourcePrefab == null);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.68f, 0.75f, 0.79f);
@@ -260,9 +266,9 @@ namespace Blitz.Presentation
                 actor.TargetRing.transform.localScale = new Vector3(pulse, 1f, pulse);
             }
 
+            if (sourceTeams != null) return;
             BallView ballView = state.Ball;
-            ball.gameObject.SetActive(sourceTeams == null || ballView.CarrierId == -1 ||
-                (ballView.Presentation.RawFlags & 0x800) != 0);
+            ball.gameObject.SetActive(true);
             Vector3 position = Ground(ballView.Position) + Vector3.up * Mathf.Max(0.3f, ballView.Height);
             if (ballView.Mode == BallMode.Held && ballView.CarrierId >= 0 && ballView.CarrierId < actors.Length)
             {

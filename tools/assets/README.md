@@ -1,5 +1,62 @@
 # Original player/team presentation inputs
 
+## Original free-ball SDL reconstruction
+
+Free and held balls have **different source assets and materials**.
+`player.c:10475–10542` draws `limb_medball_obj_big`, generated from
+`models/medball2.sdl`, against the sole `hedshu.wms` decal
+(`hedshu2.wms` for raw `BF_ALT`). It does not extract `hand001b` or bind the
+held actor's `ball.wms` slot6. The pinned source recipe is
+`cvtmod -name medball2 -append _big`, factor1, with the original authoring
+origin unchanged. The actual SDL has26 positions/66 STs/48 triangles.
+`free_ball_inputs.json` records exact source pins and qualification limits.
+
+```sh
+python3 -B tools/assets/prepare_free_ball.py \
+  --original-sdl "$ORIGINAL_MEDBALL2_SDL" \
+  --calibration-models "$PINNED_CALIBRATION_MODELS" \
+  --output .squad/.scratch/free-ball-bundle
+python3 -B -m unittest discover -s tools/assets -p test_prepare_free_ball.py
+```
+
+The strict7.51 adapter consumes the complete selected geometry grammar and
+reuses the existing SDL/generated `plyr266`/`plyr498` calibration, including
+HEDSHU UV precision. Output is an explicitly **source-authored reconstruction,
+not recovered native `medball2.h`**. Original and derived numeric payloads stay
+private/ignored; the preparer never fetches. Existing team import already owns
+the two byte-identical HEDSHU authoring TGAs and their reuse authorization.
+No public archive or this recipe establishes redistribution rights.
+
+Active `geom.s:draw_tris` uses normalized ST and then applies its
+aspect-dependent Glide scale; player `draw_tris_noar` is a different path.
+The private source-authored header deliberately uses an explicit256-unit
+**importer intermediate**, normalized back before upload. This is not an
+assertion about the absent native `medball2.h` layout.
+The actual archived HEDSHU atlas/SDL footprint renders red/orange. Source
+selection and transform correctness are not permission to recolor it brown,
+swap the held-ball atlas or claim missing native WMS/TIF pixel equivalence.
+
+The typed `SourceFreeBallAsset` validates the source/header pins, exact
+positions/UVs/source321 indices, unchanged zero bind pivot and both original
+team decal identities. A separately authorized licensed Editor may create a
+**new**, non-overwriting resource through:
+
+```text
+-executeMethod Blitz.Presentation.SourceFreeBallAsset.ImportFromCommandLine
+-freeBallRoot <absolute private calibrated free-ball-bundle>
+-freeBallManifestSha256 3d7ab26acab8a968058c6644011e1ac503547bf6ae67705974e3848ee5e00549
+-freeBallTeamAsset Assets/Imported/<actual-profile>/Resources/BlitzSourcePlayers/<actual-profile>/team-presentation.asset
+-freeBallOutput Assets/Imported/<new-ball-profile>/Resources/BlitzSourceFreeBall
+```
+
+This task does not execute an Editor/import or claim a Unity player build.
+Source mode requires that resource explicitly; generic ball/shadow/trail
+graybox objects are not source-mode substitutes. The source camera-space
+renderer and WASM consumer use the same pure source rotation model. Native
+generated-header/compiler/FMA, WMS quantization, global rendering and pixels
+remain unqualified. Main-ball rendering does not fabricate the separately
+scheduled `trail_ball_proc` objects.
+
 ## Original popped-head SDL reconstruction
 
 `models/head.h` is not in the pinned original tree, but **the authoring geometry

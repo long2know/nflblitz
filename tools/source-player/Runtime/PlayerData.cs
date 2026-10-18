@@ -25,6 +25,7 @@ public sealed class PlayerData
     public SourceEnvironmentBundle World { get; }
     public SourceFireSpfxBundle Fire { get; }
     public SourceTeamPoppedHeadData PoppedHead { get; }
+    public SourceFreeBallData FreeBall { get; }
     private readonly Dictionary<string, string> headers = new(StringComparer.Ordinal);
 
     public PlayerData(DataCatalog data, Action<string> progress = null)
@@ -91,6 +92,10 @@ public sealed class PlayerData
             PoppedHead = SourceTeamPoppedHeadData.Read(data.EntryBytes("poppedHead"), data.EntryHash("poppedHead"),
                 path => data.Read("popped-head/" + path));
         }
+        progress?.Invoke("Verifying original medball2 free-ball authoring origin and HEDSHU/HEDSHU2 decals");
+        FreeBall = SourceFreeBallData.Read(data.EntryBytes("freeBall"), data.EntryHash("freeBall"),
+            path => data.Read("free-ball/" + path));
+        SourceFreeBallData.RequireTextures(Teams);
     }
 
     public string Header(string path) => headers.TryGetValue(path, out string text) ? text :

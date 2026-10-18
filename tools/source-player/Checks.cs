@@ -17,12 +17,15 @@ static class Checks
     {
         try
         {
+            if (args.Length == 1 && args[0] == "--free-ball-synthetic") { FreeBallChecks.Synthetic(); return 0; }
             if (args.Length < 1) throw new ArgumentException("Explicit prepared private data root required.");
             string root = Path.GetFullPath(args[0]);
             byte[] manifest = File.ReadAllBytes(Path.Combine(root, "manifest.json"));
             byte[] Read(string path) => File.ReadAllBytes(Path.Combine(root, path));
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
+            if (args.Contains("--free-ball-only")) { FreeBallChecks.Run(data); return 0; }
+            if (args.Length == 3 && args[1] == "--free-ball-reference") { FreeBallChecks.VerifyReference(data, args[2]); return 0; }
             Check(data.Animations.SequenceNames.Count == 281 && data.Animations.FrameCount == 26230,
                 "The actual original281 library must feed gameplay and pose sampling.");
             Check(data.Callbacks.Profile == SourceC2CallbackData.M1Profile && data.Callbacks.Bindings.Count == 14,
@@ -35,7 +38,7 @@ static class Checks
                 "Actual production fourteen-actor/fifteen-joint render data is required, not static inspection.");
             Check(sink.Models.Count == 32 && sink.WorldDraws > 0 && sink.Textures.Count == data.Teams.Textures.Count + 27,
                 "The actual complete original model selector, world and texture inventories must be uploaded.");
-            Check(sink.HasOriginalBall, "The original ball material6 mesh must be bound, never a sphere placeholder.");
+            Check(sink.HasOriginalBall, "The original medball2/HEDSHU free-ball mesh must be bound, never a hand extraction or sphere.");
             var actors = sink.State.GetProperty("actors").EnumerateArray().ToArray();
             Check(actors.Count(a => a.GetProperty("team").GetString() == "Home") == 7 &&
                 actors.Count(a => a.GetProperty("team").GetString() == "Away") == 7,
@@ -79,6 +82,7 @@ static class Checks
             RejectMissingAndChanged(manifest, Read, catalog.Entry("model"));
             VerifyCausalInput(data);
             VerifyDeferredOriginalHud(data);
+            FreeBallChecks.Run(data);
             if (data.Fire != null) FeatureChecks.Run(data);
             if (data.PoppedHead != null) PoppedHeadChecks.Run(data);
             if (args.Contains("--require-portable"))
@@ -239,7 +243,7 @@ static class Checks
             using var json = JsonDocument.Parse(metadata);
             Check(json.RootElement.GetProperty("tint").GetString() == "none", "Original uniforms cannot be replaced by tint.");
         }
-        public void FreeBall(string mesh, string texture, string origin) =>
+        public void FreeBall(string mesh, string texture, string alternateTexture, string metadata) =>
             HasOriginalBall = Meshes.Contains(mesh) && Textures.ContainsKey(texture);
         public void Effects(double[] projection, double[] vertices, int[] textures, int[] rawFlags,
             double[] flashAlpha, string metadata) { }

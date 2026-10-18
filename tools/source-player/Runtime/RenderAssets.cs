@@ -166,22 +166,26 @@ public sealed class RenderAssets
 
     private void UploadBall()
     {
-        // Original hand001b's material6 is the ball, not the skin triangles. Recenter that
-        // exact geometry for the separate ball. Its native free-ball orientation is unqualified.
-        BindPoseLimbMesh hand = models[8][4];
-        var triangles = hand.SubmeshTriangles[6];
-        DataCatalog.Require(triangles.Count >= 12, "Original ball material6 geometry is missing; no sphere fallback.");
-        var points = triangles.Distinct().Select(i => hand.Positions[i]).ToArray();
-        var center = new AssetVector3((points.Min(p => p.X) + points.Max(p => p.X)) / 2,
-            (points.Min(p => p.Y) + points.Max(p => p.Y)) / 2,
-            -(points.Min(p => p.Z) + points.Max(p => p.Z)) / 2);
-        const string id = "original/free-ball/hand001b-material6";
+        BindPoseLimbMesh mesh = data.FreeBall.BuildSourceMesh();
+        var vertices = new double[mesh.Positions.Count * 5];
+        for (int i = 0; i < mesh.Positions.Count; i++)
+        {
+            AssetVector3 p = mesh.Positions[i]; AssetVector2 uv = mesh.Uvs[i];
+            vertices[i * 5] = p.X; vertices[i * 5 + 1] = p.Y; vertices[i * 5 + 2] = p.Z;
+            vertices[i * 5 + 3] = uv.X; vertices[i * 5 + 4] = uv.Y;
+        }
+        const string id = "original/free-ball/limb_medball_obj_big";
         meshes.Add(id);
-        sink.Mesh(id, Vertices(hand, center), triangles.ToArray());
-        var uniform = data.Rosters.GetUniform(data.Configuration.Match.HomeTeam.TeamIndex,
-            SourceUniformVariant.Home, SourceSkinSelector.White);
-        string texture = "teams/" + uniform.Slots[6].Id;
-        sink.FreeBall(id, texture, "original hand001b material6, recentered; native free-ball orientation unqualified");
+        sink.Mesh(id, vertices, mesh.SubmeshTriangles[0].ToArray());
+        sink.FreeBall(id, "teams/" + SourceFreeBallData.TextureId, "teams/" + SourceFreeBallData.AlternateTextureId,
+            JsonSerializer.Serialize(new {
+                origin = SourceFreeBallData.Origin, sourceSha256 = SourceFreeBallData.SourceSha256,
+                geometrySha256 = SourceFreeBallData.HeaderSha256, manifestSha256 = data.FreeBall.ContentSha256,
+                textureSha256 = SourceFreeBallData.TextureSha256, alternateTextureSha256 = SourceFreeBallData.AlternateTextureSha256,
+                sourcePivot = "authoring-origin-unchanged", sourceBasis = "original-source-XYZ",
+                sourceTriangleOrder = "Renderer321", rawTextureCode = 0, sourceScale = 1,
+                nativeGeneratedHeaderEquivalent = false
+            }));
     }
 
     public (SourceTeamAppearance Appearance, int Id) Bind(PlayerView actor, IGameState state)

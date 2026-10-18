@@ -132,7 +132,7 @@ static class FeatureChecks
         public void WorldDraw(string mesh, string texture, string state) { }
         public void Model(int id, string joints) { }
         public void Appearance(int id, string metadata) { }
-        public void FreeBall(string mesh, string texture, string origin) { }
+        public void FreeBall(string mesh, string texture, string alternateTexture, string metadata) { }
         public void Effects(double[] projection, double[] vertices, int[] textures, int[] flags, double[] flash, string metadata)
         {
             LastFlags = flags; LastFlash = flash; LastMetadata = metadata;

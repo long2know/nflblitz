@@ -210,10 +210,22 @@ export class SourceRenderer {
     this.appearances.set(id, value);
   }
 
-  freeBall(mesh, texture, origin) {
-    requireValue(this.meshes.has(mesh) && this.textures.has(texture) && !this.ball,
-      'The exact original football geometry/texture is required; no sphere fallback.');
-    this.ball = { mesh, texture, origin };
+  freeBall(mesh, texture, alternateTexture, metadata) {
+    const value = JSON.parse(metadata);
+    requireValue(mesh === 'original/free-ball/limb_medball_obj_big' && this.meshes.get(mesh)?.count === 144 &&
+      texture === 'teams/runtime/HEDSHU.WMS' && alternateTexture === 'teams/runtime/HEDSHU2.WMS' &&
+      this.textures.get(texture)?.sha256 === value.textureSha256 &&
+      this.textures.get(alternateTexture)?.sha256 === value.alternateTextureSha256 && !this.ball &&
+      value.textureSha256 === 'b2a5795cc67286d6a9a1c60c21f92f393134ab81f18dedfad84ffe405edb3fa3' &&
+      value.alternateTextureSha256 === 'b59af47bf7baf6a2bcffacd4fb68af206229099102c00baf608d771f4ac5836e' &&
+      value.origin === 'original-medball2-SDL-source-authored-not-native-medball2.h' &&
+      value.sourceSha256 === 'd54218dd7d0fc45fe7ad7072cb39b12913dfed80687999f69d5e93a269bc9704' &&
+      value.geometrySha256 === '22b92aa3f0b113be4c18edef70a6503fac448c1d85ff187b84b68c23b8d2eada' &&
+      value.sourcePivot === 'authoring-origin-unchanged' && value.sourceBasis === 'original-source-XYZ' &&
+      value.sourceTriangleOrder === 'Renderer321' && value.rawTextureCode === 0 && value.sourceScale === 1 &&
+      value.nativeGeneratedHeaderEquivalent === false,
+    'Exact source medball2 geometry/authoring pivot/HEDSHU decals required; no held-ball extraction, recenter or sphere fallback.');
+    this.ball = { mesh, texture, alternateTexture, origin: value.origin, metadata: value };
   }
 
   effects(projection, vertices, textures, rawFlags, flashAlpha, metadata) {
@@ -238,11 +250,22 @@ export class SourceRenderer {
 
   present(camera, joints, models, appearances, ball, hudVertices, hudColors, hudTextures, hudCounts, status) {
     const start = performance.now();
+    const snapshot = JSON.parse(status);
     requireValue(camera.length === 16 && joints.length === 14 * 15 * 16 && models.length === 14 &&
       appearances.length === 14 && this.world.length > 0 && this.ball, 'Incomplete actual kernel/render frame.');
+    requireValue(ball.length === 20 && ball.every(Number.isFinite) && (ball[0] === 0 || ball[0] === 1) &&
+      ball[1] === snapshot.sourceTick && ball[1] === snapshot.ball.sourceTick &&
+      ball[2] === snapshot.ball.rawFlags && ball[3] === 255 &&
+      ball[7] === 0 && ball[11] === 0 && ball[15] === 0 && ball[19] === 1 &&
+      Boolean(ball[0]) === snapshot.ball.visible &&
+      snapshot.ball.worldMatrix.length === 12 &&
+      snapshot.ball.worldMatrix.every((v, i) => Number.isFinite(Math.fround(v)) &&
+        Math.fround(v) === Math.fround(ball[4 + (i % 4) * 4 + Math.floor(i / 4)])),
+    'Free-ball GPU packet must bind the actual same-source-tick immutable rotation/scale/pivot matrix.');
     this.current = {
       camera: Float32Array.from(camera), joints: Float32Array.from(joints), models: Array.from(models),
-      appearances: Array.from(appearances), ball: Array.from(ball), hudVertices: Array.from(hudVertices),
+      appearances: Array.from(appearances), ball: Array.from(ball), ballMatrix: Float32Array.from(ball.slice(4)),
+      hudVertices: Array.from(hudVertices),
       hudColors: Array.from(hudColors), hudTextures: Array.from(hudTextures), hudCounts: Array.from(hudCounts),
     };
     this.drawScene(false);
@@ -251,7 +274,7 @@ export class SourceRenderer {
     this.assertHealthy('live C# source frame');
     this.frameCount++;
     this.lastMilliseconds = performance.now() - start;
-    this.status = JSON.parse(status);
+    this.status = snapshot;
   }
 
   blend(name) {
@@ -324,11 +347,29 @@ export class SourceRenderer {
       this.draw(appearance.numberMesh, appearance.numberTexture, torso, identityPass ? poppedHeadIdentityPass ? 0 : actor + 1 : null);
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
+    this.lastBallDraw = null;
     if (frame.ball[0]) {
-      gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
-      const matrix = new Float32Array(identity);
-      matrix[12] = frame.ball[1]; matrix[13] = frame.ball[2]; matrix[14] = frame.ball[3];
-      this.draw(this.ball.mesh, this.ball.texture, matrix, identityPass ? poppedHeadIdentityPass ? 0 : 200 : null);
+      requireValue(frame.ballMatrix?.length === 16, 'Actual free-ball matrix is disconnected from the scene draw.');
+      const matrix = frame.ballMatrix;
+      const texture = frame.ball[2] & 0x40 ? this.ball.alternateTexture : this.ball.texture;
+      // This one mesh retains source XYZ and explicit renderer321 indices.
+      // Actors/world keep their existing reflected import winding and CW state.
+      gl.frontFace(gl.CCW);
+      gl.uniform1f(this.sceneUniforms.cutoff, -1);
+      gl.uniform1i(this.sceneUniforms.constantAlpha, true);
+      gl.uniform1i(this.sceneUniforms.textureTimesAlpha, true);
+      gl.uniform1f(this.sceneUniforms.playerFlashAdd, frame.ball[2] & 1 ? 1 : 0);
+      if (identityPass) gl.disable(gl.BLEND);
+      else {
+        gl.enable(gl.BLEND);
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
+      }
+      this.draw(this.ball.mesh, texture, matrix, identityPass ? poppedHeadIdentityPass ? 0 : 200 : null);
+      this.lastBallDraw = { sourceTick: frame.ball[1], mesh: this.ball.mesh, texture,
+        textureSha256: this.textures.get(texture).sha256, matrix: Array.from(matrix),
+        alpha: frame.ball[3], white: Boolean(frame.ball[2] & 1), frontFace: 'CCW-source321',
+        indices: this.meshes.get(this.ball.mesh).count, metadata: this.ball.metadata };
+      gl.frontFace(gl.CW); gl.disable(gl.BLEND);
     }
     gl.bindVertexArray(null);
   }
@@ -424,6 +465,12 @@ export class SourceRenderer {
         'Actual WebGL geometry-identity proof framebuffer failed.');
       gl.viewport(0, 0, width, height);
       this.drawScene(true);
+      const ballDraw = this.lastBallDraw ? { ...this.lastBallDraw,
+        gpuModel: Array.from(gl.getUniform(this.scene, this.sceneUniforms.model)),
+        gpuViewProjection: Array.from(gl.getUniform(this.scene, this.sceneUniforms.viewProjection)),
+        gpuOriginalTextureBound: gl.getParameter(gl.TEXTURE_BINDING_2D) ===
+          this.textures.get(this.lastBallDraw.texture).texture,
+      } : null;
       const pixels = new Uint8Array(width * height * 4), actorPixels = Array(14).fill(0);
       let ballPixels = 0;
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -452,6 +499,7 @@ export class SourceRenderer {
       }
       return {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
+        ballDraw,
         visibleHome: actorPixels.slice(0, 7).filter(n => n > 0).length,
         visibleAway: actorPixels.slice(7).filter(n => n > 0).length,
         method: 'Separate GPU identity framebuffer using the SAME actual original meshes, alpha textures, source poses, MatInput/projection and depth; not a substituted game screenshot.',
