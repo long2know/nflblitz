@@ -1,0 +1,6 @@
+{
+  "name": "blitz-portable-source-player-tools",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test input.test.mjs" }
+}

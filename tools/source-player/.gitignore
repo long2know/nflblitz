@@ -1,0 +1,6 @@
+!*.csproj
+bin/
+obj/
+data/
+artifacts/
+.runtime/

@@ -1,0 +1,36 @@
+name: nflblitz-source-preview
+
+services:
+  preview:
+    image: nginx:1.30.6-alpine-slim@sha256:3028fc1419f99b95c1c69f844bbaf49dc1b881750c51b497fc721ac4f02a14e6
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    user: "101:101"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_signal: SIGQUIT
+    restart: unless-stopped
+    tmpfs:
+      - /var/cache/nginx:rw,nosuid,nodev,noexec,uid=101,gid=101,mode=0700
+    ports:
+      - "${SOURCE_PLAYER_BIND_ADDRESS:-127.0.0.1}:${SOURCE_PLAYER_PORT:-8082}:8080"
+    volumes:
+      - type: bind
+        source: ./bin/SourcePlayer.Browser/Release/net10.0/browser-wasm/AppBundle
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/build-info.json"]
+      interval: 10s
+      timeout: 3s
+      start_period: 3s
+      retries: 3
