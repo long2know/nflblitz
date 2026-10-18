@@ -84,6 +84,108 @@ internal static partial class Program
         return boundary;
     }
 
+    private static GameSimulation CompatibilityRunningPushGame(SourceGameplayCompatibility mode, int stick)
+    {
+        GameSimulation game = CompatibilityGame(mode);
+        SimulationState model = game.Model;
+        model.SourceTick = 300; model.Phase = GamePhase.LiveBall; model.SourceFlags = SourceGameFlags.None;
+        model.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Normal);
+        model.Possession = TeamId.Home; model.CarrierId = -1; model.TargetPlayerId = 5;
+        model.BallKind = SourceBallKind.Pass;
+        ActorState actor = model.Players[13];
+        actor.SourceMode = SourceActorMode.DefensiveBack; actor.SourceJob = SourceActorJob.Rush;
+        actor.SourceControllerStation = -1; actor.SourceStick = stick; actor.SourceTarget = -1;
+        actor.AnimationState.Secondary.AddMode(0x1000u);
+        SourceRouteState route = SourceRouteState.Begin(playbook.GetRoute("db_man"));
+        route.Stick = route.OldStick = stick; route.ThinkTicks = -1;
+        model.SourceDrones[13] = route;
+        Bind<Action>(game, "CacheSourceGeometry")();
+        model.SourceAiFrame = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true);
+        model.SourceRandomActor = 13; model.SourceRandomProcess = "player_proc";
+        model.SourceRandomProcessOrder = 14; model.SourceRandomCallIndex = 0;
+        return game;
+    }
+
+    private static SourceRouteStep CompatibilityRunningPushStep(GameSimulation game,
+        SourceGameplayCompatibility mode, out string missing)
+    {
+        missing = null;
+        try
+        {
+            return SourceDroneAI.DecideDefensiveBack(game.Model.SourceDrones[13],
+                new SourceRouteInput(game.Model.SourceAiFrame, 13, game.Model.SourceAiParameters,
+                    new SourceRandomContext(300, 13, "player_proc", 14, game.SourceRandomService.Provenance.Profile),
+                    compatibility: mode),
+                game.SourceRandomService);
+        }
+        catch (InvalidOperationException error) when (error.Message.StartsWith(
+            "Required source branch p2p_angles target -1", StringComparison.Ordinal))
+        { missing = error.Message; return null; }
+    }
+
+    private static void CompatibilityRunningPushChecks()
+    {
+        for (int stick = 0; stick <= 48; stick++)
+        {
+            GameSimulation game = CompatibilityRunningPushGame(SourceGameplayCompatibility.Portable, stick);
+            var random = (SourceInjectedRandom)game.SourceRandomService;
+            int before = random.Trace.Count;
+            string missing;
+            SourceRouteStep strict = CompatibilityRunningPushStep(game, SourceGameplayCompatibility.StrictSource, out missing);
+            Check(strict == null && missing.Contains("actor 13 sourceTick 300"),
+                "Strict running-push missing target remains a visible exact source failure");
+            SourceRouteStep portable = CompatibilityRunningPushStep(game, SourceGameplayCompatibility.Portable, out missing);
+            Check(portable != null && missing == null,
+                "portable targetless running push continues its real route without an angle read");
+            Check(portable.RetainedTargetlessRunningPush && portable.State.Target == -1
+                && portable.State.Stick == stick && portable.State.OldStick == stick
+                && portable.State.Buttons == (SourceDroneButtons.B | SourceDroneButtons.C)
+                && portable.State.LastSourceTick == 300,
+                "portable targetless running push retains all49 valid sticks and source buttons without retargeting");
+            Check(portable.RandomCalls == 0 && random.Trace.Count == before
+                && portable.SourceBranch == "portable:drone.c:_drone_db:DB_H:retained-stick",
+                "portable targetless running push has zero RNG and explicit source provenance");
+            game.Model.SourceDrones[13] = game.Model.SourceDrones[13].WithTarget(3);
+            SourceRouteStep validStrict = CompatibilityRunningPushStep(game, SourceGameplayCompatibility.StrictSource, out missing);
+            SourceRouteStep validPortable = CompatibilityRunningPushStep(game, SourceGameplayCompatibility.Portable, out missing);
+            Check(validStrict != null && validPortable != null && !validStrict.RetainedTargetlessRunningPush
+                && !validPortable.RetainedTargetlessRunningPush && validStrict.State.Stick == validPortable.State.Stick
+                && validStrict.State.Buttons == validPortable.State.Buttons
+                && validStrict.RandomCalls == validPortable.RandomCalls,
+                "defined running-push target behavior remains identical in both modes");
+        }
+        GameSimulation core = CompatibilityRunningPushGame(SourceGameplayCompatibility.Portable, 12);
+        var coreRandom = (SourceInjectedRandom)core.SourceRandomService;
+        int prior = coreRandom.Trace.Count;
+        bool moved = false;
+        try
+        {
+            Bind<Func<ActorState, PlayerCommand, FieldVector>>(core, "SourceDroneMove")(
+                core.Model.Players[13], default(PlayerCommand));
+            moved = true;
+        }
+        catch (InvalidOperationException error) when (error.Message.StartsWith(
+            "Required source branch p2p_angles target -1", StringComparison.Ordinal)) { }
+        Check(moved, "actual M1 caller forwards Portable compatibility into the running-push route");
+            Check(core.Model.SourceCompatibilityRepairs.Count == 1,
+                "actual running-push repair is never silent or duplicated");
+            SourceCompatibilityRepair repair = core.Model.SourceCompatibilityRepairs.Single();
+        Check(repair.Kind == SourceCompatibilityRepairKind.TargetlessRunningPush && repair.SubjectId == 13
+            && repair.RawIndex == -1 && repair.EffectiveIndex == -1 && repair.RetainedStick == 12
+            && repair.SourceTick == 300 && repair.SourceContext.Contains("DB_H")
+            && core.Model.SourceDrones[13].Target == -1 && coreRandom.Trace.Count == prior,
+            "actual running-push repair reports retained control without target or RNG mutation");
+        SourceMatchView snapshot = ((ISourceMatchState)new GameSnapshot(core.Model)).Match;
+        Check(snapshot.CompatibilityRepairCount == 1 && snapshot.CompatibilityRepairs.Single().RetainedStick == 12,
+            "published running-push repair is typed and visible");
+        CompatibilityReject(() => new SourceRouteInput(core.Model.SourceAiFrame, 13, core.Model.SourceAiParameters,
+            new SourceRandomContext(300, 13, "player_proc", 14, core.SourceRandomService.Provenance.Profile),
+            compatibility: (SourceGameplayCompatibility)99), "invalid route compatibility cannot enable a repair");
+        core.Restart();
+        Check(core.Compatibility == SourceGameplayCompatibility.Portable && core.Model.SourceCompatibilityRepairCount == 0,
+            "running-push repair resets with restart without mode promotion");
+    }
+
     private static void CompatibilityChecks()
     {
         Check(real.IsC2M1Profile, "compatibility suite requires actual M1 inputs");
@@ -196,5 +298,6 @@ internal static partial class Program
         Check(oldGame.Compatibility == SourceGameplayCompatibility.StrictSource, "actual old-nine default stays strict");
         CompatibilityReject(() => old.Create(configuration: config, presentation: presentation,
             compatibility: SourceGameplayCompatibility.Portable), "actual old-nine portable request rejected explicitly");
+        CompatibilityRunningPushChecks();
     }
 }

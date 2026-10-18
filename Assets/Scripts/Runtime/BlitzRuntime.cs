@@ -116,7 +116,8 @@ namespace Blitz.Runtime
                             + "Original generated native image_info_t/Composit metrics remain UNKNOWN. "
                             + "This option is independent of source-compatibility=portable.");
                     if (compatibility == SourceGameplayCompatibility.Portable)
-                        Debug.LogWarning("Portable M1 gameplay corrections enabled: effective handicap/block indices may saturate. "
+                        Debug.LogWarning("Portable M1 gameplay corrections enabled: effective handicap/block indices may saturate; "
+                            + "a targetless running-push drone retains prior valid steering without an angle lookup. "
                             + "Raw state and bounded typed repair diagnostics remain in Match. Not original hardware equivalence.");
                     soundTransport = new SourceSoundVmTransport();
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);

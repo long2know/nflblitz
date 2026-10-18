@@ -44,6 +44,26 @@ MUTANTS = (
      "            SourceCompatibilityRepairs.Add(new SourceCompatibilityRepair(",
      "            if (effective == raw) SourceCompatibilityRepairs.Add(new SourceCompatibilityRepair(",
      "portable repair is not silent"),
+    ("strict-running-push-promoted", GAME + "SourceDroneAI.cs",
+     "e.State.Target == -1 && e.Input.Compatibility == SourceGameplayCompatibility.Portable",
+     "e.State.Target == -1",
+     "Strict running-push missing target remains a visible exact source failure"),
+    ("running-push-stick-invented", GAME + "SourceDroneAI.cs",
+     "e.Output.RetainedTargetlessRunningPush = true;",
+     "e.State.Stick = 24; e.Output.RetainedTargetlessRunningPush = true;",
+     "portable targetless running push retains all49 valid sticks and source buttons without retargeting"),
+    ("running-push-invented-RNG", GAME + "SourceDroneAI.cs",
+     "e.Output.RetainedTargetlessRunningPush = true;",
+     'e.Random.Range(100, "portable-running-push-mutant"); e.Output.RetainedTargetlessRunningPush = true;',
+     "portable targetless running push has zero RNG and explicit source provenance"),
+    ("running-push-option-disconnected", GAME + "GameSimulation.Source.cs",
+     "compatibility: Compatibility), sourceRandom);",
+     "compatibility: SourceGameplayCompatibility.StrictSource), sourceRandom);",
+     "actual M1 caller forwards Portable compatibility into the running-push route"),
+    ("running-push-silent", GAME + "GameSimulation.Source.cs",
+     "if (step.RetainedTargetlessRunningPush)",
+     "if (step.RetainedTargetlessRunningPush && actor.Id < 0)",
+     "actual running-push repair is never silent or duplicated"),
 )
 
 
@@ -131,8 +151,8 @@ def main():
             result["controls"].append(dict(id=label, named_failure=summary["failed_assertion"]))
         elif args.retained_caller_controls_only:
             retained.require_summary(p.returncode, summary, "controlled", real_animation_sha)
-        elif p.returncode or summary.get("status") != "passed" or summary.get("assertions") != 74:
-            raise RuntimeError("Exact74 strict/portable component assertions required: " + label)
+        elif p.returncode or summary.get("status") != "passed" or summary.get("assertions") != 325:
+            raise RuntimeError("Exact325 strict/portable component assertions required: " + label)
         shutil.rmtree(copy)
         print("PASS " + label, flush=True)
 

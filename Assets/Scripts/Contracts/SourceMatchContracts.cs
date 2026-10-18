@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 namespace Blitz.Contracts
 {
     public enum SourceGameplayCompatibility { StrictSource = 0, Portable = 1 }
-    public enum SourceCompatibilityRepairKind { HandicapConsumerIndex, BlockCountConsumerIndex }
+    public enum SourceCompatibilityRepairKind { HandicapConsumerIndex, BlockCountConsumerIndex, TargetlessRunningPush }
 
     public readonly struct SourceCompatibilityRepair
     {
@@ -16,12 +16,14 @@ namespace Blitz.Contracts
         public int RawIndex { get; }
         public int EffectiveIndex { get; }
         public string SourceContext { get; }
+        public int? RetainedStick { get; }
 
         public SourceCompatibilityRepair(long sequence, long sourceTick, SourceCompatibilityRepairKind kind,
-            int subjectId, int rawIndex, int effectiveIndex, string sourceContext)
+            int subjectId, int rawIndex, int effectiveIndex, string sourceContext, int? retainedStick = null)
         {
             Sequence = sequence; SourceTick = sourceTick; Kind = kind; SubjectId = subjectId;
             RawIndex = rawIndex; EffectiveIndex = effectiveIndex; SourceContext = sourceContext;
+            RetainedStick = retainedStick;
         }
     }
 

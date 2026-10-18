@@ -53,7 +53,8 @@ The complete query is
 Run the focused real-factory compatibility contract, including C1/old-nine
 strict defaults, actual M1 strict/portable lineup and detect callers, unchanged
 raw values/counts, coherent effective indices, exact diagnostic metadata,
-in-domain RNG identity and seven compiled production controls:
+in-domain RNG identity, targetless running-push continuity and twelve compiled
+production controls:
 
 ```sh
 python3 -B tests/movement-callers/compatibility.py \
@@ -62,15 +63,25 @@ python3 -B tests/movement-callers/compatibility.py \
   --output .squad/.scratch/portable-focused
 ```
 
-There are74 declared component assertions, separate from all retained strict
+There are325 declared component assertions, separate from all retained strict
 original-C case/control inventories. MovementCallerChecks now explicitly links
 the actual C1 factory for these unsupported-option/default tests; the shared
 compatibility increment itself added no production source/GUID. The combined
 fire/kick integration extends the shared pure fingerprint closure from67 to72:
 three explicit fire data/contract/Core files and two kick contract/process
-files. These74 assertions/seven controls and the strict/default semantics
-remain unchanged; concrete FX/renderer and cabinet/HUD consumers are included
+files. The original74 assertions/seven controls remain; 251 assertions and five
+controls additionally cover all49 valid sticks, strict missing-target rejection,
+defined-target equivalence, real M1 forwarding, typed diagnostics and restart.
+Concrete FX/renderer and cabinet/HUD consumers are included
 only by the feature suites that actually use them.
+
+For the original undefined DB_H angle read with target `-1`, explicit Portable
+mode retains the drone's prior valid stick through normal smoothing and the
+original B+C continuation buttons. It does not invent a target, angle or RNG
+draw. `TargetlessRunningPush` diagnostics preserve raw/effective target `-1`
+and separately report the retained stick. StrictSource still stops at that
+exact source boundary. This is an authored continuity policy, not a claim about
+target memory or native behavior.
 
 For an explicitly authorized **single** changed-behavior observation, append
 `--source-compatibility portable --single-public-attempt` to the full M1 command.

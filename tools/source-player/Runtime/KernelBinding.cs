@@ -38,13 +38,13 @@ public static class KernelBinding
             repairs = match.CompatibilityRepairs.Select(repair => new {
                 sequence = repair.Sequence, sourceTick = repair.SourceTick, kind = repair.Kind.ToString(),
                 subject = repair.SubjectId, rawIndex = repair.RawIndex, effectiveIndex = repair.EffectiveIndex,
-                sourceContext = repair.SourceContext
+                sourceContext = repair.SourceContext, retainedStick = repair.RetainedStick
             }).ToArray(),
             teamHandicap = new[] {
                 new { team = "Home", raw = match.HomeGameplay.RawHandicap, effective = match.HomeGameplay.EffectiveHandicap },
                 new { team = "Away", raw = match.AwayGameplay.RawHandicap, effective = match.AwayGameplay.EffectiveHandicap }
             },
-            limitation = "Explicit M1 Portable policy: original handicap consumer indices saturate to0..11; nonnegative block-count consumers use the last valid original entry. Raw values/counters remain preserved. No arcade/native fidelity claim."
+            limitation = "Explicit M1 Portable policy: handicap consumers saturate to0..11; nonnegative block counts use the last original entry; targetless running-push drones retain prior valid steering without an angle read or invented target. Raw values remain preserved and each repair is reported. No arcade/native fidelity claim."
         };
     }
 }

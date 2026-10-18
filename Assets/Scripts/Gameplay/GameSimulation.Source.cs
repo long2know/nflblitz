@@ -1470,7 +1470,12 @@ namespace Blitz.Gameplay
                     targetFacing: actor.TargetFacing & 1023, rawTargetFacing: actor.TargetFacing,
                     snapContext: new SourceDroneSnapContext(active,
                         sourceConfiguration.StationLayout == SourceStationLayout.FourStation, 0, 0, motionStick),
-                    kickerContext: new SourceDroneKickerContext(kickerStage, captainButtons)), sourceRandom);
+                    kickerContext: new SourceDroneKickerContext(kickerStage, captainButtons),
+                    compatibility: Compatibility), sourceRandom);
+            if (step.RetainedTargetlessRunningPush)
+                Model.RecordCompatibilityRepair(SourceCompatibilityRepairKind.TargetlessRunningPush, actor.Id,
+                    step.State.Target, step.State.Target, "drone.c:_drone_db:DB_H target -1; retained prior valid stick; no angle read",
+                    step.State.Stick);
             ApplySourceDroneStep(actor, step);
             if (step.ThrowTarget >= 0) actor.SourceDroneThrowTarget = step.ThrowTarget;
             actor.SourceRequestedScript = step.Script != null

@@ -186,10 +186,21 @@ counts and earlier undefined producer inputs still reject. No rows, datasets,
 RNG calls or source CPU-final-cap are invented. AI, actor/contact/catch/pass/
 movement and quick-kick consumers use the same effective team index.
 
+The later runtime-continuity increment adds a separately typed Portable policy
+for `_drone_db`'s DB_H path when its running-push target is `-1`. The original
+path reads `p2p_angles[plyrnum][target]` without a defined element; no target
+memory value is claimed. Portable retains the prior valid49-way stick through
+the ordinary smoothing lifecycle, continues original B+C buttons, preserves
+the missing target, and performs no angle lookup or RNG draw. StrictSource
+retains the exact visible fault; valid targets behave identically in both modes.
+This does not mask unrelated missing-state or invalid-target branches.
+
 `GameSimulation.Compatibility` is immutable, including across restart. Match
 snapshots publish the mode, raw/effective team handicap and lifetime repair
 count with an immutable chronological tail of at most64 typed repairs
 (kind, subject/team or actor, raw/effective index, source tick/context).
+For `TargetlessRunningPush`, both target indices remain `-1`; the distinct
+nullable `RetainedStick` field reports the actual continued control value.
 Actor `Handicap` is its effective index; `RawHandicap` retains the raw value.
 Diagnostics consume no RNG and do not generate per-frame UI notifications.
 
