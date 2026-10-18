@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
@@ -524,6 +525,7 @@ namespace Blitz.Gameplay
         public int RawTargetFacing { get; }
         public SourceDroneSnapContext? SnapContext { get; }
         public SourceDroneKickerContext? KickerContext { get; }
+        public SourceGameplayCompatibility Compatibility { get; }
 
         public SourceRouteInput(SourceAiFrame frame, int actorId, SourceAiParameters parameters,
             SourceRandomContext randomContext, bool stickOnly = false, int motionDirection = 1,
@@ -532,7 +534,8 @@ namespace Blitz.Gameplay
             SourceBlockAssignments blocking = null, IReadOnlyList<SourceReceiverAssessment> receivers = null,
             IReadOnlyList<SourceRouteState> droneStates = null, SourceFormationSlot? formationSlot = null,
             int targetFacing = -1, SourceDroneSnapContext? snapContext = null, SourceDroneKickerContext? kickerContext = null,
-            int? rawTargetFacing = null)
+            int? rawTargetFacing = null,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
         {
             Frame = frame ?? throw new ArgumentNullException(nameof(frame));
             Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
@@ -542,6 +545,8 @@ namespace Blitz.Gameplay
             if (motionDirection < -1 || motionDirection > 1 || quarterbackStick < 0 || quarterbackStick > 48)
                 throw new ArgumentOutOfRangeException(nameof(motionDirection));
             if (hurdleCount < 0 || spinCount < 0) throw new ArgumentOutOfRangeException(nameof(hurdleCount));
+            if (compatibility != SourceGameplayCompatibility.StrictSource && compatibility != SourceGameplayCompatibility.Portable)
+                throw new ArgumentOutOfRangeException(nameof(compatibility));
             if (targetFacing < -1 || targetFacing > 1023) throw new ArgumentOutOfRangeException(nameof(targetFacing));
             if (droneStates != null && droneStates.Count != 14) throw new ArgumentException("Expected fourteen drone states.", nameof(droneStates));
             ActorId = actorId; RandomContext = randomContext; StickOnly = stickOnly; MotionDirection = motionDirection;
@@ -556,6 +561,7 @@ namespace Blitz.Gameplay
                 throw new ArgumentOutOfRangeException(nameof(rawTargetFacing));
             RawTargetFacing = rawTargetFacing ?? TargetFacing;
             SnapContext = snapContext; KickerContext = kickerContext;
+            Compatibility = compatibility;
         }
     }
 
@@ -576,6 +582,7 @@ namespace Blitz.Gameplay
         public int RandomCalls { get; internal set; }
         public string SourceBranch { get; internal set; }
         public IReadOnlyList<SourceDefenderEffect> DefenderEffects { get; internal set; }
+        public bool RetainedTargetlessRunningPush { get; internal set; }
     }
 
     public readonly struct SourcePursuitDecision
@@ -1950,7 +1957,14 @@ namespace Blitz.Gameplay
             if (!IsLive(e.Frame)) { e.Hold(); return; }
             if ((e.Actor.Flags & SourceAiActorFlags.RunningPush) != 0)
             {
-                AimAtActor(e, e.State.Target); e.State.Buttons = SourceDroneButtons.B | SourceDroneButtons.C; return;
+                if (e.State.Target == -1 && e.Input.Compatibility == SourceGameplayCompatibility.Portable)
+                {
+                    // DB_H has no defined angle for -1; retain valid prior control, not a fabricated target.
+                    e.Output.RetainedTargetlessRunningPush = true;
+                    e.Output.SourceBranch = "portable:drone.c:_drone_db:DB_H:retained-stick";
+                }
+                else AimAtActor(e, e.State.Target);
+                e.State.Buttons = SourceDroneButtons.B | SourceDroneButtons.C; return;
             }
             if (e.Frame.Rules.PlayType == SourcePlayType.Kickoff && ball.Type == SourceBallType.Kickoff && ball.Carrier == -1)
             {

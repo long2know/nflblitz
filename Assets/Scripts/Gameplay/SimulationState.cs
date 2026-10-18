@@ -197,12 +197,20 @@ namespace Blitz.Gameplay
                 || kind == SourceCompatibilityRepairKind.BlockCountConsumerIndex && raw < 0)
                 throw new NotSupportedException(context + ": unsupported consumer index " + raw + ".");
             int effective = Math.Max(0, Math.Min(length - 1, raw));
+            RecordCompatibilityRepair(kind, subject, raw, effective, context);
+            return effective;
+        }
+
+        internal void RecordCompatibilityRepair(SourceCompatibilityRepairKind kind, int subject, int raw,
+            int effective, string context, int? retainedStick = null)
+        {
+            if (SourceCompatibility != SourceGameplayCompatibility.Portable)
+                throw new InvalidOperationException("Compatibility repairs require the explicit Portable policy.");
             SourceCompatibilityRepairCount++;
             // Retain a bounded chronological tail, plus the lifetime count; never notify per frame.
             if (SourceCompatibilityRepairs.Count == 64) SourceCompatibilityRepairs.RemoveAt(0);
             SourceCompatibilityRepairs.Add(new SourceCompatibilityRepair(SourceCompatibilityRepairCount,
-                SourceTick, kind, subject, raw, effective, context));
-            return effective;
+                SourceTick, kind, subject, raw, effective, context, retainedStick));
         }
         internal readonly SourcePlayDefinition[] SourceHandicapPlayHistory = new SourcePlayDefinition[5];
         internal SourceHandicapSettings SourceHandicapSettings;
