@@ -17,6 +17,7 @@ internal static class Program
     private static int assertions;
     private static readonly List<object> evidence = new List<object>();
     private static readonly List<object> nativeEmitterProbes = new List<object>();
+    private static readonly List<object> ballBlinkProbes = new List<object>();
     private static void Check(bool value, string message)
     { assertions++; if (!value) throw new Exception(message); }
     private static T Bind<T>(GameSimulation game, string name)
@@ -284,6 +285,102 @@ internal static class Program
             == game.SourceFireRecords.Count(r => r.Kind == "CreateProcess"),
             "producer call ordinals are ordered within the real host continuation");
     }
+    private static void BallBlinkStep(GameSimulation game, string name, SourceBallKind kind, GamePhase phase,
+        SourceBallFlags flags, int flight, bool white, int carrier = -1, bool teamFire = false)
+    {
+        SimulationState m = game.Model;
+        m.Phase = phase; m.SourceMatchPhase = phase == GamePhase.LiveBall ? SourceMatchPhase.LiveBall : SourceMatchPhase.PreSnap;
+        m.SourceRules = new SourceRulesState(0, 0, 1, 30, 100,
+            kind == SourceBallKind.Kickoff ? SourcePlayType.Kickoff : SourcePlayType.Normal);
+        m.Possession = TeamId.Home; m.SourceFlags = SourceGameFlags.None;
+        m.CarrierId = carrier; m.ThrowerId = 3; m.TargetPlayerId = 4;
+        m.BallKind = kind; m.BallMode = carrier == -1 ? BallMode.InFlight : BallMode.Held;
+        m.SourceBallFlags = flags; m.PassTicksElapsed = flight;
+        m.SourceBallBounces = 0; m.SourceBallBounceTick = 0;
+        m.SourceTeamFire[0] = teamFire; m.SourceTeamFire[1] = false;
+        SourceBallDriver.SetPosition(m, new SourceVector3(-100f, 50f, 0f));
+        m.SourceBallVelocity = new FieldVector(1f, 0f); m.SourceBallVerticalVelocity = 0f;
+        SourceBallDriver.SetTarget(m, 222f, 111f);
+        int mode = (int)Bind<Func<SourceMovementPhase>>(game, "get_MovementPhase")();
+        long draws = m.SourceRandomDraws;
+        int trace = ((SourceInjectedRandom)game.SourceRandomService).Trace.Count;
+        int processes = game.SourceFireEnabled ? game.SourceFireProcesses.Count : 0;
+        int sounds = game.SourceFireSoundSubmissions.Count;
+        bool free = carrier == -1 || (flags & SourceBallFlags.Phantom) != 0;
+        Bind<Action>(game, "AdvanceSourceBall")();
+        bool actualWhite = (m.SourceBallFlags & SourceBallFlags.White) != 0;
+        string label = "original ball blink owner " + name;
+        Check(actualWhite == white, label + " BF_WHITE");
+        Check(m.PassTicksElapsed == flight + (free ? 1 : 0), label + " exact free/phantom postincrement");
+        Check(m.SourceRandomDraws == draws && ((SourceInjectedRandom)game.SourceRandomService).Trace.Count == trace,
+            label + " no added RNG draw/site/order");
+        Check((m.SourceBallFlags & ~SourceBallFlags.White) == (flags & ~SourceBallFlags.White),
+            label + " all other ball flags retained");
+        Check((game.SourceFireEnabled ? game.SourceFireProcesses.Count : 0) == processes,
+            label + " no invented particle process");
+        Check(game.SourceFireSoundSubmissions.Count == sounds, label + " no invented sound submission");
+        if (game.SourceFireEnabled)
+            ballBlinkProbes.Add(new {
+                name,
+                input = new { kind = kind.ToString(), rawFlags = (int)flags, flight, mode, carrier,
+                    teamFire = teamFire ? 1 : 0, offSide = 0 },
+                actual = new { effect = game.SourceBallEffectSelection.ToString(),
+                    white = actualWhite, flight = m.PassTicksElapsed }
+            });
+    }
+    private static int BallBlinkOwner()
+    {
+        int before = assertions;
+        GameSimulation game = Game(true); Wake(game);
+        BallBlinkStep(game, "kickoff-nine-clears", SourceBallKind.Kickoff, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 8, false);
+        BallBlinkStep(game, "kickoff-ten", SourceBallKind.Kickoff, GamePhase.LiveBall, SourceBallFlags.Bounce, 9, true);
+        BallBlinkStep(game, "kickoff-eleven-restores", SourceBallKind.Kickoff, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 10, false);
+        BallBlinkStep(game, "kickoff-twenty", SourceBallKind.Kickoff, GamePhase.LiveBall, SourceBallFlags.Bounce, 19, true);
+        BallBlinkStep(game, "punt-ten", SourceBallKind.Punt, GamePhase.LiveBall, SourceBallFlags.Bounce, 9, true);
+        BallBlinkStep(game, "punt-unbounced", SourceBallKind.Punt, GamePhase.LiveBall, SourceBallFlags.None, 9, false);
+        BallBlinkStep(game, "field-goal-ten", SourceBallKind.FieldGoal, GamePhase.LiveBall, SourceBallFlags.Bounce, 9, true);
+        BallBlinkStep(game, "field-goal-bounce-before-fire", SourceBallKind.FieldGoal, GamePhase.LiveBall,
+            SourceBallFlags.Bounce, 9, true, teamFire: true);
+        BallBlinkStep(game, "punt-play-over", SourceBallKind.Punt, GamePhase.DeadBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "field-goal-play-over", SourceBallKind.FieldGoal, GamePhase.DeadBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "kickoff-pre-kickoff", SourceBallKind.Kickoff, GamePhase.PreSnap,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "field-goal-pre-snap", SourceBallKind.FieldGoal, GamePhase.PreSnap,
+            SourceBallFlags.Bounce, 9, true);
+        BallBlinkStep(game, "punt-primes-sticky-bobble", SourceBallKind.Punt, GamePhase.LiveBall,
+            SourceBallFlags.Bounce, 8, false);
+        BallBlinkStep(game, "bobble-sticky-ten", SourceBallKind.Bobble, GamePhase.LiveBall, SourceBallFlags.None, 9, true);
+        BallBlinkStep(game, "bobble-sticky-eleven", SourceBallKind.Bobble, GamePhase.LiveBall, SourceBallFlags.White, 10, false);
+        BallBlinkStep(game, "fumble-clears", SourceBallKind.Fumble, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "lateral-clears", SourceBallKind.Lateral, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "pass-does-not-blink", SourceBallKind.Pass, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "turbo-does-not-blink", SourceBallKind.Pass, GamePhase.LiveBall,
+            SourceBallFlags.TurboPass | SourceBallFlags.White, 9, false);
+        BallBlinkStep(game, "fire-does-not-blink", SourceBallKind.Pass, GamePhase.LiveBall,
+            SourceBallFlags.FirePass | SourceBallFlags.White, 10, false);
+        BallBlinkStep(game, "punt-primes-held", SourceBallKind.Punt, GamePhase.LiveBall, SourceBallFlags.Bounce, 8, false);
+        BallBlinkStep(game, "held-dark-retained", SourceBallKind.Punt, GamePhase.LiveBall, SourceBallFlags.None, 10, false, 3);
+        BallBlinkStep(game, "held-white-retained", SourceBallKind.Punt, GamePhase.LiveBall, SourceBallFlags.White, 10, true, 3);
+        BallBlinkStep(game, "phantom-ten", SourceBallKind.Punt, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.Phantom, 9, true, 3);
+        BallBlinkStep(game, "phantom-eleven-restores", SourceBallKind.Punt, GamePhase.LiveBall,
+            SourceBallFlags.Bounce | SourceBallFlags.Phantom | SourceBallFlags.White, 10, false, 3);
+        GameSimulation disabled = Game(false); Wake(disabled);
+        Check(!disabled.SourceFireEnabled, "ball blink retains disabled-by-default factory");
+        Check(disabled.SourceFireFrame == null, "disabled ball blink does not create an FX frame");
+        foreach (SourceBallKind kind in new[] { SourceBallKind.Kickoff, SourceBallKind.Punt, SourceBallKind.FieldGoal })
+            BallBlinkStep(disabled, "disabled-" + kind, kind, GamePhase.LiveBall,
+                SourceBallFlags.Bounce | SourceBallFlags.White, 9, false);
+        Check(ballBlinkProbes.Count == 25, "entire exact original ball blink owner case inventory");
+        return assertions - before;
+    }
     private static int Main(string[] args)
     {
         try
@@ -291,7 +388,9 @@ internal static class Program
             real = FullKernelInputs.Load(args[0], soundFunctionsPath: args[1], c2M1InputsPath: args[2]);
             assets = SourceFireSpfxReader.ReadAuthorized(args[3], "manifest.json", args[4]);
             DefaultsAndEmpty(); RecurrenceAndPairedCache(); MissingCacheAndLevelZero(); PresnapCatchBallReset(); GameProcLossAndSelection();
-            var result = new { status = "passed", assertions, evidence, nativeEmitterProbes, fullGameQualified = false, nativeQualified = false };
+            int ballBlinkAssertions = BallBlinkOwner();
+            var result = new { status = "passed", assertions, ballBlinkAssertions, ballBlinkProbes,
+                evidence, nativeEmitterProbes, fullGameQualified = false, nativeQualified = false };
             File.WriteAllText(args[5], JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine(JsonSerializer.Serialize(result)); return 0;
         }

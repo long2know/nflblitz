@@ -204,6 +204,11 @@ re-uploading static textures or accepting the prior epoch's tick stream.
 Actor raw0x400 selects the approved source
 `DECAL_TEXTURE_ADD_CCALPHA/0xc0000000` white combiner; other bits and team-fire
 state do not synthesize white. The original uniforms remain bound underneath.
+The free ball separately follows the Core ball owner's original selected-Blink
+`BF_WHITE` pulse on post-increment flight-time multiples of ten. Its original
+texture returns on the next free/phantom wake; held balls and sticky Bobble
+selection retain the source rules. This uses the same explicit fire opt-in,
+not a renderer timer, extra particle or new default.
 The real `SourceKickMeterView.Highlighted` selects the same source center
 combiner on the field-goal ball or punt bar (original `plyrinfo.c`814–815 /
 959–965); restoration follows the actual snapshot. The production

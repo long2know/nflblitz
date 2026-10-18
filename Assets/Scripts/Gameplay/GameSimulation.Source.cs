@@ -798,12 +798,16 @@ namespace Blitz.Gameplay
                 EndSourcePlay(step.Cause, Model.TargetPlayerId, Model.BallPosition, sourceSpot: Model.SourceBallPosition);
             }
             if (SourceFireEnabled && freeOrPhantom)
+            {
                 SourceBallEffectSelection = FireRuntime.BallFreeOrPhantomStep(FireSite("player.c", "ball_proc", 10311),
                     new SourceFireBallEmitterInput(Model.BallKind,
                         (Model.SourceBallFlags & SourceBallFlags.FirePass) != 0,
                         (Model.SourceBallFlags & SourceBallFlags.TurboPass) != 0,
                         (Model.SourceBallFlags & SourceBallFlags.Bounce) != 0,
                         Model.SourceTeamFire[(int)Model.Possession], Model.PassTicksElapsed));
+                if (SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 10 == 0)
+                    Model.SourceBallFlags |= SourceBallFlags.White;
+            }
         }
 
         private void SynchronizeSourceHeldBall()

@@ -6,7 +6,10 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from xml.sax.saxutils import escape
+
+import ball_blink_reference
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).parent
@@ -65,6 +68,7 @@ def main():
         report["caller_exit"] = result.returncode
         if result.returncode == 0:
             report["production"] = json.loads((out / "production.json").read_bytes())
+            ball_blink_reference.require_inventory(report["production"])
             reference = json.loads(args.reference_proof.read_bytes())
             if reference.get("status") != "passed" or reference.get("originalSourceSha256") != \
                     "61fb1be76029663294630e8633574ed065496da1ef6329071817e80622870b52":
@@ -84,7 +88,14 @@ def main():
             report["original_C_actual_caller_comparisons"] = native
             report["reference_proof_sha256"] = hashlib.sha256(args.reference_proof.read_bytes()).hexdigest()
             report["reference_executable_sha256"] = hashlib.sha256(executable.read_bytes()).hexdigest()
-            report["status"] = "passed"
+            try:
+                report["original_C_ball_blink_owner"] = ball_blink_reference.compare(
+                    reference["originalInputs"]["player"], report["production"], out / "ball-blink-oracle")
+            except (AssertionError, OSError, ValueError, subprocess.SubprocessError) as error:
+                report["ball_blink_reference_error"] = str(error)
+                print("BALL BLINK REFERENCE FAILED: " + str(error), file=sys.stderr)
+            else:
+                report["status"] = "passed"
     report["source_unchanged"] = snapshot == {str(f.relative_to(source)): hashlib.sha256(f.read_bytes()).hexdigest() for f in paths}
     (out / "result.json").write_text(json.dumps(report, indent=2) + "\n")
     print((out / ("callers.log" if "caller_exit" in report else "compile.log")).read_text()[-7000:])

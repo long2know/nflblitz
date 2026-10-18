@@ -59,6 +59,28 @@ MUTANTS = (
      'FireControl(SourceFireOperation.KillProcessGroup, "playsel.c", "play_select", 852, SourceFireIds.PlayerFlash);',
      'FireControl(SourceFireOperation.KillProcessGroup, "playsel.c", "play_select", 852, SourceFireIds.Spfx);',
      "menu SPFX continuations remain independent"),
+    ("ball-blink-dropped", GAME + "GameSimulation.Source.cs",
+     'Model.SourceBallFlags |= SourceBallFlags.White;',
+     'Model.SourceBallFlags |= SourceBallFlags.None;',
+     "original ball blink owner kickoff-ten BF_WHITE"),
+    ("ball-blink-wrong-cadence", GAME + "GameSimulation.Source.cs",
+     'SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 10 == 0',
+     'SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 9 == 0',
+     "original ball blink owner kickoff-nine-clears BF_WHITE"),
+    ("ball-blink-ignores-sticky-bobble", GAME + "GameSimulation.Source.cs",
+     'SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 10 == 0',
+     'SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.BallKind != SourceBallKind.Bobble && Model.PassTicksElapsed % 10 == 0',
+     "original ball blink owner bobble-sticky-ten BF_WHITE"),
+    ("ball-white-not-cleared", GAME + "SourceBallDriver.cs",
+     'model.SourceBallFlags &= ~SourceBallFlags.White;',
+     'model.SourceBallFlags &= ~SourceBallFlags.None;',
+     "original ball blink owner kickoff-nine-clears BF_WHITE"),
+    ("ball-blink-writes-held", GAME + "GameSimulation.Source.cs",
+     '                if (SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 10 == 0)\n'
+     '                    Model.SourceBallFlags |= SourceBallFlags.White;\n            }',
+     '            }\n            if (SourceFireEnabled && SourceBallEffectSelection == SourceFireBallEffect.Blink && Model.PassTicksElapsed % 10 == 0)\n'
+     '                Model.SourceBallFlags |= SourceBallFlags.White;',
+     "original ball blink owner held-dark-retained BF_WHITE"),
 )
 
 
