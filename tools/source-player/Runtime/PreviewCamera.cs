@@ -19,6 +19,9 @@ public sealed class PreviewCamera
     public bool Suspended { get; private set; }
     public long CueCount { get; private set; }
     public double[] ViewProjection { get; private set; }
+    public double[] CameraSpaceProjection { get; private set; }
+    private readonly Queue<object> trace = new();
+    public object[] Trace => trace.ToArray();
 
     public PreviewCamera(PlayerData data, RenderAssets assets, GameSimulation game)
     {
@@ -31,6 +34,8 @@ public sealed class PreviewCamera
         Playback = new SourceCinematicPlayback(data.Impact, previousNormal);
         ViewProjection = FrameMath.Camera(Current, data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution,
             FarDistance(Current));
+        CameraSpaceProjection = FrameMath.CameraSpace(data.Bootstrap.HorizontalResolution,
+            data.Bootstrap.VerticalResolution, FarDistance(Current));
         game.SourceCameraHeadingProvider = Sample;
     }
 
@@ -75,6 +80,13 @@ public sealed class PreviewCamera
             data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution), tick);
         ViewProjection = FrameMath.Camera(executed, data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution,
             FarDistance(executed));
+        CameraSpaceProjection = FrameMath.CameraSpace(data.Bootstrap.HorizontalResolution,
+            data.Bootstrap.VerticalResolution, FarDistance(executed));
+        Record(new { sourceTick = tick, kind = "camera-source-stage", processOrder = game.SourceCameraStageOrder,
+            table = Playback.Frame.Table, ordinal = Playback.Frame.Ordinal, elapsed = Playback.Frame.ElapsedTicks,
+            transient = Playback.IsTransientActive, resuming = Playback.IsResumingNormal,
+            returned = Playback.Frame.ReturnedToNormal, shakeX = x, shakeZ = z,
+            eye = new[] { executed.Position.X, executed.Position.Y, executed.Position.Z } });
         return Playback.SourceHeading1024;
     }
 
@@ -92,7 +104,20 @@ public sealed class PreviewCamera
         {
             Playback.Execute(new SourcePresentationCueBatch(new[] { cue }));
             CueCount++;
+            var camera = cue as SourceCameraCue;
+            var shaker = cue as SourceShakerCue;
+            Record(new { sourceTick = cue.Context.SourceTick, kind = cue.Kind.ToString(),
+                processOrder = cue.Context.ProcessOrder, actor = cue.Context.ActorPlayerId,
+                function = cue.Context.ExecutingSymbol, line = cue.Context.SourceLine,
+                table = camera?.Selection.TableSymbol, ordinal = camera?.Selection.SelectedOrdinal,
+                amplitude = shaker?.Amplitude, totalTicks = shaker?.TotalTicks, carrier = cue.CarrierPlayerId });
         }
+    }
+
+    private void Record(object value)
+    {
+        trace.Enqueue(value);
+        while (trace.Count > 180) trace.Dequeue();
     }
 
     private float FarDistance(SourceCinematicTransform camera)

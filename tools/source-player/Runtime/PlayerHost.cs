@@ -31,6 +31,9 @@ public sealed class PlayerHost
     public FixedStepBridge Bridge { get; }
     public PreviewCamera Camera { get; private set; }
     public OriginalHudProcess HudProcess { get; private set; }
+    public PreviewOptions Options { get; }
+    public FirePresentation Fire { get; private set; }
+    public long Epoch { get; private set; }
     public long Frames { get; private set; }
     public long SourceWakes { get; private set; }
     public long InputSamples { get; private set; }
@@ -42,13 +45,17 @@ public sealed class PlayerHost
     public string LastStatus { get; private set; } = "{}";
     private long lastSourceTick;
 
-    public PlayerHost(PlayerData data, IRenderSink sink, Action<string> progress = null)
+    public PlayerHost(PlayerData data, IRenderSink sink, Action<string> progress = null, PreviewOptions options = null)
     {
         Data = data;
         this.sink = sink;
+        Options = options ?? PreviewOptions.FromUrl("");
+        if (Options.FireEnabled && data.Fire == null)
+            throw new InvalidDataException("The selected fire opt-in has no authenticated original assets.");
         Assets = new RenderAssets(data, sink, progress);
+        Fire = new FirePresentation(data.Fire, Options.FireEnabled, sink);
         progress?.Invoke("Constructing actual production C# M1 simulation, fourteen actors and source camera");
-        Game = KernelBinding.Create(data);
+        Game = KernelBinding.Create(data, Options);
         Camera = new PreviewCamera(data, Assets, Game);
         quantizer = new SourceCabinetQuantizer(data.Hud.Input);
         input = new SourceCabinetInputBuffer(data.Configuration.Match);
@@ -103,6 +110,7 @@ public sealed class PlayerHost
             hudClock.Advance(lastSourceTick, HudProcess.CommittedHud.ClockWarning);
         }
         Camera.ObserveHostStep(state);
+        Fire.Observe(Game);
         foreach (var value in Game.ContactEvents)
         {
             string kind = value.Kind.ToString();
@@ -162,12 +170,14 @@ public sealed class PlayerHost
 
     private void ResetPresentation()
     {
+        Epoch++;
         input.Clear();
         selection.Clear();
         hudClock.Clear();
         HudProcess = new OriginalHudProcess(Data.Hud, Game);
         hudClock.Advance(0, HudProcess.CommittedHud.ClockWarning);
         Camera = new PreviewCamera(Data, Assets, Game);
+        Fire = new FirePresentation(Data.Fire, Options.FireEnabled, sink, Epoch, uploadTextures: false);
         lastSourceTick = 0;
         events.Clear();
         contacts.Clear();
@@ -225,7 +235,9 @@ public sealed class PlayerHost
                 frame = actor.Animation.Primary.Sample.SourceFrame, animationSourceTick = actor.Animation.SourceTick,
                 secondary = actor.Animation.Secondary.ScriptSymbol, action = actor.Animation.Action.ToString(),
                 poseDigest = PoseDigest(pose), handicap = actor.Source.Handicap, rawHandicap = actor.Source.RawHandicap,
-                controller = actor.Source.ControllerStationId, tint = "none"
+                controller = actor.Source.ControllerStationId, tint = "none",
+                rawFlags = actor.Source.Presentation.RawFlags,
+                flashWhite = new SourceFirePlayerFlashState(actor.Source.Presentation.RawFlags).White
             };
         }
         var hudDraw = new List<SourceHudPrimitive>(hud.Compose(HudProcess.CommittedState, viewport, selection, hudClock.RedClock, !Active));
@@ -249,17 +261,23 @@ public sealed class PlayerHost
         var match = ((ISourceMatchState)state).Match;
         var source = (ISourceGameState)state;
         Frames++;
+        Fire.Send(state, Camera.CameraSpaceProjection, hudDraw, HudProcess.CommittedHud.KickMeter);
+        var kicking = (ISourceKickMeterState)state;
         LastStatus = JsonSerializer.Serialize(new {
             schema = "blitz-portable-source-player-frame/v1", runtimeFlavor = RuntimeFlavor,
             kernel = KernelBinding.Describe(Game), profile = Data.Animations.InventorySha256,
             manifestSha256 = Data.Catalog.ManifestSha256,
             hostTick = state.Tick, sourceTick = Game.SourceTick, sourceTicksPerSecond = source.SourceTicksPerSecond,
+            epoch = Epoch,
+            menu = MenuState(state),
             sourceWakes = SourceWakes, frames = Frames, phase = state.Phase.ToString(),
             matchPhase = match.Phase.ToString(), playKind = match.PlayKind.ToString(),
             playNumber = state.PlayNumber, possession = state.Possession.ToString(),
             lastOutcome = state.LastOutcome.ToString(),
+            teams = new { home = match.HomeGameplay, away = match.AwayGameplay },
             clock = HudProcess.CommittedHud.Clock, packedClock = ((ISourceMatchState)state).PackedGameTime,
             homeScore = state.HomeScore, awayScore = state.AwayScore, down = state.Down,
+            lineOfScrimmage = state.LineOfScrimmage, firstDownLine = state.FirstDownLine, offenseDirection = state.OffenseDirection,
             actors = actorStatus, actorCount = state.Players.Count, jointsPerActor = 15,
             ball = new { mode = state.Ball.Mode.ToString(), carrier = state.Ball.CarrierId, target = state.Ball.TargetPlayerId,
                 position = new[] { ball.X, ball.Y, ball.Z }, kind = state.Ball.Kind.ToString() },
@@ -269,7 +287,10 @@ public sealed class PlayerHost
                 position = new[] { Camera.Current.Position.X, Camera.Current.Position.Y, Camera.Current.Position.Z },
                 transform = Camera.Current.Transform, cueCount = Camera.CueCount,
                 transient = Camera.Playback.IsTransientActive, sourceHres = Data.Bootstrap.HorizontalResolution,
-                sourceVres = Data.Bootstrap.VerticalResolution
+                sourceVres = Data.Bootstrap.VerticalResolution, cameraTrace = Camera.Trace,
+                transientTable = Camera.Playback.Frame.Table, transientOrdinal = Camera.Playback.Frame.Ordinal,
+                transientElapsed = Camera.Playback.Frame.ElapsedTicks, resuming = Camera.Playback.IsResumingNormal,
+                needsShakeDraws = Camera.Playback.NeedsShakeDraws
             },
             hud = new { primitives = hudDraw.Count, vertices = hudVertices.Length / 4,
                 origin = "original authored atlas/font/draw composer; portable raster origin",
@@ -284,14 +305,17 @@ public sealed class PlayerHost
             active = Active, events = events.ToArray(), eventCounts, contacts = contacts.ToArray(), contactCounts,
             audio = new { output = "Audio output unqualified", selections = SoundSelections,
                 unplayedRawCalls = UnqualifiedSoundCalls },
-            effects = new { output = "Dust/fire FX unqualified", unrenderedCallbacks = UnqualifiedVisualCallbacks },
+            effects = Fire.Describe(),
+            kick = new { mode = kicking.KickMeterMode.ToString(), meter = kicking.KickMeter,
+                lastLaunch = kicking.LastKickLaunch, metrics = kicking.KickMeterMetrics,
+                origin = "portable-authored HUD metrics; NOT native Composit/generated dimensions" },
             limitations = new[] {
                 "Not a Unity player build, native Unity qualification or bit-exact arcade acceptance.",
                 "Authored TGA/portable HUD raster origin; missing Texus/WMS quantization is not reconstructed.",
                 "Production source-derived normal framing and original cinematic/MatInput; normal camera native parity remains open.",
                 "Original hand001b material6 free-ball geometry; native free-ball orientation remains unqualified.",
                 "Production default preview RNG is explicitly unverified against the historical platform PRNG.",
-                "No PCM/DSP output and no synthetic sound or placeholder effects.",
+                "No PCM/DSP output or synthetic sound. Dust callbacks are not substituted with generic particles.",
                 KernelBinding.IsPortable(Game) ? "Portable repairs are explicit; StrictSource is not silently changed." :
                     "The required portable factory option is not bound: not player-ready."
             }
@@ -314,6 +338,19 @@ public sealed class PlayerHost
         x = (nx + 1) * viewport.ContentWidth / 2;
         y = (1 - ny) * viewport.ContentHeight / 2;
         return true;
+    }
+
+    private object MenuState(IGameState state)
+    {
+        if (state.Phase != GamePhase.PlaySelect) return null;
+        object Side(TeamId side) => new {
+            page = selection.Page(side), cursor = selection.Cursor(side), selected = selection.Selected(side),
+            slots = Enumerable.Range(0, 9).Select(i => {
+                var slot = selection.Slot(state, side, selection.Page(side), i);
+                return new { index = i, name = slot.Name, symbol = slot.PlaySymbol };
+            }).ToArray()
+        };
+        return new { home = Side(TeamId.Home), away = Side(TeamId.Away) };
     }
 
     private static string PoseDigest(SourceEvaluatedPose pose)

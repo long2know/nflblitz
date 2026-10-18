@@ -69,7 +69,7 @@ class Bundle:
     def document(self, root, relative, expected, destination=None):
         return json.loads(self.add(root, relative, expected, destination))
 
-    def persist(self, output, entrypoints):
+    def persist(self, output, entrypoints, origins=None):
         output = output.absolute()
         require(output.resolve() == output and PROJECT in output.parents,
                 "Private data output must be a real ignored directory inside this checkout.")
@@ -94,6 +94,8 @@ class Bundle:
                 "audio": "Audio output unqualified; source selectors execute, no PCM/DSP playback",
             },
         }
+        if origins is not None:
+            manifest["origins"] = dict(origins)
         self.files["manifest.json"] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
         for relative, data in sorted(self.files.items()):
             target = output / relative

@@ -68,6 +68,7 @@ public sealed class DataCatalog
 
     public string Entry(string name) => entrypoints.TryGetValue(name, out string path) ? path :
         throw new InvalidDataException("Missing actual source service: " + name);
+    public bool HasEntry(string name) => entrypoints.ContainsKey(name);
     public byte[] EntryBytes(string name) => Read(Entry(name));
     public string EntryHash(string name) => files[Entry(name)].Sha256;
     public static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));

@@ -8,11 +8,20 @@ public static class KernelBinding
 {
     public const string Factory = "SourceC2Composition.CreateM1Simulation";
 
-    public static GameSimulation Create(PlayerData data) =>
-        SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
+    public static GameSimulation Create(PlayerData data, PreviewOptions options = null)
+    {
+        options ??= PreviewOptions.FromUrl("");
+        if (options.FireEnabled && data.Fire == null)
+            throw new InvalidDataException("source-fire=portable requires the authenticated original SDL/17-TGA fire bundle before simulation.");
+        SourceFireGameplayConfiguration fire = options.FireEnabled ?
+            new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(data.Fire), 0, SourceFireCull.Off) : null;
+        SourceKickMeterMetrics meters = options.KickMeters == SourceKickMeterMode.PortableAuthored ?
+            data.Hud.CreatePortableAuthoredKickMeterMetrics() : null;
+        return SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
             data.Configuration.Match, data.Rosters, data.Configuration.Presentation, data.Movement,
             data.MovementSettings, data.Sound, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(data.Callbacks),
-            compatibility: SourceGameplayCompatibility.Portable);
+            compatibility: options.Compatibility, fireEffects: fire, kickMeterMetrics: meters);
+    }
 
     public static bool IsPortable(GameSimulation game) => game.Compatibility == SourceGameplayCompatibility.Portable &&
         ((ISourceMatchState)game.State).Match.Compatibility == SourceGameplayCompatibility.Portable;
@@ -23,6 +32,8 @@ public static class KernelBinding
         return new {
             policy = game.Compatibility.ToString(), snapshotPolicy = match.Compatibility.ToString(),
             portableBound = IsPortable(game), factory = Factory,
+            sourceFire = game.SourceFireEnabled ? "portable" : "disabled",
+            kickMeters = ((ISourceKickMeterState)game.State).KickMeterMode.ToString(),
             repairCount = match.CompatibilityRepairCount,
             repairs = match.CompatibilityRepairs.Select(repair => new {
                 sequence = repair.Sequence, sourceTick = repair.SourceTick, kind = repair.Kind.ToString(),
