@@ -1,5 +1,55 @@
 # Actual-source ball and input/cue caller regressions
 
+## Fire-generation fixture inputs
+
+Context: `2026-10-17T14:23:38.829-07:00`. The following is a fixture repair for
+the new source fire/handicap engine, not a gameplay fallback or old-proof rebase.
+
+`BallTestFactory` now explicitly supplies the existing neutral presentation
+fixture to **C1 as well as C2**: designated Home, four absent special heads
+(`-1`), and `pup_bigball=0`. C1 previously passed no presentation input and its
+current-default trajectory reached the real `maybe_pop_helmet` consumer. The
+production missing-`team_head` guard is unchanged; the test declares the input
+instead of skipping the consumer, inventing production defaults, or changing
+the catch/control assertions.
+
+The old C2 FIFO trace is a separately named **original random-opponent,
+neutral-row compatibility fixture**. Only `FlipCompatibilityFactory` supplies
+raw `SourceHandicapSettings(randomDrones: true)`, before construction, through
+the actual shared fixture helper and production factory. Base adjustment,
+win streak, powerups, seed, random provider, heads and actor state are not
+tuned. Other caller scenarios and current source defaults remain unchanged.
+
+The first default-profile divergence is record16 at source0,
+`init_drones_prelineup:blitz_time:7`: raw13614959 is unchanged, but original
+correct default handicap11 selects `3*blitz_time_ht[11]=3`, value2, instead of
+the historical row5 bound150/value59. Both traces have134 draws; this is not
+a lost RNG draw or FIFO integration bug. `handicap.c:140-174` explicitly maps
+`random_drones` to `TEAM_BEARS`, whose original base is5. Unchanged compiled
+original C proves tie/zero-streak/zero-adjustment/no-repetition rows `[5,5]`
+for that declared mode, while the selected nonrandom CPU team1 correctly
+produces current defaults `[5,11]`.
+
+The literal134 count, SHA-256
+`913231dc9d3f40ce902a05a19619a9d5b2872bd7ee563f35d70810ac2f00a976`,
+queue/packet assertions, and58/18,018/18,062 inventories remain intact. The
+passive `flip-compatibility-prefix.json` records all raw/site/order rows and
+the actual raw handicap inputs. It is not a rewritten expected vector.
+Historical receipts remain untouched; the original134 witness is no longer
+misrepresented as the new default-profile trajectory.
+
+The repaired full C1 baseline/final pass sentinel36, native470666, caller18018,
+geometry32 and all20 existing compiled controls. The full old-nine C2
+baseline/final pass36/470666/18062/41 and all25 controls. Focused FIFO retains58
+assertions/all3 controls; the original134 records are exactly equal. An
+independent20-assertion actual C1/C2/M1 fixture probe proves raw settings
+forwarding, unchanged defaults and rejection of absent required head metadata.
+The delayed-possession-credit mutation only acquired its new inline live-guard
+context; it still changes18 to19 and rejects the same original credit assertion.
+No production byte, old case inventory, expected count or queue/hash predicate
+changed. The qualification history below is retained for its prior generations;
+these B1 results are not full-M1/native/game acceptance.
+
 ## Current two-profile catch contract
 
 The later bounded catch-only authorization preserves the exact default-seed1

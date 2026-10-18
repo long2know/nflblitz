@@ -46,7 +46,7 @@ internal static class SourceCallerChecks
     {
         oracleRoot = originalCases;
         var settings = new SourcePresentationSettings(TeamId.Away, new[] { -1, 3, 19, -1 }, -2);
-        FlipCases(() => BallTestFactory.Create(real, configuration: Configuration(), presentation: settings));
+        FlipCases(FlipCompatibilityFactory(real, settings));
         return assertions;
     }
 
@@ -312,7 +312,7 @@ internal static class SourceCallerChecks
         File.WriteAllText(Path.Combine(oracleRoot, "actual-caller-before-public-flow.json"),
             JsonSerializer.Serialize(new { status = "partial-not-complete-caller",
                 gateCases, receiverCases, vmCases, assertions }));
-        FlipCases(create);
+        FlipCases(FlipCompatibilityFactory(real, settings));
         RawSnapAndPass(real);
         Check(gateCases == 800 && receiverCases == 12544 && vmCases == 4, "complete original caller inventory");
         return assertions;
@@ -481,6 +481,15 @@ internal static class SourceCallerChecks
         return count;
     }
 
+    private static Func<GameSimulation> FlipCompatibilityFactory(FullKernelInputs real, SourcePresentationSettings settings)
+    {
+        // handicap.c:140-174: original random-opponent boot gives rows5/5.
+        // Keep old134 controlled and separate from the current default rows5/11.
+        SourceHandicapSettings original = real.IsC2Profile ? new SourceHandicapSettings(randomDrones: true) : null;
+        return () => BallTestFactory.Create(real, configuration: Configuration(), presentation: settings,
+            handicapSettings: original);
+    }
+
     private static void FlipCases(Func<GameSimulation> create)
     {
         GameSimulation normal = create(), flipped = create();
@@ -613,6 +622,18 @@ internal static class SourceCallerChecks
             string prefixSha;
             using (var hash = System.Security.Cryptography.SHA256.Create())
                 prefixSha = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(rows))).Replace("-", "").ToLowerInvariant();
+            File.WriteAllText(Path.Combine(oracleRoot, "flip-compatibility-prefix.json"),
+                JsonSerializer.Serialize(new {
+                    schema = "source-B1-flip-prefix-observation/v1", prefixSha, count = prefix.Length,
+                    fixture = flipped.SourceC2Enabled ? "original-random-opponent-neutral-row-compatibility"
+                        : "current-source-default",
+                    rawSiteOrderRows = rows, originalDraws = prefix,
+                    flipped.Model.SourceTeamHandicap, flipped.Model.SourceHandicapSettings,
+                    flipped.Model.SourceHandicapRepetitionBonus, flipped.Model.SourceDronesLose,
+                    flipped.Model.SourceDronesWinning, flipped.SourceTick, flipped.Model.SourceRules,
+                    sourceConfiguration = flipped.Model.SourceConfiguration,
+                    observationOnly = true, sourceOrRngStateMutation = false
+                }, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
             FifoCheck(prefix.Length == 134 &&
                 prefixSha == "913231dc9d3f40ce902a05a19619a9d5b2872bd7ee563f35d70810ac2f00a976",
                 "unchanged old134 raw/site/order prefix precedes the explicitly NEW drain-observation extension");
@@ -628,6 +649,7 @@ internal static class SourceCallerChecks
             File.WriteAllText(Path.Combine(oracleRoot, "flip-source-synchronized-compatibility.json"),
                 JsonSerializer.Serialize(new {
                     schema = "source-current281-B1-FIFO-compatibility/v1",
+                    sourceHandicapFixture = "Explicit original random_drones=true, zero base adjustment/streak/powerups; source rows5/5, NOT current defaults",
                     originalPrefixDraws = 134, prefixSha, originalSource439 = beforeFlipOnly, actual440 = history[1],
                     history, addedFifoAssertions = fifoAssertions, separatelyExtendedCompatibilityHistory = true,
                     originalCompleteVectorOrTargetSchedulerClaimed = false, queueOrRngStateMutation = false

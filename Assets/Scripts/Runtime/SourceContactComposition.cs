@@ -12,7 +12,8 @@ namespace Blitz.Runtime
             IReadOnlyList<SourceVector3> referencePivots, SourcePlaybook playbook,
             SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
-            SourceAudioFunctionData soundFunctions, Func<int, ISourceRandom> randomFactory = null, int seed = 1)
+            SourceAudioFunctionData soundFunctions, Func<int, ISourceRandom> randomFactory = null, int seed = 1,
+            SourceHandicapSettings handicapSettings = null)
         {
             SourceTeamResourceProfile.Contact272.RequireLibrary(animations);
             if (referencePivots == null || referencePivots.Count != SourceTiming.JointCount)
@@ -24,7 +25,7 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("Contact272 requires explicit original match/roster/presentation/movement/bootstrap inputs.");
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, referencePivots);
             var game = new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,
-                rosters, presentation, movementData, movementSettings);
+                rosters, presentation, movementData, movementSettings, handicapSettings: handicapSettings);
             game.BindSourceSoundVmData(soundFunctions);
             return game;
         }

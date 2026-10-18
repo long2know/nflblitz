@@ -180,18 +180,21 @@ namespace Blitz.Contracts
         public int NoCatchSourceTicks { get; }
         public SourceActorPresentationView Presentation { get; }
         public SourceActorContactView Contact { get; }
+        public int? Handicap { get; }
 
         public SourceActorView(int controllerStationId, SourceRosterIdentity roster = default(SourceRosterIdentity),
             int noCatchSourceTicks = 0, SourceActorPresentationView presentation = default(SourceActorPresentationView),
-            SourceActorContactView contact = default(SourceActorContactView))
+            SourceActorContactView contact = default(SourceActorContactView), int? handicap = null)
         {
             SourceContractGuard.Station(controllerStationId, true, nameof(controllerStationId));
             SourceContractGuard.Range(noCatchSourceTicks, 0, int.MaxValue, nameof(noCatchSourceTicks));
+            if (handicap.HasValue) SourceContractGuard.Range(handicap.Value, 0, 11, nameof(handicap));
             this.controllerStationId = controllerStationId;
             Roster = roster;
             NoCatchSourceTicks = noCatchSourceTicks;
             Presentation = presentation;
             Contact = contact;
+            Handicap = handicap;
             IsSpecified = true;
         }
     }

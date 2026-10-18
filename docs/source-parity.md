@@ -28,6 +28,97 @@ uses explicit local inputs. The older single-player/56 recipes are retained as
 historical controls, not sufficient source-mode setup. Original motion is not a
 published test fixture.
 
+## Source57 fire/handicap state-machine increment
+
+**Feature context: `2026-10-17T14:23:38.829-07:00`.** This is separate gameplay
+work from the frozen Contact/SnapHike QA and CI repair. It does not close any
+whole-game/native row or change the C1/old-nine/M1 resource selectors, pins,
+animation/sound payloads, or recorded live56 build.
+
+`GameSimulation.FireHandicap.cs` now supplies the missing original state engine,
+not an injected scalar renamed as source behavior. Only the explicit Source57
+constructor/step path calls it. `LegacyBaseline60Hz` remains unchanged.
+
+- **Receiver-owned offense fire:** `player.c:2231-2350`, `11040-11073` and
+  `include/GAME.H:240-241` credit a forward completion at exactly CONTROL_TIME18,
+  for the actor rather than its controller, with the original catch-X/LOS
+  predicate. A repeated receiver's third completion lights its team. Air catches
+  defer the check until inbounds ground contact, including after play-over;
+  catch/controller transfer is not itself completion credit.
+- **Possession order:** ordinary established control resets the losing team's
+  complete fire state except on kickoffs, then resets the receiving team's
+  partial state only if it is not already lit (`player.c:2250-2305`).
+  Forced control inside `player_down` (`5953-5984`) credits possession/stats but
+  does not run those fire resets. Existing actor processing precedes detect,
+  so actual contact consumers see a completion-triggered change on that wake.
+- **Defensive fire/result order:** `nfl.c:1445-1503` uses classified/clamped
+  `fpend` against the **old** LOS/side, before the result switch changes them.
+  Normal/two-point plays losing yards with original possession, excluding
+  incomplete/field-goal results, reset offensive fire and increment the other
+  team's original `consecutive_sacks` field. This is any qualifying yardage
+  loss, not a guessed QB-only sack rule. Equality to two lights defense and
+  stores actor `4 + 7*side` for carry-over to offense. A nonloss clears only
+  an unlit defense's loss counter.
+- **Reset/deactivation:** complete resets clear fire, completions, last receiver
+  and loss counter (`player.c:4588-4617`). First down/TD/FG, fourth-down turnover,
+  failed conversion and missed-kick handling follows the original result-switch
+  cases (`nfl.c:1643-1847`), retaining already-lit receiving defense where the
+  source does. No-forward-completion clearing happens at actual result dismissal
+  (`1943-1953`), not prematurely when the result is committed; it clears only
+  the final offense's completion counter. Lineup resets `forward_catcher`
+  (`1097`); ordinary quarter/half/overtime gates do not reset fire.
+- **Dynamic handicaps:** unchanged `handicap.c:34-210` rules are implemented at
+  `nfl.c:1038`'s pre-AI/pre-lineup boundary. They use actual score/quarter,
+  human-team presence, role-sensitive powerups, original team drone bases and
+  nine difficulty rows, no-assist, win-streak/base adjustments, random-opponent
+  base and the last five canonical play identities. History is counted before
+  shifting and only on human offense. The source's exact clamps/early returns,
+  including persistent `drones_lose` on early-return branches, are retained.
+
+The existing strict `SourceTeamRosterLibrary` already exposes `DroneBase` and
+`Tuning.DifficultySettings`; no reader, data contract identity, source pin or
+numeric dataset was replaced. Source57 now requires that existing full service,
+not an `ISourceTeamRoster` adapter with missing handicap data. The optional pure
+`SourceHandicapSettings` constructor input represents raw original globals and
+powerups; its zero/false defaults describe program boot, not reconstructed
+cabinet records. The old configuration `Difficulty` scalar remains compatible
+metadata, **not** a substitute team handicap. Non-default cabinet globals require
+explicit caller inputs; no unobserved cabinet/history state is inferred.
+
+Calculated levels feed actual actor table indices and `SourceAiParameters`
+before initialization. Existing catch, pass, contact, movement, defense-speed,
+turbo and C2 taunt readers consequently see real fire/handicap state. The quick
+kick caller now uses its computed receiving-side row and original two-draw order
+(`nfl.c:1114-1135`), retaining canonical source coordinates rather than a
+source/yards/source round-trip. Actor `Handicap` and match `HomeGameplay`,
+`AwayGameplay`, `ForwardCatcherPlayerId` and drone flags expose immutable state.
+No scene, runtime host, fire-color placeholder, guessed sound or DSP output was
+added. Original spawned rendering/SPFX processes remain outside this bounded
+state-engine/RNG qualification.
+
+The [focused original-reference suite](../tests/fire-handicap/README.md) requires
+683 retained active original-C calls per explicit profile plus two mirrored
+FH-01 incomplete/fourth-down result cases through actual C1/old-nine/M1 factories
+(685 total), real simulation caller/output assertions, and fourteen retained
+compiled causal controls plus one wrong-reset-owner control. FH-01 restores
+initial-offense reset ownership only for incomplete turnovers, after the
+unchanged classified-side loss-yard pass (`nfl.c:1694-1712`); possession rules
+and ordinary/fumbled-out-of-bounds reset ownership are unchanged.
+Fire/handicap state decisions
+consume no RNG; actual downstream contact bounds and ordered quick-kick draws
+are asserted. This is process-boundary/component evidence using explicit raw
+inputs, not full original scheduler or platform-PRNG equivalence. Existing gate
+counts and public replay inputs are not rebased.
+
+**Additional original defined-domain boundary:** original `set_handicaps` can
+produce values outside its twelve consumer rows (the active drone-base19 entry,
+or unclamped repetition adjustments), and `base-3` can be negative with certain
+explicit adjustments. The defined raw calculation is retained where safe, then
+missing rows fail explicitly; no clamp, appended row, guessed memory or unsafe-C
+oracle is used. This does not repair or waive `detect.c:3140 bc_adjust[6]`, the
+NoEligible disclosure, full-M1/public R_SKIP, CI/acquisition, Unity entitlement,
+native/DSP or whole-game acceptance boundaries below.
+
 ## Current Contact/C2 boundary
 
 The C1 default is `original-teams-contact272`, 272 clips/24,892 selected frames,

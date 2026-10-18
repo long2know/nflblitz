@@ -13,11 +13,11 @@ namespace Blitz.Runtime
             SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
-            Func<int, ISourceRandom> randomFactory = null, int seed = 1)
+            Func<int, ISourceRandom> randomFactory = null, int seed = 1, SourceHandicapSettings handicapSettings = null)
         {
             return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,
                 configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
-                c2Bootstrap, randomFactory, seed);
+                c2Bootstrap, randomFactory, seed, handicapSettings);
         }
 
         public static GameSimulation CreateM1Simulation(ISourceAnimationLibrary animations,
@@ -25,11 +25,11 @@ namespace Blitz.Runtime
             SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
-            Func<int, ISourceRandom> randomFactory = null, int seed = 1)
+            Func<int, ISourceRandom> randomFactory = null, int seed = 1, SourceHandicapSettings handicapSettings = null)
         {
             return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,
                 configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
-                c2Bootstrap, randomFactory, seed);
+                c2Bootstrap, randomFactory, seed, handicapSettings);
         }
 
         private static GameSimulation CreateChecked(SourceTeamResourceProfile profile, ISourceAnimationLibrary animations,
@@ -37,7 +37,7 @@ namespace Blitz.Runtime
             SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
-            Func<int, ISourceRandom> randomFactory, int seed)
+            Func<int, ISourceRandom> randomFactory, int seed, SourceHandicapSettings handicapSettings)
         {
             profile.RequireLibrary(animations);
             if (c2Bootstrap == null || c2Bootstrap.EntryKind != SourceC2EntryKind.OriginalProgramBootSoundBanks ||
@@ -56,7 +56,7 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("C2 requires the actual fifteen reference pivots and explicit complete kernel inputs.");
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, referencePivots);
             var game = new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,
-                rosters, presentation, movementData, movementSettings, c2Bootstrap);
+                rosters, presentation, movementData, movementSettings, c2Bootstrap, handicapSettings);
             game.BindSourceSoundVmData(legacySoundFunctions);
             return game;
         }

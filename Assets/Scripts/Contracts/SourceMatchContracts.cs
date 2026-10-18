@@ -153,6 +153,36 @@ namespace Blitz.Contracts
         }
     }
 
+    public readonly struct SourceTeamGameplayView
+    {
+        public bool IsSpecified { get; }
+        public TeamId Team { get; }
+        public bool OnFire { get; }
+        public int LastReceiverPlayerId { get; }
+        public int ConsecutiveCompletions { get; }
+        public int ConsecutiveLosses { get; }
+        public int Handicap { get; }
+
+        public SourceTeamGameplayView(TeamId team, bool onFire, int lastReceiverPlayerId,
+            int consecutiveCompletions, int consecutiveLosses, int handicap)
+        {
+            SourceContractGuard.Team(team, nameof(team));
+            SourceContractGuard.Player(lastReceiverPlayerId, nameof(lastReceiverPlayerId));
+            if (lastReceiverPlayerId >= 0 && lastReceiverPlayerId / SliceRules.PlayersPerTeam != (int)team)
+                throw new ArgumentException("A fire receiver belongs to its actor's team.", nameof(lastReceiverPlayerId));
+            SourceContractGuard.Range(consecutiveCompletions, 0, int.MaxValue, nameof(consecutiveCompletions));
+            SourceContractGuard.Range(consecutiveLosses, 0, int.MaxValue, nameof(consecutiveLosses));
+            SourceContractGuard.Range(handicap, 0, 11, nameof(handicap));
+            Team = team;
+            OnFire = onFire;
+            LastReceiverPlayerId = lastReceiverPlayerId;
+            ConsecutiveCompletions = consecutiveCompletions;
+            ConsecutiveLosses = consecutiveLosses;
+            Handicap = handicap;
+            IsSpecified = true;
+        }
+    }
+
     public sealed class SourceMatchView
     {
         public SourceMatchConfiguration Configuration { get; }
@@ -170,6 +200,12 @@ namespace Blitz.Contracts
         public TeamId? KickingTeam { get; }
         public TeamId? ReceivingTeam { get; }
         public bool? OffenseFlipped { get; }
+        public SourceTeamGameplayView HomeGameplay { get; }
+        public SourceTeamGameplayView AwayGameplay { get; }
+        public int ForwardCatcherPlayerId { get; }
+        public bool DronesLose { get; }
+        public bool DronesWinning { get; }
+        public int HandicapRepetitionBonus { get; }
         public ReadOnlyCollection<SourceQuarterScore> QuarterScores { get; }
         public ReadOnlyCollection<SourceStationView> Stations { get; }
 
@@ -181,7 +217,11 @@ namespace Blitz.Contracts
             SourcePlaySelection awayPlay = default(SourcePlaySelection),
             int selectionCountdown = -1, SourcePatOption patChoice = SourcePatOption.Unselected,
             SourcePatStatus patStatus = SourcePatStatus.NotExtraPoint, SourceKickoffType? kickoff = null,
-            TeamId? kickingTeam = null, TeamId? receivingTeam = null, bool? offenseFlipped = null)
+            TeamId? kickingTeam = null, TeamId? receivingTeam = null, bool? offenseFlipped = null,
+            SourceTeamGameplayView homeGameplay = default(SourceTeamGameplayView),
+            SourceTeamGameplayView awayGameplay = default(SourceTeamGameplayView),
+            int forwardCatcherPlayerId = -1, bool dronesLose = false, bool dronesWinning = false,
+            int handicapRepetitionBonus = 0)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -210,6 +250,11 @@ namespace Blitz.Contracts
                 SourceContractGuard.Team(receivingTeam.Value, nameof(receivingTeam));
             if (kickingTeam.HasValue && receivingTeam.HasValue && kickingTeam.Value == receivingTeam.Value)
                 throw new ArgumentException("Kicking and receiving teams must differ.", nameof(receivingTeam));
+            if (homeGameplay.IsSpecified && homeGameplay.Team != TeamId.Home
+                || awayGameplay.IsSpecified && awayGameplay.Team != TeamId.Away)
+                throw new ArgumentException("Gameplay views must retain home/away team ownership.");
+            SourceContractGuard.Player(forwardCatcherPlayerId, nameof(forwardCatcherPlayerId));
+            SourceContractGuard.Range(handicapRepetitionBonus, 0, 5, nameof(handicapRepetitionBonus));
             var scoresCopy = new SourceQuarterScore[quarterScores.Count];
             int previousQuarter = -1;
             for (int i = 0; i < scoresCopy.Length; i++)
@@ -257,6 +302,12 @@ namespace Blitz.Contracts
             KickingTeam = kickingTeam;
             ReceivingTeam = receivingTeam;
             OffenseFlipped = offenseFlipped;
+            HomeGameplay = homeGameplay;
+            AwayGameplay = awayGameplay;
+            ForwardCatcherPlayerId = forwardCatcherPlayerId;
+            DronesLose = dronesLose;
+            DronesWinning = dronesWinning;
+            HandicapRepetitionBonus = handicapRepetitionBonus;
             QuarterScores = Array.AsReadOnly(scoresCopy);
             Stations = Array.AsReadOnly(stationsCopy);
         }

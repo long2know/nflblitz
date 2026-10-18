@@ -124,10 +124,11 @@ class CanonicalObservationGuards(unittest.TestCase):
             "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
             "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
             "Assets/Scripts/Gameplay/SourceCatchGeometry.cs",
+            "Assets/Scripts/Gameplay/GameSimulation.FireHandicap.cs",
             "Assets/Scripts/AssetImport/SourceC2CallbackData.cs",
         ):
             self.assertIn(name, paths)
-        self.assertEqual(len(paths), 66)
+        self.assertEqual(len(paths), 67)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ namespace Blitz.Gameplay
         private readonly SourcePresentationSettings sourcePresentation;
         private readonly SourceMovementRuntimeData sourceMovementData;
         private readonly SourceMovementSettings sourceMovementSettings;
+        private readonly SourceHandicapSettings sourceHandicapSettings;
         private readonly Func<int, ISourceRandom> sourceRandomFactory;
         private ISourceRandom sourceRandom;
         private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
@@ -107,7 +108,8 @@ namespace Blitz.Gameplay
             SourcePlaybook playbook, SourceMatchConfiguration configuration = null,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
             SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
-            SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null)
+            SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null,
+            SourceHandicapSettings handicapSettings = null)
         {
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
             sourceGeometry = geometry;
@@ -116,6 +118,7 @@ namespace Blitz.Gameplay
             sourcePresentation = presentation;
             sourceMovementData = movementData;
             sourceMovementSettings = movementSettings;
+            sourceHandicapSettings = handicapSettings ?? new SourceHandicapSettings();
             sourceC2Bootstrap = c2Bootstrap;
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)

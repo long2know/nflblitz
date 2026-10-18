@@ -1,5 +1,32 @@
 # Fresh Contact281C2 production binding checks
 
+## Optional raw fire/handicap constructor settings
+
+The actual C1 and both C2 factory entrypoints append optional
+`SourceHandicapSettings handicapSettings = null` after `seed`. The private C2
+creation path forwards the same object to the final actual Core constructor
+argument. No generic `Difficulty` conversion, cabinet provider, settings
+storage, asset/data change or new default is introduced. Omitted/null settings
+retain Core's declared fresh-boot globals.
+
+For the bounded three-factory check, add this W2-local frozen original-C
+reference to the actual arguments below:
+
+```text
+--handicap-reference .squad/.scratch/fire-handicap-proof/qualified-v3/baseline-C1/original-c-transcript.txt
+```
+
+The transcript SHA and exact safe constructor vector are checked before using
+its original-C outputs. Actual nondefault globals must reach immutable team/
+player rows and live AI parameters through C1, old-nine and M1 factories; no
+C# handicap formula is copied into the test. Each factory compares omitted,
+explicit-null and explicit fresh-default state/RNG fingerprints. Four added
+compiled controls omit/substitute the C1, old-nine, M1 and shared-private
+forwarding paths; all previous17 package controls remain intact. New assertion
+counts are reported separately from the preserved1577 package assertions.
+These are constructor/component cases, not public-M1 input probes or fire
+visual/SPFX/DSP qualification.
+
 ## Explicit C2-M1 successor package qualification
 
 This suite also accepts the **separate** fourteen-binding M1 successor, while

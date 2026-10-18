@@ -114,6 +114,7 @@ def arguments(parser):
     parser.add_argument("--output", type=Path)
     parser.add_argument("--m1-inputs", type=Path)
     parser.add_argument("--m1-impact", type=Path)
+    parser.add_argument("--handicap-reference", type=Path)
 
 
 def input_args(args, output):
@@ -133,6 +134,11 @@ def input_args(args, output):
             path = path.resolve(strict=True)
             require(path.is_relative_to(ROOT), "M1 assets must remain NEWroot-local")
             result.append(str(path))
+    if args.handicap_reference:
+        require(bool(args.m1_inputs), "handicap forwarding checks require both actual C2 generations")
+        path = args.handicap_reference.resolve(strict=True)
+        require(path.is_relative_to(ROOT), "original-C reference must be W2-local")
+        result.append(str(path))
     return result
 
 
@@ -183,7 +189,9 @@ def main():
         report["actual_caller_guards"] = caller_guards(values)
         report["actual_M1_caller_guards"] = m1_caller_guards(values)
         actual = input_args(args, output)
-        report["explicit_inputs"] = actual[:-1]
+        report["explicit_inputs"] = {name: str(getattr(args, name).resolve()) for name in
+            ("inputs", "old272", "fixture", "impact", "old_impact", "hud", "m1_inputs", "m1_impact", "handicap_reference")
+            if getattr(args, name) is not None}
         snapshot(values, work); env = env_for(output)
         compile_project(SUITE / "C2Presentation.Production.csproj", work, output, env)
         assembly = compile_project(SUITE / "C2Presentation.Checks.csproj", work, output, env)

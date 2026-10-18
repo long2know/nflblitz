@@ -28,9 +28,11 @@ namespace Blitz.Gameplay
             Model.SourceMovementSettings = sourceMovementSettings;
             Model.SourceRosters = sourceRosters;
             Model.SourcePlaybook = sourcePlaybook;
-            if (sourcePlaybook != null)
-                Model.SourceAiParameters = new SourceAiParameters(sourcePlaybook,
-                    sourceConfiguration.Difficulty, sourceConfiguration.Difficulty);
+            Model.SourceHandicapSettings = sourceHandicapSettings;
+            Model.SourceNoAssist = sourceHandicapSettings.NoAssist;
+            Model.SourceSuperDrones = sourceHandicapSettings.SuperDrones;
+            ResetSourceTeamFire(0);
+            ResetSourceTeamFire(1);
             Model.SourceCStandardRandom = bound => SourceDraw(bound, "player.c:plyr_rand",
                 SourceRandomKind.CStandardRand) % bound;
             Model.SourceFirstPossession = (int)sourceConfiguration.FirstPossession;
@@ -405,8 +407,10 @@ namespace Blitz.Gameplay
             Model.SourceBallVerticalVelocity = 0f;
             if (plan.Kind == SourceKickoffKind.Quick)
             {
-                // nfl.c 1112-1133, neutral handicap row 5 in handicap.c 350-351.
-                int catchYard = -5 + SourceDraw(16);
+                int level = Model.SourceTeamHandicap[plan.ReceivingSide];
+                int minimum = (int)sourcePlaybook.HandicapValue("min_ko_catch_ht", level);
+                int maximum = (int)sourcePlaybook.HandicapValue("max_ko_catch_ht", level);
+                int catchYard = minimum + SourceDraw(maximum - minimum + 1);
                 float catchX = SourceMatchRules.WorldPosition(catchYard, plan.ReceivingSide);
                 float catchZ = SourceDraw((int)(40f * SourceTiming.SourceUnitsPerYard))
                     - 20f * SourceTiming.SourceUnitsPerYard;
@@ -424,15 +428,20 @@ namespace Blitz.Gameplay
                 Model.SourceBallVelocity = new FieldVector(vx, vz);
                 Model.SourceBallVerticalVelocity = -2.8f;
                 Model.SourceBallPitch = 256;
+                SourceBallDriver.SetPosition(Model, new SourceVector3(catchX - 40f * vx, 176f, catchZ - 40f * vz));
+                SourceBallDriver.SetTarget(Model, catchX, catchZ);
             }
             else
             {
                 Model.PassTarget = Model.BallPosition;
             }
             UpdateSourceBallVelocityView();
-            SourceBallDriver.SetPosition(Model, SourceBallDriver.SourcePosition(Model.BallPosition, Model.BallHeight));
-            SourceBallDriver.SetTarget(Model, SourceMatchRules.SourceWorldFromAbsoluteYards(Model.PassTarget.X),
-                Model.PassTarget.Z * SourceTiming.SourceUnitsPerYard);
+            if (plan.Kind != SourceKickoffKind.Quick)
+            {
+                SourceBallDriver.SetPosition(Model, SourceBallDriver.SourcePosition(Model.BallPosition, Model.BallHeight));
+                SourceBallDriver.SetTarget(Model, SourceMatchRules.SourceWorldFromAbsoluteYards(Model.PassTarget.X),
+                    Model.PassTarget.Z * SourceTiming.SourceUnitsPerYard);
+            }
             Model.SourceBallBounces = 0;
             Model.SourceBallBounceTick = 0;
         }
@@ -814,7 +823,7 @@ namespace Blitz.Gameplay
                 SpawnSourceC2Whistle();
                 Model.Phase = GamePhase.DeadBall;
             }
-            CreditSourcePossession(actor);
+            CreditSourcePossession(actor, false);
             SourceVector3 root = SourcePlayerDriver.WorldPosition(actor);
             SourceVector3 sourceSpot = Model.SourceHasContactSpot ? Model.SourceContactSourcePosition : root;
             if (SourceC2Enabled)
@@ -868,13 +877,15 @@ namespace Blitz.Gameplay
             Model.ClockActive = false;
             Model.SourceClock = SourceClock.DiscardFraction(Model.SourceClock);
             UpdateSourceClockView();
-            SourcePlayResolution resolution = SourceMatchRules.Resolve(pending == null ? new SourcePlayEndInput(
+            SourcePlayEndInput endingInput = pending == null ? new SourcePlayEndInput(
                 Model.SourceRules, cause, SourceBallTypeFor(Model.BallKind), Model.SourceFlags,
                 Model.SourceLastPossession, Model.SourcePlayEndX, Model.SourcePlayEndZ,
-                Model.SourceFumbleX, Model.SourceLastResult) : pending.Input);
+                Model.SourceFumbleX, Model.SourceLastResult) : pending.Input;
+            SourcePlayResolution resolution = SourceMatchRules.Resolve(endingInput);
             if (!resolution.TransitionApplied)
                 throw new NotSupportedException("Invalid source result branch: play=" + Model.SourceRules.PlayType
                     + " cause=" + cause + " kind=" + Model.BallKind + " sourceTick=" + Model.SourceTick);
+            ApplySourceFirePlayEnd(endingInput, resolution);
             Model.SourceLastResult = resolution.Classification.Result;
             Model.SourcePlayEndX = resolution.PlayEndX;
             SetSourceRules(resolution.State);
@@ -942,6 +953,9 @@ namespace Blitz.Gameplay
 
         private void ContinueSource()
         {
+            // nfl.c:1943-1953 runs after the result box, before the period gate.
+            if (Model.SourceForwardCatcher == -1)
+                Model.SourceConsecutiveCompletions[(int)Model.Possession] = 0;
             if (AdvanceSourcePeriod())
                 return;
             if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
@@ -1218,6 +1232,8 @@ namespace Blitz.Gameplay
         private void LineUpSourceActors()
         {
             RequireSourcePlaybook();
+            // nfl.c:1038 precedes both drone initialization passes and lineup.
+            UpdateSourceHandicaps();
             Model.SourcePlayEndX = SourceMatchRules.WorldPosition(-100, (int)Model.Possession);
             SourceDroneInitialization before = SourceDroneAI.InitializePreLineup(BuildSourceAiFrame(),
                 Model.SourceOffensePlay, Model.SourceDefensePlay, Model.SourceAiParameters, Model.Quarter - 1,
@@ -1272,6 +1288,7 @@ namespace Blitz.Gameplay
             }
             Array.Clear(Model.SourceSpinCount, 0, Model.SourceSpinCount.Length);
             Array.Clear(Model.SourceHurdleCount, 0, Model.SourceHurdleCount.Length);
+            Model.SourceForwardCatcher = -1;
             Model.SourceAiFrame = null;
             if (SourceContactDriver.IsHumanTeam(Model, Model.Possession)
                 && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.FakeFieldGoal)) != 0)
@@ -1583,11 +1600,12 @@ namespace Blitz.Gameplay
 
         private void SourceCarrierControl(ActorState actor)
         {
-            if (Model.CarrierId != actor.Id || Model.Phase != GamePhase.LiveBall)
+            if (Model.CarrierId != actor.Id)
                 return;
             int side = (int)actor.Team;
             long held = Model.SourceTick - Model.CatchSourceTick;
             if (side == Model.SourceLastPossession && Model.BallKind == SourceBallKind.Pass && held == 18
+                && Model.Phase == GamePhase.LiveBall
                 && !Model.SourceTeamFire[side]
                 && SourceMatchRules.FieldPosition(Model.SourceCatchX, (int)Model.Possession) >= Model.SourceRules.LineOfScrimmage)
             {
@@ -1595,7 +1613,7 @@ namespace Blitz.Gameplay
                     actor.SourcePendingFireCheck = true;
                 else CheckSourceReceiverFire(actor);
             }
-            if (side != Model.SourceLastPossession && held >= 18)
+            if (side != Model.SourceLastPossession && held >= 18 && Model.Phase == GamePhase.LiveBall)
                 CreditSourcePossession(actor);
             bool inbounds = SourceBallDriver.InBounds(SourcePlayerDriver.WorldPosition(actor));
             int field = SourceMatchRules.FieldPosition(SourcePlayerDriver.WorldPosition(actor).X,
@@ -1620,7 +1638,7 @@ namespace Blitz.Gameplay
             ResolveSourceLocation();
         }
 
-        private void CreditSourcePossession(ActorState actor)
+        private void CreditSourcePossession(ActorState actor, bool resetFire = true)
         {
             if (Model.SourceLastPossession == (int)Model.Possession)
                 return;
@@ -1635,16 +1653,14 @@ namespace Blitz.Gameplay
                 Model.SourceLostFumbles[1 - (int)actor.Team]++;
             Model.SourceLastPossession = (int)Model.Possession;
             Model.SourceFlags |= SourceGameFlags.PossessionChange;
-            if (Model.BallKind != SourceBallKind.Kickoff)
+            // player_down establishes control without _mode_wpn's fire resets.
+            if (resetFire && Model.BallKind != SourceBallKind.Kickoff)
             {
-                Model.SourceTeamFire[1 - (int)Model.Possession] = false;
-                Model.SourceLastReceiver[1 - (int)Model.Possession] = -1;
-                Model.SourceConsecutiveCompletions[1 - (int)Model.Possession] = 0;
+                ResetSourceTeamFire(1 - (int)Model.Possession);
             }
-            if (!Model.SourceTeamFire[(int)Model.Possession])
+            if (resetFire && !Model.SourceTeamFire[(int)Model.Possession])
             {
-                Model.SourceLastReceiver[(int)Model.Possession] = -1;
-                Model.SourceConsecutiveCompletions[(int)Model.Possession] = 0;
+                ResetSourceTeamFire((int)Model.Possession);
             }
             EmitSource(SourceEventType.PossessionChanged, actor.Id, Model.ThrowerId);
         }
@@ -1652,9 +1668,10 @@ namespace Blitz.Gameplay
         private void CheckSourceReceiverFire(ActorState actor)
         {
             int side = (int)actor.Team;
+            Model.SourceForwardCatcher = actor.Id;
             if (Model.SourceLastReceiver[side] == actor.Id)
             {
-                Model.SourceConsecutiveCompletions[side]++;
+                Model.SourceConsecutiveCompletions[side] = checked(Model.SourceConsecutiveCompletions[side] + 1);
                 if (Model.SourceConsecutiveCompletions[side] > 2)
                     Model.SourceTeamFire[side] = true;
             }

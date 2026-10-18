@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="M1Checks.cs" />
+    <Compile Include="FactoryHandicapChecks.cs" />
     <Compile Include="$(BlitzSourceRoot)tests/parity/FullKernelInputs.cs" />
   </ItemGroup>
 </Project>

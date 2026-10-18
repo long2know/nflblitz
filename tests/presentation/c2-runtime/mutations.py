@@ -40,8 +40,8 @@ M1_ACTUAL = (
      "M1 exact14 catalog caller tuples including6373 must exist"),
 )
 ACTUAL = (
-    ("bootstrap-omitted-until-after-AI", FACTORY, "rosters, presentation, movementData, movementSettings, c2Bootstrap);",
-     "rosters, presentation, movementData, movementSettings);", "C2 bootstrap supplied before constructor bank RNG and AI"),
+    ("bootstrap-omitted-until-after-AI", FACTORY, "rosters, presentation, movementData, movementSettings, c2Bootstrap, handicapSettings);",
+     "rosters, presentation, movementData, movementSettings, null, handicapSettings);", "C2 bootstrap supplied before constructor bank RNG and AI"),
     ("legacy-SAFN-not-bound-before-wake", FACTORY, "game.BindSourceSoundVmData(legacySoundFunctions);", "",
      "legacy SAFN bound before first wake"),
     ("geometry-detached-same-content-library", FACTORY, "new SourceCatchGeometry(animations, referencePivots)",
@@ -73,6 +73,31 @@ ACTUAL = (
      "output.ConsumeResolved(dispatch); output.ConsumeResolved(dispatch);",
      "C2 literal recorded once, not audio playback proof"),
 )
+HANDICAP = (
+    ("C1-handicap-constructor-omission", "Assets/Scripts/Runtime/SourceContactComposition.cs",
+     "handicapSettings: handicapSettings);", "handicapSettings: null);",
+     "factory C1 forwards explicit raw settings to actual constructor"),
+    ("old-nine-handicap-entry-omission", FACTORY,
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,\n"
+     "                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,\n"
+     "                c2Bootstrap, randomFactory, seed, handicapSettings);",
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,\n"
+     "                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,\n"
+     "                c2Bootstrap, randomFactory, seed, null);",
+     "factory old-nine forwards explicit raw settings to actual constructor"),
+    ("M1-handicap-entry-substitution", FACTORY,
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,\n"
+     "                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,\n"
+     "                c2Bootstrap, randomFactory, seed, handicapSettings);",
+     "return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,\n"
+     "                configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,\n"
+     "                c2Bootstrap, randomFactory, seed, null);",
+     "factory M1 forwards explicit raw settings to actual constructor"),
+    ("shared-C2-handicap-constructor-omission", FACTORY,
+     "rosters, presentation, movementData, movementSettings, c2Bootstrap, handicapSettings);",
+     "rosters, presentation, movementData, movementSettings, c2Bootstrap, null);",
+     "factory old-nine forwards explicit raw settings to actual constructor"),
+)
 
 
 def main():
@@ -83,7 +108,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     values = run.sources(); work = output / "source"; rows = []
     actual = run.input_args(args, output)
-    cases = DEFAULT + (ACTUAL if actual else ()) + (M1_ACTUAL if args.m1_inputs else ())
+    cases = DEFAULT + (ACTUAL if actual else ()) + (M1_ACTUAL if args.m1_inputs else ()) + (HANDICAP if args.handicap_reference else ())
     try:
         run.snapshot(values, work); env = run.env_for(output)
         for label, path, before, after, assertion in cases:

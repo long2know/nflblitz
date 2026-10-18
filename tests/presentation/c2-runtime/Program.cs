@@ -41,7 +41,7 @@ internal static partial class Program
             M1Registry();
             if (args.Length != 0)
             {
-                Check(args.Length == 7 || args.Length == 9, "explicit current C2/local historical/package input closure");
+                Check(args.Length == 7 || args.Length == 9 || args.Length == 10, "explicit current C2/local historical/package input closure");
                 Load(args);
                 Factory();
                 Selectors();
@@ -51,7 +51,14 @@ internal static partial class Program
                 PartialAndRestart();
                 OldSix();
                 Package(args);
-                if (args.Length == 9) M1Profile(args);
+                if (args.Length >= 9) M1Profile(args);
+                int packageAssertions = assertions;
+                if (args.Length == 10)
+                {
+                    FactoryHandicapChecks(args[7], args[9]);
+                    Console.WriteLine("PASS explicit handicap factory forwarding: " + (assertions - packageAssertions) +
+                        " assertions; preserved package assertions=" + packageAssertions + "; original-C-qualified reference, no new formula");
+                }
                 File.WriteAllLines(Path.Combine(args[6], "bounded-evidence.txt"), evidence);
             }
             Console.WriteLine("PASS C2 production binding: " + assertions + " assertions; actual=" + (args.Length != 0) +

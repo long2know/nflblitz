@@ -86,8 +86,8 @@ MUTATIONS = (
      "if (actor.SourceControllerStation >= 0 || !SourceContactDriver.IsHumanTeam(Model, actor.Team) || Model.SourceTick - Model.CatchSourceTick < 18)",
      "geometry", "actual catch caller transfers human controller immediately", 1),
     ("delayed-possession-credit", "GameSimulation.Source.cs",
-     "if (side != Model.SourceLastPossession && held >= 18)",
-     "if (side != Model.SourceLastPossession && held > 18)",
+     "if (side != Model.SourceLastPossession && held >= 18 && Model.Phase == GamePhase.LiveBall)",
+     "if (side != Model.SourceLastPossession && held > 18 && Model.Phase == GamePhase.LiveBall)",
      "geometry", "actual CONTROL_TIME18 credits possession", 1),
 )
 

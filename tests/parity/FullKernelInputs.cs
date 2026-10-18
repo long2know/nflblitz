@@ -180,7 +180,8 @@ internal sealed class FullKernelInputs
 
     internal GameSimulation Create(int seed = 1, SourceMatchConfiguration configuration = null,
         Func<int, ISourceRandom> randomFactory = null, SourcePresentationSettings presentation = null,
-        SourceMovementSettings movementSettings = null, bool camera = true)
+        SourceMovementSettings movementSettings = null, bool camera = true,
+        SourceHandicapSettings handicapSettings = null)
     {
         SourceMovementSettings settings = movementSettings ?? new SourceMovementSettings(0, 0, false, 0, 0, false);
         GameSimulation game;
@@ -191,15 +192,15 @@ internal sealed class FullKernelInputs
             game = IsC2M1Profile
                 ? SourceC2Composition.CreateM1Simulation(Animations, ReferencePivots, Playbook, configuration,
                     Rosters, presentation, MovementRuntime, settings, SoundFunctions,
-                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed)
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings)
                 : SourceC2Composition.CreateSimulation(Animations, ReferencePivots, Playbook, configuration,
                     Rosters, presentation, MovementRuntime, settings, SoundFunctions,
-                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed);
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings);
         }
         else
         {
             game = new GameSimulation(Animations, Geometry, Playbook, configuration,
-                randomFactory, seed, Rosters, presentation, MovementRuntime, settings);
+                randomFactory, seed, Rosters, presentation, MovementRuntime, settings, handicapSettings: handicapSettings);
             game.BindSourceSoundVmData(SoundFunctions);
         }
         if (camera)

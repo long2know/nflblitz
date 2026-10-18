@@ -35,6 +35,16 @@ Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
 
+## Source57 fire/handicap feature checks
+
+The separate [fire/handicap suite](fire-handicap/README.md) exercises the actual
+Source57 completion/control/contact/result/lineup callers against active pinned
+original C, with explicit C1, old-nine C2 and M1 inputs and compiled causal
+mutations. It does not replace or rebase the older gate inventories below,
+run full M1/public replays, or qualify a new Unity/browser generation.
+Numeric source data and generated reference/proof artifacts remain local and
+ignored. The legacy60 route is unchanged.
+
 ## Current Contact/C2 gates
 
 From the repository root, Python 3.10+ and the existing .NET 10.0.100 SDK suffice

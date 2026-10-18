@@ -96,7 +96,10 @@ namespace Blitz.Gameplay
                     model.SourceRules.PlayType == SourcePlayType.Kickoff ? (SourceKickoffType?)model.SourceKickoffKind : null,
                     model.SourceRules.PlayType == SourcePlayType.Kickoff ? (TeamId?)model.SourceKickingSide : null,
                     model.SourceRules.PlayType == SourcePlayType.Kickoff ? (TeamId?)(1 - model.SourceKickingSide) : null,
-                    model.SourceOffenseFlipped);
+                    model.SourceOffenseFlipped,
+                    SourceTeamGameplay(model, TeamId.Home), SourceTeamGameplay(model, TeamId.Away),
+                    model.SourceForwardCatcher, model.SourceDronesLose, model.SourceDronesWinning,
+                    model.SourceHandicapRepetitionBonus);
             }
         }
 
@@ -108,7 +111,16 @@ namespace Blitz.Gameplay
                 actor.ModelScale, new SourceActorView(actor.SourceControllerStation, actor.SourceRoster, actor.NoCatchTicks,
                     new SourceActorPresentationView(SourceActorFlags(actor), (int)actor.SourceMode),
                     new SourceActorContactView(actor.SourceHitPartnerId, actor.SourcePuppetLinkId,
-                        actor.SourcePuppetReleaseTick, actor.SourceAttackMode, actor.SourceAttackTime, actor.SourceBlockCount)));
+                        actor.SourcePuppetReleaseTick, actor.SourceAttackMode, actor.SourceAttackTime, actor.SourceBlockCount),
+                    actor.SourceHandicap));
+        }
+
+        private static SourceTeamGameplayView SourceTeamGameplay(SimulationState model, TeamId team)
+        {
+            int side = (int)team;
+            return new SourceTeamGameplayView(team, model.SourceTeamFire[side], model.SourceLastReceiver[side],
+                model.SourceConsecutiveCompletions[side], model.SourceConsecutiveLosses[side],
+                model.SourceTeamHandicap[side]);
         }
 
         internal static int SourceActorFlags(ActorState actor)

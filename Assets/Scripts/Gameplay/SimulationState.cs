@@ -176,7 +176,13 @@ namespace Blitz.Gameplay
         internal readonly int[] SourceBobbles = new int[2];
         internal readonly int[] SourceLastReceiver = { -1, -1 };
         internal readonly int[] SourceConsecutiveCompletions = new int[2];
+        internal readonly int[] SourceConsecutiveLosses = new int[2];
         internal readonly bool[] SourceTeamFire = new bool[2];
+        internal int SourceForwardCatcher = -1;
+        internal readonly int[] SourceTeamHandicap = new int[2];
+        internal readonly SourcePlayDefinition[] SourceHandicapPlayHistory = new SourcePlayDefinition[5];
+        internal SourceHandicapSettings SourceHandicapSettings;
+        internal int SourceHandicapRepetitionBonus;
         internal readonly int[] SourceSpinCount = new int[2];
         internal readonly int[] SourceHurdleCount = new int[2];
         internal int SourceFumblesOnPlay;
