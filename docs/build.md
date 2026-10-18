@@ -7,18 +7,35 @@ selected source frames**. Verified host build `0000063700005f540000316b000003e7`
 Docker `8080/?actors=source`. The October 15 static `QBSTANCE` and identity/legend
 checks below are earlier historical milestones.
 
-The blocked **Contact/C2/M1 source increment** extends those historical
+The blocked **native Unity Contact/C2/M1 source increment** extends those historical
 compositions with default Contact272, old-nine Contact281C2 and the explicit
 fourteen-binding Contact281C2M1 successor. The
 [current post-snap QA report](source-parity.md#current-post-snap-defined-domain-qa)
-qualifies named defined-domain surfaces only. Dated source/pure/reference-API receipts are **not
-a new imported/built/browser-playable generation**. Two archived 6000.3.24 and one
+qualifies named defined-domain surfaces only. Dated source/pure/reference-API
+receipts are **not a new imported/built Unity player generation**.
+Two archived 6000.3.24 and one
 installed 6000.6.5 attempts exited 198 before import (licensing404/missing headless
-entitlement). No new resource save/reload, pixels or game build is claimed.
+entitlement). No new Unity resource save/reload, native pixels or Unity game
+build is claimed.
 Target remains **6000.3.24f1**; the installed 6000.6.5 `GetInstanceID` API
 incompatibility is a separate issue, not permission to change versions.
 **All sixteen full-parity rows remain OPEN.** See the
 [source-parity ledger](source-parity.md) for the native/browser evidence and limits.
+
+## Separate playable portable browser
+
+The [source-player recipe](../tools/source-player/README.md) builds and serves
+the shared C# simulation as .NET browser-WASM with a WebGL renderer, independently
+of the Unity Editor route below. The implementation through PR27 has actual
+original-team/head/effects/kick/camera captures and one naturally completed
+four-quarter enabled-feature portable match. Its final source commit passed
+the full Game source checks and the separate asset-free player workflow.
+
+This is **not a Unity player**, native resource import or DSP/audio result.
+Its source-authored geometry and portable-authored kick metrics retain their
+stated native limitations. See the
+[published portable-browser evidence](source-parity.md#published-portable-browser-evidence)
+for the actual build identity and bounded match/capture qualification.
 
 ## Pinned toolchain and external activation
 
@@ -43,8 +60,9 @@ not aliases or automatically runnable compositions on this engine.
 
 ## Current Contact/C2 source-mode resources
 
-This is an **opt-in portable-source/resource milestone**, not a newly playable
-game. An absent or empty runtime selector retains C1
+This is an **opt-in Unity source/resource milestone**, not a newly built Unity
+game. The separate portable browser above has its own explicit prepared inputs.
+An absent or empty Unity runtime selector retains C1
 `original-teams-contact272`; C2 requires
 `?actors=source&sourceprofile=original-teams-contact281-c2`.
 The separate M1 successor requires

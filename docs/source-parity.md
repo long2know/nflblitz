@@ -1,6 +1,6 @@
 # Source parity and port evidence
 
-**Contract checked October 17, 2026 (PDT).** Reference: public
+**Status checked October 18, 2026 (PDT).** Reference: public
 [`historicalsource/nflblitz2000`](https://github.com/historicalsource/nflblitz2000).
 Pinned default-branch revision:
 [`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`](https://github.com/historicalsource/nflblitz2000/commit/89f840d58d152a2a9f230cb8d0cdffbd554c8ded),
@@ -9,12 +9,14 @@ appearance and logic, not a generic football graybox. Checked-in **Contact/C2**
 source adds bounded contact/callback/resource composition to the retained
 movement, ball, sound, Team and HUD/cabinet layers. Default/empty selection
 remains Contact272; old-nine Contact281C2 and the fourteen-binding
-Contact281C2M1 successor are **separate explicit opt-ins**. The current source
-increment is blocked: only the named current post-snap defined-domain surfaces
-are QA-qualified, not a new playable build, green CI or whole-game acceptance.
-Source/pure/reference-API evidence is separate
-from the **older live56 WebGL generation**. No combined native resource import, game build,
-new pixels/browser session or actual game-audio consumer is established.
+Contact281C2M1 successor are **separate explicit opt-ins**. The native Unity
+source increment remains unqualified: the named post-snap defined-domain
+surfaces and source/API compilation are not a new Unity import or player build.
+The separate **playable portable C# browser** now has actual current-build
+gameplay, GPU, kick/effect/camera and bounded four-quarter evidence below.
+Neither that evidence nor the source/pure/reference-API results relabels the
+**older live56 Unity WebGL generation**. No combined native Unity resource
+import/player build or actual DSP/game-audio consumer is established.
 It is not a complete port of the original C engine or every shipped
 version/configuration. **Full source gameplay parity remains OPEN; all sixteen
 completion-matrix rows are still required.** The static-player milestone and
@@ -27,6 +29,46 @@ the [current Contact/C2 resource contract](build.md#current-contactc2-source-mod
 uses explicit local inputs. The older single-player/56 recipes are retained as
 historical controls, not sufficient source-mode setup. Original motion is not a
 published test fixture.
+
+<a id="published-portable-browser-evidence"></a>
+
+## Published portable browser evidence - October 18, 2026
+
+Implementation PRs21 through27 are merged. The implementation generation
+documented here is merge `2cdfd61c8bc3ab1151965e113581b85834b1be26`; its source tree equals
+the final PR27 commit `d82f039440a575be22e1e096d81ef47b259cf986`.
+Hosted Game source checks `39134582960` and Source player asset-free checks
+`39134582968` passed on that exact source commit. This status update changes no
+production, inputs, policies, acceptance predicates or frozen receipts.
+
+The actual portable browser build receipt is SHA-256
+`c23092d9bcdae85142867e9a397c9cb67253dbe291611d2fce7948eb365bc9cc`.
+Its 107 runtime build-source fingerprints, 735 emitted bundle files and 541
+listed private data files were verified; actual HTTP-loaded WASM identities
+match the receipt. The later exact-inventory/CI/documentation correction
+does not change those runtime source bytes. Original inputs, converted numeric
+geometry, proof records and build payloads remain private local data.
+The [source-player README](../tools/source-player/README.md) contains the setup.
+
+| Surface | Observed result | Qualification boundary |
+| --- | --- | --- |
+| Actual rendering | Distinct original team uniforms, genuine original-source phead on the real helmet flag, continuing gameplay, white actor flash/fire, punt and field-goal meter/release with the original ball rendered in flight, and eligible CSI/shaker/normal-camera return. PR27 has four unmodified gameplay captures in its description. | Source-authored SDL reconstruction, not recovered native Composit/header/qsort bytes or native framebuffer equivalence. Kick dimensions remain explicitly portable-authored; native free-ball geometry/orientation is not qualified. |
+| One complete match | A fresh public-cabinet-input campaign naturally passed all four regulation quarters to `GameOver / MatchEnded` at source tick 27131: 74 plays, score 0-79, 501.231 seconds, no faults/reloads/resets/retries. Fire and portable-authored meters were enabled at all five recorded quarter/terminal milestones. | One functional portable case, not exhaustive play, overtime, multiplayer, final-restart or balance coverage. The input strategy did not alter source clocks, seed/RNG, actor/ball state, poses or flags. |
+| Capture provenance | All ten full-match output files, including five original PNGs, the actual state/GPU/HTTP receipt and 3,085 public-input rows, are hash-bound. The public control block is byte-identical to the inspected field-goal harness. | This supplemental observer polled state and GPU separately: each GPU observation is one source tick later, within its recorded stable-phase screenshot bracket. It is not same-tick pixel proof. |
+| Unity integration | All five archived actual-API profiles compile this generation's 124 C# files; metadata has 138 unique GUIDs and preserves all 137 older files. Typed head import/runtime wiring is source- and API-checked. | No new Unity Editor/import/serialization/player execution. Actual DSP/audio output, target PRNG/ABI, native ordering/float/pixels and all-sixteen-row parity remain unqualified. |
+
+The original three head/punt/flash campaigns have false field-goal witness
+booleans. A **separate unchanged-build** campaign supplies a field-goal meter at
+source tick 16454, public B at 16487, physical release at 16526 and the rendered
+in-flight ball at 16529. It is not a relabelled original campaign or a
+scoring-outcome claim. The four-quarter
+campaign is a further separate case, not a new native or whole-parity result.
+
+The historical component sections below retain their own dates, source
+generations and qualification boundaries. Pre-publication pending-CI/browser
+statements in those records are not the current publication status above.
+Unity/DSP access limitations do not waive still-implementable gameplay,
+configuration, special-case and lifecycle requirements in the completion matrix.
 
 <a id="published-portable-m1-qualification"></a>
 
@@ -67,7 +109,9 @@ explicitly select this named recording; no commands are generated at preparation
 
 The old `a33b1765...` recording remains byte-identical, historical and
 unqualified. Hosted run39102061602's old-input UNMET is not relabelled.
-The updated workflow still needs actual green hosted CI before PR21 merge.
+That pre-publication CI requirement is now satisfied by completed PR21 and the
+later exact-head hosted checks recorded above; its historical failing run is
+not relabelled as a success.
 This managed Portable M1 result is **not** original/native/target-PRNG behavior,
 Unity/DSP/game-build/browser acceptance, whole-game parity or closure of all16
 rows. Strict defaults and the NoEligible disclosure below remain unchanged.

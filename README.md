@@ -5,14 +5,26 @@ game logic**, running client-side in a browser. The procedural graybox
 is a diagnostic baseline, **not the visual target**. This is an incomplete port,
 not a finished or whole-game-parity recreation.
 
-## Checked-in source versus the recorded live player
+## Playable portable browser versus the Unity generation
 
-**Blocked source increment, October 17, 2026:** Contact/C2 and the explicit
-StageB M1 binding successor are portable-source/resource work, **not a new
-playable build, green CI or whole-game acceptance**. Current post-snap
-defined-domain QA qualifies only the named
-[B1, snap, binding, package and API surfaces](docs/source-parity.md#current-post-snap-defined-domain-qa);
-broader generation qualification remains blocked.
+**Playable portable C# browser, October 18, 2026:** the implementation published
+through PR27 runs the actual shared C# simulation as .NET browser-WASM with a
+WebGL renderer. It uses original teams, articulated models, HUD/play pages,
+source-authored popped-head geometry and the independently selected source
+effects and portable-authored kick meters. It is **not a Unity player build**.
+See the [portable browser setup](tools/source-player/README.md) and
+[current evidence and limits](docs/source-parity.md#published-portable-browser-evidence).
+
+The combined browser generation has genuine head/continuity, white-flash,
+punt/field-goal release and CSI/shaker/return captures. One public-input match
+completed all four regulation quarters without faults, reloads, resets or
+retries. PR27 contains four actual gameplay captures in its description.
+This is one functional portable case, not exhaustive gameplay or native parity.
+
+**The native Unity Contact/C2/M1 generation remains unqualified.** The resource
+selectors below and the named
+[B1, snap, binding, package and API surfaces](docs/source-parity.md#current-post-snap-defined-domain-qa)
+do not establish a new Unity import, resource round-trip or player build.
 
 | Runtime selection | Resource identity |
 | --- | --- |
@@ -31,9 +43,10 @@ and [strict-input versus asset-free checks](tests/README.md#current-contactc2-ga
 Historical 56/117/156/157/272 identities remain distinct; preserving them does
 not make every historical composition runnable on the new engine.
 Nonempty sound output without a real DSP consumer fails visibly—**nothing is
-claimed played**. Source/pure/reference-API checks are not native import, game
-pixels, a Unity build or browser proof. Three legitimate Editor attempts exited
-198 **before import** because headless entitlement was unavailable.
+claimed played**. Source/pure/reference-API checks alone are not native import,
+game pixels, a Unity build or browser proof; the actual portable-browser evidence
+above is separate. Three legitimate Editor attempts exited 198 **before import**
+because headless entitlement was unavailable.
 
 The source-derived snap fix keeps Source57 in PreSnap until the actual
 `hike_ball` animation callback, rather than declaring Live at the snap request.
@@ -49,8 +62,8 @@ qualification blockers:
 - The frozen named `portable-cabinet-wide-pass-clearance-12000` recording now
   **passes the published full Portable M1 gate** on source `a4c0798`:
   26 R_SKIP frames, actor12/instance208 after2299 and two actual15-joint poses.
-  This is a bounded managed caller/control/physics result, not CI, native,
-  whole-game or all-sixteen-row acceptance.
+  This is a bounded managed caller/control/physics result, not by itself
+  hosted CI, native, whole-game or all-sixteen-row acceptance.
 - Hosted run39070002791 used legacy69/443 data and failed on missing
   `TIE1C_A`. The CI/input correction now prepares strict78/834 Contact272,
   StageA extra9 and explicit StageB M1 inputs, plus the
@@ -61,8 +74,11 @@ qualification blockers:
   gate now deliberately adds exactly one `--source-compatibility portable`;
   API defaults remain strict. It requires all controls/physics/final and
   remains nonzero on faults or unmet R_SKIP, with no single-attempt shortcut.
-  This CI wiring ran no new replay and claims no green hosted run.
-  PR21 remains unmerged pending the actual updated pipeline.
+  The wiring-only change did not itself run a new replay. PR21 and the later
+  implementation PRs through PR27 are now merged. The final PR27 source commit
+  `d82f039440a575be22e1e096d81ef47b259cf986` passed hosted Game source checks
+  `39134582960` and Source player asset-free checks `39134582968`; those results
+  do not relabel the historical failing inputs or establish native parity.
 
 **Portability disclosure:** the parent autonomously selected a narrow
 no-eligible-candidate return before original `maybe_taunt` calls
@@ -78,10 +94,11 @@ Unity **6000.3.24f1** host build `0000063700005f540000316b000003e7` is promoted
 at Docker `8080/?actors=source`. Native vertex comparisons and a real
 **219.875-second browser recording** prove the bounded increment: twelve actors
 with non-rigid motion, eight observed actions and zero runtime errors.
-That is the older live preview, not evidence that the new Contact/C2 source
-has been imported, built or deployed. Its payload and captures are not replaced
-or relabeled by the new headless/API results. **All sixteen full-parity rows
-remain OPEN.** The ledger also retains the October 15 static-pose/title history.
+That is the older Unity preview, not evidence that the new Contact/C2 Unity
+resources have been imported or built. Its payload and captures are not replaced
+or relabeled by the separate portable browser or headless/API results.
+**All sixteen full-parity rows remain OPEN.** The ledger also retains the
+October 15 static-pose/title history.
 
 ## Import, build and run
 
