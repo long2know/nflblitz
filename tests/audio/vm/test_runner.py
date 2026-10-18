@@ -40,7 +40,8 @@ class SoundVmClosure(unittest.TestCase):
 
     def test_coupled_snapshot_inventories_include_the_actual_selector(self):
         for path in ["tests/ball/run.py", "tests/parity/run.py", "tests/movement-callers/run.py",
-                     "tests/ball/compile_profile.py", "tests/run-core.py"]:
+                     "tests/ball/compile_profile.py", "tests/run-core.py", "tests/camera/run.py",
+                     "tests/audio/runtime/run.py"]:
             text = (ROOT / path).read_text()
             if "from kernel_sources import production_paths" in text:
                 self.assertIn("production_paths()", text, path)
@@ -49,7 +50,22 @@ class SoundVmClosure(unittest.TestCase):
                 self.assertIn("Assets/Scripts/Presentation/SourceC2SoundFunctions.cs", names)
                 self.assertIn("Assets/Scripts/Runtime/SourceC2Composition.cs", names)
             else:
-                self.assertIn("Assets/Scripts/Presentation/SourceAudioFunctions.cs", text, path)
+                for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+                    self.assertIn(name, text, path)
+
+    def test_explicit_staged_projects_link_both_selectors_from_their_selected_root(self):
+        for project, prefix in (
+            ("audio/runtime/SourceSoundRuntime.Checks.csproj", "$(BlitzSourceRoot)"),
+            ("presentation/movement-stage/StageChecks.csproj", "$(BlitzStageRoot)"),
+            ("presentation/interface-packaging/PackagingChecks.csproj", "$(BlitzPackagingRoot)"),
+            ("presentation/sound-runtime/SoundPackagingChecks.csproj", "$(SoundPackagingRoot)"),
+        ):
+            includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile")}
+            for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+                self.assertIn(prefix + "Assets/Scripts/Presentation/" + name, includes, project)
+        runtime = (ROOT / "tests/audio/runtime/run.py").read_text()
+        for name in ("Assets/Scripts/Runtime/SourceC2Composition.cs", "tests/parity/FullKernelSources.props"):
+            self.assertIn(name, runtime)
 
     def test_no_primary_machine_path_is_a_new_permanent_default(self):
         for path in (ROOT / "tests/audio/vm").iterdir():

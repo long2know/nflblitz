@@ -1,6 +1,6 @@
 # HUD/cabinet regression checks
 
-## Current movement157 runtime gate
+## Current source runtime and movement-bootstrap gate
 
 From a clean coherent checkout, with no original assets, Unity or ignored
 authoring state:
@@ -14,8 +14,18 @@ This runs the actual C#7.3/.NET Standard2.1 HUD/input model and strict new
 team masks/global booleans/both original DIP rasters, and ten **compiled
 production-source** bootstrap mutants. It also runs the actual
 Runtime/services/camera wiring guards, isolated structural mutants, complete
-16-owned-file inventory and copied clean-checkout default.
+17-owned-file inventory and copied clean-checkout default. Current routing uses
+the selected Contact272/C2/M1 profile and its matching resource key, while the
+historical157 identity remains distinct. The explicit compatibility option
+must reach the actual factory.
 Structural guards are not presented as native Runtime execution.
+
+The source guards retain every existing camera/input/transport check and cover
+the real C1/C2 factory chain: complete typed movement inputs, trusted SAFN
+validation, same-library fifteen-pivot geometry, and exactly one sound binding
+between construction and return. The 32 Runtime, 15 service, and eight factory
+mutations are source-only controls, separate from the ten compiled bootstrap
+mutants. The resolved route must flush its actual native prefix before returning.
 
 Optional complete actual Unity-reference API compilation and actual data mapping:
 

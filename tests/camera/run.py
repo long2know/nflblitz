@@ -20,9 +20,10 @@ project = suite / "CameraChecks.csproj"
 expected_assertions = 3568
 model = root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
 selector = root / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
+c2_selector = root / "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"
 def production_files():
     paths = [model, root / "Assets/Scripts/Editor/NormalCameraChecks.cs",
-             root / "Assets/Scripts/Presentation/PlayCamera.cs", selector]
+             root / "Assets/Scripts/Presentation/PlayCamera.cs", selector, c2_selector]
     paths += sorted((root / "Assets/Scripts/Contracts").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/Gameplay").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/AssetImport").glob("*.cs"))
@@ -111,27 +112,35 @@ mutations = [
      "source pole at 57 Hz"),
 ]
 mutation_results = []
+compile_failure_probes = []
 try:
     baseline_assertions = check_success(run(root, "baseline"))
-    missing_selector_root = snapshot("missing-selector", mutations[0])
-    (missing_selector_root / selector.relative_to(root)).unlink()
-    compile_guard = "Actual frozen SourceAudioFunctions is a required pure Core VM dependency; no stub or omitted selector."
-    try:
-        run(missing_selector_root, "missing-selector")
-    except RuntimeError as error:
-        if compile_guard not in str(error) or "Compilation error is NOT a rejected camera assertion mutant:" not in str(error):
-            raise
-    else:
-        raise SystemExit("Omitting the real selector was not rejected by the camera compile gate.")
-    compile_failure_probe = {
-        "name": "focal-with-missing-real-selector",
-        "omitted_source": selector.relative_to(root).as_posix(),
-        "build_exit_code": build_results["missing-selector"],
-        "required_diagnostic": compile_guard,
-        "runtime_executed": any(c["label"] == "missing-selector" and c["phase"] == "execute" for c in commands),
-        "accepted_as_camera_mutant_kill": False,
-    }
-    print("PASS guard: missing real selector is a compile failure, NOT a camera mutant kill.")
+    for label, omitted, compile_guard, probe_name in (
+        ("missing-selector", selector,
+         "Actual frozen SourceAudioFunctions is a required pure Core VM dependency; no stub or omitted selector.",
+         "focal-with-missing-real-selector"),
+        ("missing-c2-selector", c2_selector,
+         "Actual SourceC2SoundFunctions is a required pure Core VM dependency; no stub or omitted selector.",
+         "focal-with-missing-real-c2-selector"),
+    ):
+        missing_selector_root = snapshot(label, mutations[0])
+        (missing_selector_root / omitted.relative_to(root)).unlink()
+        try:
+            run(missing_selector_root, label)
+        except RuntimeError as error:
+            if compile_guard not in str(error) or "Compilation error is NOT a rejected camera assertion mutant:" not in str(error):
+                raise
+        else:
+            raise SystemExit("Omitting the real selector was not rejected by the camera compile gate: " + label)
+        compile_failure_probes.append({
+            "name": probe_name,
+            "omitted_source": omitted.relative_to(root).as_posix(),
+            "build_exit_code": build_results[label],
+            "required_diagnostic": compile_guard,
+            "runtime_executed": any(c["label"] == label and c["phase"] == "execute" for c in commands),
+            "accepted_as_camera_mutant_kill": False,
+        })
+        print("PASS guard: missing " + omitted.name + " is a compile failure, NOT a camera mutant kill.")
     for mutation in mutations:
         name, _, _, expected = mutation
         source_root = snapshot(name, mutation)
@@ -143,7 +152,9 @@ try:
         mutation_results.append({"name": name, "rejected_by": expected, "build_exit_code": build_results[name],
                                  "execution_exit_code": result.returncode,
                                  "same_root_selector_sha256": hashlib.sha256(
-                                     (source_root / selector.relative_to(root)).read_bytes()).hexdigest()})
+                                     (source_root / selector.relative_to(root)).read_bytes()).hexdigest(),
+                                 "same_root_c2_selector_sha256": hashlib.sha256(
+                                     (source_root / c2_selector.relative_to(root)).read_bytes()).hexdigest()})
     final_assertions = check_success(run(root, "final-baseline"))
 finally:
     shutil.rmtree(workspace)
@@ -157,7 +168,8 @@ result = {
     "final_baseline_assertions": final_assertions,
     "expected_assertions": expected_assertions,
     "mutations": mutation_results,
-    "compile_failure_probe": compile_failure_probe,
+    "compile_failure_probe": compile_failure_probes[0],
+    "compile_failure_probes": compile_failure_probes,
     "commands": commands,
     "production_sha256_before": before,
     "production_sha256_after": hashes(),

@@ -65,7 +65,8 @@ def validate_callers(sources):
             and "sourceServices.Profile.StableId!=profile.StableId" in awake,
             "real bootstrap retains C1 default and selects only matching explicit C1/C2 resources")
     require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake
-            and awake.index("ReferenceEquals(animations,") < awake.index("sourceServices.CreateSimulation(prefab)"),
+            and "sourceServices.CreateSimulation(prefab,compatibility)" in awake
+            and awake.index("ReferenceEquals(animations,") < awake.index("sourceServices.CreateSimulation(prefab,compatibility)"),
             "renderer/provider/Core use same canonical272 object before factory")
     require("newFieldScene(transform,prefab,animations)" in awake,
             "actual field animation consumer receives the same library object")

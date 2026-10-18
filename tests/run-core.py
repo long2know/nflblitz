@@ -25,8 +25,9 @@ def source_hashes(source_root):
             result[str(path.relative_to(source_root))] = hashlib.sha256(path.read_bytes()).hexdigest()
     if not any("/Gameplay/" in name for name in result):
         raise RuntimeError("Actual Gameplay sources are missing; no substitute kernel is permitted.")
-    selector = source_root / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
-    result[str(selector.relative_to(source_root))] = hashlib.sha256(selector.read_bytes()).hexdigest()
+    for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+        selector = source_root / "Assets/Scripts/Presentation" / name
+        result[str(selector.relative_to(source_root))] = hashlib.sha256(selector.read_bytes()).hexdigest()
     return result
 
 
