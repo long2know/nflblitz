@@ -51,7 +51,7 @@ public sealed class DataCatalog
             entrypoints.Add(value.Name, path);
         }
         foreach (string name in new[] { "rosters", "model", "skeleton", "playbook", "movement", "sound",
-            "animations", "callbacks", "hit", "impact", "world", "teams", "hud", "settings", "bootstrap" })
+            "animations", "callbacks", "hit", "impact", "world", "teams", "hud", "settings", "bootstrap", "freeBall" })
             Require(entrypoints.ContainsKey(name), "Required actual source service is missing: " + name);
     }
 

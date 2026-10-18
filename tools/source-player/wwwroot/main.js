@@ -91,6 +91,7 @@ function frame(time) {
     if (featureStatus) featureStatus.textContent = `Audio output unqualified · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
       `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · ` +
       `Phead ${state.assets.poppedHead ? 'original SDL-derived, NOT native head.h' : 'input absent; required raw flag stops'} · ` +
+      'Free ball original medball2/HEDSHU + Core source rotation · ' +
       'Native pixels/Unity/DSP remain unqualified.';
     sourceSamples.push({ time: performance.now(), tick: state.sourceTick });
     if (sourceSamples.length > 300) sourceSamples.shift();
@@ -131,6 +132,7 @@ function frame(time) {
         `Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
         `kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit)\n` +
         `Popped head ${state.assets.poppedHead ? 'original phead SDL-derived, raw4/HEDSHU1, native head.h unqualified' : 'no input; no fallback'}\n` +
+        'Free ball original medball2/HEDSHU, actual source-angle matrix; native header/pixels unqualified\n' +
         'Audio output unqualified · native Unity / arcade bit-exact acceptance open';
     }
     frameHandle = requestAnimationFrame(frame);

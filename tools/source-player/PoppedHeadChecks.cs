@@ -115,7 +115,7 @@ static class PoppedHeadChecks
         public void WorldDraw(string mesh, string texture, string state) { }
         public void Model(int id, string joints) { }
         public void Appearance(int id, string metadata) => Appearances.Add(id, JsonDocument.Parse(metadata).RootElement.Clone());
-        public void FreeBall(string mesh, string texture, string origin) { }
+        public void FreeBall(string mesh, string texture, string alternateTexture, string metadata) { }
         public void Effects(double[] projection, double[] vertices, int[] textures, int[] flags, double[] flash, string metadata) { }
         public void Present(double[] camera, double[] joints, int[] models, int[] appearances, double[] ball,
             double[] hud, int[] colors, string[] textures, int[] counts, string status) { }

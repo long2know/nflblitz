@@ -20,12 +20,14 @@ namespace Blitz.Runtime
         private Blitz.Gameplay.GameSimulation simulation;
         private SourceFireSpfxRenderer sourceFireRenderer;
         private SourceFireSpfxAsset sourceFireAsset;
+        private SourceFreeBallRenderer sourceFreeBallRenderer;
         private Func<IGameState, long, int> sourceCameraProducer;
         private long lastSourceCameraTick = -1;
         private int lastSourceCameraHeading;
         private bool focused = true;
         private bool paused;
         private bool waitingForRelease;
+        private bool initializationComplete;
         private string sourceFailure;
         private uint evidenceSerial;
         [SerializeField] private string sourceResourceProfile = null;
@@ -152,6 +154,12 @@ namespace Blitz.Runtime
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
                     SourcePresentationCueRaised += ConsumeSourcePresentationCue;
                     AfterHostStep += playCamera.ObserveSourceHostStep;
+                    SourceFreeBallAsset freeBall = Resources.Load<SourceFreeBallAsset>(SourceFreeBallAsset.ResourceKey);
+                    if (freeBall == null)
+                        throw new SourceInterfaceException("Missing required original free-ball Resources/" +
+                            SourceFreeBallAsset.ResourceKey + "; import the pinned medball2/HEDSHU asset. No generic football fallback.");
+                    sourceFreeBallRenderer = gameObject.AddComponent<SourceFreeBallRenderer>();
+                    sourceFreeBallRenderer.Initialize(freeBall, playCamera.Camera, bootstrap.VerticalResolution);
                 }
                 hud = gameObject.AddComponent<PlayHud>();
                 hud.Initialize(this);
@@ -170,6 +178,8 @@ namespace Blitz.Runtime
                 }
                 field.Render(bridge.State, bridge.State, 1f, 0f);
                 playCamera.Render(bridge.State, true);
+                PresentSourceFreeBall();
+                initializationComplete = true;
             }
             catch (PlayerAssetException e) { FailSourceMode(e); }
             catch (InvalidOperationException e) { FailSourceMode(e); }
@@ -247,10 +257,17 @@ namespace Blitz.Runtime
             {
                 field.Render(bridge.PreviousState, bridge.State, bridge.RenderInterpolation01, InputSuspended ? 0f : Time.unscaledDeltaTime);
                 playCamera.Render(bridge.State, false);
+                PresentSourceFreeBall();
             }
             catch (PlayerAssetException e) { FailSourceMode(e); }
             catch (InvalidOperationException e) { FailSourceMode(e); }
             catch (NotSupportedException e) { FailSourceMode(e); }
+        }
+
+        private void PresentSourceFreeBall()
+        {
+            if (sourceFreeBallRenderer != null)
+                sourceFreeBallRenderer.Present(SourceFreeBallBinding.Capture(simulation), playCamera.CurrentSourceCamera);
         }
 
         private void Advance(FieldVector move, bool turbo)
@@ -325,7 +342,7 @@ namespace Blitz.Runtime
 
         internal void RestartMatch()
         {
-            if (bridge == null)
+            if (bridge == null || !initializationComplete)
                 return;
             bridge.Restart();
             sourceFailure = null;
@@ -519,7 +536,7 @@ namespace Blitz.Runtime
             if (sourceInput != null) sourceInput.Clear();
             if (SourceSelection != null) SourceSelection.ClearPendingInput();
             if (bridge != null)
-                bridge.SetActive(!InputSuspended);
+                bridge.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
             if (field != null)
                 field.ResetRenderHistory();
         }
@@ -532,7 +549,7 @@ namespace Blitz.Runtime
         private void OnEnable()
         {
             if (bridge != null)
-                bridge.SetActive(!InputSuspended);
+                bridge.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
         }
 
         private void OnDestroy()

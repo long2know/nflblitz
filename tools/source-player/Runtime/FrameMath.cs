@@ -64,6 +64,18 @@ public static class FrameMath
         (actor.Position.X - 50f) * SourceTiming.SourceUnitsPerYard,
         actor.Height * SourceTiming.SourceUnitsPerYard, actor.Position.Z * SourceTiming.SourceUnitsPerYard);
 
+    public static double[] FreeBall(SourceFreeBallDraw draw)
+    {
+        var packet = new double[20];
+        packet[0] = draw.State.Visible ? 1 : 0;
+        packet[1] = draw.State.SourceTick; packet[2] = draw.State.RawFlags; packet[3] = draw.Alpha;
+        for (int row = 0; row < 3; row++)
+            for (int column = 0; column < 4; column++)
+                packet[4 + column * 4 + row] = draw.WorldMatrix[row * 4 + column];
+        packet[19] = 1;
+        return packet;
+    }
+
     public static double[] Multiply(double[] left, double[] right)
     {
         var result = new double[16];

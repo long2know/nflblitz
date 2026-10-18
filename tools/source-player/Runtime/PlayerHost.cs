@@ -262,6 +262,8 @@ public sealed class PlayerHost
             hudVertices[cursor++] = vertex.T;
         }
         SourceVector3 ball = Game.SourceBallWorldPosition;
+        SourceFreeBallDraw ballDraw = SourceFreeBallBinding.Capture(Game);
+        double[] ballPacket = FrameMath.FreeBall(ballDraw);
         var match = ((ISourceMatchState)state).Match;
         var source = (ISourceGameState)state;
         Frames++;
@@ -284,7 +286,13 @@ public sealed class PlayerHost
             lineOfScrimmage = state.LineOfScrimmage, firstDownLine = state.FirstDownLine, offenseDirection = state.OffenseDirection,
             actors = actorStatus, actorCount = state.Players.Count, jointsPerActor = 15,
             ball = new { mode = state.Ball.Mode.ToString(), carrier = state.Ball.CarrierId, target = state.Ball.TargetPlayerId,
-                position = new[] { ball.X, ball.Y, ball.Z }, kind = state.Ball.Kind.ToString() },
+                position = new[] { ball.X, ball.Y, ball.Z }, kind = state.Ball.Kind.ToString(),
+                sourceTick = ballDraw.State.SourceTick, visible = ballDraw.State.Visible,
+                heading = ballDraw.State.Heading, elevation = ballDraw.State.Elevation, roll = ballDraw.State.Roll,
+                scale = ballDraw.State.Scale, pupBigBall = ballDraw.State.PupBigBall, rawFlags = ballDraw.State.RawFlags,
+                alpha = ballDraw.Alpha, alternate = ballDraw.Alternate, white = ballDraw.White,
+                worldMatrix = ballDraw.WorldMatrix, packet = ballPacket,
+                sourceOrigin = SourceFreeBallData.Origin },
             camera = new {
                 sourceTick = Camera.LastSourceTick, suspended = Camera.Suspended,
                 sourceHeading = Game.SourceCameraHeading, headingSampleTick = Game.SourceCameraHeadingSampleTick,
@@ -323,7 +331,7 @@ public sealed class PlayerHost
                 "Not a Unity player build, native Unity qualification or bit-exact arcade acceptance.",
                 "Authored TGA/portable HUD raster origin; missing Texus/WMS quantization is not reconstructed.",
                 "Production source-derived normal framing and original cinematic/MatInput; normal camera native parity remains open.",
-                "Original hand001b material6 free-ball geometry; native free-ball orientation remains unqualified.",
+                "Original medball2 SDL/HEDSHU and actual ball_proc angles; native generated header/FMA/WBUFFER/pixels and separately scheduled ball trails remain unqualified.",
                 "Production default preview RNG is explicitly unverified against the historical platform PRNG.",
                 "No PCM/DSP output or synthetic sound. Dust callbacks are not substituted with generic particles.",
                 KernelBinding.IsPortable(Game) ? "Portable repairs are explicit; StrictSource is not silently changed." :
@@ -331,8 +339,7 @@ public sealed class PlayerHost
             }
         });
         sink.Present(Camera.ViewProjection, joints, modelIds, appearanceIds,
-            new[] { state.Ball.CarrierId == -1 || (state.Ball.Presentation.RawFlags & 0x800) != 0 ? 1d : 0d,
-                ball.X, ball.Y, ball.Z, 1d },
+            ballPacket,
             hudVertices, hudDraw.Select(p => unchecked((int)p.Color)).ToArray(),
             hudDraw.Select(p => "hud/" + p.Texture).ToArray(), hudDraw.Select(p => p.Vertices.Count).ToArray(), LastStatus);
     }

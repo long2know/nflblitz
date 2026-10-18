@@ -14,6 +14,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceInterfacePresentation.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceSoundVmTransport.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceFireSpfxRuntime.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceFreeBallBinding.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/NormalCameraModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
@@ -24,6 +25,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudComposer.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceFireSpfxRenderModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceFreeBallRenderModel.cs" />
   </ItemGroup>
   <Target Name="RequireActualProduction" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.cs')"

@@ -89,6 +89,7 @@ jobs:
           python3 -B tests/fire-kick-integration/test_runner.py -q
           python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
           python3 -B tests/movement-callers/test_public_replay.py -q
+          python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls
       - name: Test detached source match and input contracts
         run: |
           python3 tests/contracts/test_runner.py

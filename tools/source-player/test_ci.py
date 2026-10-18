@@ -30,9 +30,10 @@ COMMANDS = {
         "mkdir -p tools/source-player/.runtime/empty-nuget",
         PUBLIC_DOTNET + ' restore tools/source-player/SourcePlayer.Checks.csproj --source "$PWD/tools/source-player/.runtime/empty-nuget" -p:NuGetAudit=false --nologo',
         PUBLIC_DOTNET + " build tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-restore --nologo",
+        PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic",
     ),
     "Test public cabinet input and renderer contracts": (
-        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs",
+        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs",
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
@@ -124,6 +125,8 @@ class SourcePlayerCI(unittest.TestCase):
             ("node --test tools/source-player/input.test.mjs", "echo node --test tools/source-player/input.test.mjs"),
             (" tools/source-player/renderer.test.mjs", ""),
             (" tools/source-player/popped-head.renderer.test.mjs", ""),
+            (" tools/source-player/free-ball.renderer.test.mjs", ""),
+            (PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic", "true"),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),
             ("python3 -B tools/source-player/hosting_test.py", "true"),
@@ -157,6 +160,15 @@ class SourcePlayerCI(unittest.TestCase):
         head_renderer = (HERE / "popped-head.renderer.test.mjs").read_text()
         self.assertEqual(2, len(re.findall(r"^test\(", head_renderer, re.M)))
         self.assertNotIn("artifacts/", head_renderer)
+        ball_renderer = (HERE / "free-ball.renderer.test.mjs").read_text()
+        self.assertEqual(3, len(re.findall(r"^test\(", ball_renderer, re.M)))
+        self.assertNotIn("artifacts/", ball_renderer)
+        self.assertIn('args[0] == "--free-ball-synthetic"', checks)
+        self.assertIn('Compile Include="FreeBallChecks.cs"', (HERE / "SourcePlayer.Checks.csproj").read_text())
+        sources = ET.parse(HERE / "ProductionSources.props")
+        named = {node.attrib["Include"] for node in sources.iter("Compile")}
+        self.assertIn("$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceFreeBallBinding.cs", named)
+        self.assertIn("$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceFreeBallRenderModel.cs", named)
         tree = ast.parse((HERE / "prepare_test.py").read_text())
         cases = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PreparationChecks")
         methods = {node.name: node for node in cases.body if isinstance(node, ast.FunctionDef)}

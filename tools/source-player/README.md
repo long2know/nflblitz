@@ -10,6 +10,87 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+## Required source free-ball geometry/material/flight binding
+
+The former recentered `hand001b` material6 extraction was a **held-ball**
+substitute for the free draw path. The actual pinned `player.c:draw_ball` uses
+`limb_medball_obj_big` from `models/medball2.sdl`, factor1 and its unchanged
+authoring origin, against HEDSHU/HEDSHU2. See `../assets/README.md` and
+`../assets/free_ball_inputs.json` for the strict original-input reconstruction.
+
+Extend the existing verified private bundle without overwriting it:
+
+```sh
+python3 -B tools/source-player/prepare_ball.py \
+  --base-data "$READONLY_PLAYER_DATA" --base-manifest-sha256 "$PLAYER_MANIFEST_SHA256" \
+  --ball-bundle "$PREPARED_ORIGINAL_FREE_BALL" \
+  --ball-manifest-sha256 3d7ab26acab8a968058c6644011e1ac503547bf6ae67705974e3848ee5e00549 \
+  --output tools/source-player/data
+```
+
+Both decal pixels already belong to the original team catalog. The required
+`freeBall` service adds only its pinned SDL, source-authored header and
+calibration manifest. Missing/malformed data stops before simulation; there
+is no legacy hand-mesh, sphere, recenter, texture or tint fallback.
+
+`SourceFreeBallBinding` is a **read-only same-assembly projection** of Core's
+already maintained source heading/elevation/roll/scale/position/flags/tick.
+It does not change Core, reconstruct velocities, integrate spin or mutate
+possession. `SourceFreeBallRenderModel` uses the actual playbook's original
+257-entry TRIGS table and the exact source call order
+`Y(fwd) * X(-fwd2) * Z(phi)`, scales only the basis (`pup_bigball != 0` adds1.5),
+then composes camera times ball-relative-to-eye. Integer angles are not degrees.
+WebGL receives the complete immutable matrix, source XYZ geometry, explicit
+source321 culling, sole-decal raw0 mapping, constant main-ball alpha255,
+raw `BF_ALT` and `BF_WHITE`. Held-ball actor geometry is unchanged.
+
+The renderer rejects stale-tick/detached matrix packets. Read-only GPU proof
+includes the actual bound model/projection uniforms and original texture
+identity; state/GPU pairs are collected in one synchronous browser task.
+Unmodified gameplay PNGs remain honestly source-tick **bracketed**.
+
+Focused checks:
+
+```sh
+bash tools/source-player/dotnet.sh run --project tools/source-player/SourcePlayer.Checks.csproj \
+  -c Release -- --free-ball-synthetic
+bash tools/source-player/dotnet.sh run --project tools/source-player/SourcePlayer.Checks.csproj \
+  -c Release -- tools/source-player/data --free-ball-only
+node --test tools/source-player/free-ball.renderer.test.mjs
+python3 -B tools/source-player/free_ball_mutations.py --data tools/source-player/data \
+  --output tools/source-player/artifacts/free-ball-controls
+```
+
+`free_ball_reference.py --help` describes the explicit local original C
+draw/math oracle. It compares actual uploaded geometry/UVs with the pinned SDL
+and provides compiled `draw_ball/rotx/roty/rotz/mxm/isin/icos` matrix/material
+comparisons with host FMA disabled. Seven C# controls must **compile first**
+and fail named mesh/material/pivot/axis/order/spin-tick/packet assertions;
+four executable actual-JS controls cover disconnected matrices, winding,
+alternate decals and C# JSON-float versus exact marshalled-binary32 comparison.
+The bridge compares **exactly in the actual float32 GPU domain**, not by a
+presentation epsilon or a transform/physics adjustment.
+Synthetic/public checks are not gameplay witnesses.
+
+For a new actual candidate, leave8080/8082/8083/8084 untouched:
+
+```sh
+SOURCE_PLAYER_PORT=8085 SOURCE_PLAYER_BIND_ADDRESS=127.0.0.1 \
+  docker compose --env-file /dev/null -p nflblitz-source-free-ball \
+  -f tools/source-player/compose.yaml up -d --force-recreate
+bash tools/source-player/with-browser-runtime.sh tools/source-player/free-ball.browser.mjs \
+  --url http://127.0.0.1:8085/ --seconds 90 \
+  --output tools/source-player/artifacts/free-ball-attempt1
+```
+
+The defined-domain source-authoring mesh/transform is not recovered native
+`medball2.h`, native global render-counter/triangle-cache behavior, WBUFFER,
+Texus/WMS quantization, native compiler/FMA or pixel equivalence. The consumer
+uses actual current Core orientation fields; it does not certify all historical
+`ball_proc` lifecycle branches. Main-ball alpha255 is not a claim to implement
+the separately scheduled trail objects. Unity source/API compilation is not an
+Editor execution or native Unity player qualification.
+
 ## Original popped-head input extension
 
 The original native generated `head.h` is absent, **not the authoring asset**.
@@ -438,9 +519,10 @@ hardware qualification is separate from the tested standard mapping.
   it. An indefinite hold, missing result outside that typed interval, missing
   asset or provider failure still stops execution—no fake result or catch-based
   placeholder is rendered.
-- Separate-ball geometry is the original hand001b material6 ball triangles,
-  recentered for the real C# ball state. Native free-ball orientation is
-  unqualified; there is no procedural sphere or fabricated flight physics.
+- Separate-ball geometry is the original source-authored `medball2` with its
+  unchanged authoring origin and HEDSHU decals. Actual Core source angles feed
+  the defined original draw matrix. Native header/global rendering/pixels remain
+  unqualified; no procedural sphere or fabricated flight physics is used.
 - Production sound selection still executes with its actual RNG ordering.
   **Audio output unqualified**: no PCM/DSP playback, synthesized substitute or
   claimed audible output. Dust remains unqualified. The independent portable

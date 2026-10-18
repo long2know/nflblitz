@@ -55,7 +55,7 @@ public static partial class Browser
     [JSImport("appearance", "source-player")]
     private static partial void Appearance(int id, string metadata);
     [JSImport("freeBall", "source-player")]
-    private static partial void FreeBall(string mesh, string texture, string origin);
+    private static partial void FreeBall(string mesh, string texture, string alternateTexture, string metadata);
     [JSImport("effects", "source-player")]
     private static partial void Effects(double[] projection, double[] vertices, int[] textures,
         int[] rawFlags, double[] flashAlpha, string metadata);
@@ -72,7 +72,8 @@ public static partial class Browser
         public void WorldDraw(string mesh, string texture, string state) => Browser.WorldDraw(mesh, texture, state);
         public void Model(int id, string joints) => Browser.Model(id, joints);
         public void Appearance(int id, string metadata) => Browser.Appearance(id, metadata);
-        public void FreeBall(string mesh, string texture, string origin) => Browser.FreeBall(mesh, texture, origin);
+        public void FreeBall(string mesh, string texture, string alternateTexture, string metadata) =>
+            Browser.FreeBall(mesh, texture, alternateTexture, metadata);
         public void Effects(double[] projection, double[] vertices, int[] textures, int[] rawFlags,
             double[] flashAlpha, string metadata) =>
             Browser.Effects(projection, vertices, textures, rawFlags, flashAlpha, metadata);

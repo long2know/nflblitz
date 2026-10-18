@@ -8,7 +8,7 @@ public interface IRenderSink
     void WorldDraw(string mesh, string texture, string state);
     void Model(int id, string joints);
     void Appearance(int id, string metadata);
-    void FreeBall(string mesh, string texture, string origin);
+    void FreeBall(string mesh, string texture, string alternateTexture, string metadata);
     void Effects(double[] projection, double[] vertices, int[] textures, int[] rawFlags, double[] flashAlpha, string metadata);
     void Present(double[] viewProjection, double[] joints, int[] models, int[] appearances,
         double[] ball, double[] hudVertices, int[] hudColors, string[] hudTextures, int[] hudCounts, string status);
