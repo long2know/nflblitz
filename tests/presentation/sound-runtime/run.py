@@ -71,12 +71,14 @@ def guards(source_root=ROOT):
     services = (source_root / "Assets/Scripts/Runtime/SourceInterfaceServices.cs").read_text()
     create = compact(method(services, "CreateSimulation"))
     require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
-            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,"
+            "kickMeterMetrics:kickMetrics)" in create
             and "SourceC2Composition.CreateSimulation(animations,pivots,playbook,Configuration(),"
-            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap)" in create
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
+            "kickMeterMetrics:kickMetrics)" in create
             and "SourceC2Composition.CreateM1Simulation(animations,pivots,playbook,Configuration(),"
             "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
-            "compatibility:compatibility)" in create,
+            "compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics)" in create,
             "actual services pass immutable sound to all real C1/C2 factories")
     helper.validate_sound_factories(source_root)
     require("HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey" in services and

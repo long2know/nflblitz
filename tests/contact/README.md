@@ -67,6 +67,12 @@ programs. The separate defined negative-target observation stops **before** the
 original invalid bearing load and tests2,548 noncandidate tails; it is not a
 target-memory/ABI golden.
 
+The retained chance/sleep controls explicitly select the unchanged bulk C2
+whistle dispatcher. The enabled fire scheduler has a separate per-process
+dispatcher with the same literals, so a bare literal is no longer a unique
+mutation target. Narrowing the two anchors does not add controls or relabel
+earlier compiled-control receipts as a new campaign.
+
 The runner preserves all27 C1 controls and adds all34 frozen C2 controls
 (original25 plus9 repair controls), with baseline/final positives and successful
 compilation before a named causal rejection. **Wiring is not execution

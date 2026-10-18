@@ -209,16 +209,17 @@ def validate_runtime(source):
     require("SourceHeading1024" not in code and "AdvanceSourceCameraAtStage" not in code
             and "(int)state.Phase" not in code and "worldToCameraMatrix" not in code and "WorldJoint" not in code,
             "M1 caller must not invent raw GM, renderer matrices/joints or last-render heading")
-    require("if(prefab==null){if(profile.UsesC2Data)thrownewSourceInterfaceException(" in awake
-            and "if(!ExplicitGraybox(Application.absoluteURL))thrownewSourceInterfaceException(" in awake
+    legacy = awake[awake.index("if(prefab==null){"):awake.index("simulation=newBlitz.Gameplay.GameSimulation(1);")]
+    require("if(kickMeters!=SourceKickMeterMode.Disabled)thrownewSourceInterfaceException(" in legacy
+            and "if(profile.UsesC2Data)thrownewSourceInterfaceException(" in legacy
+            and "if(!ExplicitGraybox(Application.absoluteURL))thrownewSourceInterfaceException(" in legacy
             and awake.count("simulation=newBlitz.Gameplay.GameSimulation(1);") == 1
-            and awake.index("if(profile.UsesC2Data)") < awake.index("if(!ExplicitGraybox(") <
-            awake.index("simulation=newBlitz.Gameplay.GameSimulation(1);"),
+            and legacy.index("if(profile.UsesC2Data)") < legacy.index("if(!ExplicitGraybox("),
             "only explicit non-C2 graybox keeps the legacy constructor; C2 and implicit source fallbacks are forbidden")
     require("stringserviceKey=SourceInterfaceServices.ResourceKeyFor(profile);" in awake
             and "sourceServices=Resources.Load<SourceInterfaceServices>(serviceKey);" in awake
             and "if(sourceServices==null)thrownewSourceInterfaceException(" in awake
-            and "simulation=sourceServices.CreateSimulation(prefab,compatibility);" in awake,
+            and "simulation=sourceServices.CreateSimulation(prefab,compatibility,fireEffects:fire,kickMeters:kickMeters);" in awake,
             "missing selected-profile resources must fail visibly and preserve explicit compatibility, not select legacy")
     require("bridge.AdvanceSource(Time.unscaledDeltaTime,sourceInput.Buffer.NextHostFrame);" in compact(method(source, "Update")),
             "the actual source raw input/Step caller must remain connected")
@@ -276,12 +277,14 @@ def validate_services(source):
             "current C1/C2 resource identities and historical157 manifest must remain distinct")
     create = compact(method(source, "CreateSimulation"))
     require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
-            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,"
+            "kickMeterMetrics:kickMetrics)" in create
             and "SourceC2Composition.CreateSimulation(animations,pivots,playbook,Configuration(),"
-            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap)" in create
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
+            "kickMeterMetrics:kickMetrics)" in create
             and "SourceC2Composition.CreateM1Simulation(animations,pivots,playbook,Configuration(),"
             "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
-            "compatibility:compatibility)" in create,
+            "compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics)" in create,
             "all actual C1/C2 factories must receive mandatory typed movement/settings and sound inputs")
     require("newSourceMovementDefenseRow(row.Line,row.Back,row.Base,row.Range,row.Plow)" in code
             and "newSourceMovementRuntimeData(movement,actual.Friction,rows)" in code
@@ -415,7 +418,9 @@ class CallerGuards(unittest.TestCase):
             ("fixed-profile-resource", "SourceInterfaceServices.ResourceKeyFor(profile)", "SourceInterfaceServices.ResourceKey"),
             ("missing-explicit-profile", "SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL, sourceResourceProfile)",
              "SourceTeamResourceProfile.Contact272"),
-            ("compatibility-disconnected", "sourceServices.CreateSimulation(prefab, compatibility)", "sourceServices.CreateSimulation(prefab)"),
+            ("compatibility-disconnected",
+             "sourceServices.CreateSimulation(prefab, compatibility, fireEffects: fire, kickMeters: kickMeters)",
+             "sourceServices.CreateSimulation(prefab)"),
             ("native-prefix-flush-removed",
              "soundTransport.FlushNativePrefix();\n                    return;", "return;"),
             ("different-library-instance", "!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))",
@@ -445,12 +450,14 @@ class CallerGuards(unittest.TestCase):
     def test_isolated_actual_service_mutants(self):
         source = (SOURCE_ROOT / SERVICES).read_text()
         c1 = ("SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
-              "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData)")
+              "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData,\n"
+              "                kickMeterMetrics: kickMetrics)")
         c2 = ("SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
-              "                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap)")
+              "                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,\n"
+              "                    kickMeterMetrics: kickMetrics)")
         m1 = ("SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),\n"
               "                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,\n"
-              "                        compatibility: compatibility)")
+              "                        compatibility: compatibility, fireEffects: fireEffects, kickMeterMetrics: kickMetrics)")
         mutants = (
             ("omitted-data", c1, c1.replace("MovementData,", "null,")),
             ("omitted-settings", c1, c1.replace("MovementSettings,", "null,")),
@@ -470,7 +477,7 @@ class CallerGuards(unittest.TestCase):
             ("legacy-team-resource", "SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)",
              "SourcePlayerProvider.ResolveRequiredTeamPresentation()"),
             ("hash-only-animation-alias", "!ReferenceEquals(originalAnimations, canonical)", "false"),
-            ("missing-SAFN-input", c1, c1.replace("SoundVmData)", "null)")),
+            ("missing-SAFN-input", c1, c1.replace("SoundVmData,", "null,")),
             ("SAFN-resource-alias", "!ReferenceEquals(originalSoundVmFunctions, canonical)", "false"),
         )
         for name, old, new in mutants:

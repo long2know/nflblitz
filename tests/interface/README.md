@@ -26,6 +26,8 @@ validation, same-library fifteen-pivot geometry, and exactly one sound binding
 between construction and return. The 32 Runtime, 15 service, and eight factory
 mutations are source-only controls, separate from the ten compiled bootstrap
 mutants. The resolved route must flush its actual native prefix before returning.
+The combined integration also preserves explicit fire/kick arguments through
+these same real service/factory paths; neither option enables another profile.
 
 Optional complete actual Unity-reference API compilation and actual data mapping:
 

@@ -4,8 +4,16 @@ using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
-    internal sealed class GameSnapshot : ISourcePresentationState
+    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState
     {
+        private readonly SourceKickMeterMetrics kickMeterMetrics;
+        private readonly SourceKickMeterView kickMeter;
+        private readonly SourceKickLaunchView kickLaunch;
+        SourceKickMeterMode ISourceKickMeterState.KickMeterMode
+        { get { return kickMeterMetrics == null ? SourceKickMeterMode.Disabled : SourceKickMeterMode.PortableAuthored; } }
+        SourceKickMeterMetrics ISourceKickMeterState.KickMeterMetrics { get { return kickMeterMetrics; } }
+        SourceKickMeterView ISourceKickMeterState.KickMeter { get { return kickMeter; } }
+        SourceKickLaunchView ISourceKickMeterState.LastKickLaunch { get { return kickLaunch; } }
         public long Tick { get; }
         public long SourceTick { get; }
         public int SourceTicksPerSecond { get; }
@@ -34,6 +42,9 @@ namespace Blitz.Gameplay
 
         internal GameSnapshot(SimulationState model)
         {
+            kickMeterMetrics = model.SourceKickMeterMetrics;
+            kickMeter = model.SourceKickMeter == null ? default(SourceKickMeterView) : model.SourceKickMeter.View;
+            kickLaunch = model.SourceKickLaunch;
             Tick = model.Tick;
             SourceTick = model.SourceMode ? model.SourceTick : model.Tick;
             SourceTicksPerSecond = model.SourceMode ? SourceTiming.DefaultTicksPerSecond : SliceRules.TicksPerSecond;

@@ -72,6 +72,100 @@ This managed Portable M1 result is **not** original/native/target-PRNG behavior,
 Unity/DSP/game-build/browser acceptance, whole-game parity or closure of all16
 rows. Strict defaults and the NoEligible disclosure below remain unchanged.
 
+## Combined opt-in fire and portable-authored kick runtime — October 18, 2026
+
+The independently approved H and PK implementations are integrated on the
+CI-repaired `6eb8c4e3caa688ad7c2126b854c76a5573ea28f4` worktree base, including the
+later fifteen-test/documentation-path
+`116ea2a4e6ed33ff549ef43c4e53b2ac589fc6d4` CI repair delta. That delta changes
+no production, M1 acceptance, fixture, recipe or policy bytes. Neither option is
+implicit: `source-fire=portable` requires actual M1;
+`source-kick-meters=portable-authored` also supports existing C1/old-nine.
+`source-compatibility=portable` remains a third, separate consumer-index
+interpretation. StrictSource/Legacy/default manual-kick rejection and all
+existing resource identities remain unchanged.
+
+The constructor/C2-factory prefix is preserved through `compatibility`, followed
+by `fireEffects`, then `kickMeterMetrics`; callers should name these options.
+The actual Unity services forward `fireEffects` and `kickMeters` independently.
+Enabled FX continuations precede individual C2 whistles and `game_proc`, then
+the meter's continuation runs **before players**; the existing
+camera/player/cache/contact/ball phases keep their ordering. A completed source
+wake captures one immutable fire frame. The shared Core RNG remains the sole
+draw owner; getters, HUD composition and rendering do not advance it.
+
+### Actual fire producers and consumers
+
+The approved fire renderer/module now receives real QB/receiver mode tails,
+potential-third-completion catch, deferred second-loss result and post-increment
+free/phantom ball producers. It retains the genuine paired15-joint/camera cache,
+approved negative-X projection and typed side/all-player lineup scope. The
+actual Unity host binds the authenticated fire asset/command-buffer consumer;
+actual raw0x400 reaches the existing textured actor-white material path and
+restores its original materials. No sound-derived flash, extra pose sampling
+or private effect RNG is substituted.
+
+Logical epoch0 and effects-before-host slots are explicitly portable-authored,
+not native `pcount`/scheduler witnesses. Ordered original direct sound metadata
+does not establish audible playback/DSP. Native Glide combiner precision,
+shader/GPU pixels, nonfire trails and missing native audible/menu producers
+remain bounded as described in [the H suite](../tests/fire-producers/README.md).
+
+### Actual human kick process, launch and existing HUD
+
+The existing SHA-pinned HUD reader supplies `k_bar.Width=151`,
+`k_marker.Width=27`, `p_meter.Height=209`. These are **portable-authored**
+dimensions, not recovered native `image_info_t`/Composit metrics, generated
+anchors or separately user-approved native dimensions. The original native
+metric acceptance item remains blocked.
+
+Actual cabinet input, source57 input/player stages, the original center
+HikeBall, real ball driver and existing HUD use the explicit immutable
+`ISourceKickMeterState` extension without changing historical public snapshot
+serialization. Punt releases at frame4 ANI_CODE; FG releases immediately in
+`_mode_kicker` within8 source units of a kickable holder, not at an invented
+later animation contact. The process retains its original30-source-tick
+result lifetime. Highlight, timeout and bounce state do not imply a new native
+flasher/tint, click sound or DSP implementation.
+
+### Current combined evidence and limits
+
+The [combined executable suite](../tests/fire-kick-integration/README.md)
+passed2,284 assertions and7 compiled named controls across all four flag
+combinations,16 mirrored raw-cabinet cases,8 launches,8 disabled rejections and
+17 resets, including simultaneous live fire/meter state. It retains H40/10,
+fire18,800/16, kick458,125+817/17, Portable74/7,
+Strict685-original-C-calls/15 and Legacy156 as distinct inventories.
+
+The **stock full M1** gate was freshly run on this changed production code with
+fire and kick disabled. The same frozen
+`portable-cabinet-wide-pass-clearance-12000` recording/recipe, seed1, unfiltered
+provider and unchanged acceptance predicates completed12,000 hosts/11,400 source
+ticks,17 zero-diagnostic builds,8 caller/3 canonical-cache controls and664
+original-C physics rows/5,312 comparisons. Baseline/observer/final
+raw/state/pose streams agree; the required actual after2299 R_SKIP
+same-instance/two-ordinal/two-pose witnesses passed. Historical results are not
+relabelled as this run, and the public preparation/qualification command bytes
+remain unchanged. This is default-preservation evidence, **not** a full replay
+with either new feature enabled.
+
+The actual five Unity-reference API/profile checks passed for all123 C# sources
+(109 runtime/14 Editor), C#7.3/.NETStandard2.1; measured metadata contains137
+unique GUIDs and preserves all old bytes. The eleven baseline C2 test closure/
+causal repairs remain intact; related guards also retain independent sound and
+fire restart hooks. No native Editor/import/build, license attempt, browser JS/
+hosting/scene change, original payload publication, audio/DSP work or whole-game
+claim is included. The existing .NET10 browser preview is not a Unity build.
+The later CI closures retain both actual sound selectors, complete real pure
+AssetImport and selected-root sound factories, with55 source-only controls/
+13 tests/clean-copy,10 compiled bootstrap controls,4 compiled sound controls
+and3 separately labelled factory/service source controls. These do not inflate
+the feature or compiled-integration inventories. The fresh stock M1 result still
+binds the exact current production and M1 harness; it is not rerun merely for
+the test-only CI delta or replaced with historical results.
+The ignored integration handoff freezes exact source/input/proof/command hashes;
+the coordinator owns the one combined material gate and any publication.
+
 ## Source57 fire/handicap state-machine increment
 
 ### Explicit portable M1 consumer corrections

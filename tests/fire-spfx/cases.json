@@ -1,0 +1,47 @@
+{
+  "schema": "declared-source-fire-component-fixtures/v1",
+  "qualification": "Explicit component inputs/order/57Hz logical epoch only, NOT native global scheduler or WMS evidence.",
+  "cases": [
+    {"name":"player-start0-no-extra","kind":"PlayerPuff","args":[2,7,0,0],"draws":[2,1,3000,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50],"ticks":38,"modeSwitchTick":2},
+    {"name":"player-start3-all-extra-including-final","kind":"PlayerPuff","args":[2,14,0,0],"draws":[4,2,9999,3,49,49,49,49,49,49,49,49,49,49,49,49,49,49],"ticks":38,"modeSwitchTick":2},
+    {"name":"player-start1-alternating-threshold","kind":"PlayerPuff","args":[2,0,0,0],"draws":[0,0,0,1,0,50,49,99,1,51,48,98,2,52,47,97,3,53,46,96],"ticks":38,"modeSwitchTick":0},
+    {"name":"ball-longest17-bound4","kind":"BallPuff","args":[4,2,0,0],"draws":[3,0,0],"ticks":22,"modeSwitchTick":2},
+    {"name":"ball-shortest9-bound3","kind":"BallPuff","args":[3,-1,2,0],"draws":[2,4,4],"ticks":22,"modeSwitchTick":2},
+    {"name":"ball-negative-z-offset","kind":"BallPuff","args":[3,-1,-2,0],"draws":[1,2,3],"ticks":22,"modeSwitchTick":0},
+    {"name":"burst-three-waves-extra-final-sleep","kind":"PlayerBurst","args":[2,3,4,0],"draws":null,"ticks":18,"modeSwitchTick":999},
+    {"name":"burst-live-entry-still-one-wave","kind":"PlayerBurst","args":[2,5,4,0],"draws":null,"ticks":18,"modeSwitchTick":0},
+    {"name":"burst-live-check-only-after-sleep","kind":"PlayerBurst","args":[2,6,4,0],"draws":null,"ticks":18,"modeSwitchTick":6},
+    {"name":"flash-three-times-shared-raw-bit","kind":"FlashPlayerWhite","args":[2,3,2,0],"draws":[],"ticks":18,"modeSwitchTick":2},
+    {"name":"zero-wave-parent-normal-return","kind":"PlayerBurst","args":[2,0,4,0],"draws":[],"ticks":3,"modeSwitchTick":0},
+    {"name":"zero-count-flash-normal-return","kind":"FlashPlayerWhite","args":[2,0,3,0],"draws":[],"ticks":3,"modeSwitchTick":0}
+  ],
+  "maybeCases": [
+    {"name":"eligible-modulo-rejected-draw-still-consumed","actor":3,"pcount":101,"teamFire":true,"station":0,"vx":1,"vz":0,"flags":0,"reacting":false,"offense":true,"qb":true,"draw":3},
+    {"name":"qb-flipped-left-wrist","actor":3,"pcount":100,"teamFire":true,"station":0,"vx":1,"vz":0,"flags":1,"reacting":false,"offense":true,"qb":true,"draw":3},
+    {"name":"qb-unflipped-right-wrist","actor":3,"pcount":100,"teamFire":true,"station":0,"vx":1,"vz":0,"flags":0,"reacting":false,"offense":true,"qb":true,"draw":0},
+    {"name":"other-offense-right-wrist-while-reacting","actor":4,"pcount":100,"teamFire":true,"station":1,"vx":0,"vz":0,"flags":1,"reacting":true,"offense":true,"qb":false,"draw":0},
+    {"name":"defense-three-joints","actor":11,"pcount":100,"teamFire":true,"station":3,"vx":0,"vz":-1,"flags":0,"reacting":false,"offense":false,"qb":false,"draw":1},
+    {"name":"dragging-reject-before-RNG","actor":3,"pcount":100,"teamFire":true,"station":0,"vx":1,"vz":0,"flags":1048576,"reacting":true,"offense":true,"qb":true,"draw":0},
+    {"name":"CPU-reject-before-RNG","actor":11,"pcount":100,"teamFire":true,"station":-1,"vx":1,"vz":0,"flags":0,"reacting":true,"offense":false,"qb":false,"draw":0},
+    {"name":"stationary-reject-before-RNG","actor":4,"pcount":100,"teamFire":true,"station":1,"vx":0,"vz":0,"flags":0,"reacting":false,"offense":true,"qb":false,"draw":0},
+    {"name":"not-burning-reject-before-RNG","actor":11,"pcount":100,"teamFire":false,"station":3,"vx":1,"vz":0,"flags":0,"reacting":true,"offense":false,"qb":false,"draw":0}
+  ],
+  "ballSequence": [
+    {"kind":"Bobble","fire":false,"turbo":false,"bounce":false,"teamFire":false,"flight":2,"mode":2},
+    {"kind":"Pass","fire":true,"turbo":true,"bounce":false,"teamFire":false,"flight":4,"mode":2},
+    {"kind":"Bobble","fire":false,"turbo":false,"bounce":false,"teamFire":false,"flight":5,"mode":2},
+    {"kind":"Bobble","fire":false,"turbo":false,"bounce":false,"teamFire":false,"flight":6,"mode":2},
+    {"kind":"Pass","fire":false,"turbo":true,"bounce":false,"teamFire":true,"flight":8,"mode":2},
+    {"kind":"Bobble","fire":false,"turbo":false,"bounce":false,"teamFire":true,"flight":10,"mode":2},
+    {"kind":"Pass","fire":false,"turbo":false,"bounce":false,"teamFire":true,"flight":12,"mode":2},
+    {"kind":"Lateral","fire":true,"turbo":true,"bounce":false,"teamFire":true,"flight":14,"mode":2},
+    {"kind":"Fumble","fire":true,"turbo":true,"bounce":false,"teamFire":true,"flight":16,"mode":2},
+    {"kind":"Kickoff","fire":true,"turbo":true,"bounce":false,"teamFire":true,"flight":18,"mode":1},
+    {"kind":"Kickoff","fire":true,"turbo":true,"bounce":false,"teamFire":true,"flight":20,"mode":2},
+    {"kind":"Punt","fire":true,"turbo":true,"bounce":true,"teamFire":true,"flight":22,"mode":2},
+    {"kind":"FieldGoal","fire":false,"turbo":false,"bounce":false,"teamFire":true,"flight":24,"mode":2},
+    {"kind":"FieldGoal","fire":false,"turbo":false,"bounce":true,"teamFire":true,"flight":26,"mode":2},
+    {"kind":"Pass","fire":true,"turbo":true,"bounce":false,"teamFire":true,"flight":28,"mode":3},
+    {"kind":"Bobble","fire":false,"turbo":false,"bounce":false,"teamFire":true,"flight":30,"mode":2}
+  ]
+}

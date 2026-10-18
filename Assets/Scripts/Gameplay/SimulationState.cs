@@ -179,6 +179,7 @@ namespace Blitz.Gameplay
         internal readonly int[] SourceConsecutiveCompletions = new int[2];
         internal readonly int[] SourceConsecutiveLosses = new int[2];
         internal readonly bool[] SourceTeamFire = new bool[2];
+        internal bool SourceFireEffectsEnabled;
         internal int SourceForwardCatcher = -1;
         internal readonly int[] SourceTeamHandicap = new int[2];
         internal readonly int[] SourceEffectiveTeamHandicap = new int[2];
@@ -275,6 +276,9 @@ namespace Blitz.Gameplay
         internal int SourcePuntStrength;
         internal float SourceKickMeterPercent;
         internal float SourceKickWind;
+        internal SourceKickMeterMetrics SourceKickMeterMetrics;
+        internal SourceKickMeterProcess SourceKickMeter;
+        internal SourceKickLaunchView SourceKickLaunch;
         internal bool SourcePerfectFieldGoal = false;
         internal readonly int[] SourceStationPlayers = { -1, -1, -1, -1 };
         internal readonly float[] SourceStationTurbo = { 100f, 100f, 100f, 100f };

@@ -30,10 +30,63 @@ Only those results are current. Other campaign counts below belong to their
 dated source/data generations, not automatically the latest StageB/SnapHike source.
 The CI/input correction has separate fixture/schema/workflow units and bounded
 preparation/caller validation; those are not reruns of the broader QA campaigns.
-No full-M1 replay is authorized for this correction. Pure tests, actual
+That CI/input correction did not authorize a full-M1 replay. The separately
+authorized combined integration below reruns only the frozen stock gate.
+Pure tests, actual
 Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
+
+## Combined fire and portable-authored human kick checks
+
+The [combined runtime suite](fire-kick-integration/README.md) reconciles actual
+factories, source tick/reset/snapshot state, cabinet→meter→physical ball→HUD
+and fire producers→immutable frames→Unity consumers. Separate explicit options
+are `source-fire=portable` (M1 only) and
+`source-kick-meters=portable-authored` (existing C1/old-nine/M1). Neither implies
+the other or `source-compatibility=portable`. Native generated kick metrics
+remain unknown;151/27/209 are the existing pinned **authored HUD** dimensions.
+
+Measured integration evidence is2,284 assertions/7 compiled causal controls,
+16 real raw-cabinet cases,8 physical launches,8 disabled rejections and17
+resets. It retains H40/10, fire18,800/16, kick458,125+817/17,
+Portable74/7, Strict685-original-C-calls/15 controls and Legacy156.
+The actual five Unity-reference profiles compile109 runtime/14 Editor
+sources; the exact123-source and137-unique-GUID inventory is checked.
+
+The existing stock full M1 gate also passed on this combined production code
+with **fire and kick disabled**, using only the already tracked frozen public
+recording/preparation commands below:12,000 hosts/11,400 source ticks,
+17 zero-diagnostic builds,8 caller/3 canonical-cache controls,664 original-C
+rows/5,312 comparisons and the actual R_SKIP advancement/pose witnesses.
+No acceptance predicate, public recording/recipe/command, seed or provider
+was changed. This does not qualify an enabled-feature full match, native
+build/import/DSP, browser deployment or whole-game parity.
+
+```sh
+python3 -B tests/kick-meter/test_runner.py
+python3 -B tests/fire-kick-integration/test_runner.py
+```
+
+These permanent direct commands execute four kick-runner and two combined-runner
+unit tests; both are enforced by the existing asset-free CI inventory stage.
+They check actual control anchors, source closures, factory suffixes and the
+retained required assertion categories, not enabled-feature gameplay.
+
+Run the original-data feature commands in
+[kick-meter](kick-meter/README.md), [fire-producers](fire-producers/README.md),
+[fire-spfx](fire-spfx/README.md) and
+[fire-kick-integration](fire-kick-integration/README.md) for the executable
+gates; inventory guards alone are not gameplay evidence. The actual
+`tests/kick-meter/KickMeterChecks.csproj` is delivered with a suite-root anchored
+ignore exception; unrelated/nested generated projects remain ignored.
+The later `116ea2a` fifteen-path test/docs CI repair is included without
+overwriting these feature-argument or inventory adaptations. Its current
+factory/profile/native-prefix checks pass55 source controls/13 tests/clean-copy,
+with ten separate compiled bootstrap controls and four compiled sound-package
+controls plus three selected-root source controls. Presentation, HUD and package
+checks compile the complete real dependency closures. Production/M1 acceptance/
+public replay bytes did not change; the fresh stock M1 proof remains applicable.
 
 ## Source57 fire/handicap feature checks
 

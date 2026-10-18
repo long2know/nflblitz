@@ -76,9 +76,11 @@ namespace Blitz.Gameplay
                 actor.SourceLateHittable = false;
                 actor.SourcePendingFireCheck = false;
                 actor.SourceHelmetPopped = false;
+                int sharedFlash = model.SourceFireEffectsEnabled ? actor.SourceRawFlags & 0x400 : 0;
                 actor.SourceRawFlags &= ~(0x20 | 0x100 | 0x200 | 0x1000 | 0x800000 | 0x08
                     | 0x8000 | 0x4000 | 0x400 | 0x20000 | 0x100000 | 0x10 | 0x800
                     | 0x80000 | 0x200000 | 0x400000 | 0x2000);
+                actor.SourceRawFlags |= sharedFlash;
                 actor.SourcePuppetLinkId = -1;
                 actor.SourceBlockCount = 0;
                 actor.SourceAttackTime = actor.SourceAttackMode = 0;

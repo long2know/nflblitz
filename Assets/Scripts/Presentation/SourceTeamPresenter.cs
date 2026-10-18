@@ -8,6 +8,13 @@ namespace Blitz.Presentation
     {
         private readonly SourceTeamPresentationAsset assets;
         private readonly Cache[] cache = new Cache[SliceRules.PlayersPerTeam * 2];
+        private UnityEngine.Shader sourceFlashShader;
+        public void BindSourceFireFlash(UnityEngine.Shader shader)
+        {
+            SourceFireGuard.Require(shader != null && shader.name == "Blitz/SourcePlayerFlashPortable" && shader.isSupported,
+                "Bind the actual authored source-white shader,not a fallback tint.");
+            sourceFlashShader = shader;
+        }
         public SourceTeamRosterLibrary Rosters { get { return assets.Rosters; } }
         private sealed class Cache
         {
@@ -53,6 +60,8 @@ namespace Blitz.Presentation
                 cache[actor.Id] = current;
             }
             rig.ApplyTeamAppearance(assets, current.Appearance);
+            if (sourceFlashShader != null)
+                rig.ApplySourceFireFlash(new SourceFirePlayerFlashState(actor.Source.Presentation.RawFlags), sourceFlashShader);
         }
 
         private static bool SameDraw(SourceTeamDrawState a, SourceTeamDrawState b)

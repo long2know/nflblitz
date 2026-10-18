@@ -188,6 +188,17 @@ namespace Blitz.AssetImport
             return image;
         }
 
+        public SourceKickMeterMetrics CreatePortableAuthoredKickMeterMetrics()
+        {
+            SourceInterfaceInputTables.Require(ContentSha256 == SourceKickMeterMetrics.AuthoredInterfaceSha256,
+                "Portable kick meters require the exact pinned authored HUD, not inferred/native generated metrics.");
+            SourceInterfaceImage bar = Image("k_bar"), marker = Image("k_marker"), punt = Image("p_meter");
+            SourceInterfaceInputTables.Require(bar.Source == "img2d/plyrinfo.wif"
+                && marker.Source == bar.Source && punt.Source == bar.Source,
+                "Portable kick dimensions must come from their actual original authored images.");
+            return new SourceKickMeterMetrics(ContentSha256, bar.Width, marker.Width, punt.Height);
+        }
+
         public SourceInterfaceFont Font(string symbol)
         {
             SourceInterfaceFont font;

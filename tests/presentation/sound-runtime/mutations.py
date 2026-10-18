@@ -45,6 +45,8 @@ PACKAGE_ACTUAL = (
     ("new-sound-profile-silently-old8", PACKAGE, "HasSoundVm ? SoundVmServicesResourceKey :", "HasSoundVm ? MovementServicesResourceKey :"),
     ("sound-byte-alias-leaked", PACKAGE, "return (byte[])soundVmFunctions.Clone();", "return soundVmFunctions;"),
 )
+
+
 GUARDS = (
     ("C1-factory-binding-disconnected", "Assets/Scripts/Runtime/SourceContactComposition.cs",
      "game.BindSourceSoundVmData(soundFunctions);", "", "bind immutable SAFN"),
@@ -52,9 +54,11 @@ GUARDS = (
      "game.BindSourceSoundVmData(legacySoundFunctions);", "", "bind immutable SAFN"),
     ("services-sound-input-disconnected", "Assets/Scripts/Runtime/SourceInterfaceServices.cs",
      "SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
-     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData)",
+     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData,\n"
+     "                kickMeterMetrics: kickMetrics)",
      "SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
-     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, null)",
+     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, null,\n"
+     "                kickMeterMetrics: kickMetrics)",
      "immutable sound to all real C1/C2 factories"),
 )
 

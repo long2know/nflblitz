@@ -369,6 +369,7 @@ namespace Blitz.Gameplay
                 if (joints == null || joints.Count != 15)
                     throw new InvalidOperationException("The original post-player camera cache requires all fifteen actual joints.");
                 for (int joint = 0; joint < 15; joint++) Model.SourceCameraJoints[id, joint] = joints[joint];
+                RetainSourceFireCache(id, joints, frame);
                 float rx = root.X - frame.Position.X;
                 float ry = root.Y + actor.SourceRoot.Y - frame.Position.Y;
                 float rz = root.Z - frame.Position.Z;
@@ -552,6 +553,7 @@ namespace Blitz.Gameplay
                 TrySourceCatch(actor);
                 SourceCarrierControl(actor);
                 RunSourceEvasion(actor, 0, false);
+                if (Model.CarrierId == actor.Id) MaybeSourcePlayerFire(actor, "_mode_wpn", 2489);
             }
             else if (mode == SourceActorMode.Quarterback) SourceCarrierControl(actor);
             bool eligible = SourceMovement.ModeAllowsRun(CaptureSourceMovement(actor), MovementContext(actor));
@@ -582,6 +584,15 @@ namespace Blitz.Gameplay
                 SourceDefensiveMovementButtons(actor);
             }
             SourceActorActions(actor, input);
+            if (mode == SourceActorMode.Quarterback) MaybeSourcePlayerFire(actor, "_mode_qb", 2088);
+            if (SourceFireEnabled && mode == SourceActorMode.ReceiverPreSnap && actor.SourceMode == SourceActorMode.ReceiverPreSnap)
+                FireRuntime.WeaponPreSnapTail(FireSite("player.c", "_mode_wpnps", 2153, actor.Id), actor.Id,
+                    Model.SourceLastReceiver[(int)actor.Team], Model.SourceConsecutiveCompletions[(int)actor.Team],
+                    Model.SourceTeamFire[(int)actor.Team], (Model.SourceFlags & SourceGameFlags.OnsideKick) != 0,
+                    Model.SourceRules.PlayType == SourcePlayType.Kickoff);
+            if (SourceFireEnabled && mode == SourceActorMode.DefensiveBackPreSnap && actor.SourceMode == SourceActorMode.DefensiveBackPreSnap)
+                FireRuntime.DefensivePreSnapTail(FireSite("player.c", "_mode_dbps", 2836, actor.Id),
+                    actor.Id, Model.SourceTeamFire[(int)actor.Team]);
             if (mode == SourceActorMode.DefensiveBack || mode == SourceActorMode.Line)
                 TrySourceCatch(actor);
         }

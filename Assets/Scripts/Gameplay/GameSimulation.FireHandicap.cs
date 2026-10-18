@@ -60,6 +60,12 @@ namespace Blitz.Gameplay
                 if (Model.SourceConsecutiveLosses[defense] == 2 && !Model.SourceTeamFire[defense])
                 {
                     Model.SourceTeamFire[defense] = true;
+                    if (SourceFireEnabled)
+                    {
+                        int selected = Model.Players[3].SourceMode == SourceActorMode.Quarterback ? 3 : 10;
+                        FireRuntime.DefensiveSecondLossFireSite(FireSite("nfl.c", "game_proc", 1474),
+                            Model.SourceAnnouncerSwappedBank, Model.Players[selected].SourceHitPartnerId, null);
+                    }
                     Model.SourceLastReceiver[defense] = 4 + 7 * defense;
                 }
             }

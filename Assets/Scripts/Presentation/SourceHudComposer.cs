@@ -105,11 +105,12 @@ namespace Blitz.Presentation
                     layout.Message.Y, image.Width * fit, image.Height * fit);
                 Image("result/" + hud.ResultGraphic, image, rect, White);
             }
-            else if (hud.StateText.Length > 0 && hud.Match.Phase != SourceMatchPhase.LiveBall)
+            else if (hud.StateText.Length > 0 && hud.Match.Phase != SourceMatchPhase.LiveBall && !hud.KickMeter.ShowMeterFlag)
                 FitText("state", "bast18", hud.StateText, layout.Message, scale, White);
+            KickMeter(hud.KickMeter, hud.KickMeterMetrics, viewport);
             if (suspended)
                 FitText("adapter/pause", "bast18", "PAUSED - RELEASE CONTROLS", layout.Message, scale, Yellow);
-            Controls(hud.Match, layout);
+            Controls(hud.Match, layout, hud.KickMeter.ShowMeterFlag);
             foreach (SourceHudPrimitive primitive in draw)
                 if (!viewport.Content.Contains(primitive.Bounds))
                     throw new SourceInterfaceException("Original HUD element exceeds actual CSS content: " + primitive.Element + ".");
@@ -133,7 +134,7 @@ namespace Blitz.Presentation
             return Array.AsReadOnly(draw.ToArray());
         }
 
-        private void Controls(SourceMatchView match, SourceHudLayout layout)
+        private void Controls(SourceMatchView match, SourceHudLayout layout, bool hideTurbo)
         {
             for (int i = 0; i < match.Configuration.Stations.Count; i++)
             {
@@ -143,9 +144,11 @@ namespace Blitz.Presentation
                 SourceInterfaceImage empty = data.Image("tb_empty");
                 double scale = Math.Min(layout.Scale, (area.Width - 10) / empty.Width);
                 double anchorX = area.X + area.Width / 2, anchorY = area.Y + 8 * scale;
-                Sprite("station/" + stationId + "/turbo-frame", "tb_empty", anchorX, anchorY, scale, 1, false, White);
+                if (!hideTurbo)
+                    Sprite("station/" + stationId + "/turbo-frame", "tb_empty", anchorX, anchorY, scale, 1, false, White);
                 string color = stationId == 0 ? "blue" : stationId == 1 ? "green" : stationId == 2 ? "red" : "yellow";
-                Sprite("station/" + stationId + "/turbo", "tb_" + color, anchorX, anchorY, scale, station.Turbo01, false, White);
+                if (!hideTurbo)
+                    Sprite("station/" + stationId + "/turbo", "tb_" + color, anchorX, anchorY, scale, station.Turbo01, false, White);
                 string keys = stationId == 0 ? "A:V B:B C:N" : stationId == 1 ? "A:DEL B:END C:PGDN" :
                     stationId == 2 ? "A:U B:O C:P" : "A:Z B:X C:C";
                 string move = stationId == 0 ? "WASD" : stationId == 1 ? "ARROWS" : stationId == 2 ? "IJKL" : "TFGH";
@@ -154,6 +157,91 @@ namespace Blitz.Presentation
                 FitText("station/" + stationId + "/move", "bast8t", move + " - PAD " + (stationId + 1),
                     new SourceHudRect(area.X + 2, area.Y + area.Height * 0.66, Math.Max(0, area.Width - 4), area.Height * 0.3), 1.3, White);
             }
+        }
+
+        private void KickMeter(SourceKickMeterView meter, SourceKickMeterMetrics metrics, SourceHudViewport viewport)
+        {
+            if (!meter.ShowMeterFlag) return;
+            if (metrics == null || metrics.ContentSha256 != data.ContentSha256)
+                throw new SourceInterfaceException("The meter and HUD must use the SAME pinned authored-image generation.");
+            float x = meter.Kind == SourceKickMeterKind.FieldGoal
+                ? meter.Owner == TeamId.Home ? 148f : 364f
+                : meter.Owner == TeamId.Home ? 64f : 448f;
+            if (meter.Status == SourceKickMeterStatus.TimeExpired)
+            {
+                MeterSprite("kick/timeout/art", "playresult", x, 36f, viewport, 0.9f, 0.55f);
+                double scale = Math.Min(viewport.ContentWidth / 512, viewport.ContentHeight / 384);
+                SourceInterfaceTexture atlas = data.Textures["interface"];
+                foreach (SourceHudGlyph glyph in SourceHudText.Center(data.Font("bast18"), "TIME EXPIRED",
+                    (viewport.ContentWidth - 512 * scale) / 2 + x * scale,
+                    (viewport.ContentHeight - 384 * scale) / 2 + 348 * scale, scale))
+                    MeterPrimitive("kick/timeout/text", viewport, glyph.Rect.X, glyph.Rect.Y,
+                        glyph.Rect.Right, glyph.Rect.Bottom, glyph.Image.X / (double)atlas.Width,
+                        (glyph.Image.X + glyph.Image.Width) / (double)atlas.Width,
+                        glyph.Image.Y / (double)atlas.Height, (glyph.Image.Y + glyph.Image.Height) / (double)atlas.Height,
+                        0xff00ffff);
+                return;
+            }
+            float y = meter.Kind == SourceKickMeterKind.FieldGoal ? 56f : 101f;
+            if (meter.Kind == SourceKickMeterKind.FieldGoal)
+            {
+                MeterSprite("kick/fg/box", "k_box", x, y, viewport);
+                MeterSprite("kick/fg/bar", "k_bar", x, y, viewport);
+                MeterSprite("kick/fg/marker", "k_marker", x + meter.MarkerOffsetPixels, y, viewport);
+                if (meter.Wind != 0f)
+                {
+                    float sign = meter.Wind < 0f ? 1f : -1f;
+                    SourceInterfaceImage arrow = data.Image("k_windarrow");
+                    float width = 30f + (arrow.Width - 30f) * Math.Abs(meter.Wind);
+                    MeterSprite("kick/fg/wind-text", "k_windtext", x + 40f * sign, y, viewport);
+                    MeterSprite("kick/fg/wind-arrow", "k_windarrow",
+                        x - 45f * sign + (sign > 0f ? arrow.Width - width : 0f),
+                        y, viewport, width: width, fromRight: true, flip: sign > 0f);
+                }
+                MeterSprite("kick/fg/ball", "k_ball", x + meter.SpriteOffsetPixels, y, viewport);
+            }
+            else
+            {
+                MeterSprite("kick/punt/bar", "p_meter", x, y, viewport);
+                MeterSprite("kick/punt/ball", "k_ball", x, y + meter.SpriteOffsetPixels, viewport);
+            }
+        }
+
+        private void MeterSprite(string element, string symbol, float x, float y, SourceHudViewport viewport,
+            float widthScale = 1f, float heightScale = 1f, float? width = null, bool fromRight = false, bool flip = false)
+        {
+            SourceInterfaceImage image = data.Image(symbol);
+            SourceInterfaceTexture atlas = data.Textures["interface"];
+            double scale = Math.Min(viewport.ContentWidth / 512, viewport.ContentHeight / 384);
+            double offsetX = (viewport.ContentWidth - 512 * scale) / 2;
+            double offsetY = (viewport.ContentHeight - 384 * scale) / 2;
+            // Reuse the HUD's authored-anchor interpretation, not unknown generated native anchors/crops.
+            double left = offsetX + (x - image.AnchorX * widthScale) * scale;
+            double top = offsetY + (384 - y - image.AnchorY * heightScale) * scale;
+            double right = left + (width ?? image.Width) * widthScale * scale;
+            double bottom = top + image.Height * heightScale * scale;
+            double s0 = (image.X + (fromRight ? image.Width - (width ?? image.Width) : 0)) / (double)atlas.Width;
+            double s1 = (image.X + (fromRight ? image.Width : (width ?? image.Width))) / (double)atlas.Width;
+            double t0 = image.Y / (double)atlas.Height, t1 = (image.Y + image.Height) / (double)atlas.Height;
+            if (flip) { double swap = s0; s0 = s1; s1 = swap; }
+            MeterPrimitive(element, viewport, left, top, right, bottom, s0, s1, t0, t1, White);
+        }
+
+        private void MeterPrimitive(string element, SourceHudViewport viewport, double left, double top,
+            double right, double bottom, double s0, double s1, double t0, double t1, uint color)
+        {
+            // Ordinary canvas clipping also clips UVs; it does NOT manufacture native Composit image metrics.
+            double l = Math.Max(0, left), r = Math.Min(viewport.ContentWidth, right);
+            double t = Math.Max(0, top), b = Math.Min(viewport.ContentHeight, bottom);
+            if (r <= l || b <= t) return;
+            double sl = s0 + (s1 - s0) * (l - left) / (right - left);
+            double sr = s0 + (s1 - s0) * (r - left) / (right - left);
+            double tt = t1 + (t0 - t1) * (t - top) / (bottom - top);
+            double tb = t1 + (t0 - t1) * (b - top) / (bottom - top);
+            draw.Add(new SourceHudPrimitive(element, "interface", color, new[] {
+                new SourceHudVertex(l, t, sl, tt), new SourceHudVertex(r, t, sr, tt),
+                new SourceHudVertex(r, b, sr, tb), new SourceHudVertex(l, t, sl, tt),
+                new SourceHudVertex(r, b, sr, tb), new SourceHudVertex(l, b, sl, tb) }));
         }
 
         private void Menu(IGameState state, TeamId side, SourceHudRect area, SourceCabinetPlaySelection selection)

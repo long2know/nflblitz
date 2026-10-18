@@ -327,6 +327,28 @@ namespace Blitz.Gameplay
             }
         }
 
+        private void DispatchSourceC2Whistle(SourceC2WhistleProcess process)
+        {
+            if (!SourceC2Enabled || !Model.SourceC2Whistles.Contains(process)
+                || process.CreatedTick >= Model.SourceTick || --process.SleepRemaining > 0) return;
+            BeginSourceProcess("whistle_proc", -1, 0);
+            if (!process.Started)
+            {
+                int chance = SourceDraw(100, "player.c:whistle_proc:6014");
+                C2Record(SourceC2EventKind.WhistleFirstWake, -1, "id=" + process.Id + ";chance=" + chance,
+                    Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6014);
+                if (chance >= 25) Model.SourceC2Whistles.Remove(process);
+                else { process.Started = true; process.SleepRemaining = 30; }
+                return;
+            }
+            ExecuteSourceC2NativeSound(new SourceC2SoundContext(SourceC2SoundFunctionKind.WhistleProc, Model.SourceTick,
+                "whistle_proc", Model.SourceRandomProcessOrder, -1, "player.c", "whistle_proc", 6018,
+                invocationId: process.Id, firstCallIndex: Model.SourceRandomCallIndex));
+            C2Record(SourceC2EventKind.WhistleEmission, -1, "player.c:6018;id=" + process.Id,
+                Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6018);
+            Model.SourceC2Whistles.Remove(process);
+        }
+
         private void SourceC2ImmediateWhistle(ActorState actor)
         {
             int line;

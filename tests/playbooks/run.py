@@ -135,7 +135,7 @@ def main(argv=None):
     evidence = {
         "schema": "source-playbook-regressions/v1", "status": "failed", "commands": [], "mutations": [],
         "source_root": str(source_root), "source_pins": PINS,
-        "profile": "Actual complete seven Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
+        "profile": "Actual complete nine Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
         "boundary": PINS["boundary"], "full_gameplay_parity_claimed": False,
         "unity_editor_native_build_browser_or_hosting_executed": False,
         "production_hashes_unchanged": False, "original_input_hashes_unchanged": False,
