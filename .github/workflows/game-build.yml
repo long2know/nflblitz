@@ -159,6 +159,7 @@ jobs:
           python3 tests/contact/test_runner.py
           python3 tests/movement-callers/test_runner.py
           python3 tests/movement-callers/test_canonical.py
+          python3 -B tests/match-lifecycle/test_runner.py -q
           python3 tests/audio/vm/test_runner.py
       - name: Compare source gameplay and host adapter
         # Retained historical numeric/short-adapter comparison, not current caller qualification.
@@ -167,6 +168,8 @@ jobs:
         run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn
       - name: Test explicit Portable carrierless switching and defined original C
         run: python3 -B tests/movement-callers/compatibility.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --old-c2-inputs .squad/.scratch/SourceData/c2-old9 --carrierless-switch-only --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/carrierless-switch-ci
+      - name: Test actual source terminal producer and real bridge notification
+        run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls
       - name: Compare original movement callers and post-animation physics
         # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
         run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable

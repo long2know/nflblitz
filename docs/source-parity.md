@@ -277,9 +277,11 @@ GameOver started epoch1 at0-0 and accepted all four controllers again. The
 renderer was NVIDIA RTX3070/ANGLE Vulkan, not software rendering. These are
 one-run functional observations, not a performance threshold or native pixel
 qualification; screenshots retain their actual source-tick brackets.
-The existing separate terminal-notification gap remains explicit: this match
-has `GameOver`/`MatchEnded` phase but zero typed `SourceEventType.MatchEnded`
-events. No native Unity, DSP or sixteen-row whole-game acceptance is claimed.
+That preceding build recorded a separate terminal-notification gap:
+`GameOver`/`MatchEnded` phase but zero typed `SourceEventType.MatchEnded`
+events. Its observation is retained, not relabelled by the later notification
+increment below. No native Unity, DSP or sixteen-row whole-game acceptance
+is claimed.
 
 `GameSimulation.Compatibility` is immutable, including across restart. Match
 snapshots publish the mode, raw/effective team handicap and lifetime repair
@@ -306,6 +308,49 @@ The full runner still retains all eight caller and three cache controls,
 raw-physics comparison, and the exact after2299 same-instance/two-ordinal/
 two-real-15-joint-pose R_SKIP gate. Unmet coverage or any new fault exits nonzero;
 portable success is named separately from strict/source qualification.
+
+### Typed source match terminal notification
+
+The subsequent terminal increment publishes `SourceEventType.MatchEnded`
+at the actual `AdvanceSourcePeriod` terminal boundary, after the unchanged
+legacy `GameEventType.GameEnded`. Normal match end, the tied maximum
+overtime and explicit cabinet continuation decline use the same producer.
+The existing emitter supplies current possession/play-kind context, not a
+winner or a synthesized final-play result: actor/target/station remain
+absent, `Value` stays0, and final scores remain in the snapshot. No RNG,
+new terminal flag, legacy change or host-side simulated event is introduced.
+
+The dedicated [real producer/bridge contract](../tests/match-lifecycle/README.md)
+has593 assertions over71 declared actual-M1 cases in StrictSource and Portable,
+with nine successfully compiled causal controls and an unchanged final
+baseline. The actual production `FixedStepBridge`, not an `IGameSimulation`
+double, must deliver both buses once in a batched frame, never replay the
+terminal, restart, and deliver the next match through the same subscriptions.
+Late PAT selection/free-point/terminal ordering, tying PAT continuation,
+earlier quarters, normal/maximum overtime, decline priority, skipped source
+wakes, absent winner payload, unchanged Legacy60 and RNG purity are explicit.
+The bridge is added only to this75-file test closure; shared74-file kernel
+inventories and older case/control counts are not rebased. These declared
+boundary cases are not a naturally played full-match observation.
+
+A separate fresh actual C# WASM/WebGL four-human match then completed four
+quarters at21-0/play number100 after517.274s. Its real bridge delivered the
+typed event at source27807/host29271, observed at source27816; later idle
+through source27856 retained exactly one event. The event had no actor/
+target/station/result and `Value=0`; its Away possession context did not
+misrepresent the Home winner. Public `R` only after genuine GameOver started
+epoch1 at0-0 with no stale terminal count/event and accepted fresh input
+from all four moving stations. Two actual HTTP C# assemblies matched build
+`5dd3a167485248155c72a02412d4cae156b0534f5813da0f4f462f826436ae4d`,
+using the unchanged544-file private bundle on RTX3070/ANGLE Vulkan, with no
+browser/network errors or private gameplay writes. PNGs retain actual
+source-tick brackets. The separate unchanged named12k M1 gate also passed
+with its retained3+8 controls, byte-identical observed/uninstrumented
+state/RNG/poses and664/5,312 original-C physics comparisons. These observations
+close the missing typed notification, not the full F1 records/configuration
+row or native Unity/DSP/whole-game acceptance.
+
+### Original fire and handicap implementation
 
 **Feature context: `2026-10-17T14:23:38.829-07:00`.** This is separate gameplay
 work from the frozen Contact/SnapHike QA and CI repair. It does not close any

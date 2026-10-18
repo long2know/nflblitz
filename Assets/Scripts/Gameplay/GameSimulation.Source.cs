@@ -1049,6 +1049,7 @@ namespace Blitz.Gameplay
                 Model.ClockActive = false;
                 Emit(GameEventType.GameEnded, TeamId.Home, -1, Model.HomeScore.CompareTo(Model.AwayScore),
                     default(FieldVector));
+                EmitSource(SourceEventType.MatchEnded);
                 return true;
             }
             if (decision.RestartClockProcess)

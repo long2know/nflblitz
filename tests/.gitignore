@@ -4,3 +4,4 @@
 .artifacts/
 browser/artifacts/
 !Blitz.Core.Tests/Blitz.Core.Tests.csproj
+!match-lifecycle/MatchLifecycleChecks.csproj
