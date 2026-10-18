@@ -55,7 +55,7 @@ namespace Blitz.Presentation
                 ((current.Appearance.Model.Index & 12) != 0) != (actor.Id == carrierId && !draw.PhantomBall))
             {
                 SourceTeamAppearance appearance = SourceTeamPresentationModel.Select(assets.Rosters,
-                    side0, side1, designatedHomeSide, actor, carrierId, draw);
+                    side0, side1, designatedHomeSide, actor, carrierId, draw, assets.PoppedHeadData);
                 current = new Cache { Appearance = appearance, Draw = draw, Side0 = side0, Side1 = side1, Home = designatedHomeSide };
                 cache[actor.Id] = current;
             }

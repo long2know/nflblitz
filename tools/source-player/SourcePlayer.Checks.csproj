@@ -11,5 +11,6 @@
     <ProjectReference Include="SourcePlayer.Core.csproj" />
     <Compile Include="Checks.cs" />
     <Compile Include="FeatureChecks.cs" />
+    <Compile Include="PoppedHeadChecks.cs" />
   </ItemGroup>
 </Project>

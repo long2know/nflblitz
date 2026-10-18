@@ -80,6 +80,7 @@ static class Checks
             VerifyCausalInput(data);
             VerifyDeferredOriginalHud(data);
             if (data.Fire != null) FeatureChecks.Run(data);
+            if (data.PoppedHead != null) PoppedHeadChecks.Run(data);
             if (args.Contains("--require-portable"))
                 Check(KernelBinding.IsPortable(host.Game) && host.Game.Compatibility == SourceGameplayCompatibility.Portable,
                     "A player-ready test must reject an unbound portable factory even when strict rendering works.");

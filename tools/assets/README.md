@@ -1,5 +1,97 @@
 # Original player/team presentation inputs
 
+## Original popped-head SDL reconstruction
+
+`models/head.h` is not in the pinned original tree, but **the authoring geometry
+is present**: `models/phead.sdl` at `89f840d58d152a2a9f230cb8d0cdffbd554c8ded`,
+Git blob `23410e01bb6db9e5fd9bacdd9440691147046798`,39,272 bytes,
+SHA256 `3fb4e566b57670e397fde16c6f515d06c95379420074c2d6c7b111bca843e257`.
+It is the original83-vertex/161-ST/157-triangle `phead_obj`, not a Mark/custom
+head, helmeted model or generic replacement.
+
+Prepare only from explicit verified private originals:
+
+```sh
+python3 -B tools/assets/prepare_popped_head.py \
+  --original-sdl "$ORIGINAL_PHEAD_SDL" \
+  --calibration-models "$PINNED_CALIBRATION_MODELS" \
+  --output .squad/.scratch/popped-head-bundle
+```
+
+The calibration directory contains the exact original `plyr266.sdl/.h` and
+`plyr498.sdl/.h` pairs; their content pins are in the preparer. All481 vertices /
+1,443 coordinate scalars match the original generated headers after binary32
+scale1.2 and six-decimal generated-C rounding. All773 expanded triangles match
+original vertex topology, winding and texture identity. The291 HEDSHU skin UV
+corners are checked within the original six-decimal SDL export precision;
+the measured maximum source-unit delta is0.0000152587890625. Existing packed
+uniform `c_hack` UV remaps are not replaced by the head conversion.
+
+The source `models/models.mak` recipe is
+`cvtmod -f 1.2 -z -l -s -t < phead.sdl > head.h`.
+The source-authored output uses the original scale, square256 ST units and
+original baked coordinates. It explicitly retains SDL polygon order:
+**native `-z` qsort order, generated-header byte identity and native pixels remain
+unqualified**. `-l`/`-t` suppress lists; they are not pivot/geometry transforms.
+This is not a claim to recover a missing Composit/native tool output.
+
+Active `player.c:6900–6909` substitutes `limb_phead_obj` at `JOINT_NECK`8 and
+sets the first TRI texture code to4. Active `lib/ani3d/geom.s:309–317,569–577`
+adds that code directly to the32-bit decal-pointer table: **raw4 means logical
+HEDSHU slot1**, not logical SLVMSK slot4. The same stride-four interpretation is
+used by the production generated-model reader. The actual actor's original
+HEDSHU skin texture is retained. No extra head texture or uniform tint is made.
+
+The private bundle contains `popped-head.json`, the byte-identical original SDL,
+and a clearly named `phead.source-authored.h`. The production
+`SourceTeamPoppedHeadData` reader verifies both original/derived content pins,
+schema, paths, original inventory and material semantics. The shared existing
+`GeneratedPlayerReader`/`BindPoseMeshBuilder` produce the real head mesh against
+the existing neck bind pivot/handedness, without changing body poses or rules.
+`SourceTeamPresentationModel.Select` uses the supplied validated head service
+only for actual `HelmetPopped` with no station-custom-head selection. Every
+original station custom head retains active-C priority. Missing required data
+still stops visibly; no flag is cleared or helmet/head fallback caught.
+
+All original SDL, generated numeric headers and mesh payloads remain ignored.
+Only converter/reader code, metadata and independently authored synthetic tests
+are public:
+
+```sh
+python3 -B -m unittest discover -s tools/assets -p test_prepare_popped_head.py
+node --test tools/source-player/popped-head.renderer.test.mjs
+```
+
+### Explicit Unity head import (source/API-compiled; never an Editor execution claim)
+
+First import a **new** team resource through the existing
+`SourceTeamImporter` profile entrypoint. A new team asset initialized by this
+source carries a pending head-extension marker; existing serialized assets do
+not. Then, only under a separately authorized licensed Editor lease, use:
+
+```text
+-executeMethod Blitz.Presentation.SourceTeamPresentationAsset.ImportOriginalPoppedHeadFromCommandLine
+-teamPresentationAsset Assets/Imported/<new-profile>/Resources/BlitzSourcePlayers/<new-profile>/team-presentation.asset
+-teamAssetRoot <absolute verified prepared-teams root used for that fresh import>
+-teamPoppedHeadRoot <absolute private popped-head-bundle>
+-teamPoppedHeadSha256 <actual popped-head.json SHA256>
+```
+
+This owned typed-asset entrypoint is head-only, not a duplicate team importer.
+It verifies the same strict phead reader and original skeleton/model inputs,
+reserves a new `OriginalPoppedHead` subfolder, creates one source-authored mesh
+and byte-identical provenance TextAssets, and attaches them to the fresh typed
+asset. Existing/prior head resources and assets without the pending marker are
+rejected, not overwritten. The existing Editor importer file/default profile
+entrypoints are unchanged.
+
+At runtime `SourceTeamPresentationAsset` revalidates vertex/UV/index/material
+content against the source-derived mesh and exact serialized original neck
+pivot. `SourceTeamPresenter` and `SourcePlayerRig` select/cache the distinct
+popped-head appearance while preserving station-custom-head priority and all
+other model/material choices. Import, activation, license access and Unity
+execution are **not** performed by headless/archive-API validation.
+
 **Explicit C2-M1 successor resource registry:** `original-teams-contact281-c2-m1`
 uses the same canonical e874 animation but strict new fourteen-binding callback
 JSON,482-site catalog and services keys. See

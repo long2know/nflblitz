@@ -50,7 +50,7 @@ namespace Blitz.Presentation
                 throw new ArgumentNullException(assets == null ? nameof(assets) : nameof(appearance));
             if (JointCount != SourceTiming.JointCount)
                 throw new InvalidOperationException("Original team rendering requires the actual fifteen-joint player rig.");
-            int head = appearance.CustomHead == null ? -1 : appearance.CustomHead.Index;
+            int head = appearance.CustomHead != null ? appearance.CustomHead.Index : appearance.PoppedHead != null ? -2 : -1;
             if (teamAssets == assets && appliedModel == appearance.Model.Index && appliedHead == head &&
                 appliedUniform == appearance.UniformIdentity && appliedSkin == appearance.Uniform.Skin &&
                 appliedPlayer == appearance.SourcePlayerId)

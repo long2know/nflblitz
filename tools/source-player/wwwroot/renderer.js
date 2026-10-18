@@ -200,6 +200,13 @@ export class SourceRenderer {
       value.textures.every(t => this.textures.has(t)) && this.meshes.has(value.numberMesh) &&
       value.textureHashes.every((hash, i) => hash === this.textures.get(value.textures[i]).sha256),
     `Invalid original uniform/number bindings ${id}; no tint or alternate-team atlas substitution.`);
+    if (value.headVariant === 'original-phead-source-authored')
+      requireValue(value.headJoint === 8 && value.headParts?.length === 1 && value.headParts[0].slot === 1 &&
+        value.headParts[0].mesh === 'limbs/limb_phead_obj/1' &&
+        value.headSourceSha256 === '3fb4e566b57670e397fde16c6f515d06c95379420074c2d6c7b111bca843e257' &&
+        value.headGeometrySha256 === 'f835cda5498db7b3f2783b3cfda99d07a2ef765f821f1655c1b4be3d555a57b5' &&
+        this.meshes.has(value.headParts[0].mesh),
+      'Original popped-head binding requires actual SDL phead geometry/HEDSHU1 at joint8, not a helmet/custom-head substitute.');
     this.appearances.set(id, value);
   }
 
@@ -268,7 +275,7 @@ export class SourceRenderer {
     this.drawCalls++;
   }
 
-  drawScene(identityPass) {
+  drawScene(identityPass, poppedHeadIdentityPass = false) {
     const gl = this.gl, frame = this.current;
     gl.useProgram(this.scene);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
@@ -307,19 +314,21 @@ export class SourceRenderer {
         if (!model[joint].drawEnabled) continue;
         const parts = joint === appearance.headJoint && appearance.headParts ? appearance.headParts : model[joint].parts;
         const matrix = frame.joints.subarray((actor * 15 + joint) * 16, (actor * 15 + joint + 1) * 16);
-        for (const part of parts) this.draw(part.mesh, appearance.textures[part.slot], matrix, identityPass ? actor + 1 : null);
+        const identity = poppedHeadIdentityPass ?
+          joint === appearance.headJoint && appearance.headVariant === 'original-phead-source-authored' ? actor + 1 : 0 : actor + 1;
+        for (const part of parts) this.draw(part.mesh, appearance.textures[part.slot], matrix, identityPass ? identity : null);
       }
       const torso = frame.joints.subarray((actor * 15 + appearance.numberMatrix) * 16,
         (actor * 15 + appearance.numberMatrix + 1) * 16);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, -1);
-      this.draw(appearance.numberMesh, appearance.numberTexture, torso, identityPass ? actor + 1 : null);
+      this.draw(appearance.numberMesh, appearance.numberTexture, torso, identityPass ? poppedHeadIdentityPass ? 0 : actor + 1 : null);
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
     if (frame.ball[0]) {
       gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
       const matrix = new Float32Array(identity);
       matrix[12] = frame.ball[1]; matrix[13] = frame.ball[2]; matrix[14] = frame.ball[3];
-      this.draw(this.ball.mesh, this.ball.texture, matrix, identityPass ? 200 : null);
+      this.draw(this.ball.mesh, this.ball.texture, matrix, identityPass ? poppedHeadIdentityPass ? 0 : 200 : null);
     }
     gl.bindVertexArray(null);
   }
@@ -424,6 +433,15 @@ export class SourceRenderer {
         if (pixels[i] === 200) ballPixels++;
       }
       this.assertHealthy('actual original geometry GPU identity pass');
+      const poppedHeadPixels = Array(14).fill(0);
+      if (this.current.appearances.some(id => this.appearances.get(id).headVariant === 'original-phead-source-authored')) {
+        this.drawScene(true, true);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        for (let i = 0; i < pixels.length; i += 4)
+          if (pixels[i + 1] === 0 && pixels[i + 2] === 0 && pixels[i] >= 1 && pixels[i] <= 14)
+            poppedHeadPixels[pixels[i] - 1]++;
+        this.assertHealthy('actual original popped-head-only geometry GPU identity pass');
+      }
       let firePixels = 0;
       if (this.fx?.metadata.enabled) {
         gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -441,6 +459,9 @@ export class SourceRenderer {
         appearances: this.current.appearances.map(id => this.appearances.get(id)),
         textureCount: this.textures.size, frameCount: this.frameCount,
         firePixels, fireFrame: this.fx?.metadata,
+        poppedHeadPixels,
+        poppedHeadBindings: this.current.appearances.map((id, actor) => ({ actor, ...this.appearances.get(id) }))
+          .filter(binding => binding.headVariant === 'original-phead-source-authored'),
         actorFlash: this.fx?.flashAlpha, actorRawFlags: this.fx?.rawFlags,
         meterHighlightPrimitives: this.fx ? Array.from(this.fx.hudHighlight) : [],
         meterCombiner: this.fx?.hudStyle.hudCombiner, meterConstantColor: this.fx?.hudStyle.hudConstantColor,

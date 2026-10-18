@@ -35,6 +35,7 @@ async function tap(name, hold = 65) {
 }
 async function capture(name) {
   const proof = await value(page, '({snapshot:sourcePlayer.snapshot(),gpu:sourcePlayer.gpuProof()})');
+  if (evidence.frames.some(frame => frame.name === name)) name += `-source-${proof.snapshot.state.sourceTick}-${evidence.frames.length}`;
   const image = await page.send('Page.captureScreenshot', { format: 'png' });
   const png = Buffer.from(image.data, 'base64');
   await writeFile(`${directory}/${name}.png`, png);
@@ -87,16 +88,31 @@ try {
     const deadline = Date.now() + limit * 1000;
     let lastMenu = -1, ownSnap = -1, passSent = false, lastCapture = 0;
     const witnessed = { fire: false, flash: false, fieldGoalMeter: false, puntMeter: false,
-      fieldGoalRelease: false, puntRelease: false, camera: false, shaker: false, return: false };
+      fieldGoalRelease: false, puntRelease: false, camera: false, shaker: false, return: false,
+      originalPoppedHead: false, continuedAfterPoppedHead: false };
     evidence.witnessed = witnessed;
     evidence.strategy = args.includes('--defensive-fire') ?
       'Legal public QB hold: allow real negative-yard plays to exercise original defensive second-loss fire.' :
       args.includes('--rush-field-position') ? 'Legal public QB scramble to midfield, then the original fourth-down kick menu.' :
       'Legal public snap/pass/run or fourth-down kick choices.';
     let capturedBeforeContact = false;
+    let poppedAt = -1;
+    let resultPlay = -1, resultEntry = -1;
+    evidence.postResultInputStrategy = 'Wait48 actual source ticks before public Continue so original post-play/flasher processes can be observed.';
     let contactStops = 0;
     while (Date.now() < deadline) {
       const current = await snapshot(), s = current.state;
+      if (s.actors.some(a => (a.rawFlags & 0x00800000) !== 0) && !witnessed.originalPoppedHead) {
+        const observed = await capture('actual-original-popped-head');
+        witnessed.originalPoppedHead = observed.gpu.poppedHeadBindings.some(binding =>
+          observed.snapshot.state.actors[binding.actor].headVariant === 'original-phead-source-authored' &&
+          (observed.snapshot.state.actors[binding.actor].rawFlags & 0x00800000) !== 0 &&
+          observed.gpu.poppedHeadPixels[binding.actor] > 0);
+        if (witnessed.originalPoppedHead) poppedAt = observed.snapshot.state.sourceTick;
+      }
+      if (poppedAt >= 0 && s.sourceTick - poppedAt >= 120 && !witnessed.continuedAfterPoppedHead) {
+        await capture('continued-after-original-popped-head'); witnessed.continuedAfterPoppedHead = true;
+      }
       if (!capturedBeforeContact && s.phase === 'LiveBall' && s.ball.mode === 'Held' && !s.camera.transient) {
         await capture('source-camera-before-contact'); capturedBeforeContact = true;
       }
@@ -131,11 +147,15 @@ try {
         const type = launch.Kind === 1 ? 'fieldGoal' : 'punt';
         if (!witnessed[type + 'Release']) { await capture(`actual-${type}-release`); witnessed[type + 'Release'] = true; }
       }
-      if (s.phase === 'DeadBall') { await tap('Enter'); continue; }
+      if (s.phase === 'DeadBall') {
+        if (resultPlay !== s.playNumber) { resultPlay = s.playNumber; resultEntry = s.sourceTick; }
+        if (s.sourceTick - resultEntry < 48) { await sleep(40); continue; }
+        await tap('Enter'); continue;
+      }
       if (s.phase === 'PlaySelect' && s.sourceTick - lastMenu > 30) {
         lastMenu = s.sourceTick; passSent = false;
         await sleep(450);
-        if (s.possession === 'Home' && goal !== 'spectacle') {
+        if (s.possession === 'Home' && ['punt', 'fieldGoal'].includes(goal)) {
           let menu = (await snapshot()).state.menu.home;
           for (let pages = 0; pages < 5 && !menu.slots.some(slot => slot.name.toUpperCase().includes(goal === 'punt' ? 'PUNT' : 'FIELD GOAL')); pages++) {
             await tap('n'); menu = (await snapshot()).state.menu.home;
@@ -164,7 +184,7 @@ try {
       if (s.phase === 'LiveBall' && s.possession === 'Home' && s.playKind === 'Normal') {
         const fieldPosition = s.offenseDirection > 0 ? s.lineOfScrimmage : 100 - s.lineOfScrimmage;
         const waitForFourth = goal === 'punt' || goal === 'fieldGoal' && fieldPosition >= 50 ||
-          goal === 'spectacle' && args.includes('--defensive-fire');
+          ['spectacle', 'poppedHead'].includes(goal) && args.includes('--defensive-fire');
         if (waitForFourth) {
           // A real legal choice to hold the QB and accept the defense; never
           // alter down/LOS or bypass original special-team menu eligibility.
@@ -181,11 +201,13 @@ try {
       if (Date.now() - lastCapture > 15000) { await capture(`flow-${evidence.frames.length}`); lastCapture = Date.now(); }
       if (goal === 'punt' && witnessed.puntMeter && witnessed.puntRelease ||
           goal === 'fieldGoal' && witnessed.fieldGoalMeter && witnessed.fieldGoalRelease ||
+          goal === 'poppedHead' && witnessed.originalPoppedHead && witnessed.continuedAfterPoppedHead ||
           goal === 'spectacle' && witnessed.fire && witnessed.flash && witnessed.camera && witnessed.shaker && witnessed.return) break;
     }
     evidence.witnessed = witnessed; evidence.final = await snapshot();
     const accepted = goal === 'punt' ? witnessed.puntMeter && witnessed.puntRelease :
       goal === 'fieldGoal' ? witnessed.fieldGoalMeter && witnessed.fieldGoalRelease :
+        goal === 'poppedHead' ? witnessed.originalPoppedHead && witnessed.continuedAfterPoppedHead :
         witnessed.fire && witnessed.flash && witnessed.camera && witnessed.shaker && witnessed.return;
     evidence.requestedGoal = goal;
     evidence.status = accepted ? 'requested-goal-live-witnesses-passed' : 'bounded-live-attempt-partial-UNMET-explicit';

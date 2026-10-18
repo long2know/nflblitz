@@ -15,6 +15,7 @@ public sealed class RenderAssets
     private readonly Dictionary<string, int> appearances = new(StringComparer.Ordinal);
     private readonly ReadOnlyCollection<BindPoseLimbMesh>[] models = new ReadOnlyCollection<BindPoseLimbMesh>[32];
     private readonly Dictionary<string, SourceTeamTexture> textures;
+    private Part[] poppedHeadParts;
     public int MeshCount => meshes.Count;
     public int AppearanceCount => appearances.Count;
     public int TextureCount { get; private set; }
@@ -41,6 +42,8 @@ public sealed class RenderAssets
             }).ToArray();
             sink.Model(i, JsonSerializer.Serialize(joints));
             if (i < 4) Measure(model);
+            if (i == 0 && data.PoppedHead != null)
+                poppedHeadParts = Register(SourceTeamGeneratedModels.BuildPoppedHead(model, data.PoppedHead));
         }
         UploadBall();
     }
@@ -187,10 +190,10 @@ public sealed class RenderAssets
         var match = ((ISourceMatchState)state).Match;
         var appearance = SourceTeamPresentationModel.Select(data.Rosters,
             match.Configuration.HomeTeam.TeamIndex, match.Configuration.AwayTeam.TeamIndex,
-            (int)SourceInterfacePresentation.Settings(state).DesignatedHomeSide, actor, state.Ball.CarrierId, draw);
+            (int)SourceInterfacePresentation.Settings(state).DesignatedHomeSide, actor, state.Ball.CarrierId, draw, data.PoppedHead);
         string key = appearance.SourcePlayerId + "/" + appearance.UniformIdentity + "/" +
             (int)appearance.Uniform.Skin + "/" + appearance.Numbers.LimbSymbol + "/" +
-            (appearance.CustomHead?.Index ?? -1);
+            (appearance.CustomHead?.Index ?? -1) + "/" + (appearance.PoppedHead?.ContentSha256 ?? "helmeted");
         if (!appearances.TryGetValue(key, out int id))
         {
             string number = "numbers/" + appearance.Numbers.LimbSymbol + "/" + appearance.Player.Profile.PackedJerseyNumber;
@@ -208,6 +211,13 @@ public sealed class RenderAssets
                     data.Header, appearance.CustomHead.Index);
                 headParts = Register(SourceTeamGeneratedModels.BuildModel(model)[data.Rosters.ActorModels.HeadJointIndex]);
             }
+            else if (appearance.PoppedHead != null)
+            {
+                DataCatalog.Require(poppedHeadParts is { Length: 1 } &&
+                    poppedHeadParts[0].slot == SourceTeamPoppedHeadData.LogicalTextureSlot,
+                    "The original phead source mesh must bind raw texture4/logical HEDSHU slot1 at the actual neck.");
+                headParts = poppedHeadParts;
+            }
             var slots = appearance.Uniform.Slots.Select(slot => "teams/" + slot.Id).ToList();
             if (appearance.CustomHead != null) slots.Add("teams/" + appearance.CustomHead.Texture.Id);
             foreach (var slot in slots)
@@ -224,6 +234,11 @@ public sealed class RenderAssets
                 numberTexture = slots[data.Rosters.ActorModels.NumberTextureSlot],
                 numberMatrix = data.Rosters.ActorModels.NumberMatrixIndex,
                 headJoint = data.Rosters.ActorModels.HeadJointIndex, headParts,
+                headVariant = appearance.CustomHead != null ? "original-station-custom" :
+                    appearance.PoppedHead != null ? "original-phead-source-authored" : "original-helmeted",
+                headSourceSha256 = appearance.PoppedHead != null ? SourceTeamPoppedHeadData.SourceSha256 : null,
+                headGeometrySha256 = appearance.PoppedHead != null ? SourceTeamPoppedHeadData.HeaderSha256 : null,
+                headOrigin = appearance.PoppedHead != null ? SourceTeamPoppedHeadData.Origin : null,
                 textures = slots,
                 textureHashes = slots.Select(slot => textures[slot.Substring("teams/".Length)].Sha256).ToArray(),
                 originalNumber = appearance.Player.Profile.PackedJerseyNumber, tint = "none"

@@ -10,6 +10,69 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+## Original popped-head input extension
+
+The original native generated `head.h` is absent, **not the authoring asset**.
+The pinned `models/phead.sdl` is now supported through the strict
+source-authored pipeline in `../assets/README.md`. Extend an existing private
+base518 or fire-enabled538 bundle without rewriting it:
+
+```sh
+python3 -B tools/source-player/prepare_head.py \
+  --base-data "$READONLY_PLAYER_DATA" --base-manifest-sha256 "$PLAYER_MANIFEST_SHA256" \
+  --head-bundle "$PREPARED_ORIGINAL_PHEAD" --head-manifest-sha256 "$PHEAD_MANIFEST_SHA256" \
+  --output tools/source-player/data
+```
+
+The actual production reader validates the original SDL, calibrated source
+header and explicit portable origin **before simulation**. The existing32
+body models,20 station custom heads, all original uniforms/skin/BCD numbers,
+source poses and raw flags remain unchanged. When Core actually publishes
+`PF_POP_HELMET`, the actual neck8 draws original phead geometry against the
+unchanged source bind pivot. Native raw texture code4 is logical HEDSHU slot1,
+not logical slot4. Station custom heads still take priority.
+
+The browser uploads this static mesh once and uses the normal real actor/joint
+matrices. Read-only GPU proof additionally measures visible phead-only pixels
+using the **same** original mesh/texture/depth/pose; torso or number pixels cannot
+stand in for a visible head. No authored DTO/adapter fixture is a gameplay
+witness. `--goal poppedHead` in `feature-browser.mjs` requires a real public-input
+raw flag, matching original phead binding/GPU pixels and at least120 continuing
+source ticks. It never writes Match/actor/flag/pose/RNG/ball state.
+
+For a distinct candidate use8084 and its own Compose project:
+
+```sh
+SOURCE_PLAYER_PORT=8084 SOURCE_PLAYER_BIND_ADDRESS=127.0.0.1 \
+  docker compose --env-file /dev/null -p nflblitz-original-popped-head \
+  -f tools/source-player/compose.yaml up -d --force-recreate
+```
+
+Old8082/8083 projects/bundles must remain unchanged. The helper
+`browser-suite.mjs` accepts an optional third URL argument for isolated
+candidate regressions, e.g. `http://127.0.0.1:8084/`.
+This remains a **portable C# preview, not a native Unity player build**.
+
+Original-head checks (explicit private data required for the C# and emitted
+artifact commands; they are not asset-free CI claims):
+
+```sh
+bash tools/source-player/dotnet.sh run \
+  --project tools/source-player/SourcePlayer.Checks.csproj -c Release \
+  -- tools/source-player/data --require-portable
+python3 -B tools/source-player/popped_head_mutations.py --data tools/source-player/data \
+  --output tools/source-player/artifacts/popped-head-controls-owned
+node --test tools/source-player/popped-head.renderer.test.mjs
+node --test tools/source-player/popped-head.artifacts.test.mjs
+```
+
+The compiled controls change the actual neck pivot, raw4/logical1 mapping,
+head-service binding, helmet-mesh fallback and station-custom-head priority.
+They must compile and fail named artifact assertions. The executable JS control
+changes the actual scene head consumer. Emitted-frame controls reject cleared
+flags, wrong original mesh/slot, body-only GPU pixels and stalled continuation.
+The unmodified PNGs remain paired with their own CDP/source-tick/hash receipts.
+
 ## Independent original fire and kick-meter opt-ins
 
 Both new features are **disabled by default**, independently of the existing
@@ -346,12 +409,11 @@ hardware qualification is separate from the tested standard mapping.
   claimed audible output. Dust remains unqualified. The independent portable
   fire opt-in now consumes the approved real source producer/render contract
   described above; this is not native WMS/TEXUS or arcade-pixel qualification.
-- The pinned original team archive has no qualifying popped-head limb.
-  A real `HelmetPopped` activation therefore stops at the strict production
-  presentation reader, visibly naming that missing original. The preview never
-  clears the flag, supplies a helmeted/generic head, or changes gameplay/seed
-  to conceal the input gap. A bounded successful witness is not a claim that
-  every later original-data branch can render.
+- Native generated `head.h` is absent, while original `models/phead.sdl` is
+  available. With the explicit head bundle above, actual `HelmetPopped` uses
+  that original source-authored mesh. Without it, the required-data failure
+  remains visible. The preview never clears the flag, supplies a generic head
+  or changes gameplay/seed. Native qsort/header/pixel equivalence is unqualified.
 - The explicit Portable Core mode preserves raw handicap/block counts while
   selecting bounded original consumer indices. The actual immutable mode,
   lifetime repair count, tail64 typed repairs and raw/effective team/actor values
