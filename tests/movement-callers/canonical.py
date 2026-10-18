@@ -35,6 +35,7 @@ OBSERVED_CALL = """                PlayerView qaActualCacheView = GameSnapshot.S
 HARNESS = (
     "tests/movement-callers/MovementCallerChecks.csproj", "tests/movement-callers/Directory.Build.props",
     "tests/movement-callers/Program.cs", "tests/movement-callers/Canonical.cs",
+    "tests/movement-callers/PortablePublicPolicy.cs",
     "tests/movement-callers/Controlled.cs", "tests/movement-callers/InputAndStation.cs",
     "tests/movement-callers/SnapHikeChecks.cs",
     "tests/movement-callers/CompatibilityChecks.cs",
