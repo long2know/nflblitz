@@ -162,24 +162,29 @@ consumer policy. All existing constructor/factory defaults remain StrictSource;
 this is not original native/target-memory qualification. The CLI rejects any
 duplicate compatibility selection before output/input/build/replay.
 
-The checkout now contains one input-only fixture,
-`movement-callers/fixtures/canonical-public-12000.jsonl.gz`. Its decoded rows use
-the existing `ReadPublicReplay` JSONL schema and contain only all12,000 original
-contiguous `host` IDs and public `command` fields. Standard deterministic gzip
-avoids4.49MB of repeated JSON without introducing a game/input policy.
-The strict versioned preparer verifies public field sets/types, count/order,
-canonical content and both payload/container hashes. It never runs the game,
-reads the mixed source artifact in CI, or regenerates commands from current state.
+The workflow explicitly selects the new named recording
+`portable-cabinet-wide-pass-clearance-12000` and its input-only gzip/minimal
+public recipe under `movement-callers/fixtures/`. Its12,000 contiguous `host`/
+`command` rows use the existing `ReadPublicReplay` schema, including public
+station inputs. The strict preparer checks closed keys at every depth, types,
+finite values, station axes[-3,3], ABC masks0..7, specified SourceAction0..20,
+count/order, canonical bytes and both container/payload hashes. Metadata is
+closed and pinned to the exact case/epoch/profiles/Portable mode/provider/
+seed1/default5/11 facts; it cannot supply private fields or arbitrary policy claims.
+Preparation does not run the game, read mixed observations, or regenerate commands.
 
 Supply or explicitly fetch/derive the pinned originals and data roots above:
 the834 base, unchanged old-six SAFN and explicit M1 successor288. No original
-art/motion/audio is supplied by the fixture. Input preparation is reproducible;
-**full qualification remains blocked and is not a green hosted-run claim**.
+art/motion/audio is supplied by the fixture. The published full Portable M1
+qualification on frozen `a4c0798` passes for this recording; **the updated hosted
+pipeline has not yet passed**. No new local replay was run for this integration.
 
 ```sh
-REVIEWED_REPLAY=".squad/.scratch/SourceData/m1-public-12000.jsonl"
+REVIEWED_REPLAY=".squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl"
 python3 -B tests/movement-callers/prepare_public_replay.py prepare \
-  --fixture tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz \
+  --case portable-cabinet-wide-pass-clearance-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
   --output "$REVIEWED_REPLAY"
 python3 -B tests/movement-callers/run.py \
   --source-root "$ORIGINAL_SOURCE" --input-profile contact272 \
@@ -189,20 +194,34 @@ python3 -B tests/movement-callers/run.py \
   --source-compatibility portable
 ```
 
-The decoded public SHA-256 is
-`a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6`;
-the43,395-byte tracked gzip SHA-256 is
-`7ffc168a44fe7599982b7ab369ec63194b2dda1d3fccd3688121f4b3f8d20fd4`.
-Its author-only `export --source <exact reviewed mixed artifact>` mode checks
-the original2a028f90... identity before projecting commands. That30MB mixed
-artifact, private snapshots/RNG/sound observations and source data remain ignored,
-are not copied wholesale, and are not needed by CI. See the
+The8,534,249-byte JSONL SHA-256 is
+`830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e`;
+the66,078-byte gzip SHA-256 is
+`802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9`.
+The public recipe is deliberately minimal metadata, not the private exporter
+recipe/proof. No generator or policy code is needed to prepare the recording.
+
+The old `canonical-public-12000.jsonl.gz` remains byte-identical and historical/
+unqualified: JSONL4,494,350 bytes/SHA`a33b1765...`, gzip43,395 bytes/SHA`7ffc168a...`.
+Omitting `--case` still selects that historical recording, not the new one:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case canonical-public-12000 \
+  --fixture tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz \
+  --output .squad/.scratch/SourceData/m1-public-12000.jsonl
+```
+
+Its existing author-only `export --source <exact reviewed mixed artifact>`
+still checks the original2a028f90... identity. Mixed captures, model/RNG/pose/
+sound observations and original data remain ignored and are not needed by CI.
+Neither fixture is original art/motion data or a native trajectory claim. See the
 [fixture audit and authoring contract](movement-callers/README.md#tracked-exact-public-replay-input).
 
 Here `--input-profile contact272` identifies the strict base-fixture schema,
 not a C1 factory substitute. The M1 sidecar selects the actual
 `SourceC2Composition.CreateM1Simulation`, real geometry, two original bank
-draws before AI and old SAFN before wake. Original three cache/eight caller
+draws before AI and old SAFN before wake. Three canonical-cache/eight caller
 controls and the full final baseline remain required. The after2299 same-
 actor/same-instance two-ordinal/two-real15-pose R_SKIP check is still a hard
 gate; zero remains **UNMET**, not the old scoped window or full PASS.
@@ -218,9 +237,14 @@ six blocks the source computes index6. StrictSource continues to fail there.
 Explicit M1 Portable corrects only the consumer index using existing rows,
 retaining raw values/history/diagnostics and making no target-memory claim.
 Do not evade the input or accept that boundary as passing full smoke.
-The known single portable12k observation has no source fault but still zero
-positive public R_SKIP. Full M1/CI/PR21 merge
-are blocked; no replay or new exploration was run for these docs.
+The new named recording's published full gate passes with26 R_SKIP frames,
+actor12/instance208 after2299 and two actual15-joint poses; eight caller plus
+three canonical-cache compiled causal controls and664 original-C rows/
+5,312 comparisons pass. Baseline/observer/final raw/state/pose bytes agree across
+17 zero-diagnostic builds. The separate historical C1 cache three-control
+campaign was not invoked by M1 dispatch and is not recounted as fresh proof.
+The old `a33b1765...` hosted failure remains unqualified. CI/PR21 merge awaits
+the updated full pipeline; all16/native/DSP/Unity/new-build limits remain.
 
 The parent-autonomous `PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE` before original
 `bearing(me,-1)` remains separately disclosed, with no captured explicit user

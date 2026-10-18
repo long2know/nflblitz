@@ -46,17 +46,23 @@ qualification blockers:
   Explicit M1 `Portable` is a deliberate engineering consumer correction,
   not recovered target memory/ABI or original native behavior; raw state and
   typed repair diagnostics are retained.
-- The required positive public **R_SKIP witness remains zero**. Full M1 and
-  all sixteen parity rows remain OPEN.
+- The frozen named `portable-cabinet-wide-pass-clearance-12000` recording now
+  **passes the published full Portable M1 gate** on source `a4c0798`:
+  26 R_SKIP frames, actor12/instance208 after2299 and two actual15-joint poses.
+  This is a bounded managed caller/control/physics result, not CI, native,
+  whole-game or all-sixteen-row acceptance.
 - Hosted run39070002791 used legacy69/443 data and failed on missing
   `TIE1C_A`. The CI/input correction now prepares strict78/834 Contact272,
   StageA extra9 and explicit StageB M1 inputs, plus the
-  [tracked exact12,000-command public fixture](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
-  Historical numeric comparisons remain explicitly legacy. The actual full-M1
+  [explicitly named12,000-command public recording](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
+  Historical numeric comparisons and the old `a33b1765...` fixture remain
+  unchanged and unqualified. Hosted run39102061602 failed UNMET on that old input;
+  it is not relabelled by the new local qualification. The actual full-M1
   gate now deliberately adds exactly one `--source-compatibility portable`;
   API defaults remain strict. It requires all controls/physics/final and
   remains nonzero on faults or unmet R_SKIP, with no single-attempt shortcut.
-  No new green hosted run or replay is claimed. PR21 remains blocked/unmerged.
+  This CI wiring ran no new replay and claims no green hosted run.
+  PR21 remains unmerged pending the actual updated pipeline.
 
 **Portability disclosure:** the parent autonomously selected a narrow
 no-eligible-candidate return before original `maybe_taunt` calls
@@ -155,8 +161,9 @@ described by the packaging recipe.
 
 The resource set is necessary, not a finished-game guarantee: original audio/FX
 consumers remain unbound and fail explicitly when reached. Do not bind noops,
-silence or fake clicks. Recorded public windows have **zero positive R_SKIP
-witnesses**; the required same-instance multi-ordinal/real-pose gate remains open.
+silence or fake clicks. Older public windows had **zero positive R_SKIP
+witnesses**; the separately named Portable recording now passes that
+same-instance multi-ordinal/real-pose gate, not native or full-game acceptance.
 B1's FIFO compatibility and unfiltered raw99-at-every-site positive catch are
 separately declared controlled inputs, not unchanged original trajectories or
 target PRNG. The seed1 standing-BatDown negative remains. See the

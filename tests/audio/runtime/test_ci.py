@@ -16,8 +16,11 @@ RESOURCES = ".squad/.scratch/SourceData/contact-profile"
 EXTRA9 = ".squad/.scratch/SourceData/c2-extra9"
 OLD9 = ".squad/.scratch/SourceData/c2-old9"
 M1 = ".squad/.scratch/SourceData/c2-m1"
-PUBLIC_FIXTURE = "tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz"
-PUBLIC_REPLAY = ".squad/.scratch/SourceData/m1-public-12000.jsonl"
+PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-12000"
+PUBLIC_FIXTURE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.jsonl.gz"
+PUBLIC_RECIPE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.recipe.json"
+PUBLIC_REPLAY = f".squad/.scratch/SourceData/{PUBLIC_CASE}.jsonl"
+HISTORICAL_PUBLIC_FIXTURE = "tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz"
 FETCH_COMMAND = ("python3 tests/parity/fetch_inputs.py --profile contact272 --download "
                  "--cache tests/source-oracles/.artifacts/original --output " + ORIGINAL)
 PREPARE_COMMANDS = (
@@ -33,7 +36,7 @@ PREPARE_COMMANDS = (
     f"python3 -B tools/animation/prepare_c2_impact.py --base-catalog {RESOURCES}/impact272/impact-presentation.json --callback-data {M1}/c2-callback-data.json --plyrseq {ORIGINAL}/plyrseq.c --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs --profile contact281-c2-m1 --destination {RESOURCES}/impact-m1",
 )
 REPLAY_COMMAND = (f"python3 -B tests/movement-callers/prepare_public_replay.py prepare "
-                  f"--fixture {PUBLIC_FIXTURE} --output {PUBLIC_REPLAY}")
+                  f"--case {PUBLIC_CASE} --fixture {PUBLIC_FIXTURE} --recipe {PUBLIC_RECIPE} --output {PUBLIC_REPLAY}")
 B1_COMMAND = (f"python3 tests/ball/run.py --source-root {ORIGINAL} --input-profile contact272 "
               f"--fixture-manifest {CURRENT}/fixture.json --sound-functions {CURRENT}/audio-functions/sound-functions.safn")
 M1_COMMAND = (f"python3 tests/movement-callers/run.py --source-root {ORIGINAL} --input-profile contact272 "
@@ -357,6 +360,40 @@ class ContactWorkflow(unittest.TestCase):
                        "      - name: Upload private proof\n        run: gh release upload tag private-rng.json\n"):
             with self.subTest(upload=upload), self.assertRaises(AssertionError):
                 validate_workflow(original + upload)
+
+    def test_required_gate_selects_named_recording_not_relabelled_historical_or_native(self):
+        original = WORKFLOW.read_text()
+        command, = step_commands(original)["Prepare exact public replay input without simulation"]
+        self.assertEqual(command, shlex.split(REPLAY_COMMAND))
+        self.assertEqual(command.count("--case"), 1)
+        self.assertEqual(command[command.index("--case") + 1], PUBLIC_CASE)
+        self.assertEqual(command[command.index("--fixture") + 1], PUBLIC_FIXTURE)
+        self.assertEqual(command[command.index("--recipe") + 1], PUBLIC_RECIPE)
+        spec = importlib.util.spec_from_file_location("named_CI_public_recording", ROOT / "tests/movement-callers/prepare_public_replay.py")
+        producer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(producer)
+        producer.load_recipe(ROOT / PUBLIC_RECIPE)
+        self.assertEqual(producer.RECORDINGS[PUBLIC_CASE]["public_sha256"],
+                         "830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e")
+        self.assertEqual(producer.RECORDINGS[producer.HISTORICAL_CASE]["public_sha256"],
+                         "a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6")
+        for changed in (
+            REPLAY_COMMAND.replace(f"--case {PUBLIC_CASE} ", ""),
+            REPLAY_COMMAND.replace(f"--case {PUBLIC_CASE}", "--case canonical-public-12000"),
+            REPLAY_COMMAND + f" --case {PUBLIC_CASE}",
+            REPLAY_COMMAND.replace(PUBLIC_FIXTURE, HISTORICAL_PUBLIC_FIXTURE),
+            REPLAY_COMMAND.replace(f"--recipe {PUBLIC_RECIPE} ", ""),
+            REPLAY_COMMAND.replace(PUBLIC_RECIPE, ".squad/.scratch/private-recipe.json"),
+            REPLAY_COMMAND.replace(PUBLIC_REPLAY, ".squad/.scratch/SourceData/m1-public-12000.jsonl"),
+        ):
+            with self.subTest(preparation=changed), self.assertRaises(AssertionError):
+                validate_workflow(original.replace(REPLAY_COMMAND, changed, 1))
+        for changed in (
+            M1_COMMAND.replace(PUBLIC_REPLAY, ".squad/.scratch/SourceData/m1-public-12000.jsonl"),
+            M1_COMMAND.replace("--source-compatibility portable", "--source-compatibility native"),
+        ):
+            with self.subTest(gate=changed), self.assertRaises(AssertionError):
+                validate_workflow(original.replace(M1_COMMAND, changed, 1))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,27 @@
+{
+  "schema": "source-public-replay-recording/v1",
+  "case": "portable-cabinet-wide-pass-clearance-12000",
+  "epoch": "OriginalRelease57Hz",
+  "input_profile": "contact272",
+  "c2_profile": "contact281-c2-m1",
+  "source_compatibility": "portable",
+  "seed": 1,
+  "ai_opponents": {
+    "home": 5,
+    "away": 11
+  },
+  "provider_profile": "source-sound-smoke/raw-vector-v1",
+  "hosts": 12000,
+  "commands_only": true,
+  "native_equivalent": false,
+  "jsonl": {
+    "file": "portable-cabinet-wide-pass-clearance-12000.jsonl",
+    "bytes": 8534249,
+    "sha256": "830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e"
+  },
+  "gzip": {
+    "file": "portable-cabinet-wide-pass-clearance-12000.jsonl.gz",
+    "bytes": 66078,
+    "sha256": "802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9"
+  }
+}

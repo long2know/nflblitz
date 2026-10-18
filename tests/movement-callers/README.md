@@ -47,6 +47,50 @@ are unchanged. The eight declared M1 caller controls remain independently execut
 
 ## Tracked exact public replay input
 
+### Explicit named Portable recording
+
+The required workflow now selects
+`portable-cabinet-wide-pass-clearance-12000`, not the old canonical recording.
+Its unchanged66,078-byte gzip contains only12,000 contiguous public host/
+command rows, including already-supported public stations. It expands to the
+exact8,534,249-byte JSONL qualified on frozen published `a4c0798` and the
+unmodified public runner/harness, with explicit Portable, seed1, current5/11
+and the same unfiltered provider. It is not an original/native-identical trajectory.
+
+| Named recording identity | SHA-256 |
+| --- | --- |
+| Qualified public JSONL | `830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e` |
+| Bit-exact tracked gzip | `802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9` |
+| Minimal public metadata | `1f82c109e2988215b1258590e135cd62bd7c38116901cfaaf29e76ee00ed4bbb` |
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+```
+
+No controller/policy code, private recipe/proof links, observations or original
+payloads are required. The public metadata is closed and pinned to verified
+case/epoch/profile/mode/provider/seed/default-opponent and file identities, not
+arbitrary exporter claims. Shared public validation rejects private fields at
+every depth, duplicate JSON keys, nonfinite/wrong types, invalid station axes
+(outside[-3,3]), ABC masks(outside0..7) and specified SourceAction(outside0..20).
+Count/order and decoded/gzip/metadata byte identities stay hard requirements.
+No generation or runtime execution occurs in preparation.
+
+The published **full** Portable M1 qualification passed17 zero-diagnostic builds,
+eight caller/three canonical-cache compiled named causal controls and664
+original-C rows/5,312 comparisons. Baseline/observer/final raw/state/pose bytes
+agree;26 R_SKIP frames for actor12/instance208 after2299 contain the required
+two actual ordinals/two real15-joint poses. The historical C1 cache three-control
+receipt is retained, not newly executed by M1 dispatch. See the
+[receipt and scope](../../docs/source-parity.md#published-portable-m1-qualification).
+This is not green hosted CI, native/Unity/DSP/build or whole-game acceptance.
+
+### Historical canonical input — unchanged and unqualified
+
 `fixtures/canonical-public-12000.jsonl.gz` contains only the unchanged12,000
 recorded public `host`/`command` rows, not source/game observations. Its decoded
 canonical JSONL is4,494,350 bytes; deterministic standard gzip (empty filename,
@@ -87,8 +131,10 @@ This projects only the already-recorded commands and verifies the fixed source
 and public identities; it does not regenerate them from CURRENT game state.
 An existing different destination is never overwritten. CI only prepares the
 tracked fixture, so it does not need this mixed artifact or a private cache.
-The actual full-M1 gate below remains required; valid input preparation does
-not turn `bc_adjust[6]`, zero R_SKIP or any unrelated exception into PASS.
+The no-case preparer still selects this historical input. Its zero-R_SKIP
+UNMET result, including hosted39102061602, is not relabelled by the separately
+named recording. The actual full-M1 gate below remains required; valid input
+preparation does not turn zero R_SKIP or any unrelated exception into PASS.
 
 The full-M1 runner persists `<output>/result.json` and prints its terminal
 status and report path. `UNMET-public-R_SKIP` remains a nonzero failure and
@@ -99,8 +145,9 @@ summary does not dump the recorded model, RNG or pose observations.
 
 ## Current281 canonical entry and honest coverage boundary
 
-The commands/results below this section are historical117/156/157/272
-contracts, not new281 full-M1 acceptance. The explicit canonical test adapter
+The retained component commands/results below keep their recorded
+117/156/157/272/281 generations; they do not replace the separately named
+published Portable qualification above. The explicit canonical test adapter
 loads frozen288 producer outputs in addition to the unchanged real-input
 fixture, and calls the actual `SourceC2Composition` with its sealed geometry,
 the same281 library, real pre-constructor bootstrap/two bank draws and the
@@ -144,8 +191,8 @@ caller campaigns through the explicit281 factory. The resumed current run
 compiled/rejected all11 controls causally, completed the original664 post-VM
 inputs /5,312 exact original-C physics assertions, and reran controlled/caller
 baselines. These results are new receipts, **not relabelled first-scoped proof**.
-They do not cover the missing R_SKIP advancement/pose witness; full M1 remains
-incomplete. The source135 timing contract was subsequently split under a
+They did not cover the missing R_SKIP advancement/pose witness; full M1 was
+incomplete in that snapshot. The source135 timing contract was subsequently split under a
 bounded test-only authorization. New campaigns paused again at the retained B1
 source439 flip-only menu assertion, with no queue/input/extra-wake adaptation.
 All16 parity rows remain OPEN.
@@ -589,14 +636,18 @@ bank draws before AI, and unchanged SAFN before wake. It cannot use the old
 
 ```sh
 python3 -B tests/movement-callers/prepare_public_replay.py prepare \
-  --output .squad/.scratch/SourceData/m1-public-12000.jsonl
+  --case portable-cabinet-wide-pass-clearance-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
 python3 -B tests/movement-callers/run.py \
   --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
   --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
   --sound-functions "$UNCHANGED_OLD6_SAFN" \
   --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
-  --replay-commands .squad/.scratch/SourceData/m1-public-12000.jsonl \
-  --output .squad/.scratch/m1-successor-full-qualification
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl \
+  --output .squad/.scratch/m1-successor-full-qualification \
+  --source-compatibility portable
 ```
 
 The explicit sidecar is not a272 relabel. The replay accepts complete recorded
@@ -607,9 +658,11 @@ draws legitimately change subsequent gameplay/RNG; they must not be removed or
 normalized to an old hash.
 
 Independent uninstrumented and unique-hash/reversible actual-cache observation
-runs compare every recorded state/input/pose/raw draw. All3 old cache and8 caller
+runs compare every recorded state/input/pose/raw draw. All3 canonical-cache and8 caller
 controls remain mandatory with zero-diagnostic compilation and named causal
 failures. The after2299 same-actor/same-instance two-ordinal/two-real15-pose R_SKIP
 assertion remains a hard gate. A zero result reports **UNMET**, never full M1 or
 the old36948 acceptance. Any unrelated source fault stops the replay without an
 extra wake, queue reset, seed search, substituted state or next policy.
+The separate historical C1 cache controls are not part of M1 dispatch and are
+not counted as three additional fresh rejections.

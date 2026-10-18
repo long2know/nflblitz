@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Versioned, input-only projection and preparation of the immutable public replay."""
+"""Versioned, input-only preparation of explicitly named immutable public recordings."""
 import argparse
 import gzip
 import hashlib
@@ -18,6 +18,36 @@ FIXTURE_SHA256 = "7ffc168a44fe7599982b7ab369ec63194b2dda1d3fccd3688121f4b3f8d20f
 HOSTS = 12000
 PUBLIC_BYTES = 4494350
 FIXTURE_BYTES = 43395
+HISTORICAL_CASE = "canonical-public-12000"
+POSITIVE_CASE = "portable-cabinet-wide-pass-clearance-12000"
+POSITIVE_FIXTURE = FIXTURE.with_name(POSITIVE_CASE + ".jsonl.gz")
+POSITIVE_RECIPE = FIXTURE.with_name(POSITIVE_CASE + ".recipe.json")
+RECIPE_SHA256 = "1f82c109e2988215b1258590e135cd62bd7c38116901cfaaf29e76ee00ed4bbb"
+RECORDINGS = {
+    HISTORICAL_CASE: {
+        "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
+        "fixture_sha256": FIXTURE_SHA256, "fixture_bytes": FIXTURE_BYTES,
+    },
+    POSITIVE_CASE: {
+        "fixture": POSITIVE_FIXTURE,
+        "public_sha256": "830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e",
+        "public_bytes": 8534249,
+        "fixture_sha256": "802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9",
+        "fixture_bytes": 66078,
+    },
+}
+EXPECTED_RECIPE = {
+    "schema": "source-public-replay-recording/v1", "case": POSITIVE_CASE,
+    "epoch": "OriginalRelease57Hz", "input_profile": "contact272",
+    "c2_profile": "contact281-c2-m1", "source_compatibility": "portable",
+    "seed": 1, "ai_opponents": {"home": 5, "away": 11},
+    "provider_profile": "source-sound-smoke/raw-vector-v1",
+    "hosts": HOSTS, "commands_only": True, "native_equivalent": False,
+    "jsonl": {"file": POSITIVE_CASE + ".jsonl", "bytes": RECORDINGS[POSITIVE_CASE]["public_bytes"],
+              "sha256": RECORDINGS[POSITIVE_CASE]["public_sha256"]},
+    "gzip": {"file": POSITIVE_FIXTURE.name, "bytes": RECORDINGS[POSITIVE_CASE]["fixture_bytes"],
+             "sha256": RECORDINGS[POSITIVE_CASE]["fixture_sha256"]},
+}
 COMMAND_FIELDS = {"Move", "Turbo", "Action", "Play", "TargetPlayerId", "Source", "StationInputs"}
 SOURCE_FIELDS = {"IsSpecified", "Action", "Play", "TargetPlayerId", "PatChoice",
                  "KickoffChoice", "AudibleSlot", "OffenseFlipped"}
@@ -70,6 +100,8 @@ def source_command(value, where):
     boolean(value["IsSpecified"], where + ".IsSpecified")
     for name in ("Action", "TargetPlayerId", "PatChoice", "AudibleSlot"):
         integer(value[name], where + "." + name)
+    if value["IsSpecified"]:
+        require(0 <= value["Action"] <= 20, where + ".Action must be0..20 when specified")
     integer(value["KickoffChoice"], where + ".KickoffChoice", nullable=True)
     boolean(value["OffenseFlipped"], where + ".OffenseFlipped", nullable=True)
     play = value["Play"]
@@ -105,6 +137,10 @@ def public_row(row, host):
             require(0 <= station["StationId"] < 4 and station["StationId"] not in identities,
                     "public station identity must be unique0..3")
             identities.add(station["StationId"])
+            for name in ("StickX", "StickZ"):
+                require(-3 <= station[name] <= 3, "station." + name + " must be-3..3")
+            for name in ("Held", "Pressed", "Released"):
+                require(0 <= station[name] <= 7, "station." + name + " must be ABC mask0..7")
             source_command(station["Command"], "station.Command")
 
 
@@ -113,16 +149,42 @@ def encode(rows):
                                allow_nan=False) + "\n").encode("ascii") for row in rows)
 
 
-def audit_public(data):
-    require(len(data) <= PUBLIC_BYTES + 65536, "public replay exceeds bounded input size")
+def recording(case):
+    require(case in RECORDINGS, "unknown public recording identity")
+    return RECORDINGS[case]
+
+
+def exact_metadata(value, expected, where):
+    if type(expected) is dict:
+        fields(value, set(expected), where)
+        for key in expected:
+            exact_metadata(value[key], expected[key], where + "." + key)
+    else:
+        require(type(value) is type(expected) and value == expected,
+                where + " differs from registered recording")
+
+
+def load_recipe(path):
+    path = Path(path)
+    require(not path.is_symlink(), "recipe symlinks are forbidden")
+    require(path.stat().st_size <= 8192, "public recipe exceeds bounded metadata size")
+    raw = path.read_bytes()
+    exact_metadata(decode(raw.decode("ascii")), EXPECTED_RECIPE, "recipe")
+    require(sha(raw) == RECIPE_SHA256, "immutable public recipe SHA256 differs")
+
+
+def audit_public(data, case=HISTORICAL_CASE):
+    identity = recording(case)
+    require(len(data) <= identity["public_bytes"] + 65536, "public replay exceeds bounded input size")
     require(data.endswith(b"\n"), "public JSONL must end in LF")
     rows = [decode(line) for line in data.decode("ascii").splitlines()]
     require(len(rows) == HOSTS, "exact12000 public command count required")
     for host, row in enumerate(rows):
         public_row(row, host)
     canonical = encode(rows)
-    require(sha(canonical) == PUBLIC_SHA256, "immutable public command identity SHA256 differs")
-    require(data == canonical and len(data) == PUBLIC_BYTES, "public JSONL is not the exact canonical serialization")
+    require(sha(canonical) == identity["public_sha256"], "immutable public command identity SHA256 differs")
+    require(data == canonical and len(data) == identity["public_bytes"],
+            "public JSONL is not the exact canonical serialization")
     return rows
 
 
@@ -133,15 +195,21 @@ def compress(data):
     return target.getvalue()
 
 
-def load_fixture(path):
+def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
+    identity = recording(case)
+    if case == POSITIVE_CASE:
+        load_recipe(POSITIVE_RECIPE if recipe is None else recipe)
+    else:
+        require(recipe is None, "historical unqualified recording has no portable recipe")
     path = Path(path)
     require(not path.is_symlink(), "fixture symlinks are forbidden")
+    require(path.stat().st_size <= identity["fixture_bytes"] + 65536, "fixture exceeds bounded gzip size")
     packed = path.read_bytes()
-    require(len(packed) <= FIXTURE_BYTES + 65536, "fixture exceeds bounded gzip size")
+    require(len(packed) <= identity["fixture_bytes"] + 65536, "fixture exceeds bounded gzip size")
     with gzip.GzipFile(fileobj=io.BytesIO(packed), mode="rb") as stream:
-        data = stream.read(PUBLIC_BYTES + 65537)
-    audit_public(data)
-    require(sha(packed) == FIXTURE_SHA256 and len(packed) == FIXTURE_BYTES,
+        data = stream.read(identity["public_bytes"] + 65537)
+    audit_public(data, case)
+    require(sha(packed) == identity["fixture_sha256"] and len(packed) == identity["fixture_bytes"],
             "tracked fixture container SHA256 differs")
     return data
 
@@ -191,18 +259,29 @@ def main():
     author.add_argument("--output", type=Path, default=FIXTURE)
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
-        command.add_argument("--fixture", type=Path, default=FIXTURE)
+        command.add_argument("--case", choices=RECORDINGS, action="append")
+        command.add_argument("--fixture", type=Path)
+        command.add_argument("--recipe", type=Path)
         if mode == "prepare":
             command.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    cases = getattr(args, "case", None) or [HISTORICAL_CASE]
+    if len(cases) != 1:
+        parser.error("duplicate --case argument")
+    case = cases[0]
+    identity = recording(case)
     try:
-        data = export(args.source, args.output) if args.mode == "export" else load_fixture(args.fixture)
+        data = (export(args.source, args.output) if args.mode == "export" else
+                load_fixture(args.fixture or identity["fixture"], case, args.recipe))
         if args.mode == "prepare":
             require(args.output.suffix == ".jsonl", "prepared output must be .jsonl for ReadPublicReplay")
             write_new_or_verify(output_path(args.output), data)
-        print(json.dumps({"schema": SCHEMA, "status": "verified-public-input-only", "hosts": HOSTS,
+        print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
-                          "fixture_sha256": FIXTURE_SHA256, "simulation_executed": False}))
+                          "fixture_sha256": identity["fixture_sha256"],
+                          "recipe_sha256": RECIPE_SHA256 if case == POSITIVE_CASE else None,
+                          "historical_unqualified": case == HISTORICAL_CASE,
+                          "simulation_executed": False}))
         return 0
     except (ValueError, OSError, EOFError) as error:
         print("Public replay preparation failed: " + str(error), file=sys.stderr)

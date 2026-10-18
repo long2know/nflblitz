@@ -243,7 +243,7 @@ unchanged and invalid/unknown inputs still error. It is not target-memory,
 instruction or ABI emulation. All sixteen parity rows, full M1, native
 scheduler/PRNG and actual DSP/browser acceptance remain open.
 
-### Current blocked qualification and CI
+### Current Portable M1 qualification and pending CI
 
 As of October 17, 2026, the source-derived snap fix retains Source57 PreSnap
 at the request and enters Live only at the real `hike_ball` callback after
@@ -257,8 +257,13 @@ preserving raw state and typed repair diagnostics; it is an authored engineering
 correction, not matching target runtime evidence or recovered native behavior.
 No row/data/RNG or default-mode change is introduced by CI flag threading.
 
-The positive public R_SKIP witness remains zero. Full M1, CI and PR21 merge
-are blocked. Hosted run39070002791 used legacy69/443 inputs and failed at a
+The frozen published full Portable M1 gate now passes on the new named
+`portable-cabinet-wide-pass-clearance-12000` recording and unchanged `a4c0798`
+source/harness, including26 real R_SKIP frames after2299. This does not qualify
+CI, native execution, a Unity build, all sixteen parity rows or the whole game.
+Hosted run39102061602 remains the old `a33b1765...` input's UNMET failure;
+PR21 still needs the actual updated pipeline before merge.
+The earlier hosted run39070002791 used legacy69/443 inputs and failed at a
 current contact caller's missing `TIE1C_A`; subsequent stages were skipped,
 not passed. The correction now explicitly fetches the78-pin profile, retains
 the exact443 historical fixture, and derives the separate strict834 current
@@ -266,11 +271,10 @@ fixture, extra9, old-nine288 and fourteen-binding M1/482-site generation.
 B1 and dependent sound callers use the explicit current fixture; the short
 numeric/adapter and157 camera controls retain their labelled historical inputs.
 
-The full-M1 replay-input edge is now reproducible without the ignored mixed
-artifact. The tracked input-only
-`tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz` expands through
-the strict versioned preparer to the exact12,000 public commands. The gzip is
-43,395 bytes instead of4,494,350 bytes of repeated canonical JSONL; it contains
+The full-M1 replay-input edge uses explicit `--case
+portable-cabinet-wide-pass-clearance-12000`, its tracked input-only gzip and
+minimal public recipe. The strict versioned preparer emits the exact
+8,534,249-byte qualified JSONL from the unchanged66,078-byte gzip. It contains
 only public `host`/`command` rows, no game snapshots, RNG/seeds, geometry or
 audio observations. See the
 [exact preparation and required full-M1 command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
@@ -278,10 +282,13 @@ The gate uses actual M1 composition and unchanged controls/assertions, with
 exactly one `--source-compatibility portable`. Default root APIs remain
 StrictSource; this workflow deliberately qualifies the opt-in portable policy,
 not original native semantics. `--single-public-attempt`, skipped controls and
-fault-as-PASS are forbidden. The known portable12k observation completed
-without a source fault but still has zero required positive R_SKIP witnesses.
-This fixes CI input/mode threading, **not** the unmet witness: this integration
-ran no new public replay and claims no green hosted result.
+fault-as-PASS are forbidden. See the
+[published full-gate evidence and scope](source-parity.md#published-portable-m1-qualification)
+for the actual eight caller/three canonical-cache controls and original-C physics.
+The old `canonical-public-12000.jsonl.gz` and no-case preparer remain available
+as historical, unqualified `a33b1765...` input; neither was overwritten or
+silently relabelled. This integration ran no new public replay and claims no
+green hosted result. Original source/data preparation is otherwise unchanged.
 Historical component counts and Systems' pre-Snap API
 receipts remain tied to their recorded generations.
 
