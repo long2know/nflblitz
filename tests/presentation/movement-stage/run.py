@@ -110,7 +110,8 @@ def caller_guards(source_root=ROOT):
         "if(callback!=null&&callback.Kind!=SourcePresentationCueKind.PlayerDownCallback){"
         "SourceSoundVmDispatchdispatch=soundTransport.TakeForCue(callback);"
         "if(dispatch!=null&&dispatch.Status==SourceSoundVmStatus.Resolved){"
-        "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);return;}}"
+        "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);"
+        "soundTransport.FlushNativePrefix();return;}}"
         "playCamera.ConsumeSourceCue(cue);") and code.count("playCamera.ConsumeSourceCue(") == 1,
         "paired resolved sound uses actual output once and returns before the sole generic fallback")
     require(compact(method(camera, "ConsumeResolvedSourceSound")) ==

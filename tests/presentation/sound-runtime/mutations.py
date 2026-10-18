@@ -2,6 +2,7 @@
 """Compile isolated actual sound package/consumer regressions; real data/catalog are explicit optional inputs."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -44,6 +45,18 @@ PACKAGE_ACTUAL = (
     ("new-sound-profile-silently-old8", PACKAGE, "HasSoundVm ? SoundVmServicesResourceKey :", "HasSoundVm ? MovementServicesResourceKey :"),
     ("sound-byte-alias-leaked", PACKAGE, "return (byte[])soundVmFunctions.Clone();", "return soundVmFunctions;"),
 )
+GUARDS = (
+    ("C1-factory-binding-disconnected", "Assets/Scripts/Runtime/SourceContactComposition.cs",
+     "game.BindSourceSoundVmData(soundFunctions);", "", "bind immutable SAFN"),
+    ("C2-factory-binding-disconnected", "Assets/Scripts/Runtime/SourceC2Composition.cs",
+     "game.BindSourceSoundVmData(legacySoundFunctions);", "", "bind immutable SAFN"),
+    ("services-sound-input-disconnected", "Assets/Scripts/Runtime/SourceInterfaceServices.cs",
+     "SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
+     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData)",
+     "SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),\n"
+     "                teams.Rosters, PresentationSettings, MovementData, MovementSettings, null)",
+     "immutable sound to all real C1/C2 factories"),
+)
 
 
 def main():
@@ -65,6 +78,7 @@ def main():
     work.mkdir()
     sources = {path.relative_to(ROOT).as_posix(): path.read_bytes() for path in sorted((ROOT / "Assets/Scripts").rglob("*.cs"))}
     results = []
+    guard_results = []
     try:
         for name, raw in sources.items():
             target = work / name
@@ -94,13 +108,38 @@ def main():
                             "assertion": next(line for line in output.splitlines() if "FAIL sound-packaging:" in line)})
             (work / name).write_bytes(sources[name])
             print("REJECTED compiled " + label, flush=True)
+        spec = importlib.util.spec_from_file_location("actual_sound_package_source_guards", SUITE / "run.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        assert runner.guards(work) == 23
+        for label, name, before, after, assertion in GUARDS:
+            original = sources[name].decode()
+            assert original.count(before) == 1, (label, "actual source guard mutation site changed")
+            changed = original.replace(before, after, 1)
+            (work / name).write_text(changed)
+            try:
+                runner.guards(work)
+            except AssertionError as error:
+                assert assertion in str(error), (label, "unrelated source guard failed", str(error))
+                guard_results.append({"name": label, "source_guard_only": True,
+                                      "compiled_mutant_claimed": False,
+                                      "actual_source_mutant_sha256": hashlib.sha256(changed.encode()).hexdigest(),
+                                      "assertion": str(error)})
+            else:
+                raise AssertionError((label, "actual selected-root source guard regression escaped"))
+            (work / name).write_bytes(sources[name])
+            print("REJECTED source guard " + label, flush=True)
+        assert runner.guards(work) == 23
         assert all((ROOT / name).read_bytes() == raw for name, raw in sources.items())
         print("PASS " + str(len(results)) + " actual compiled sound package/consumer mutants rejected")
+        print("PASS " + str(len(guard_results)) + " actual selected-root factory/service guard mutants rejected (not compiled controls)")
         return 0
     finally:
         unchanged = all((ROOT / name).read_bytes() == raw for name, raw in sources.items())
         (OUT / "result.json").write_text(json.dumps({"schema": "sound-packaging-mutants/v1",
-            "mutants": results, "expected": len(cases), "complete": len(results) == len(cases) and unchanged,
+            "mutants": results, "expected": len(cases), "source_guard_mutants": guard_results,
+            "expected_source_guard_mutants": len(GUARDS),
+            "complete": len(results) == len(cases) and len(guard_results) == len(GUARDS) and unchanged,
             "source_inventory_unchanged": unchanged,
             "actual_SAFN_and_catalog": bool(args.sound_vm_data), "actual_package": full,
             "source_sha256": {name: hashlib.sha256(raw).hexdigest() for name, raw in sources.items()},

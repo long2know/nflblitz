@@ -31,6 +31,11 @@ are guarded. The mutation copies include that dependency too. The script removes
 ignored SDK/build outputs and `.artifacts/result.json`. Paths have no editor/home
 dependency and are portable across Windows/Linux.
 
+Both actual sound selectors, `SourceAudioFunctions.cs` and
+`SourceC2SoundFunctions.cs`, are copied and hash-pinned with every isolated kernel.
+Removing either must fail its real compilation guard, without executing the
+camera test or counting that failure as one of the six assertion-mutant kills.
+
 **Not native Unity coverage:** `UNITY_EDITOR` and `BLITZ_CAMERA_VALIDATION` are not
 defined. The original suite's Unity projection, real `PlayCamera`, and HUD viewport
 checks remain conditional and need an actual licensed Unity editor with

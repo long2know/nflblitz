@@ -70,16 +70,23 @@ def guards(source_root=ROOT):
             "actual import calls explicit new10arg initializer, not historical8")
     services = (source_root / "Assets/Scripts/Runtime/SourceInterfaceServices.cs").read_text()
     create = compact(method(services, "CreateSimulation"))
-    require("BindSourceSoundVmData(" in create and create.index("newGameSimulation(") < create.index("BindSourceSoundVmData(") <
-            create.index("return"), "actual Core sound binding before returning constructor/first source wake")
-    require("BlitzSourceInterface/original-movement157-soundvm-match-services" in services and
+    require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create
+            and "SourceC2Composition.CreateSimulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap)" in create
+            and "SourceC2Composition.CreateM1Simulation(animations,pivots,playbook,Configuration(),"
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,bootstrap,"
+            "compatibility:compatibility)" in create,
+            "actual services pass immutable sound to all real C1/C2 factories")
+    helper.validate_sound_factories(source_root)
+    require("HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey" in services and
             "SourceData/sound-functions-safn1-4a557304" in services, "actual service/data resource identity agrees with import")
     transport_path = source_root / "Assets/Scripts/Runtime/SourceSoundVmTransport.cs"
     if transport_path.exists():
         transport = transport_path.read_text()
         require("ReferenceEquals" in transport and not any(token in transport for token in ("SourceAudioFunctions.Select(", ".Draw(")),
                 "actual transport pairs OriginalCue identity without post-host selection/RNG")
-    return 15
+    return 23
 
 
 def main():

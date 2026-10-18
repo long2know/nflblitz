@@ -17,6 +17,11 @@ mutants change real production transport/bridge code and must **compile** then
 fail their exact offending-field assertion. Compilation failures are not mutant
 rejection.
 
+Each isolated tree includes both actual sound selectors, the real
+`SourceC2Composition.cs`, and its shared `FullKernelSources.props`. They are
+copied and fingerprinted with the other production inputs; staged builds cannot
+fall through to a different checkout's selector or factory.
+
 The recorded checkpoint passes **53 asset-free assertions / sixteen compiled
 production mutants**. Explicit original157 Core inputs add **30 actual Core
 assertions** (83 total), including the real60-to57 adapter's catch-up/skip and

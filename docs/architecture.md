@@ -15,18 +15,23 @@ Historical constructor/resource descriptions below retain their original
 generation meaning; old56/117/156/157 assets are not current-engine fallbacks.
 The two timing profiles below are distinct from these three resource profiles.
 
-**Blocked qualification:** Source57 now retains PreSnap/HikingBall until the
+**Qualification boundary:** Source57 now retains PreSnap/HikingBall until the
 actual `hike_ball` stream callback; request-time Live/holder assignment is not
 the source contract. That source-derived fix does not define the remaining
 original six-int automatic-array `bc_adjust[6]` read. StrictSource remains the
 default and rejects undefined consumer domains. Explicit M1 Portable is an
 authored consumer-index correction, not target-memory/native emulation;
 raw values, settings and repair diagnostics remain visible.
-Positive public R_SKIP is still zero. Clean CI now prepares the tracked exact
-12,000-command input-only replay without any source-state regeneration, plus
+The published full Portable M1 gate now passes on the separately named
+`portable-cabinet-wide-pass-clearance-12000` recording and frozen `a4c0798`
+source/harness, including26 R_SKIP frames with the required real-pose witness.
+The old `a33b1765...` recording remains historical/unqualified. Clean CI now
+explicitly prepares the new named12,000-command recording and bound minimal
+metadata without any source-state regeneration, plus
 strict Contact272 and explicit M1 data. Historical69/443 numeric controls remain
 separate; the source callers no longer use the old157 library as their closure.
-The last hosted legacy-input run failed, and the corrected actual full-M1 gate
+Hosted39102061602 still records the old-input UNMET failure; it is not a pass.
+The updated required full-M1 gate
 now deliberately selects `--source-compatibility portable` exactly once.
 It still requires the complete controls/physics/final and positive R_SKIP,
 not an accepted source boundary or scoped/single-attempt substitute.
@@ -34,13 +39,14 @@ not an accepted source boundary or scoped/single-attempt substitute.
 qualifies the named B1, snap, running-binding, package and archived-API surfaces
 only on that pre-portable snapshot; its fingerprint excludes all seven mutable
 Frontend paths. It is not
-full-generation acceptance. Full M1/CI/PR21 merge and all sixteen parity rows
+full-generation acceptance. Actual updated CI/PR21 merge and all sixteen parity rows
 remain OPEN.
 
 The existing parent-autonomous no-eligible-candidate return/diagnostic before
 `maybe_taunt`'s original `bearing(me,-1)` has no captured explicit user approval.
-It is not target-memory/instruction/ABI emulation and does not authorize a
-similar fallback for `bc_adjust[6]`. Native/DSP/Unity entitlement remain
+It is not target-memory/instruction/ABI emulation and does not implicitly
+authorize another fallback; the explicit Portable correction is separate.
+Native/DSP/Unity entitlement remain
 unqualified; no current whole-game or browser proof follows from source/API work.
 
 **Recorded live status:** continuous original animation is implemented and verified on Unity

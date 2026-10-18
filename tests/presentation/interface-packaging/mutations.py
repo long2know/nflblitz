@@ -69,7 +69,11 @@ def main():
     if roots[0] == ROOT:
         raise SystemExit("No Primary hot M1 input; select actual protected B1.")
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    production = {name: (ROOT / name).read_bytes() for name in (PACKAGE, IMPORTER, CHECKS)}
+    production = {name: (ROOT / name).read_bytes() for name in (
+        PACKAGE, IMPORTER, CHECKS,
+        "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
+        "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
+    )}
     results = []
     work = ARTIFACTS / "isolated-new-source"
     try:

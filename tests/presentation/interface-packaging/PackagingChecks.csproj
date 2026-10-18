@@ -19,6 +19,7 @@
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs" Link="Production/SourceTeamInterfaceImporter.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs" Link="Production/SourceTeamInterfaceChecks.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" Link="Production/SourceAudioFunctions.cs" />
+    <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" Link="Production/SourceC2SoundFunctions.cs" />
     <Compile Include="$(BlitzTeamRoot)Assets/Scripts/Contracts/*.cs" Link="Frozen/Contracts/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzTeamRoot)Assets/Scripts/AssetImport/*.cs"
              Exclude="$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs;$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs;$(BlitzTeamRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs"

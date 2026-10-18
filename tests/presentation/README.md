@@ -11,6 +11,12 @@ python3 -B tests/presentation/run.py
 The default run uses the existing Backend-owned original synthetic roster
 generator read-only, plus synthetic number/camera/timing/guard cases.
 
+The project includes the complete actual pure AssetImport dependency closure.
+The cinematic catalog's C1/C2 identity checks require the real team resource
+profile and interface package plan, including their interface data readers;
+excluding those files is not a supported asset-free shortcut. The Core inventory
+unit guard checks these actual project inputs before compilation.
+
 ## Actual authorized originals
 
 Prepare the inputs with `tools/assets/README.md`, then:

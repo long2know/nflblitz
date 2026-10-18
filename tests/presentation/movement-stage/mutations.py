@@ -45,8 +45,12 @@ GUARDS = (
      "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);",
      "playCamera.ConsumeSourceCue(dispatch.OriginalCue);"),
     ("resolved-falls-through", "Assets/Scripts/Runtime/BlitzRuntime.cs",
-     "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);\n                    return;",
-     "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);"),
+     "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);\n"
+     "                    soundTransport.FlushNativePrefix();\n                    return;",
+     "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);\n"
+     "                    soundTransport.FlushNativePrefix();"),
+    ("native-prefix-flush-removed", "Assets/Scripts/Runtime/BlitzRuntime.cs",
+     "soundTransport.FlushNativePrefix();\n                    return;", "return;"),
     ("resolved-output-disconnected", "Assets/Scripts/Runtime/BlitzRuntime.cs",
      "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);",
      "playCamera.ConsumeResolvedSourceSound(dispatch);"),
@@ -93,6 +97,7 @@ GUARD_FAILURES = {
     "raw-GAME-H-replaced-phase": "use Core's actual GAME.H raw mode, not GamePhase numeric cast",
     "resolved-generic-replay": ROUTE_FAILURE,
     "resolved-falls-through": ROUTE_FAILURE,
+    "native-prefix-flush-removed": ROUTE_FAILURE,
     "resolved-output-disconnected": ROUTE_FAILURE,
     "resolved-route-noop": ROUTE_FAILURE,
     "double-resolved-cue-route": OWNER_FAILURE,
@@ -169,7 +174,8 @@ def main():
         items = json.loads(selected.stdout)["Items"]["Compile"]
         included = {Path(item["FullPath"]).resolve() for item in items}
         for name in ("Assets/Scripts/Gameplay/SourceSoundVm.cs", "Assets/Scripts/Presentation/SourceCinematicPlayback.cs",
-                     "Assets/Scripts/Presentation/SourceAudioFunctions.cs"):
+                     "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
+                     "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"):
             assert (work / name).resolve() in included, ("real dependency not selected from mutation root", name)
         assert all((work / name).resolve() in included for name in source if
                    name.startswith(("Assets/Scripts/Gameplay/", "Assets/Scripts/AssetImport/", "Assets/Scripts/Contracts/")))

@@ -14,7 +14,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/*.cs" Link="Production/Gameplay/%(Filename)%(Extension)" />
-    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Exclude="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterface*.cs;$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs')" Link="Production/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs')" Link="Production/SourceImpactShaker.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs')" Link="Production/SourceCinematicPlayback.cs" />

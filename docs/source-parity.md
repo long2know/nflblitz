@@ -28,6 +28,50 @@ uses explicit local inputs. The older single-player/56 recipes are retained as
 historical controls, not sufficient source-mode setup. Original motion is not a
 published test fixture.
 
+<a id="published-portable-m1-qualification"></a>
+
+## Published Portable M1 qualification — October 17, 2026
+
+The frozen `a4c0798e6050069687f4dc71385edac6a28d6a31` source and unmodified
+published `run.py`/`canonical.py`/`Canonical.cs` passed the full required
+`passed-portable-M1-public-caller-gate` with the separately named
+`portable-cabinet-wide-pass-clearance-12000` recording. The owner receipt
+`source-portable-positive-full-qualification.json` froze at
+**2026-10-18T06:24:04Z (October 17, 2026 PDT)**, SHA-256
+`a539d0353cf6186fc132ae0797336bc8c4fe0793907401a65a2d1691ab6c29e5`.
+This reports existing qualification, not a replay rerun for CI/docs.
+
+- All17 managed builds had zero warnings/errors. Eight caller and three
+  **canonical-cache** compiled named causal controls rejected correctly;
+  compile failure was not counted as a kill. All664 original-C post-VM rows/
+  5,312 comparisons passed, and uninstrumented/observer/final raw/state/pose
+  bytes agreed.
+- The unchanged public predicate accepted26 R_SKIP frames for actor12,
+  instance208, after2299 with two actual selected ordinals and two actual
+  fifteen-joint poses. No scoped/single-attempt gate replaced full closure.
+- The separate historical **C1 cache three-control** campaign was not invoked
+  by this M1 dispatch. Its prior component receipt
+  `123ebf16df36f80b114ba0c9fb0a6575d905f1c0e8093e4a4f9ef5f2eb52127b`
+  remains historical, not three additional fresh controls.
+
+The tracked66,078-byte gzip SHA-256 is
+`802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9`;
+its8,534,249-byte/12,000-row public JSONL is
+`830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e`.
+Only closed public commands/stations are shipped; model/RNG/pose/sound
+observations and original payloads stay ignored. The minimal public recipe
+binds the case/epoch/profiles/explicit Portable mode, seed1/default5/11 and
+unchanged provider facts, not private policy code/proofs. The
+[preparation and required command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate)
+explicitly select this named recording; no commands are generated at preparation.
+
+The old `a33b1765...` recording remains byte-identical, historical and
+unqualified. Hosted run39102061602's old-input UNMET is not relabelled.
+The updated workflow still needs actual green hosted CI before PR21 merge.
+This managed Portable M1 result is **not** original/native/target-PRNG behavior,
+Unity/DSP/game-build/browser acceptance, whole-game parity or closure of all16
+rows. Strict defaults and the NoEligible disclosure below remain unchanged.
+
 ## Source57 fire/handicap state-machine increment
 
 ### Explicit portable M1 consumer corrections
@@ -36,7 +80,8 @@ published test fixture.
 existing constructor/factory; Legacy60, C1 and old-nine behavior is unchanged.
 Only the explicit M1 factory/bootstrap accepts `Portable`. This is an authored
 portable-game correction, **not** original arcade behavior, target memory/ABI,
-PRNG equivalence, or full-M1/native acceptance. Existing NoEligible and all
+PRNG equivalence, or strict/native acceptance. The named Portable M1 result
+above is separate from this policy definition. Existing NoEligible and all
 other source limitations remain disclosed and unchanged.
 
 Portable preserves original raw handicap arithmetic, five-play pointer history,
@@ -154,9 +199,10 @@ produce values outside its twelve consumer rows (the active drone-base19 entry,
 or unclamped repetition adjustments), and `base-3` can be negative with certain
 explicit adjustments. The defined raw calculation is retained where safe, then
 missing rows fail explicitly; no clamp, appended row, guessed memory or unsafe-C
-oracle is used. This does not repair or waive `detect.c:3140 bc_adjust[6]`, the
-NoEligible disclosure, full-M1/public R_SKIP, CI/acquisition, Unity entitlement,
-native/DSP or whole-game acceptance boundaries below.
+oracle is used. That state-engine increment did not itself qualify
+`detect.c:3140 bc_adjust[6]`, full M1/public R_SKIP or CI. The later explicit
+Portable result above is separate. The NoEligible disclosure, actual hosted CI,
+Unity entitlement, native/DSP and whole-game limits remain.
 
 ## Current Contact/C2 boundary
 
@@ -214,7 +260,7 @@ in the separate288-file output differ: callback JSON and its pin. See the
 Runtime/import/build selector wiring is source/resource work, not native import
 or gameplay acceptance.
 
-### Current hard blockers — October 17, 2026
+### Strict-source boundary and historical CI failures — October 17, 2026
 
 The SnapHike root fix preserves the original Source57 request/actual-release
 split: `GF_HIKING_BALL` and clock start at the request, but PreSnap ends and
@@ -228,11 +274,13 @@ rusher7 has six successful blocks and original `bc_adjust[]` contains only
 six automatic local ints. `min(block_count, sizeof(array)/sizeof(int))`
 therefore yields6, outside valid indices0..5; the later read is genuine
 undefined original C. No parser truncation, rating/actor mapping or source-
-correct seventh value was found. No corrected semantics or matching target
-runtime evidence is approved. Strict failure remains: no clamp, appended row,
-adjacent-memory guess, skipped block or unsafe host-C “golden”.
+correct seventh value was found. No recovered target-memory value defines
+strict semantics. Strict failure remains; the separately explicit Portable
+consumer correction above is not a source/native oracle. No appended row,
+adjacent-memory guess, skipped block or unsafe host-C “golden” is used.
 
-Positive public **R_SKIP remains zero**. Full qualification still requires
+The historical `a33b1765...` public input has **zero positive R_SKIP**.
+Full qualification still requires
 after2299 same-actor/same-instance advancement across two selected ordinals
 with two real fifteen-bone poses. A controlled VM/timing fixture, elapsed
 ticks or an expected undefined boundary cannot substitute for that witness.
@@ -241,16 +289,18 @@ Hosted run39070002791 used **legacy69/443** data and failed at a current contact
 caller's missing `TIE1C_A`; later stages were skipped, not passed. The CI/input
 correction now derives strict78/834 Contact272, tracked StageA extra9 and the
 explicit StageB successor. Historical numeric inputs remain separate.
-The tracked input-only public fixture/preparer supplies the exact reviewed
-12,000 commands to the [required full-M1 invocation](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
-Its public JSONL identity is
+The original tracked input-only public fixture/preparer preserved the exact
+reviewed12,000 historical commands. Its public JSONL identity remains
 `a33b1765aaa6d980f4d2b18b4feec8db65102c1b42c0d97c520903770129cce6`.
 Only the original recorded `host`/public `command` projection was exported;
 no current-state policy, RNG/seed data, game observations or original payload
-is in the fixture. No full replay was run for this correction. The full gate
-still rejects source exceptions and unmet R_SKIP, retains all three cache/
-eight caller controls/final baseline, and has no skip/allow-failure.
-Full M1/CI and PR21 merge remain blocked; the defined-
+is in that fixture. Its old hosted failure is not acceptance. The
+[required full-M1 invocation](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate)
+now explicitly selects the separately qualified named Portable recording above,
+not a silent overwrite or promotion of `a33b1765...`.
+The full gate still rejects source exceptions and unmet R_SKIP, retains all
+three canonical-cache/eight caller controls/final baseline, and has no
+skip/allow-failure. Actual updated CI and PR21 merge remain pending; the defined-
 domain component QA below is not full-generation acceptance. All sixteen
 parity rows, native, DSP, supported Unity
 entitlement and whole-game/playable-build acceptance remain OPEN.
@@ -263,7 +313,9 @@ Valid eligible paths are unchanged and invalid/unknown inputs still error.
 This is a defined portable-source repair, **not target-memory, instruction or
 ABI emulation**, and unsafe original C was not executed as a target oracle.
 
-### Current post-snap defined-domain QA
+<a id="current-post-snap-defined-domain-qa"></a>
+
+### Post-snap defined-domain QA snapshot
 
 The local owner report `source-contact281-current-defined-domain-qa-handoff.json`,
 frozen **October 17, 2026 at 20:41:33Z**, SHA-256
@@ -271,7 +323,7 @@ frozen **October 17, 2026 at 20:41:33Z**, SHA-256
 qualifies only the following tested surfaces on the post-SnapHike source.
 This is recorded QA evidence, not a campaign rerun for the docs:
 
-| Current tested surface | Defined-domain result |
+| Tested surface in that snapshot | Defined-domain result |
 | --- | --- |
 | B1 C1 Contact272 | Exact 18,018 caller inventory, all 20 compiled named controls and final baseline PASS; no C2 additions. |
 | B1 old-nine C2 on current code | Exact 18,062 callers/geometry41, all 25 controls and final baseline PASS; not a public M1 replay. |
@@ -289,9 +341,10 @@ new CI configuration, public-input preparer/fixture or PR21 merge.
 
 Older full contact/VM/P1/full-kernel and geometry-history reports were **not
 reexecuted** by this bounded campaign and must not be relabelled current.
-`bc_adjust[6]`, zero positive public R_SKIP, full M1/CI qualification,
-Unity import/native/DSP/new-build and all
-sixteen parity blockers remain unchanged.
+That pre-Portable report did not resolve `bc_adjust[6]`, positive R_SKIP or full
+M1. The separately named published Portable M1 qualification above is later
+evidence, not a relabelling of this snapshot. Updated hosted CI,
+Unity import/native/DSP/new-build and all sixteen parity rows remain OPEN.
 
 ### Historical pre-StageB component evidence, not current qualification
 
