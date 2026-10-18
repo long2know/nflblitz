@@ -95,7 +95,10 @@ def caller_guards(source_root=ROOT):
                 ("SourcePresentationCueRaised", 2), ("AfterHostStep", 2),
                 ("AfterSimulationStep", 1), ("AfterSourcePresentation", 1), ("Restarted", 1))),
             "one resolved cue route and camera/host/sound lifecycle owner")
-    require("playCamera=newPlayCamera(transform,prefab);if(IsSourceProfile){" in awake and
+    source_camera_block = "if(IsSourceProfile){SourceInterfaceMovementBootstrapbootstrap=sourceServices.MovementBootstrap;"
+    require("playCamera=newPlayCamera(transform,prefab);if(IsSourceProfile&&simulation.SourceFireEnabled){" in awake and
+            source_camera_block in awake and
+            awake.index("playCamera=newPlayCamera(transform,prefab);") < awake.index(source_camera_block) and
             all(awake.index(event + "+=" + handler + ";") < awake.index("ForwardInitialSourcePresentationCues();")
                 for event, handler in owners),
             "source-only camera wiring and all sound lifecycle hooks precede initial cues")
@@ -146,7 +149,9 @@ def caller_guards(source_root=ROOT):
             "initial/restart batches use the same drain-before-cue and completion protocol")
     require(compact(method(runtime, "CompleteSourceSoundBatch")) ==
             "if(soundTransport!=null)soundTransport.CompletePresentationBatch();" and
-            compact(method(runtime, "ResetSourceSoundTransport")) == "if(soundTransport!=null)soundTransport.Reset();",
+            compact(method(runtime, "ResetSourceSoundTransport")) ==
+            "if(soundTransport!=null)soundTransport.Reset();"
+            "if(sourceFireRenderer!=null)sourceFireRenderer.ResetSourceEpoch();",
             "actual sound batch completion and restart hooks are connected to transport, not no-ops")
     cue = compact(method(runtime, "OnSourcePresentationCue"))
     require(cue.count("observed(cue);") == cue.count("handler(cue);") == 1 and

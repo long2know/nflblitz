@@ -70,6 +70,13 @@ GUARDS = (
      "            OnAfterSimulationStep();", ""),
     ("camera-resolved-wrapper-noop", "Assets/Scripts/Presentation/PlayCamera.cs",
      "SourcePlayback.ConsumeResolvedSourceSound(dispatch, actualRawOutputConsumer);", ""),
+    ("source-only-camera-guard-removed", "Assets/Scripts/Runtime/BlitzRuntime.cs",
+     "if (IsSourceProfile)\n                {\n                    SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;",
+     "if (true)\n                {\n                    SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;"),
+    ("restart-sound-reset-removed", "Assets/Scripts/Runtime/BlitzRuntime.cs",
+     "if (soundTransport != null) soundTransport.Reset();", ""),
+    ("restart-fire-epoch-reset-removed", "Assets/Scripts/Runtime/BlitzRuntime.cs",
+     "if (sourceFireRenderer != null) sourceFireRenderer.ResetSourceEpoch();", ""),
 )
 PURE_FAILURES = {
     "stale-tick-admitted": "stale source frame must reject",
@@ -107,6 +114,9 @@ GUARD_FAILURES = {
     "initial-cue-drain-missing": "initial/restart batches use the same drain-before-cue and completion protocol",
     "camera-resolved-wrapper-noop":
         "actual PlayCamera resolved wrapper forwards the same dispatch and output, never a no-op or generic replay",
+    "source-only-camera-guard-removed": "source-only camera wiring and all sound lifecycle hooks precede initial cues",
+    "restart-sound-reset-removed": "actual sound batch completion and restart hooks are connected to transport, not no-ops",
+    "restart-fire-epoch-reset-removed": "actual sound batch completion and restart hooks are connected to transport, not no-ops",
 }
 
 

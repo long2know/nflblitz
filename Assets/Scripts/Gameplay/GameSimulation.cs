@@ -33,6 +33,7 @@ namespace Blitz.Gameplay
         private readonly SourceMovementRuntimeData sourceMovementData;
         private readonly SourceMovementSettings sourceMovementSettings;
         private readonly SourceHandicapSettings sourceHandicapSettings;
+        private readonly SourceKickMeterMetrics sourceKickMeterMetrics;
         private readonly Func<int, ISourceRandom> sourceRandomFactory;
         private ISourceRandom sourceRandom;
         private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
@@ -56,6 +57,9 @@ namespace Blitz.Gameplay
         {
             get
             {
+                if (sourceKickMeterMetrics != null)
+                    return "Portable-authored Source57 human kick meters; authored image metrics, NOT original generated native metrics; "
+                        + Compatibility;
                 if (Profile == SimulationProfile.OriginalRelease57Hz && Compatibility == SourceGameplayCompatibility.Portable)
                     return "Portable Source57/M1: explicit consumer-index corrections; NOT original hardware/ABI/RNG equivalence";
                 return Profile == SimulationProfile.OriginalRelease57Hz
@@ -113,7 +117,8 @@ namespace Blitz.Gameplay
             SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
             SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null,
             SourceHandicapSettings handicapSettings = null,
-            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null)
         {
             if (compatibility != SourceGameplayCompatibility.StrictSource && compatibility != SourceGameplayCompatibility.Portable)
                 throw new ArgumentOutOfRangeException(nameof(compatibility));
@@ -121,7 +126,19 @@ namespace Blitz.Gameplay
                 && (c2Bootstrap == null || c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
                 throw new NotSupportedException("Portable gameplay requires the explicit actual M1 source bootstrap.");
             Compatibility = compatibility;
+            if (fireEffects != null && (c2Bootstrap == null ||
+                c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
+                throw new NotSupportedException("Authored source-fire effects require the explicit actual M1 bootstrap.");
+            sourceFireConfiguration = fireEffects;
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
+            if (kickMeterMetrics != null)
+            {
+                Blitz.AssetImport.SourceAnimationLibrary actual = animations as Blitz.AssetImport.SourceAnimationLibrary;
+                if (actual == null || actual.InventorySha256 != Blitz.AssetImport.SourceTeamResourceProfile.ContactAnimationSha256
+                    && actual.InventorySha256 != Blitz.AssetImport.SourceTeamResourceProfile.C2AnimationSha256)
+                    throw new NotSupportedException("Portable-authored kick meters require the explicit actual C1 or C2/M1 animation library.");
+            }
+            sourceKickMeterMetrics = kickMeterMetrics;
             sourceGeometry = geometry;
             sourcePlaybook = playbook;
             sourceRosters = rosters;

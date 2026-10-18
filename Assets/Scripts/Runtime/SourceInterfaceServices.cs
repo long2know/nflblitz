@@ -329,14 +329,21 @@ namespace Blitz.Runtime
         }
 
         public GameSimulation CreateSimulation(SourcePlayerRig prefab,
-            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMode kickMeters = SourceKickMeterMode.Disabled)
         {
+            if (fireEffects != null && !Profile.IsContact281C2M1)
+                throw new SourceInterfaceException("source-fire=portable requires the explicit actual M1 resource profile.");
             if (compatibility != SourceGameplayCompatibility.StrictSource
                 && (compatibility != SourceGameplayCompatibility.Portable || !Profile.IsContact281C2M1))
                 throw new SourceInterfaceException("Portable gameplay requires the explicit M1 resource profile.");
             if (!Profile.IsContact272 && !Profile.UsesC2Data)
                 throw new SourceInterfaceException("This engine requires explicit Contact272 or Contact281C2 services. Historical157 resources are not silently upgraded or routed to old contact physics.");
             Validate();
+            if (kickMeters != SourceKickMeterMode.Disabled && kickMeters != SourceKickMeterMode.PortableAuthored)
+                throw new ArgumentOutOfRangeException(nameof(kickMeters));
+            SourceKickMeterMetrics kickMetrics = kickMeters == SourceKickMeterMode.PortableAuthored
+                ? originalHud.Data.CreatePortableAuthoredKickMeterMetrics() : null;
             if (prefab == null) throw new SourceInterfaceException("Source match geometry needs the actual imported player reference rig.");
             if (prefab.JointCount != SourceTiming.JointCount)
                 throw new SourceInterfaceException("Source catch geometry needs all fifteen actual imported reference pivots.");
@@ -354,12 +361,14 @@ namespace Blitz.Runtime
                 if (Profile.IsContact281C2M1)
                     return SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),
                         teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
-                        compatibility: compatibility);
+                        compatibility: compatibility, fireEffects: fireEffects, kickMeterMetrics: kickMetrics);
                 return SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),
-                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
+                    teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
+                    kickMeterMetrics: kickMetrics);
             }
             return SourceContactComposition.CreateSimulation(animations, pivots, playbook, Configuration(),
-                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData);
+                teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData,
+                kickMeterMetrics: kickMetrics);
         }
 
         private void Validate()

@@ -56,7 +56,8 @@ def validate_callers(sources):
     require("if(!Profile.IsContact272&&!Profile.UsesC2Data)" in create and "!ReferenceEquals(prefab,teams.Template)" in create,
             "historical services/copied template fail before selecting any old contact simulation")
     require("SourceContactComposition.CreateSimulation(animations,pivots,playbook,Configuration(),"
-            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData)" in create,
+            "teams.Rosters,PresentationSettings,MovementData,MovementSettings,SoundVmData,"
+            "kickMeterMetrics:kickMetrics)" in create,
             "actual Unity services must use tested full C1 production factory, not an inspector helper")
     awake = body("Runtime/BlitzRuntime.cs", "Awake")
     require("SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL,sourceResourceProfile)" in awake
@@ -65,8 +66,9 @@ def validate_callers(sources):
             and "sourceServices.Profile.StableId!=profile.StableId" in awake,
             "real bootstrap retains C1 default and selects only matching explicit C1/C2 resources")
     require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake
-            and "sourceServices.CreateSimulation(prefab,compatibility)" in awake
-            and awake.index("ReferenceEquals(animations,") < awake.index("sourceServices.CreateSimulation(prefab,compatibility)"),
+            and "sourceServices.CreateSimulation(prefab,compatibility,fireEffects:fire,kickMeters:kickMeters)" in awake
+            and awake.index("ReferenceEquals(animations,") <
+                awake.index("sourceServices.CreateSimulation(prefab,compatibility,fireEffects:fire,kickMeters:kickMeters)"),
             "renderer/provider/Core use same canonical272 object before factory")
     require("newFieldScene(transform,prefab,animations)" in awake,
             "actual field animation consumer receives the same library object")

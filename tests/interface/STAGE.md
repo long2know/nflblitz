@@ -13,6 +13,8 @@ prefix before returning instead of falling through to generic selection.
 The 32 Runtime, 15 service, and eight factory source mutations are recorded
 separately from compiled bootstrap/transport controls. They are structural
 regression evidence, not native Unity, DSP, or complete-game execution.
+Combined fire/kick integration forwards both opt-ins independently in addition
+to compatibility; the same typed sound/factory obligations remain in force.
 
 ## Retained movement157 synchronous SoundVM receipt
 

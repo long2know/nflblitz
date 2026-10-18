@@ -28,6 +28,9 @@ namespace Blitz.Presentation
         private string appliedUniform;
         private SourceSkinSelector appliedSkin;
         private string appliedPlayer;
+        private Material[][] flashOriginals;
+        private readonly System.Collections.Generic.Dictionary<Material, Material> flashMaterials =
+            new System.Collections.Generic.Dictionary<Material, Material>();
 
         public string StableId { get { return stableId; } }
         public string Stage { get { return stage; } }
@@ -55,6 +58,7 @@ namespace Blitz.Presentation
                 TeamAppearance = appearance;
                 return;
             }
+            RestoreSourceFireMaterials();
             for (int i = 0; i < JointCount; i++)
             {
                 SourceTeamLimbAsset limb = assets.Limb(appearance, i);
@@ -76,6 +80,49 @@ namespace Blitz.Presentation
             appliedUniform = appearance.UniformIdentity; appliedSkin = appearance.Uniform.Skin;
             appliedPlayer = appearance.SourcePlayerId; TeamAppearance = appearance;
         }
+
+        public void ApplySourceFireFlash(SourceFirePlayerFlashState flash, Shader shader)
+        {
+            if (!flash.White) { RestoreSourceFireMaterials(); return; }
+            if (flashOriginals != null) return;
+            SourceFireGuard.Require(TeamAppearance != null && shader != null && shader.isSupported
+                && shader.name == "Blitz/SourcePlayerFlashPortable", "Actual team textures and explicit authored flash shader required.");
+            flashOriginals = new Material[JointCount + 1][];
+            for (int i = 0; i <= JointCount; i++)
+            {
+                MeshRenderer renderer = i == JointCount ? numberRenderer : joints[i].GetComponent<MeshRenderer>();
+                SourceFireGuard.Require(renderer != null, "Original limb/number material consumer missing.");
+                Material[] original = renderer.sharedMaterials;
+                flashOriginals[i] = original;
+                var mapped = new Material[original.Length];
+                for (int j = 0; j < original.Length; j++)
+                {
+                    Material source = original[j], material;
+                    SourceFireGuard.Require(source != null && source.mainTexture != null, "No source player texture fallback during white flash.");
+                    if (!flashMaterials.TryGetValue(source, out material))
+                    {
+                        material = new Material(shader) { name = source.name + "/source0x400-portable", mainTexture = source.mainTexture };
+                        flashMaterials.Add(source, material);
+                    }
+                    mapped[j] = material;
+                }
+                renderer.sharedMaterials = mapped;
+            }
+        }
+
+        private void RestoreSourceFireMaterials()
+        {
+            if (flashOriginals == null) return;
+            for (int i = 0; i < flashOriginals.Length; i++)
+            {
+                MeshRenderer renderer = i == JointCount ? numberRenderer : joints[i].GetComponent<MeshRenderer>();
+                if (renderer != null) renderer.sharedMaterials = flashOriginals[i];
+            }
+            flashOriginals = null;
+        }
+
+        private void OnDestroy()
+        { foreach (Material material in flashMaterials.Values) if (material != null) Destroy(material); }
 
         // Called by the explicit editor importer; no external source files are read in a player/WebGL build.
         public void InitializeBindPose(string id, Transform[] orderedJoints, int[] parents, int[] flags)

@@ -18,6 +18,8 @@ namespace Blitz.Runtime
         private SourceCabinetUnityInput sourceInput;
         private SourceSoundVmTransport soundTransport;
         private Blitz.Gameplay.GameSimulation simulation;
+        private SourceFireSpfxRenderer sourceFireRenderer;
+        private SourceFireSpfxAsset sourceFireAsset;
         private Func<IGameState, long, int> sourceCameraProducer;
         private long lastSourceCameraTick = -1;
         private int lastSourceCameraHeading;
@@ -69,12 +71,18 @@ namespace Blitz.Runtime
             {
                 SourceTeamResourceProfile profile = SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL, sourceResourceProfile);
                 SourceGameplayCompatibility compatibility = SourceGameplayCompatibilityOptions.FromUrl(Application.absoluteURL);
+                bool fireEnabled = SourceFireGameplayOptions.PortableRequested(Application.absoluteURL);
+                SourceKickMeterMode kickMeters = SourceKickMeterOptions.FromUrl(Application.absoluteURL);
+                if (fireEnabled && !profile.IsContact281C2M1)
+                    throw new SourceInterfaceException("source-fire=portable requires the explicit actual M1 resource profile.");
                 if (compatibility == SourceGameplayCompatibility.Portable && !profile.IsContact281C2M1)
                     throw new SourceInterfaceException("source-compatibility=portable requires the explicit M1 resource profile.");
                 SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(profile);
                 ISourceAnimationLibrary animations = null;
                 if (prefab == null)
                 {
+                    if (kickMeters != SourceKickMeterMode.Disabled)
+                        throw new SourceInterfaceException("Portable-authored kick meters require an actual source C1/C2/M1 profile, not graybox.");
                     if (profile.UsesC2Data)
                         throw new SourceInterfaceException("Explicit C2 entry cannot silently select legacy graybox/old bank initialization.");
                     if (!ExplicitGraybox(Application.absoluteURL))
@@ -93,7 +101,20 @@ namespace Blitz.Runtime
                         throw new SourceInterfaceException("The C1 services resource has an incompatible historical profile tag; no old contact path is selected.");
                     if (!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab)))
                         throw new SourceInterfaceException("C1 Core, geometry, Team and renderer must share the SAME canonical272 animation instance.");
-                    simulation = sourceServices.CreateSimulation(prefab, compatibility);
+                    SourceFireGameplayConfiguration fire = null;
+                    if (fireEnabled)
+                    {
+                        sourceFireAsset = Resources.Load<SourceFireSpfxAsset>(SourceFireSpfxAsset.ResourceKey);
+                        if (sourceFireAsset == null)
+                            throw new SourceInterfaceException("Missing actual authenticated source-fire asset; no placeholder fire.");
+                        fire = new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(sourceFireAsset.Load()),
+                            0, SourceFireCull.Off);
+                    }
+                    simulation = sourceServices.CreateSimulation(prefab, compatibility, fireEffects: fire, kickMeters: kickMeters);
+                    if (kickMeters == SourceKickMeterMode.PortableAuthored)
+                        Debug.LogWarning("Portable-authored human kick meters enabled with the pinned authored HUD dimensions. "
+                            + "Original generated native image_info_t/Composit metrics remain UNKNOWN. "
+                            + "This option is independent of source-compatibility=portable.");
                     if (compatibility == SourceGameplayCompatibility.Portable)
                         Debug.LogWarning("Portable M1 gameplay corrections enabled: effective handicap/block indices may saturate. "
                             + "Raw state and bounded typed repair diagnostics remain in Match. Not original hardware equivalence.");
@@ -110,8 +131,15 @@ namespace Blitz.Runtime
                     SourcePresentationSettings settings = SourceInterfacePresentation.Settings(State);
                     field.BindSourceTeamDrawState((int)settings.DesignatedHomeSide,
                         actor => SourceInterfacePresentation.DrawState(actor, State));
+                    if (simulation.SourceFireEnabled) field.BindSourceFireFlash(sourceFireAsset.PlayerFlashShader);
                 }
                 playCamera = new PlayCamera(transform, prefab);
+                if (IsSourceProfile && simulation.SourceFireEnabled)
+                {
+                    sourceFireRenderer = gameObject.AddComponent<SourceFireSpfxRenderer>();
+                    sourceFireRenderer.Initialize(sourceFireAsset, playCamera.Camera);
+                    Debug.LogWarning("Authored portable source-fire enabled: shared Core RNG,logical epoch0,effects then C2/game slots. Not native scheduler/clock/pixel equivalence.");
+                }
                 if (IsSourceProfile)
                 {
                     SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;
@@ -386,6 +414,8 @@ namespace Blitz.Runtime
         private void OnAfterSimulationStep()
         {
             if (!IsSourceProfile) return;
+            if (sourceFireRenderer != null && simulation.SourceFireFrame != null)
+                sourceFireRenderer.ConsumeAfterSourceStep(simulation.SourceFireFrame);
             SourceSoundVmBatch batch = simulation.TakeSourceSoundVmDispatches();
             soundTransport.Drain(batch);
             Action<SourceSoundVmDispatch> observed = SourceSoundVmDispatchRaised;
@@ -398,7 +428,10 @@ namespace Blitz.Runtime
         { if (soundTransport != null) soundTransport.CompletePresentationBatch(); }
 
         private void ResetSourceSoundTransport()
-        { if (soundTransport != null) soundTransport.Reset(); }
+        {
+            if (soundTransport != null) soundTransport.Reset();
+            if (sourceFireRenderer != null) sourceFireRenderer.ResetSourceEpoch();
+        }
 
         private void ForwardInitialSourcePresentationCues()
         {

@@ -63,6 +63,8 @@ namespace Blitz.Presentation
         public string ResultGraphic { get; }
         public string StateText { get; }
         public int SelectionCountdown { get; }
+        public SourceKickMeterMetrics KickMeterMetrics { get; }
+        public SourceKickMeterView KickMeter { get; }
 
         public SourceHudState(IGameState state, SourceInterfaceData data)
         {
@@ -71,6 +73,12 @@ namespace Blitz.Presentation
             if (source == null || source.Match == null || source.Match.Configuration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new SourceInterfaceException("Original HUD requires an actual source-match snapshot; legacy clock/text is not a source-state substitute.");
             Match = source.Match;
+            var kicking = state as ISourceKickMeterState;
+            KickMeterMetrics = kicking == null ? null : kicking.KickMeterMetrics;
+            KickMeter = kicking == null ? default(SourceKickMeterView) : kicking.KickMeter;
+            if (KickMeter.IsSpecified && (KickMeterMetrics == null
+                || kicking.KickMeterMode != SourceKickMeterMode.PortableAuthored))
+                throw new SourceInterfaceException("A kick-meter HUD snapshot requires its explicit portable-authored metric provenance.");
             if (!Match.Period.IsSpecified || !Match.Possession.IsSpecified)
                 throw new SourceInterfaceException("Original HUD requires actual period/possession DTO values.");
             int minute = (int)((source.PackedGameTime >> 16) & 255), second = (int)((source.PackedGameTime >> 8) & 255);

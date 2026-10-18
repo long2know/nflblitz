@@ -193,6 +193,12 @@ namespace Blitz.Presentation
             designatedHomeSide = actualDesignatedHomeSide;
         }
 
+        internal void BindSourceFireFlash(Shader shader)
+        {
+            if (sourceTeams == null) throw new InvalidOperationException("Source fire flash needs the actual source team presenter.");
+            sourceTeams.BindSourceFireFlash(shader);
+        }
+
         internal void Render(IGameState previous, IGameState state, float renderInterpolation01, float deltaTime)
         {
             ISourceMatchState sourceMatch = state as ISourceMatchState;

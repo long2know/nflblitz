@@ -94,9 +94,11 @@ class InventoryGuardTests(unittest.TestCase):
             "camera/CameraChecks.csproj",
             "contact/ContactChecks.csproj",
             "fire-handicap/FireHandicapChecks.csproj",
+            "kick-meter/KickMeterChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)
+
 
     def test_presentation_catalog_includes_its_actual_interface_package_dependencies(self):
         root = Path(__file__).resolve().parents[1]

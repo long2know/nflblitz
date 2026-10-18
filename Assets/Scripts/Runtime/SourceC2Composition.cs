@@ -14,11 +14,12 @@ namespace Blitz.Runtime
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, SourceHandicapSettings handicapSettings = null,
-            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null)
         {
             return CreateChecked(SourceTeamResourceProfile.Contact281C2, animations, referencePivots, playbook,
                 configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
-                c2Bootstrap, randomFactory, seed, handicapSettings, compatibility);
+                c2Bootstrap, randomFactory, seed, handicapSettings, compatibility, fireEffects, kickMeterMetrics);
         }
 
         public static GameSimulation CreateM1Simulation(ISourceAnimationLibrary animations,
@@ -27,11 +28,12 @@ namespace Blitz.Runtime
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, SourceHandicapSettings handicapSettings = null,
-            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null)
         {
             return CreateChecked(SourceTeamResourceProfile.Contact281C2M1, animations, referencePivots, playbook,
                 configuration, rosters, presentation, movementData, movementSettings, legacySoundFunctions,
-                c2Bootstrap, randomFactory, seed, handicapSettings, compatibility);
+                c2Bootstrap, randomFactory, seed, handicapSettings, compatibility, fireEffects, kickMeterMetrics);
         }
 
         private static GameSimulation CreateChecked(SourceTeamResourceProfile profile, ISourceAnimationLibrary animations,
@@ -40,8 +42,11 @@ namespace Blitz.Runtime
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData legacySoundFunctions, SourceC2Bootstrap c2Bootstrap,
             Func<int, ISourceRandom> randomFactory, int seed, SourceHandicapSettings handicapSettings,
-            SourceGameplayCompatibility compatibility)
+            SourceGameplayCompatibility compatibility, SourceFireGameplayConfiguration fireEffects,
+            SourceKickMeterMetrics kickMeterMetrics)
         {
+            if (fireEffects != null && !profile.IsContact281C2M1)
+                throw new NotSupportedException("Authored fire effects require the explicit actual M1 factory.");
             if (compatibility != SourceGameplayCompatibility.StrictSource
                 && (compatibility != SourceGameplayCompatibility.Portable || !profile.IsContact281C2M1))
                 throw new NotSupportedException("Portable gameplay is supported only by the explicit M1 factory.");
@@ -62,7 +67,8 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("C2 requires the actual fifteen reference pivots and explicit complete kernel inputs.");
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, referencePivots);
             var game = new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,
-                rosters, presentation, movementData, movementSettings, c2Bootstrap, handicapSettings, compatibility);
+                rosters, presentation, movementData, movementSettings, c2Bootstrap, handicapSettings, compatibility,
+                fireEffects, kickMeterMetrics);
             game.BindSourceSoundVmData(legacySoundFunctions);
             return game;
         }

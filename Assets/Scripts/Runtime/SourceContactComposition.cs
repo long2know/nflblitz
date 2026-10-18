@@ -14,7 +14,8 @@ namespace Blitz.Runtime
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData soundFunctions, Func<int, ISourceRandom> randomFactory = null, int seed = 1,
             SourceHandicapSettings handicapSettings = null,
-            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
+            SourceKickMeterMetrics kickMeterMetrics = null)
         {
             if (compatibility != SourceGameplayCompatibility.StrictSource)
                 throw new NotSupportedException("Portable gameplay is supported only by the explicit M1 factory.");
@@ -28,7 +29,8 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("Contact272 requires explicit original match/roster/presentation/movement/bootstrap inputs.");
             ISourceActorGeometry geometry = new SourceCatchGeometry(animations, referencePivots);
             var game = new GameSimulation(animations, geometry, playbook, configuration, randomFactory, seed,
-                rosters, presentation, movementData, movementSettings, handicapSettings: handicapSettings);
+                rosters, presentation, movementData, movementSettings, handicapSettings: handicapSettings,
+                kickMeterMetrics: kickMeterMetrics);
             game.BindSourceSoundVmData(soundFunctions);
             return game;
         }

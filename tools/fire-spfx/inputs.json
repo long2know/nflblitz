@@ -1,0 +1,33 @@
+{
+  "schema": "source-fire-spfx-original-input-pins/v1",
+  "sourceCommit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "sourceTree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "inputs": [
+    {"path":"models/spfx.sdl","bytes":7640,"gitBlobSha1":"bee1894074a84b1cfdb1a9099e51ccf9afa5fca8","sha256":"60288bc2280ee6b8fcd02210b249c0c86359103f4daf5e60e96900905c66f5ca"},
+    {"path":"img3d/trail1.tga","bytes":4140,"gitBlobSha1":"fde8e36b9220b2eb3da8b6abf1aa7ea4ed96d8cf","sha256":"ca38c1f6269f2263b2328dc9b0c1a2fbef8335a9d7b38a9fbbdf7367c675a27e"},
+    {"path":"img3d/trail2.tga","bytes":4140,"gitBlobSha1":"8c081b861ebd3f3f8adc691f57df1a253ee10802","sha256":"83e1755246be53225b1aaf1fd336b84491ded98bdb02f84654493c4de2415f8c"},
+    {"path":"img3d/trail3.tga","bytes":4140,"gitBlobSha1":"072800796bfbe02b8687b8b70a196541a3e376e6","sha256":"3d6a51a942fd0dbd6737b54d407ef016cfac4900a6372090b0dd3821d87ed206"},
+    {"path":"img3d/trail4.tga","bytes":4140,"gitBlobSha1":"001509070e9f7ffcc904f3225bbd349ec1da2d4f","sha256":"440e916fd528aa5602b551acc47d61a8c6f37eb46ccddf7866a603b7fecfbe46"},
+    {"path":"img3d/trail5.tga","bytes":4140,"gitBlobSha1":"53f8dcc2fd992667da2702a234c0b09808d2fa42","sha256":"4cc82e0677a985eb4bc1c327a59f0462b82c6b3ddb8f3e862fba3f54f280fa33"},
+    {"path":"img3d/trail6.tga","bytes":4140,"gitBlobSha1":"e50465b1af090236e4adee9049f1822010ca455d","sha256":"7d0c641fd2051682087f734c5bfe3a6d70dbc5ed6c6398763440958dd3561ef1"},
+    {"path":"img3d/trail7.tga","bytes":4140,"gitBlobSha1":"e70ad0819cebb1f0b30d71d615ad7fd1bde483bb","sha256":"c441036b3fed89771225f7d528bdcf742378707966fea4be5edcfd36e5c1b792"},
+    {"path":"img3d/trail8.tga","bytes":4140,"gitBlobSha1":"595d3ee60c1ac60dcb331c2992a9c909bb00af33","sha256":"9dbf9d0b07695adb15034d1979ad16d1dd63637c470234b5a28f664e8d905a00"},
+    {"path":"img3d/trail9.tga","bytes":4140,"gitBlobSha1":"aea9dba145c089bba00d1be6aacdbc477b866384","sha256":"dc99dd2c4fa0f9a10cba4f5b8f25719936f4cd9ecb7beb715815564b156e7383"},
+    {"path":"img3d/trail10.tga","bytes":4140,"gitBlobSha1":"511adc7b8c381ea0c27755c6ee14353f6ea08a8d","sha256":"f1923a80734844c57ad6b5c536157b52696c2196b444689a39a35e10d559636b"},
+    {"path":"img3d/trail11.tga","bytes":4140,"gitBlobSha1":"5f0c93512b8bc02ac920541bf628f1f3133a5299","sha256":"3c31206b01bb466e1cc07535e0fca4e6bea9a95fba895cc6539573d07c6af8c5"},
+    {"path":"img3d/trail12.tga","bytes":4140,"gitBlobSha1":"985362b88f3b3d892fddeba495128f5639a7446f","sha256":"ee2483c84fa6183da5a24d37cbc929e838b36d250a79f43469a593674159480b"},
+    {"path":"img3d/trail13.tga","bytes":4140,"gitBlobSha1":"ada8172d3687218b46afa4af61eeadab52d57133","sha256":"d3e6d104525f7d9500e70cbaa0ae057b3788ac40e024ca124e93a3ae6a2f1800"},
+    {"path":"img3d/trail14.tga","bytes":4140,"gitBlobSha1":"5b0c6bd286af37a1e93d0e3b5f8df7380908782d","sha256":"bf964aca42e6d629ed8d60fd5fcaf1bc5dbf6b4c4d11daac4b89fbf4340938a6"},
+    {"path":"img3d/trail15.tga","bytes":4140,"gitBlobSha1":"b0332d728c30c6166ae499cb152ec952147f3e61","sha256":"8324b01855b736a6239771f7f9f7008aa15c23fa2c427e3f0c09ca210d4287b5"},
+    {"path":"img3d/trail16.tga","bytes":4140,"gitBlobSha1":"c5070f3f51525726f5a86c8749d180d92d458e57","sha256":"112d7450c678826a0d03d4437ecfc74370f93c2963c951f7b7492eac1a8682f2"},
+    {"path":"img3d/trail17.tga","bytes":4140,"gitBlobSha1":"bf4705fd2342b18f4f071bd75d9c057b6d998795","sha256":"7ea96b7929a6b24837447e3aa6c1057610145c70e64b004fe02beabbb9cb4add"}
+  ],
+  "sourceReferences": {
+    "SDL": "NFL models/spfx.sdl bee1894074a84b1cfdb1a9099e51ccf9afa5fca8",
+    "scaleRecipe": "NFL models/models.mak:96-98 -f 4.0 -name spfx",
+    "aspectEnum": "Midway include/glide/GLIDE.H:195-202 blob999f1d9310a908ae706dbafdac5de1d80ab61613",
+    "activeAspectMapping": "NFL lib/ani3d/geom.s:537-590 blobfecf16a0511ab5d14a7f5e3a96742407e1d43aa6"
+  },
+  "nativeConvertedTextureEquivalent": false,
+  "generatedSpfxHeaderEquivalent": false
+}

@@ -24,7 +24,12 @@ python3 -B tests/movement-callers/compatibility.py \
 There are74 declared component assertions, separate from all retained strict
 original-C case/control inventories. MovementCallerChecks now explicitly links
 the actual C1 factory for these unsupported-option/default tests; the shared
-production fingerprint closure remains67, with no new production source/GUID.
+compatibility increment itself added no production source/GUID. The combined
+fire/kick integration extends the shared pure fingerprint closure from67 to72:
+three explicit fire data/contract/Core files and two kick contract/process
+files. These74 assertions/seven controls and the strict/default semantics
+remain unchanged; concrete FX/renderer and cabinet/HUD consumers are included
+only by the feature suites that actually use them.
 
 For an explicitly authorized **single** changed-behavior observation, append
 `--source-compatibility portable --single-public-attempt` to the full M1 command.

@@ -19,6 +19,7 @@ namespace Blitz.Gameplay
                 throw new InvalidOperationException("The source profile requires the original ISourceTeamRoster "
                     + "for actor-slot/static-record identities and actual model scales; no uniform scale fallback is used.");
             Model.SourceMode = true;
+            Model.SourceKickMeterMetrics = sourceKickMeterMetrics;
             InitializeSourceSoundState();
             BeginSourceProcess("game_proc", -1, 0);
             InitializeSourceC2();
@@ -51,16 +52,13 @@ namespace Blitz.Gameplay
                 SourceTeamSelection team = id < 7 ? sourceConfiguration.HomeTeam : sourceConfiguration.AwayTeam;
                 Model.Players[id].SourceRoster = new SourceRosterIdentity(team.TeamIndex, team.RosterIndices[id % 7]);
             }
+            InitializeSourceFire();
             PrepareSourceKickoff(true, false);
             UpdateSourceClockView();
         }
 
-        private void SourceStep(PlayerCommand command)
+        private PlayerCommand SourceGameProc(PlayerCommand command)
         {
-            RequireSourceSoundVmBinding();
-            Model.SourceDispatchOrdinal = 0;
-            Model.SourcePresentationOrder = 0;
-            DispatchSourceC2Whistles();
             BeginSourceProcess("game_proc", -1, 0);
             CommitSourceC2PlayEnd();
             if (SourceStationInputTransform != null)
@@ -79,6 +77,7 @@ namespace Blitz.Gameplay
             switch (Model.Phase)
             {
                 case GamePhase.PlaySelect:
+                    SourceFireSelectionEntry();
                     if (action == SourceAction.SelectPat && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
                         ApplySourcePat(DecideSourcePat((SourcePatChoice)command.Source.PatChoice));
                     if (action == SourceAction.SelectPlay)
@@ -115,10 +114,28 @@ namespace Blitz.Gameplay
                         + " at sourceTick=" + Model.SourceTick);
             }
 
+            return command;
+        }
+
+        private void SourceStep(PlayerCommand command)
+        {
+            RequireSourceSoundVmBinding();
+            Model.SourceDispatchOrdinal = 0;
+            Model.SourcePresentationOrder = 0;
+            if (SourceFireEnabled) command = DispatchSourceFireLevelZero(command);
+            else
+            {
+                DispatchSourceC2Whistles();
+                command = SourceGameProc(command);
+            }
+            StepSourceKickMeter();
             // Verified playsel.c 848-854/1530 suspends gameplay processes while
             // the selection process runs, then resumes them after selection.
             if (Model.Phase == GamePhase.PlaySelect)
+            {
+                CaptureSourceFireFrame();
                 return;
+            }
 
             UpdateSourceStationMovementResources(command);
             // id.h RL_CAMBOT=0x100 precedes RL_PLAYER-1 and all actors.
@@ -184,6 +201,7 @@ namespace Blitz.Gameplay
             else if (Model.CarrierId >= 0 && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
                 SynchronizeSourceHeldBall();
             else AdvanceSourceBall();
+            CaptureSourceFireFrame();
         }
 
         private void SelectSourcePlay(PlayId play, SourcePlaySelection original = default(SourcePlaySelection),
@@ -229,6 +247,7 @@ namespace Blitz.Gameplay
             }
             if (!Model.SourcePlaySelectionReady[0] || !Model.SourcePlaySelectionReady[1])
                 return;
+            SourceFireSelectionExit();
             Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
                 ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);
             Model.SourceDefensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
@@ -298,12 +317,19 @@ namespace Blitz.Gameplay
             if (Model.Phase != GamePhase.PreSnap || (Model.SourceFlags & SourceGameFlags.HikingBall) != 0)
                 return;
             if (!automatic && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
-                && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.Punt)) != 0)
+                && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.Punt)) != 0
+                && sourceKickMeterMetrics == null)
                 throw new NotSupportedException("Manual source kick/punt meter needs plyrinfo.c k_bar/k_marker widths, "
                     + "p_meter height and TA_SPTEAMS meter scheduling. No guessed meter value is substituted. "
                     + "The original auto-hike branch remains executable.");
+            if (!automatic && sourceKickMeterMetrics != null
+                && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+                && (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.Punt)) != 0
+                && (Model.SourceKickMeter == null || Model.SourceKickMeter.View.Owner != Model.Possession
+                    || Model.SourceKickMeter.View.Status != SourceKickMeterStatus.Tracking))
+                throw new InvalidOperationException("The actual offensive portable-authored kick meter is not tracking at snap.");
             Model.SourceHikeCounterAtSnap = automatic ? 0 : Model.PreSnapTicksRemaining;
-            if (automatic && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
+            if (automatic && sourceKickMeterMetrics == null && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
                 && (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0)
             {
                 int percent = 55 + SourceDrawFor("plyrinfo.c:kick_meter_proc:auto_hike_percent")(35);
@@ -336,6 +362,7 @@ namespace Blitz.Gameplay
         private void PrepareSourceKickoff(bool first, bool half)
         {
             RequireSourcePlaybook();
+            SourceFireSelectionExit();
             SourcePlayStart start = SourceMatchFlow.BeginPlay(Model.SourceRules, Model.Quarter - 1,
                 Model.SourceClock.PackedTime, first);
             if (!Model.SourceBeginPlayInitialized)
@@ -393,6 +420,8 @@ namespace Blitz.Gameplay
             Model.Phase = GamePhase.PreSnap;
             Model.BallKind = SourceBallKind.Kickoff;
             LineUpSourceActors();
+            FireControl(SourceFireOperation.DeleteObjectGroup, "nfl.c", "game_proc", 1109, SourceFireIds.PuffObject);
+            FireControl(SourceFireOperation.KillProcessGroup, "nfl.c", "game_proc", 1110, SourceFireIds.Spfx);
             Model.PreSnapTicksRemaining = plan.AutoHikeTicks;
             Model.Phase = GamePhase.PreSnap;
             Model.SourceMatchPhase = SourceMatchPhase.PreSnap;
@@ -735,6 +764,12 @@ namespace Blitz.Gameplay
                 && (Model.SourceFlags & SourceGameFlags.BallCrossedLine) == 0)
                 actor.Role = ActorRole.Quarterback;
             if (actor.Role == ActorRole.Quarterback) actor.SourceMode = SourceActorMode.Quarterback;
+            if (SourceFireEnabled && offense)
+                FireRuntime.SuccessfulOffensiveCatch(FireSite("player.c", "standard_catch", 3604, actor.Id),
+                    actor.Id, Model.SourceLastReceiver[(int)actor.Team],
+                    Model.SourceConsecutiveCompletions[(int)actor.Team], Model.SourceTeamFire[(int)actor.Team] ? 1 : 0,
+                    SourceMatchRules.FieldPosition(SourcePlayerDriver.WorldPosition(actor).X, (int)Model.Possession)
+                        >= Model.SourceRules.LineOfScrimmage);
             Model.SourceAiFrame = BuildSourceAiFrame();
             SynchronizeSourceHeldBall();
             Emit(GameEventType.PassCaught, actor.Team, actor.Id, 0, Model.BallPosition, actor.Id, thrower);
@@ -751,6 +786,7 @@ namespace Blitz.Gameplay
 
         private void AdvanceSourceBall()
         {
+            bool freeOrPhantom = Model.CarrierId < 0 || (Model.SourceBallFlags & SourceBallFlags.Phantom) != 0;
             SourceBallStep step = SourceBallDriver.Advance(Model, SourceDrawFor("player.c:ball_proc"));
             if (step.EndPlay)
             {
@@ -761,6 +797,13 @@ namespace Blitz.Gameplay
                 }
                 EndSourcePlay(step.Cause, Model.TargetPlayerId, Model.BallPosition, sourceSpot: Model.SourceBallPosition);
             }
+            if (SourceFireEnabled && freeOrPhantom)
+                SourceBallEffectSelection = FireRuntime.BallFreeOrPhantomStep(FireSite("player.c", "ball_proc", 10311),
+                    new SourceFireBallEmitterInput(Model.BallKind,
+                        (Model.SourceBallFlags & SourceBallFlags.FirePass) != 0,
+                        (Model.SourceBallFlags & SourceBallFlags.TurboPass) != 0,
+                        (Model.SourceBallFlags & SourceBallFlags.Bounce) != 0,
+                        Model.SourceTeamFire[(int)Model.Possession], Model.PassTicksElapsed));
         }
 
         private void SynchronizeSourceHeldBall()
@@ -964,6 +1007,7 @@ namespace Blitz.Gameplay
                 return;
             }
             Model.Phase = GamePhase.PlaySelect;
+            SourceFireSelectionEntry();
             Model.SourceOffenseFlipped = false;
             Model.SourceMatchPhase = Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
                 ? SourceMatchPhase.PatSelection : SourceMatchPhase.PlaySelection;
@@ -1248,6 +1292,8 @@ namespace Blitz.Gameplay
                         Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped));
             SourcePlayerDriver.LineUp(Model, sourceAnimations, SourceDraw, layout,
                 id => BeginSourceProcess("player_lineup", id, id + 1), BindSourceAnimation);
+            FireLineupScope(-1);
+            FireControl(SourceFireOperation.ResetLineupLatches, "nfl.c", "lineup_players", 3369);
             for (int id = 0; id < Model.Players.Length; id++)
                 Model.SourceDrones[id] = Model.SourceDrones[id].WithTarget(layout.Actors[id].CoverageTarget);
             for (int id = 0; id < Model.Players.Length; id++)
@@ -1304,6 +1350,7 @@ namespace Blitz.Gameplay
             }
             BeginSourceProcess("punt_meter_proc", -1, 17);
             Model.SourcePuntStrength = 50 + SourceDrawFor("plyrinfo.c:punt_meter_proc:initial_strength")(50);
+            InitializeSourceKickMeter();
             BeginSourceProcess("game_proc_after_lineup", -1, 16);
         }
 
@@ -1890,8 +1937,12 @@ namespace Blitz.Gameplay
                     actor.SourceMode = SourceActorMode.Receiver;
                     return;
                 }
-                if ((float)Math.Sqrt(PlayerSimulation.DistanceSquared(actor.Position, Model.BallPosition))
-                    * SourceTiming.SourceUnitsPerYard < 8f && Model.CarrierId >= 0)
+                SourceVector3 kickRoot = SourcePlayerDriver.WorldPosition(actor);
+                float kickX = kickRoot.X - Model.SourceBallPosition.X, kickZ = kickRoot.Z - Model.SourceBallPosition.Z;
+                float kickDistance = !UsesPortableHumanKick(SourceKickMeterKind.FieldGoal, actor.Team)
+                    ? (float)Math.Sqrt(PlayerSimulation.DistanceSquared(actor.Position, Model.BallPosition)) * SourceTiming.SourceUnitsPerYard
+                    : (float)Math.Sqrt(kickX * kickX + kickZ * kickZ);
+                if (kickDistance < 8f && Model.CarrierId >= 0)
                 {
                     ActorState holder = Model.Players[Model.CarrierId];
                     string sequence = holder.AnimationState.Primary.SequenceName;
@@ -1969,7 +2020,8 @@ namespace Blitz.Gameplay
         {
             ActorState actor = Model.Players[actorId];
             if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != actorId) return;
-            SourceVector3 ankle = SourceWorldJoint(actor, actor.Flipped ? 14 : 11);
+            SourceVector3 ankle = !UsesPortableHumanKick(SourceKickMeterKind.Punt, actor.Team) ? SourceWorldJoint(actor, actor.Flipped ? 14 : 11)
+                : SourceKickCachedJoint(actor, actor.Flipped ? 14 : 11);
             Model.CarrierId = -1;
             Model.BallMode = BallMode.InFlight;
             Model.BallKind = SourceBallKind.Punt;
@@ -1980,6 +2032,7 @@ namespace Blitz.Gameplay
             Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.Bounce | SourceBallFlags.Bobble
                 | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             SourceBallDriver.Punt(Model, actor, ankle, SourceDrawFor("player.c:set_punt_ball_vels"));
+            CaptureSourceKickLaunch(actor, SourceKickMeterKind.Punt);
             actor.SourceMode = SourceActorMode.DefensiveBack;
             EmitSource(SourceEventType.Punted, actorId);
         }
@@ -2002,6 +2055,7 @@ namespace Blitz.Gameplay
             Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.Bounce | SourceBallFlags.Bobble
                 | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             SourceBallDriver.FieldGoal(Model, actor, SourceDrawFor("player.c:set_field_goal_ball_vels"));
+            CaptureSourceKickLaunch(actor, SourceKickMeterKind.FieldGoal);
             actor.SourceMode = SourceActorMode.Receiver;
             EmitSource(SourceEventType.Kicked, actor.Id);
         }
