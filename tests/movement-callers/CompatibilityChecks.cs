@@ -186,6 +186,269 @@ internal static partial class Program
             "running-push repair resets with restart without mode promotion");
     }
 
+    private static GameSimulation CarrierlessSwitchGame(SourceGameplayCompatibility mode, int station,
+        SourceBallKind kind, bool turbo = false, bool moving = false)
+    {
+        var configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            SourceStationLayout.FourStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(1, TeamId.Away),
+                new SourceStationConfiguration(2, TeamId.Home), new SourceStationConfiguration(3, TeamId.Away) },
+            TeamId.Away, SourceCaptainSlot.Second);
+        activeGame = real.Create(configuration: configuration, compatibility: mode,
+            randomFactory: seed => new SourceInjectedRandom(site => 99,
+                new SourceRandomProvenance("carrierless-switch/raw99", "Declared caller inputs, not target RNG",
+                    "four-station", SourceRandomEvidence.ExternalUnverified)),
+            presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0));
+        GameSimulation game = activeGame;
+        SimulationState m = game.Model;
+        m.SourceTick = 8269; m.Phase = GamePhase.LiveBall; m.SourceFlags = SourceGameFlags.None;
+        m.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Normal);
+        m.CarrierId = -1; m.TargetPlayerId = -1; m.BallKind = kind;
+        m.SourceBallPosition = new SourceVector3(0, 16, 0); m.SourceBallTarget = default(SourceVector3);
+        m.SourceOffensePlay = playbook.GetPlay("play_spider");
+        m.SourceDefensePlay = playbook.GetPlay("play_safe_cover");
+        foreach (ActorState player in m.Players)
+        {
+            player.SourceControllerStation = -1;
+            player.SourceMode = SourceActorMode.DefensiveBack; player.SourceRawFlags = 0;
+            player.SourceTarget = -1; player.SourceStick = player.SourcePreviousStick = 24;
+            player.SourceButtons = player.SourceOldButtons = player.SourceNewButtons = SourceDroneButtons.None;
+            player.SourceVelocity = default(FieldVector); player.SourceRoot = default(SourceVector3);
+            player.AnimationState.Primary.SetMovementMode(0);
+            player.AnimationState.Secondary.SetMovementMode(0);
+            SourcePlayerDriver.SetSourcePosition(player, new SourceVector3(100 * (player.Id % 7 + 1), 0, 0));
+        }
+        int[] owners = { 4, 11, 5, 12 };
+        for (int i = 0; i < owners.Length; i++)
+        {
+            m.SourceStationPlayers[i] = owners[i];
+            m.Players[owners[i]].SourceControllerStation = i;
+        }
+        m.ControlledPlayerId = owners[0];
+        ActorState actor = m.Players[owners[station]];
+        m.Possession = actor.Team == TeamId.Home ? TeamId.Away : TeamId.Home;
+        actor.SourceButtons = SourceDroneButtons.B | (turbo ? SourceDroneButtons.C : SourceDroneButtons.None);
+        actor.SourceNewButtons = SourceDroneButtons.B;
+        actor.SourceVelocity = new FieldVector(moving ? 2f : 0f, 0f);
+        Bind<Action>(game, "CacheSourceGeometry")();
+        m.SourceRandomActor = actor.Id; m.SourceRandomProcess = "player_proc";
+        m.SourceRandomProcessOrder = actor.Id + 1; m.SourceRandomCallIndex = 0;
+        return game;
+    }
+
+    private static string CarrierlessSwitchState(GameSimulation game)
+    {
+        SimulationState m = game.Model;
+        return System.Text.Json.JsonSerializer.Serialize(new {
+            m.CarrierId, m.TargetPlayerId, m.SourceStationPlayers, m.ControlledPlayerId,
+            ball = new[] { m.SourceBallPosition.X, m.SourceBallPosition.Y, m.SourceBallPosition.Z,
+                m.SourceBallTarget.X, m.SourceBallTarget.Y, m.SourceBallTarget.Z },
+            players = m.Players.Select(a => new {
+                a.Id, a.SourceControllerStation, a.SourceTarget, a.SourceStick, a.SourcePreviousStick,
+                a.SourceButtons, a.SourceOldButtons, a.SourceNewButtons,
+                position = new[] { SourcePlayerDriver.WorldPosition(a).X, SourcePlayerDriver.WorldPosition(a).Y,
+                    SourcePlayerDriver.WorldPosition(a).Z },
+                velocity = new[] { a.SourceVelocity.X, a.SourceVelocity.Z }, a.Facing, a.TargetFacing,
+                lower = new { a.AnimationState.Primary.ScriptSymbol, a.AnimationState.Primary.Mode,
+                    a.AnimationState.Primary.FrameOrdinal },
+                upper = new { a.AnimationState.Secondary.ScriptSymbol, a.AnimationState.Secondary.Mode,
+                    a.AnimationState.Secondary.FrameOrdinal } }),
+            m.SourceRandomDraws, m.SourceRandomCallIndex,
+            trace = ((SourceInjectedRandom)game.SourceRandomService).Trace
+        });
+    }
+
+    private static bool CarrierlessSwitchFault(GameSimulation game, ActorState actor)
+    {
+        try { Bind<Action<ActorState>>(game, "SourceDefensiveMovementButtons")(actor); return false; }
+        catch (NotSupportedException error)
+        {
+            Check(error.Message == "player.c:db_change_player seeking-player branch indexes "
+                + "p2p_angles[game_info.ball_carrier==-1]; original undefined C is not replaced with a target.",
+                "strict carrierless switch retains its exact existing source fault");
+            return true;
+        }
+    }
+
+    private static void CarrierlessSwitchChecks()
+    {
+        Check(real.IsC2M1Profile, "carrierless switching uses the actual M1 factory");
+        foreach (int station in new[] { 0, 1, 2, 3 })
+        foreach (SourceBallKind kind in new[] { SourceBallKind.Pass, SourceBallKind.FieldGoal, SourceBallKind.Kickoff })
+        foreach (bool turbo in new[] { false, true })
+        foreach (bool moving in new[] { false, true })
+        {
+            GameSimulation strict = CarrierlessSwitchGame(SourceGameplayCompatibility.StrictSource, station, kind, turbo, moving);
+            ActorState actor = strict.Model.Players[strict.Model.SourceStationPlayers[station]];
+            string before = CarrierlessSwitchState(strict);
+            Check(CarrierlessSwitchFault(strict, actor), "strict carrierless B and B+C both fail at the original boundary");
+            Check(before == CarrierlessSwitchState(strict) && strict.Model.SourceCompatibilityRepairCount == 0,
+                "strict carrierless failure never transfers a station, starts a push or consumes RNG");
+            GameSimulation portable = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, station, kind, turbo, moving);
+            actor = portable.Model.Players[portable.Model.SourceStationPlayers[station]];
+            before = CarrierlessSwitchState(portable);
+            Check(!CarrierlessSwitchFault(portable, actor),
+                "portable actual four-station defensive caller defers carrierless switching without a source fault");
+            Check(before == CarrierlessSwitchState(portable),
+                "portable carrierless B and B+C retain every station, actor, ball, animation and RNG value");
+            Check(portable.Model.SourceCompatibilityRepairCount == 1 && portable.Model.SourceCompatibilityRepairs.Count == 1,
+                "portable carrierless switch records exactly one repair per attempted source call");
+            SourceCompatibilityRepair repair = portable.Model.SourceCompatibilityRepairs.Single();
+            Check(repair.Kind == SourceCompatibilityRepairKind.CarrierlessDefensiveSwitch && repair.SubjectId == actor.Id
+                && repair.SourceTick == 8269 && repair.RawIndex == -1 && repair.EffectiveIndex == -1
+                && !repair.RetainedStick.HasValue && repair.SourceContext.Contains("player.c:db_change_player")
+                && repair.SourceContext.Contains("deferred"),
+                "carrierless switch metadata identifies the retained actor and no invented carrier or target");
+            var published = ((ISourceMatchState)new GameSnapshot(portable.Model)).Match;
+            Check(published.Compatibility == SourceGameplayCompatibility.Portable
+                && published.CompatibilityRepairCount == 1
+                && published.CompatibilityRepairs.Single().Kind == SourceCompatibilityRepairKind.CarrierlessDefensiveSwitch,
+                "carrierless deferral is visible in the typed immutable public snapshot");
+        }
+        foreach (SourceGameplayCompatibility mode in new[] { SourceGameplayCompatibility.StrictSource, SourceGameplayCompatibility.Portable })
+        {
+            foreach (int exit in new[] { 0, 1, 2, 3 })
+            {
+                GameSimulation game = CarrierlessSwitchGame(mode, 0, SourceBallKind.Kickoff);
+                ActorState actor = game.Model.Players[4];
+                if (exit == 0) actor.SourceControllerStation = -1;
+                if (exit == 1) { game.Model.Phase = GamePhase.DeadBall; actor.SourceRawFlags = 0x2; }
+                if (exit == 2) actor.SourceNewButtons = SourceDroneButtons.None;
+                if (exit == 3) actor.AnimationState.Secondary.AddMode(0x1000u);
+                string before = CarrierlessSwitchState(game);
+                Check(!CarrierlessSwitchFault(game, actor) && before == CarrierlessSwitchState(game)
+                    && game.Model.SourceCompatibilityRepairCount == 0,
+                    "existing drone, play-over onscreen, no-new-B and running-push exits precede any repair");
+            }
+            foreach (bool moving in new[] { false, true })
+            {
+                GameSimulation game = CarrierlessSwitchGame(mode, 0, SourceBallKind.Pass, true, moving);
+                ActorState actor = game.Model.Players[4];
+                SourcePlayerDriver.SetSourcePosition(actor, default(SourceVector3));
+                game.Model.SourceRules = new SourceRulesState(0, 0, 1, 50, 100, SourcePlayType.Normal);
+                int draws = ((SourceInjectedRandom)game.SourceRandomService).Trace.Count;
+                Check(!CarrierlessSwitchFault(game, actor) && game.Model.SourceCompatibilityRepairCount == 0,
+                    "defined pushHere short circuit never calls the carrierless switch or records a repair");
+                Check(moving ? (actor.AnimationState.Secondary.Mode & 0x1000u) != 0
+                        && ((SourceInjectedRandom)game.SourceRandomService).Trace.Count == draws
+                    : actor.AnimationState.Primary.ScriptSymbol == movement.Movement.Script("push_anim_tbl", 99 % movement.Movement.Count("push_anim_tbl"))
+                        && ((SourceInjectedRandom)game.SourceRandomService).Trace.Count > draws,
+                    "defined pushHere retains both actual source animation and running-push RNG behavior");
+            }
+        }
+        var definedCases = new List<object>();
+        foreach (int station in new[] { 0, 1, 2, 3 })
+        foreach (SourceBallKind kind in new[] { SourceBallKind.Pass, SourceBallKind.FieldGoal, SourceBallKind.Kickoff,
+            SourceBallKind.Punt, SourceBallKind.Fumble, SourceBallKind.Bobble, SourceBallKind.Lateral })
+        foreach (bool held in new[] { false, true })
+        foreach (bool alreadyClosest in new[] { false, true })
+        {
+            if (!held && (kind == SourceBallKind.Pass || kind == SourceBallKind.FieldGoal || kind == SourceBallKind.Kickoff)) continue;
+            string previous = null;
+            foreach (SourceGameplayCompatibility mode in new[] { SourceGameplayCompatibility.StrictSource, SourceGameplayCompatibility.Portable })
+            {
+                GameSimulation game = CarrierlessSwitchGame(mode, station, kind);
+                SimulationState m = game.Model;
+                ActorState actor = m.Players[m.SourceStationPlayers[station]];
+                int expected = actor.Team == TeamId.Home ? 0 : 7;
+                int otherHuman = actor.Team == TeamId.Home ? 5 : 12;
+                if (m.Players[otherHuman].Id != actor.Id)
+                    SourcePlayerDriver.SetSourcePosition(m.Players[otherHuman], new SourceVector3(1, 0, 0));
+                if (held)
+                {
+                    m.CarrierId = actor.Team == TeamId.Home ? 10 : 3;
+                    SourcePlayerDriver.SetSourcePosition(m.Players[m.CarrierId], default(SourceVector3));
+                }
+                if (alreadyClosest)
+                {
+                    SourcePlayerDriver.SetSourcePosition(actor, default(SourceVector3));
+                    expected = actor.Id;
+                }
+                Bind<Action>(game, "CacheSourceGeometry")();
+                var input = new {
+                    actor = actor.Id, team = (int)actor.Team, station, carrier = m.CarrierId,
+                    ballKind = kind.ToString(), offenseSide = (int)m.Possession, playOver = false, onScreen = false,
+                    intendedReceiver = m.TargetPlayerId, tx = m.SourceBallTarget.X, tz = m.SourceBallTarget.Z,
+                    players = m.Players.Select(a => new { x = SourcePlayerDriver.WorldPosition(a).X,
+                        z = SourcePlayerDriver.WorldPosition(a).Z, station = a.SourceControllerStation, unint = false }).ToArray(),
+                    angles = Enumerable.Range(0, 14).SelectMany(a => Enumerable.Range(0, 14).Select(b => m.SourceAngles[a, b])).ToArray()
+                };
+                int preview = Bind<Func<ActorState, bool, int>>(game, "ChangeSourceDefensePlayer")(actor, false);
+                Check(preview == (alreadyClosest ? -1 : 0) && m.SourceStationPlayers[station] == actor.Id,
+                    "defined switch preview retains original closest-player results without transferring control");
+                Check(!CarrierlessSwitchFault(game, actor) && m.SourceStationPlayers[station] == expected
+                    && actor.SourceControllerStation == (alreadyClosest ? station : -1)
+                    && m.Players[expected].SourceControllerStation == station,
+                    "defined carrier and nonseeking free-ball switches retain the original selected teammate");
+                Check(m.SourceCompatibilityRepairCount == 0, "defined switching never emits a compatibility repair");
+                string after = CarrierlessSwitchState(game);
+                if (previous != null) Check(after == previous,
+                    "defined strict and portable switching have identical station, actor, ball, animation and RNG state");
+                previous = after;
+                if (mode == SourceGameplayCompatibility.StrictSource)
+                    definedCases.Add(new { input, selected = m.SourceStationPlayers[station] });
+            }
+        }
+        Save("carrierless-defined.json", System.Text.Json.JsonSerializer.Serialize(definedCases));
+        foreach (int station in new[] { 0, 1, 2, 3 })
+        foreach (bool turbo in new[] { false, true })
+        {
+            GameSimulation game = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, station,
+                SourceBallKind.Kickoff, turbo);
+            ActorState actor = game.Model.Players[game.Model.SourceStationPlayers[station]];
+            int[] owners = game.Model.SourceStationPlayers.ToArray();
+            bool fault = false;
+            try
+            {
+                Bind<Action<ActorState, PlayerCommand>>(game, "ExecuteSourceMovementMode")(actor, default(PlayerCommand));
+            }
+            catch (NotSupportedException error) when (error.Message.StartsWith(
+                "player.c:db_change_player seeking-player branch indexes", StringComparison.Ordinal)) { fault = true; }
+            Check(!fault, "actual M1 ExecuteSourceMovementMode reaches Portable carrierless continuity for all four stations");
+            Check(game.Model.SourceCompatibilityRepairCount == 1
+                && game.Model.SourceStationPlayers.SequenceEqual(owners)
+                && game.Model.Players[owners[station]].SourceControllerStation == station,
+                "actual M1 execution retains the station and records exactly one defensive-switch deferral");
+        }
+        foreach (bool hiking in new[] { false, true })
+        foreach (int receiver in new[] { -1, 3 })
+        {
+            GameSimulation game = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, 0, SourceBallKind.Pass, true);
+            game.Model.SourceFlags = hiking ? SourceGameFlags.HikingBall : SourceGameFlags.None;
+            game.Model.TargetPlayerId = receiver;
+            string before = CarrierlessSwitchState(game);
+            Check(!CarrierlessSwitchFault(game, game.Model.Players[4])
+                && before == CarrierlessSwitchState(game) && game.Model.SourceCompatibilityRepairCount == 1,
+                "carrierless B+C defers with either hiking flag and receiver value without guessing an intended target");
+        }
+        GameSimulation noAngles = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, 0, SourceBallKind.Kickoff);
+        noAngles.Model.SourceAngles = null;
+        Check(Bind<Func<ActorState, bool, int>>(noAngles, "ChangeSourceDefensePlayer")(noAngles.Model.Players[4], false) == -2
+            && noAngles.Model.SourceCompatibilityRepairCount == 1,
+            "carrierless deferral precedes any angle-cache read rather than supplying a replacement row");
+        GameSimulation invalid = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, 0, SourceBallKind.Kickoff);
+        invalid.Model.CarrierId = -2;
+        Check(CarrierlessSwitchFault(invalid, invalid.Model.Players[4])
+            && invalid.Model.SourceCompatibilityRepairCount == 0,
+            "carrierless deferral does not normalize any unsupported negative carrier index");
+        GameSimulation retained = CarrierlessSwitchGame(SourceGameplayCompatibility.Portable, 0, SourceBallKind.Kickoff, true);
+        ActorState retainedActor = retained.Model.Players[4];
+        string retainedBefore = CarrierlessSwitchState(retained);
+        for (int i = 0; i < 100; i++)
+            Check(Bind<Func<ActorState, bool, int>>(retained, "ChangeSourceDefensePlayer")(retainedActor, false) == -2,
+                "portable deferred result is distinct from closest-player minus-one and ordinary zero");
+        SourceMatchView snapshot = ((ISourceMatchState)new GameSnapshot(retained.Model)).Match;
+        Check(retainedBefore == CarrierlessSwitchState(retained) && snapshot.CompatibilityRepairCount == 100
+            && snapshot.CompatibilityRepairs.Count == 64 && snapshot.CompatibilityRepairs[0].Sequence == 37,
+            "carrierless repair retains the bounded chronological tail and lifetime count without control mutation");
+        retained.Restart();
+        Check(retained.Compatibility == SourceGameplayCompatibility.Portable
+            && retained.Model.SourceCompatibilityRepairCount == 0
+            && snapshot.CompatibilityRepairCount == 100 && snapshot.CompatibilityRepairs.Count == 64,
+            "carrierless repairs restart cleanly without changing policy or previously published snapshots");
+    }
+
     private static void CompatibilityChecks()
     {
         Check(real.IsC2M1Profile, "compatibility suite requires actual M1 inputs");

@@ -115,6 +115,7 @@ namespace Blitz.Gameplay
 
     public sealed partial class GameSimulation
     {
+        private const int SourceDefenseSwitchDeferred = -2;
         private int sourceMovementEvasionStage;
         private SourceMovementTick MovementTick { get { return new SourceMovementTick(Model.SourceTick, true); } }
 
@@ -686,7 +687,9 @@ namespace Blitz.Gameplay
                 : Model.BallKind == SourceBallKind.Pass
                     && SourceMatchRules.FieldPosition(Model.SourceBallTarget.X, (int)Model.Possession) <= Model.SourceRules.LineOfScrimmage
                     && SourceMatchRules.FieldPosition(root.X, (int)Model.Possession) >= Model.SourceRules.LineOfScrimmage - 1;
-            bool closest = pushHere || ChangeSourceDefensePlayer(actor, false) == -1;
+            int switchResult = pushHere ? -1 : ChangeSourceDefensePlayer(actor, false);
+            if (switchResult == SourceDefenseSwitchDeferred) return;
+            bool closest = switchResult == -1;
             if (!closest && !(Model.CarrierId < 0 && (Model.SourceFlags & SourceGameFlags.HikingBall) != 0))
             { ChangeSourceDefensePlayer(actor, true); return; }
             float speed = (float)Math.Sqrt(actor.SourceVelocity.X * actor.SourceVelocity.X + actor.SourceVelocity.Z * actor.SourceVelocity.Z);
@@ -707,8 +710,16 @@ namespace Blitz.Gameplay
                 || Model.BallKind == SourceBallKind.FieldGoal || Model.BallKind == SourceBallKind.Kickoff;
             if (Model.Phase == GamePhase.DeadBall && (actor.SourceRawFlags & 0x2) != 0 && Model.CarrierId < 0) return -1;
             if (seeking && Model.CarrierId < 0)
+            {
+                if (Compatibility == SourceGameplayCompatibility.Portable && Model.CarrierId == -1)
+                {
+                    Model.RecordCompatibilityRepair(SourceCompatibilityRepairKind.CarrierlessDefensiveSwitch,
+                        actor.Id, -1, -1, "player.c:db_change_player carrier -1; deferred switch; retained actor and stations; no angle read");
+                    return SourceDefenseSwitchDeferred;
+                }
                 throw new NotSupportedException("player.c:db_change_player seeking-player branch indexes "
                     + "p2p_angles[game_info.ball_carrier==-1]; original undefined C is not replaced with a target.");
+            }
             SourceVector3 target = Model.CarrierId >= 0 ? SourcePlayerDriver.WorldPosition(Model.Players[Model.CarrierId])
                 : Model.SourceBallTarget;
             int selected = actor.Id;

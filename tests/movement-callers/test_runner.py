@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Guard strict summary/mutant layers; not a substitute for actual M1 caller evidence."""
 import importlib.util
+import json
 from pathlib import Path
 import sys
+import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock
 
 
 SUITE = Path(__file__).resolve().parent
@@ -11,6 +15,9 @@ sys.path.insert(0, str(SUITE))
 SPEC = importlib.util.spec_from_file_location("movement_caller_runner", SUITE / "run.py")
 RUNNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUNNER)
+COMPAT_SPEC = importlib.util.spec_from_file_location("compatibility_runner", SUITE / "compatibility.py")
+COMPAT = importlib.util.module_from_spec(COMPAT_SPEC)
+COMPAT_SPEC.loader.exec_module(COMPAT)
 
 
 class MovementCallerGuards(unittest.TestCase):
@@ -169,6 +176,85 @@ class MovementCallerGuards(unittest.TestCase):
         self.assertIn('"--cache-contract-current"', text)
         self.assertIn('result["required_cache_contract"]', text)
         self.assertIn("current_cache_snapshot(snapshot)", text)
+
+
+class CarrierlessCompatibilityGuards(unittest.TestCase):
+    def setUp(self):
+        (SUITE / ".artifacts").mkdir(exist_ok=True)
+        self.temporary = tempfile.TemporaryDirectory(dir=SUITE / ".artifacts")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.cases = []
+        kinds = ["Pass", "FieldGoal", "Kickoff", "Punt", "Fumble", "Bobble", "Lateral"]
+        for station in range(4):
+            actor = [4, 11, 5, 12][station]
+            for kind in kinds:
+                for held in (False, True):
+                    if not held and kind in kinds[:3]:
+                        continue
+                    for closest in (False, True):
+                        self.cases.append({"input": {
+                            "actor": actor, "team": actor // 7, "station": station,
+                            "carrier": (10 if actor < 7 else 3) if held else -1,
+                            "ballKind": kind, "offenseSide": 1 if actor < 7 else 0,
+                            "playOver": False, "onScreen": False, "intendedReceiver": -1, "tx": 0, "tz": 0,
+                            "players": [{"x": 100 * (i % 7 + 1), "z": 0, "station": -1, "unint": False}
+                                        for i in range(14)], "angles": [0] * 196},
+                            "selected": actor if closest else 0 if actor < 7 else 7})
+
+    def check(self, command):
+        path = self.root / "cases.json"
+        path.write_text(json.dumps(self.cases))
+        return COMPAT.check_carrierless_oracle(self.root / "never-executed", path, command, "synthetic-guard-only")
+
+    def test_original_controls_are_unchanged_and_new_thirteen_anchors_are_unique(self):
+        self.assertEqual(12, len(COMPAT.MUTANTS))
+        self.assertEqual(13, len(COMPAT.CARRIERLESS_MUTANTS))
+        for name, filename, old, new, expected in COMPAT.CARRIERLESS_MUTANTS:
+            with self.subTest(name=name):
+                self.assertEqual(1, (COMPAT.ROOT / filename).read_text().count(old))
+                self.assertNotEqual(old, new)
+                self.assertGreater(len(expected), 30)
+
+    def test_original_source_pin_rejects_before_compiling_any_adapter(self):
+        source = self.root / "player.c"
+        source.write_text("not original source")
+        command = Mock()
+        with self.assertRaisesRegex(ValueError, "exact original player.c"):
+            COMPAT.carrierless_oracle(source, self.root, command)
+        command.assert_not_called()
+
+    def test_oracle_rejects_undefined_inputs_incomplete_shapes_and_duplicate_cases(self):
+        for mutate in (
+            lambda rows: rows[0]["input"].update(carrier=-1),
+            lambda rows: rows[0]["input"].update(carrier=-2, ballKind="Punt"),
+            lambda rows: rows[0]["input"].update(carrier=14),
+            lambda rows: rows[0]["input"].update(actor=-1),
+            lambda rows: rows[0]["input"].update(team=2),
+            lambda rows: rows[0]["input"].update(station=4),
+            lambda rows: rows[0]["input"].update(offenseSide=2),
+            lambda rows: rows[0]["input"].update(angles=[0] * 195),
+            lambda rows: rows[0]["input"]["players"][0].update(unint=True),
+            lambda rows: rows.__setitem__(1, rows[0]),
+        ):
+            original = json.loads(json.dumps(self.cases))
+            mutate(self.cases)
+            command = Mock()
+            with self.subTest(mutate=mutate), self.assertRaises(ValueError):
+                self.check(command)
+            command.assert_not_called()
+            self.cases = original
+
+    def test_oracle_requires_exact_successful_complete_c_output_not_a_zip_prefix(self):
+        lines = [str(row["selected"]) for row in self.cases]
+        accepted = Mock(return_value=SimpleNamespace(returncode=0, stdout="\n".join(lines) + "\n"))
+        self.assertEqual("passed-defined-domain-only", self.check(accepted)["status"])
+        for code, output in (
+            (1, lines), (0, lines[:-1]), (0, lines + ["0"]), (0, ["999"] + lines[1:]),
+        ):
+            command = Mock(return_value=SimpleNamespace(returncode=code, stdout="\n".join(output) + "\n"))
+            with self.subTest(code=code, count=len(output)), self.assertRaises(RuntimeError):
+                self.check(command)
 
 
 if __name__ == "__main__":

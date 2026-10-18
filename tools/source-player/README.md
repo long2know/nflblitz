@@ -10,6 +10,15 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+The explicit Portable kernel policy reports `CarrierlessDefensiveSwitch` in
+`state.kernel.repairs` when a human requests a defensive switch during a
+carrierless Pass/FieldGoal/Kickoff seeking branch. The actor/stations are
+retained without inventing a receiver/angle, starting a B+C push or consuming
+RNG. This authored continuity policy does not change the strict factory
+default or claim defined original memory behavior. The real M1 caller,
+defined original C comparisons and compiled controls are documented in
+`../../tests/movement-callers/README.md`.
+
 ## Required source free-ball geometry/material/flight binding
 
 The former recentered `hand001b` material6 extraction was a **held-ball**

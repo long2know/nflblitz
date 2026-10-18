@@ -44,7 +44,7 @@ public static class KernelBinding
                 new { team = "Home", raw = match.HomeGameplay.RawHandicap, effective = match.HomeGameplay.EffectiveHandicap },
                 new { team = "Away", raw = match.AwayGameplay.RawHandicap, effective = match.AwayGameplay.EffectiveHandicap }
             },
-            limitation = "Explicit M1 Portable policy: handicap consumers saturate to0..11; nonnegative block counts use the last original entry; targetless running-push drones retain prior valid steering without an angle read or invented target. Raw values remain preserved and each repair is reported. No arcade/native fidelity claim."
+            limitation = "Explicit M1 Portable policy: handicap consumers saturate to0..11; nonnegative block counts use the last original entry; targetless running-push drones retain prior valid steering; carrierless seeking defensive switches defer while retaining the controlled actor and stations, without an angle read, replacement target or RNG draw. Raw values remain preserved and each repair is reported. No arcade/native fidelity claim."
         };
     }
 }

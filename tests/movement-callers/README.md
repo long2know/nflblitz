@@ -83,6 +83,49 @@ and separately report the retained stick. StrictSource still stops at that
 exact source boundary. This is an authored continuity policy, not a claim about
 target memory or native behavior.
 
+The separate carrierless defensive-switch contract keeps the original325
+assertions/twelve controls unchanged:
+
+```sh
+python3 -B tests/movement-callers/compatibility.py \
+  --fixture-manifest "$PRODUCTION272_FIXTURE" --sound-functions "$SAFN" \
+  --c2-m1-inputs "$M1_INPUTS" --old-c2-inputs "$OLD_NINE_INPUTS" \
+  --carrierless-switch-only --source-root "$PINNED_ORIGINAL_ROOT" \
+  --output .squad/.scratch/carrierless-focused
+```
+
+Its1,142 additional assertions cover the actual four-station M1 factory and
+movement-mode caller, B versus B+C, stationary versus running, all three
+carrierless seeking ball kinds, exact strict faults, retained station/actor/
+ball/animation/RNG state, visible typed diagnostics, bounded retention and
+restart. Existing drone, play-over/onscreen, no-new-B, running-push and lazy
+`pushHere` exits remain separate. Hiking/intended-receiver values cannot invent
+a replacement target; unsupported negative carrier indices still fault.
+Thirteen compiled controls must fail their named causal assertions.
+
+For defined carrier and nonseeking Punt/Fumble/Bobble/Lateral cases, both modes
+retain identical real switch/closest-player results. Eighty-eight authored
+cases additionally match the exact pinned original C selection prefix, with
+all14 current positions/stations and the real14x14 angle cache. The C adapter
+uses authored structures/symbol constants and exposes selection before the
+transfer tail. It excludes carrierless seeking reads and uninterruptible
+sequence-range qualification; it is not native-memory or whole-game evidence.
+
+Explicit Portable mode defers only `ball_carrier == -1` in the original
+`db_change_player` seeking branch. Its private deferred result is distinct
+from the ordinary closest-player `-1`, so B+C cannot accidentally start a
+push, repeat the switch or draw RNG. `CarrierlessDefensiveSwitch` diagnostics
+identify the retained actor; raw/effective carrier indices stay `-1`, and
+`RetainedStick` stays null. No replacement receiver, angle or teammate is
+chosen. StrictSource retains its exact existing exception.
+
+The cache observer's exact accepted `SourceMovementIntegration.cs` pin advances
+from the pre-deferral `bceb5116...` revision to `8a4a7390...` for this bounded
+production edit. The real geometry call, removable insertion, historical
+source474 assertions/control counts, named public12k input and positive R_SKIP
+requirements are not changed. Dated earlier qualification remains historical;
+the required full caller gate executes again against the new exact generation.
+
 For an explicitly authorized **single** changed-behavior observation, append
 `--source-compatibility portable --single-public-attempt` to the full M1 command.
 This does not alter the immutable public input, provider, seed or R_SKIP gate.
