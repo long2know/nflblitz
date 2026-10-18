@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portable C# browser preview — not a Unity player build</title>
+<style>
+  :root { color-scheme: dark; background: #11151b; color: #e7edf4; font-family: system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; max-width: 1440px; padding: 12px 20px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.08rem; margin: 4px 0; }
+  header span { font-size: .8rem; color: #c4cbd5; }
+  #status { padding: 8px 12px; background: #202a37; border-left: 4px solid #8397b1; margin: 8px 0; font-size: .85rem; }
+  #status.ready { border-color: #68d095; }
+  #status.diagnostic { border-color: #e5b356; }
+  #status.failed { border-color: #ff7777; color: #ffd2d2; }
+  .stage { width: min(100%, calc((100vh - 220px) * 4 / 3)); margin: auto; }
+  canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: black; outline: 1px solid #4d596b; }
+  canvas:focus { outline-color: #bdcedf; }
+  .controls { font-size: .83rem; line-height: 1.6; margin: 9px 0; }
+  .qualification { font-size: .75rem; color: #e1bc7d; margin: 6px 0; }
+  kbd { padding: 1px 5px; background: #283342; border-radius: 3px; }
+  details { font-size: .75rem; color: #aebccd; }
+  pre { white-space: pre-wrap; }
+  @media (max-width: 650px) {
+    body { padding: 8px; }
+    .stage { width: 100%; }
+    h1 { font-size: .9rem; }
+    header span { font-size: .7rem; }
+    .controls { font-size: .76rem; }
+  }
+</style>
+<body>
+<header>
+  <h1>Portable C# browser preview <span>(not a Unity player build)</span></h1>
+  <span>Actual production gameplay · original source artwork · portable raster origin</span>
+</header>
+<p id="status">Loading actual production C# gameplay…</p>
+<div class="stage">
+<canvas id="game" width="1280" height="800" tabindex="0"></canvas>
+</div>
+<p class="controls">
+  P1 <kbd>WASD</kbd> cabinet stick · <kbd>V</kbd> A: flip / jump / tackle ·
+  <kbd>B</kbd> B: select / snap / pass / switch · <kbd>N</kbd> C: page / turbo ·
+  <kbd>Enter</kbd> next result · <kbd>Esc</kbd> pause · <kbd>R</kbd> restart.
+  Standard controller: left stick / D-pad, A, B, right shoulder.
+  Original kickoff runs first. Pick a play with B; snap after the source one-second gate.
+</p>
+<p class="qualification">Audio output unqualified · Dust/fire FX unqualified · Explicit Portable corrections;
+native Unity build and arcade bit-exact acceptance remain open.</p>
+<details><summary>Runtime, policy and qualification limits</summary>
+<pre id="runtime-details"></pre>
+<p>This license-independent preview runs C# on .NET WebAssembly, not Unity. Original authored TGA/HUD raster,
+source-derived normal framing, native free-ball orientation, dust/fire effects and audio output remain
+separately qualified or unqualified; this is not a native Unity build or bit-exact arcade acceptance.</p>
+</details>
+<script>
+(() => {
+  const status = document.querySelector('#status');
+  let failed = false, stop;
+  const fail = error => {
+    if (failed) return;
+    failed = true;
+    status.className = 'failed';
+    status.textContent = `SOURCE PLAYER STOPPED: ${error?.message || error}. No fallback gameplay or placeholder art.`;
+    console.error('SOURCE_PLAYER_FAILED', error);
+    stop?.();
+  };
+  Object.defineProperty(globalThis, 'sourcePlayerLoader', { value: Object.freeze({
+    get failed() { return failed; },
+    fail,
+    progress(message) { if (!failed) status.textContent = message; },
+    onFailure(callback) { stop = callback; if (failed) stop(); },
+  }) });
+  window.addEventListener('error', event => fail(event.error || new Error(event.message ||
+    `Required source player resource failed: ${event.target?.src || event.filename || 'unknown resource'}`)), true);
+  window.addEventListener('unhandledrejection', event => fail(event.reason));
+  import('./main.js').catch(error => fail(new Error(
+    `Required source player module graph (main.js) could not start: ${error?.message || error}`)));
+})();
+</script>
+</body>
+</html>
