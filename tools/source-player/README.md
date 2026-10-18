@@ -265,6 +265,43 @@ the supplied public defaults matching production's teams0/1, ordinary settings,
 single Home cabinet, no powerup/assist override, and original512×384 DIP raster.
 Their byte identities are included in the private data manifest.
 
+### Two or four local human cabinets
+
+The default remains one Home human. To prepare an explicit two-human game, use
+`--settings tools/source-player/match-settings.two-player.json`; for four humans,
+use `--settings tools/source-player/match-settings.four-player.json` in the same
+preparation command above. Choose a fresh private output and build against its
+new manifest. Do not replace settings inside an existing accepted data bundle.
+
+The two-human configuration assigns P1 Home and P2 Away. The four-human
+configuration adds P3 Home and P4 Away, retaining the original seven actors per
+team, ordinary rosters/settings and no custom-head or powerup override. These are
+explicit free-play boot configurations, not original coin/join/menu emulation,
+network multiplayer or permission to alter a running simulation.
+
+| Human | Directions | A / B / C |
+| --- | --- | --- |
+| P1 | W / S / A / D | V / B / N |
+| P2 | Arrow keys | Delete / End / Page Down |
+| P3 | I / K / J / L | U / O / P |
+| P4 | T / G / F / H | Z / X / C |
+
+Each station can instead use its corresponding connected standard-mapped
+gamepad. The configured first captain selects that side's play; teammates retain
+their separate live controls. Escape pauses all local cabinets, focus loss clears
+all held inputs, and Enter submits Continue for the first configured station.
+Asset-free configuration/buffer and keyboard-focus regressions do not by
+themselves qualify a multi-human browser session or all I1 multiplayer cases.
+
+Separate real-data browser campaigns verified two and four actual human
+controller bindings, simultaneous independent raw cabinet inputs, a real
+focus-loss clock stop, neutral input recovery and fresh post-focus controls.
+The four-human opening-play case also observed all four controlled actors move;
+the two-human case observed P1 movement and P2 binding/input, not movement for
+every station or every action. These are bounded local-keyboard cases, not
+physical multi-gamepad, join-during-play, complete multiplayer-match or native
+cabinet-accounting qualification.
+
 The runtime independently verifies every file and then uses the production
 readers' own content/provenance checks. A missing clip, model, atlas, texture,
 provider or service is fatal: no placeholder can become ready. Preparation is
@@ -493,7 +530,7 @@ All evidence stays in ignored `tools/source-player/artifacts/`.
 itself and its public source/Docker dependencies. Its read-only, ten-minute job
 uses the same pinned checkout/Node/.NET10.0.100 setup as `game-build.yml`. It
 compiles the actual native Checks/Core projects with an empty local NuGet feed,
-runs the three cabinet-input, five public renderer, and two source-head
+runs the four cabinet-input, five public renderer, and two source-head
 renderer contract tests, the two named public preparation failure gates,
 the four hosting guards, and workflow mutation guards. The source-head fixtures
 are synthetic asset-free contracts, not genuine gameplay witnesses. Hosting

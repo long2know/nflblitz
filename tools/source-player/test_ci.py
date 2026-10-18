@@ -150,7 +150,7 @@ class SourcePlayerCI(unittest.TestCase):
         self.assertIn('File.ReadAllBytes(Path.Combine(root, "manifest.json"))', checks)
         self.assertIn("new PlayerData(catalog)", checks)
         self.assertIn("./artifacts/portable-player/evidence.json", (HERE / "assertions.test.mjs").read_text())
-        self.assertEqual(3, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
+        self.assertEqual(4, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
         renderer = (HERE / "renderer.test.mjs").read_text()
         self.assertEqual(5, len(re.findall(r"^test\(", renderer, re.M)))
         self.assertNotIn("artifacts/", renderer)
