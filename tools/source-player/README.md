@@ -49,6 +49,12 @@ includes the actual bound model/projection uniforms and original texture
 identity; state/GPU pairs are collected in one synchronous browser task.
 Unmodified gameplay PNGs remain honestly source-tick **bracketed**.
 
+Core retains the original standing kickoff heading/elevation during pre-snap
+and the kicker's approach, before returning to the existing flight orientation.
+The original spin celebration's one-wake elevation overshoot is also retained.
+These are `ball_proc` lifecycle rules, not browser-side rotation substitutes;
+the extracted original-C regression is documented in `../../tests/ball/README.md`.
+
 Focused checks:
 
 ```sh

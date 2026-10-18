@@ -32,14 +32,14 @@ internal static class Program
                 args = args.Take(args.Length - 2).ToArray();
             }
             if (args.Length != 3 && args.Length != 4)
-                throw new ArgumentException("BallChecks actual-fixture.json original-C-case-directory all|native|caller|sentinel|geometry");
+                throw new ArgumentException("BallChecks actual-fixture.json original-C-case-directory all|native|caller|sentinel|geometry|orientation");
             FullKernelInputs real = FullKernelInputs.Load(args[0], soundFunctionsPath: args.Length == 4 ? args[3] : null,
                 c2InputsPath: c2Inputs, c2M1InputsPath: c2M1Inputs);
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["canonical_B1_animation_manifest"] = real.Animations.InventorySha256;
             result["production_contact272_selected"] = real.IsContactProfile;
             string section = args[2];
-            if (section != "all" && section != "native" && section != "caller" && section != "sentinel" && section != "geometry" && section != "flip-fifo" && section != "snap-hike")
+            if (section != "all" && section != "native" && section != "caller" && section != "sentinel" && section != "geometry" && section != "flip-fifo" && section != "snap-hike" && section != "orientation")
                 throw new ArgumentException("Unknown bounded ball section.");
             if (section == "flip-fifo")
                 result["caller_assertions"] = SourceCallerChecks.RunFlipOnly(real, args[1]);
@@ -55,6 +55,8 @@ internal static class Program
                 result["sentinel_assertions"] = SentinelChecks.Run(real, args[1]);
             if (section == "all" || section == "native")
                 result["native_ball_assertions"] = NativeBallChecks.Run(real, args[1]);
+            if (section == "all" || section == "orientation")
+                result["orientation_ball_assertions"] = NativeBallChecks.RunOrientation(real, args[1]);
             if (section == "all" || section == "caller")
             {
                 // Historical callers use157, numeric controls117; the explicit new fixture selects production272.

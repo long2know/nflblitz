@@ -526,10 +526,16 @@ namespace Blitz.Gameplay
                 vz = model.SourceBallVelocity.Z;
             if (vx == 0f && vz == 0f)
             {
-                if ((model.SourceBallFlags & SourceBallFlags.Spinning) != 0)
+                if (model.Phase == GamePhase.PreSnap && model.SourceRules.PlayType == SourcePlayType.Kickoff)
+                {
+                    model.SourceBallElevation = 384;
+                    model.SourceBallHeading = model.Possession == TeamId.Home ? 256 : 768;
+                }
+                else if ((model.SourceBallFlags & SourceBallFlags.Spinning) != 0)
                 {
                     model.SourceBallRoll += 80;
-                    model.SourceBallElevation = Math.Min(256, model.SourceBallElevation + 5);
+                    model.SourceBallElevation = model.SourceBallElevation < 256
+                        ? model.SourceBallElevation + 5 : 256;
                 }
                 else model.SourceBallElevation = 0;
                 return;

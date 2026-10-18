@@ -1,5 +1,26 @@
 # Actual-source ball and input/cue caller regressions
 
+## Source ball orientation lifecycle
+
+The actual `SourceBallDriver.Advance` now retains the original standing kickoff
+orientation during both pre-snap and the kicker's approach, including side and
+priority over spinning. The spin celebration also retains the original
+255-to-260-to-256 elevation transition instead of clamping one wake early.
+Moving velocity pitch, tumbling, pass axial roll and held/phantom behavior are
+unchanged.
+
+The default complete campaign adds **34,713** assertions on **1,769** new
+runtime-extracted original-C heading cases without replacing any existing
+numeric/caller count. This includes 61 consecutive real `Spin`/`Advance` wakes,
+the phase/side/play/flag boundary matrix and moving/held controls. Three
+separately compiled causal controls reject the wrong phase, reversed side and
+early clamp. Generated C, trigonometry and numeric output remain ignored.
+
+For the focused campaign, append `--section orientation --orientation-controls`
+to the real-input command below. These are defined-domain managed/component
+comparisons, not native Unity, original target scheduling or complete gameplay
+parity.
+
 ## Fire-generation fixture inputs
 
 Context: `2026-10-17T14:23:38.829-07:00`. The following is a fixture repair for
