@@ -435,6 +435,7 @@ bash tools/source-player/dotnet.sh run \
 
 node --test tools/source-player/input.test.mjs
 node --test tools/source-player/renderer.test.mjs
+node --test tools/source-player/popped-head.renderer.test.mjs
 python3 -B -m unittest discover -s tools/source-player -p 'prepare_test.py'
 # The four hosting guards use the real Docker Compose parser and mutate the
 # actual Compose configuration to reject public/writable/empty/unpinned defaults.
@@ -492,9 +493,10 @@ All evidence stays in ignored `tools/source-player/artifacts/`.
 itself and its public source/Docker dependencies. Its read-only, ten-minute job
 uses the same pinned checkout/Node/.NET10.0.100 setup as `game-build.yml`. It
 compiles the actual native Checks/Core projects with an empty local NuGet feed,
-runs the existing three cabinet-input and five public renderer contract tests,
-the two named public preparation
-failure gates, the four hosting guards, and workflow mutation guards. Hosting
+runs the three cabinet-input, five public renderer, and two source-head
+renderer contract tests, the two named public preparation failure gates,
+the four hosting guards, and workflow mutation guards. The source-head fixtures
+are synthetic asset-free contracts, not genuine gameplay witnesses. Hosting
 checks use the existing Compose CLI parser with an unavailable daemon endpoint;
 the job does not install Docker, Chrome or browser-WASM workloads.
 

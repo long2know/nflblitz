@@ -32,7 +32,7 @@ COMMANDS = {
         PUBLIC_DOTNET + " build tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-restore --nologo",
     ),
     "Test public cabinet input and renderer contracts": (
-        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs",
+        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs",
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
@@ -123,6 +123,7 @@ class SourcePlayerCI(unittest.TestCase):
             ("--no-restore", "--source-root /data/private"),
             ("node --test tools/source-player/input.test.mjs", "echo node --test tools/source-player/input.test.mjs"),
             (" tools/source-player/renderer.test.mjs", ""),
+            (" tools/source-player/popped-head.renderer.test.mjs", ""),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),
             ("python3 -B tools/source-player/hosting_test.py", "true"),
@@ -153,6 +154,9 @@ class SourcePlayerCI(unittest.TestCase):
         renderer = (HERE / "renderer.test.mjs").read_text()
         self.assertEqual(5, len(re.findall(r"^test\(", renderer, re.M)))
         self.assertNotIn("artifacts/", renderer)
+        head_renderer = (HERE / "popped-head.renderer.test.mjs").read_text()
+        self.assertEqual(2, len(re.findall(r"^test\(", head_renderer, re.M)))
+        self.assertNotIn("artifacts/", head_renderer)
         tree = ast.parse((HERE / "prepare_test.py").read_text())
         cases = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PreparationChecks")
         methods = {node.name: node for node in cases.body if isinstance(node, ast.FunctionDef)}
