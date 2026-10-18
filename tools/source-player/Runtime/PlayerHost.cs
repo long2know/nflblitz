@@ -237,7 +237,11 @@ public sealed class PlayerHost
                 poseDigest = PoseDigest(pose), handicap = actor.Source.Handicap, rawHandicap = actor.Source.RawHandicap,
                 controller = actor.Source.ControllerStationId, tint = "none",
                 rawFlags = actor.Source.Presentation.RawFlags,
-                flashWhite = new SourceFirePlayerFlashState(actor.Source.Presentation.RawFlags).White
+                flashWhite = new SourceFirePlayerFlashState(actor.Source.Presentation.RawFlags).White,
+                headVariant = binding.Appearance.CustomHead != null ? "original-station-custom" :
+                    binding.Appearance.PoppedHead != null ? "original-phead-source-authored" : "original-helmeted",
+                headSourceSha256 = binding.Appearance.PoppedHead != null ? SourceTeamPoppedHeadData.SourceSha256 : null,
+                headGeometrySha256 = binding.Appearance.PoppedHead != null ? SourceTeamPoppedHeadData.HeaderSha256 : null
             };
         }
         var hudDraw = new List<SourceHudPrimitive>(hud.Compose(HudProcess.CommittedState, viewport, selection, hudClock.RedClock, !Active));
@@ -299,7 +303,13 @@ public sealed class PlayerHost
                 process = HudProcess.ResultPending ? "Actual C2 result queued; last committed authored HUD held for one source wake" : "Actual committed original HUD state",
                 elements = hudDraw.Select(p => p.Element).Distinct().ToArray() },
             assets = new { meshes = Assets.MeshCount, textures = Assets.TextureCount,
-                worldDraws = Assets.WorldDrawCount, appearances = Assets.AppearanceCount },
+                worldDraws = Assets.WorldDrawCount, appearances = Assets.AppearanceCount,
+                poppedHead = Data.PoppedHead == null ? null : new {
+                    origin = SourceTeamPoppedHeadData.Origin, sourceSha256 = SourceTeamPoppedHeadData.SourceSha256,
+                    geometrySha256 = SourceTeamPoppedHeadData.HeaderSha256, manifestSha256 = Data.PoppedHead.ContentSha256,
+                    headJoint = SourceTeamPoppedHeadData.HeadJoint, rawTextureCode = SourceTeamPoppedHeadData.RawTextureCode,
+                    logicalTextureSlot = SourceTeamPoppedHeadData.LogicalTextureSlot, nativeHeaderEquivalent = false
+                } },
             input = new { samples = InputSamples, changes = InputChanges, pending = input.PendingFrames,
                 waitingForNeutral = input.WaitingForNeutral, buttons = lastButtons, axes = lastAxes },
             active = Active, events = events.ToArray(), eventCounts, contacts = contacts.ToArray(), contactCounts,

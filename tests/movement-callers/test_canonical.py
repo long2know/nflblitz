@@ -352,9 +352,10 @@ class CanonicalObservationGuards(unittest.TestCase):
             "Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs",
             "Assets/Scripts/Contracts/SourceKickMeterContracts.cs",
             "Assets/Scripts/Gameplay/SourceKickMeterProcess.cs",
+            "Assets/Scripts/AssetImport/SourceTeamPoppedHeadData.cs",
         ):
             self.assertIn(name, paths)
-        self.assertEqual(len(paths), 72)
+        self.assertEqual(len(paths), 73)
 
 
 if __name__ == "__main__":

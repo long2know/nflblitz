@@ -6,13 +6,14 @@ const args = process.argv.slice(2);
 const suite = args[0];
 if (!['loader', 'baseline', 'features'].includes(suite)) throw new Error('Choose loader, baseline or features actual browser suite.');
 const output = args[1] || `tools/source-player/artifacts/${suite}-current`;
+const url = args[2] || 'http://127.0.0.1:8083/';
 await mkdir(output, { recursive: true });
 const chrome = await launchChrome(output);
 try {
   const port = (await readFile(`${chrome.launch.runtime}/profile/DevToolsActivePort`, 'utf8')).split('\n')[0];
   const script = suite === 'loader' ? 'tools/source-player/loader.browser.test.mjs' :
     suite === 'features' ? 'tools/source-player/feature-options.browser.test.mjs' : 'tools/source-player/browser-smoke.mjs';
-  const command = [script, '--url', 'http://127.0.0.1:8083/', '--cdp-port', port];
+  const command = [script, '--url', url, '--cdp-port', port];
   if (suite !== 'baseline') command.push('--evidence', `${output}/evidence.json`);
   const child = spawn(process.execPath, command, { stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';

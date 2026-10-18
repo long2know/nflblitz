@@ -24,6 +24,7 @@ public sealed class PlayerData
     public SourceCinematicLibrary Impact { get; }
     public SourceEnvironmentBundle World { get; }
     public SourceFireSpfxBundle Fire { get; }
+    public SourceTeamPoppedHeadData PoppedHead { get; }
     private readonly Dictionary<string, string> headers = new(StringComparer.Ordinal);
 
     public PlayerData(DataCatalog data, Action<string> progress = null)
@@ -83,6 +84,12 @@ public sealed class PlayerData
             progress?.Invoke("Verifying original SDL/seventeen TRAIL authoring frames; portable not native WMS");
             Fire = SourceFireSpfxReader.Read(data.EntryBytes("fire"), data.EntryHash("fire"),
                 path => data.Read("fire/" + path));
+        }
+        if (data.HasEntry("poppedHead"))
+        {
+            progress?.Invoke("Verifying original phead SDL source-authored geometry, raw texture4/HEDSHU slot1");
+            PoppedHead = SourceTeamPoppedHeadData.Read(data.EntryBytes("poppedHead"), data.EntryHash("poppedHead"),
+                path => data.Read("popped-head/" + path));
         }
     }
 

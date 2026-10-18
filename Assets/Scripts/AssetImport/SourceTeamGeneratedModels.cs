@@ -57,6 +57,25 @@ namespace Blitz.AssetImport
             return BindPoseMeshBuilder.Build(model, MaterialBindings(), Conversion);
         }
 
+        public static BindPoseLimbMesh BuildPoppedHead(SourcePlayer referenceModel, SourceTeamPoppedHeadData head)
+        {
+            if (referenceModel == null || head == null)
+                throw new ArgumentNullException(referenceModel == null ? nameof(referenceModel) : nameof(head));
+            if (referenceModel.Limbs.Count != SourceTiming.JointCount || referenceModel.Nodes.Count != SourceTiming.JointCount ||
+                referenceModel.MaterialSlots.Count != MaterialSlots.Length)
+                throw new PlayerAssetException("Original popped head requires the actual fifteen-joint/nine-slot team reference model.");
+            return BuildPoppedHead(head, referenceModel.Nodes[SourceTeamPoppedHeadData.HeadJoint].BindPivot);
+        }
+
+        public static BindPoseLimbMesh BuildPoppedHead(SourceTeamPoppedHeadData head, AssetVector3 sourceBindPivot)
+        {
+            if (head == null) throw new ArgumentNullException(nameof(head));
+            var selected = new SourcePlayer(new PlayerSymbolSelection("phead_source_model", "phead_source_rig",
+                "phead_source_order", "phead_source_materials"), new[] { head.Limb },
+                new[] { new SourceRigNode(0, -1, sourceBindPivot, 4, new int[0]) }, MaterialSlots);
+            return BuildModel(selected)[0];
+        }
+
         public static PlayerMaterialBinding[] MaterialBindings()
         {
             var result = new PlayerMaterialBinding[MaterialSlots.Length];

@@ -89,7 +89,9 @@ function frame(time) {
     const state = renderer.status;
     const featureStatus = document.querySelector('#feature-status');
     if (featureStatus) featureStatus.textContent = `Audio output unqualified · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
-      `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · Native pixels/Unity/DSP remain unqualified.`;
+      `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · ` +
+      `Phead ${state.assets.poppedHead ? 'original SDL-derived, NOT native head.h' : 'input absent; required raw flag stops'} · ` +
+      'Native pixels/Unity/DSP remain unqualified.';
     sourceSamples.push({ time: performance.now(), tick: state.sourceTick });
     if (sourceSamples.length > 300) sourceSamples.shift();
     if (!ready && state.sourceTick >= 2 && state.actorCount === 14 && renderer.frameCount >= 2) {
@@ -128,6 +130,7 @@ function frame(time) {
         `${renderer.device.unmaskedRenderer || renderer.device.renderer}\n` +
         `Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
         `kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit)\n` +
+        `Popped head ${state.assets.poppedHead ? 'original phead SDL-derived, raw4/HEDSHU1, native head.h unqualified' : 'no input; no fallback'}\n` +
         'Audio output unqualified · native Unity / arcade bit-exact acceptance open';
     }
     frameHandle = requestAnimationFrame(frame);
