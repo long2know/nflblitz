@@ -98,6 +98,25 @@ class InventoryGuardTests(unittest.TestCase):
             "parity/ParityChecks.csproj",
         ], affected)
 
+    def test_presentation_catalog_includes_its_actual_interface_package_dependencies(self):
+        root = Path(__file__).resolve().parents[1]
+        project = root / "tests/presentation/PresentationChecks.csproj"
+        included = set()
+        for item in ET.parse(project).findall(".//Compile"):
+            prefix = "$(BlitzSourceRoot)"
+            for pattern in item.attrib.get("Include", "").split(";"):
+                if not pattern.startswith(prefix):
+                    continue
+                paths = set(root.glob(pattern[len(prefix):]))
+                for exclusion in item.attrib.get("Exclude", "").split(";"):
+                    if exclusion.startswith(prefix):
+                        paths.difference_update(root.glob(exclusion[len(prefix):]))
+                included.update(paths)
+        for name in ("SourceCinematicLibrary.cs", "SourceTeamInterfacePackage.cs",
+                     "SourceInterfaceData.cs", "SourceInterfaceMovementData.cs"):
+            self.assertIn(root / "Assets/Scripts/AssetImport" / name, included,
+                          str(project) + " omits a real cinematic/package dependency: " + name)
+
 
 if __name__ == "__main__":
     unittest.main()

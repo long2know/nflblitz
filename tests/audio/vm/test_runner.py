@@ -57,6 +57,8 @@ class SoundVmClosure(unittest.TestCase):
         for project, prefix in (
             ("audio/runtime/SourceSoundRuntime.Checks.csproj", "$(BlitzSourceRoot)"),
             ("presentation/movement-stage/StageChecks.csproj", "$(BlitzStageRoot)"),
+            ("presentation/interface-packaging/PackagingChecks.csproj", "$(BlitzPackagingRoot)"),
+            ("presentation/sound-runtime/SoundPackagingChecks.csproj", "$(SoundPackagingRoot)"),
         ):
             includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile")}
             for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):

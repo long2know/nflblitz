@@ -153,7 +153,8 @@ def main(argv=None):
         print(json.dumps({"status": "passed", "pure_assertions": result["pure_assertions"],
                           "compiled_bootstrap_mutants_rejected": result["compiled_bootstrap_mutants_rejected"],
                           "runtime_structural_mutants_rejected": stage_report["rejected_actual_source_guard_mutants"] +
-                              stage_report["rejected_actual_service_guard_mutants"],
+                              stage_report["rejected_actual_service_guard_mutants"] +
+                              stage_report["rejected_actual_factory_guard_mutants"],
                           "actual_Unity_API_compiled": args.unity_editor_data is not None,
                           "actual_runtime_data_tested": args.movement is not None, "native_claimed": False}))
         return 0

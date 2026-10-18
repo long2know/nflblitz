@@ -15,6 +15,8 @@ class ActualCallerChecks(unittest.TestCase):
             ("Runtime/SourceInterfaceServices.cs", "!ReferenceEquals(prefab, teams.Template)", "false"),
             ("Runtime/SourceInterfaceServices.cs", "SourceContactComposition.CreateSimulation(", "AnotherInspector.CreateSimulation("),
             ("Runtime/BlitzRuntime.cs", "ResolveActorMode(profile)", "ResolveActorMode(true)"),
+            ("Runtime/BlitzRuntime.cs", "sourceServices.CreateSimulation(prefab, compatibility)",
+             "sourceServices.CreateSimulation(prefab)"),
             ("Editor/SourceTeamInterfaceImporter.cs", "services.InitializeContact272(", "services.Initialize("),
             ("Presentation/SourcePlayerProvider.cs", "profile.RequireImpact(library);", ""),
         )
