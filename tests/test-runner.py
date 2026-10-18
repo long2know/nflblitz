@@ -89,6 +89,7 @@ class InventoryGuardTests(unittest.TestCase):
             "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
             "contact/ContactChecks.csproj",
+            "fire-handicap/FireHandicapChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)
