@@ -1,5 +1,46 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Saved Portable authoring harness and audited re-export
+
+`PortablePublicPolicy.cs` retains the separately authorized
+`portable-cabinet-wide-pass-clearance` / `approved-portable-public-policy/v1`
+authoring drill. Its immutable public projection contains phase, possession,
+controlled/carrier IDs, visible positions/roles/turbo, play kind and completion/
+fire counters, not model/RNG/animation observations. It emits legal station
+axes/ABC edges and ordinary menu commands; production owns passing, receiver
+transfer, fire and taunt selection. Synthetic policy checks construct no game
+and execute no hosts. The create-new marker/one-window budget and all normal
+canonical acceptance predicates remain unchanged.
+
+Re-exporting the saved capture runs **no controller or gameplay**:
+
+```sh
+python3 -B tests/movement-callers/export_portable_public.py \
+  --capture "$RETAINED_CAPTURE" --receipt "$RETAINED_RECEIPT" \
+  --poses "$RETAINED_REAL_POSES" --policy "$RETAINED_POLICY" \
+  --producer-source "$RETAINED_ORIGINAL_EXPORTER_SOURCE" \
+  --output "$NEW_OWN_IGNORED_EXPORT"
+```
+
+The destination must be fresh beneath this worktree's `.squad/.scratch`;
+traversal/symlink ancestors and all invalid input/provenance fail before any
+artifact write. Shared closed public validation and exporter constructor checks
+reject illegal source commands/plays as well as invalid station controls.
+Policy bytes are read once and bound to the receipt. Controller/provider,
+factory/configuration, actual source/input hashes and scalar-only publication
+metadata are checked before privacy/unchanged-provenance flags are emitted.
+
+The private3027-byte author recipe remains the exact historical `5cbebb47...`
+record, including the retained original producer's source stamp. That original
+source must hash to `c876727d...`; omitting `--producer-source` uses its location
+in the retained policy's original worktree. The revised validator reports its
+own current source hash separately. This recipe is **not for publication** and
+is distinct from the current818-byte minimal public `1f82c109...` recipe below.
+Saved public JSONL/gzip identities stay `830e7bad...` / `802bb995...`.
+Re-export neither reexecutes the window nor claims current full CI/native proof;
+the later published QF qualification and explicit named CI selection below
+remain separate and unchanged. No new window is authorized by this command.
+
 ## Explicit portable compatibility (not original-hardware evidence)
 
 Default constructors, factories and CLI select `StrictSource`. Only actual M1
