@@ -157,6 +157,11 @@ distinct six-flag actual-data mode; do not reuse C2 flag names there.
 
 ### Exact public replay preparation and required full-M1 gate
 
+The required workflow deliberately opts into the authored **Portable M1**
+consumer policy. All existing constructor/factory defaults remain StrictSource;
+this is not original native/target-memory qualification. The CLI rejects any
+duplicate compatibility selection before output/input/build/replay.
+
 The checkout now contains one input-only fixture,
 `movement-callers/fixtures/canonical-public-12000.jsonl.gz`. Its decoded rows use
 the existing `ReadPublicReplay` JSONL schema and contain only all12,000 original
@@ -180,7 +185,8 @@ python3 -B tests/movement-callers/run.py \
   --source-root "$ORIGINAL_SOURCE" --input-profile contact272 \
   --fixture-manifest "$FIXTURE272" --sound-functions "$SAFN" \
   --c2-m1-inputs "$C2_M1_INPUTS" --replay-commands "$REVIEWED_REPLAY" \
-  --output tests/movement-callers/.artifacts/local-m1-full
+  --output tests/movement-callers/.artifacts/local-m1-full \
+  --source-compatibility portable
 ```
 
 The decoded public SHA-256 is
@@ -200,20 +206,26 @@ draws before AI and old SAFN before wake. Original three cache/eight caller
 controls and the full final baseline remain required. The after2299 same-
 actor/same-instance two-ordinal/two-real15-pose R_SKIP check is still a hard
 gate; zero remains **UNMET**, not the old scoped window or full PASS.
+Do not add `--single-public-attempt` to the required workflow. That diagnostic
+mode cannot qualify the full compiled-control/physics closure. Portable success
+must be labelled separately (`passed-portable-M1-public-caller-gate`); omitted
+compatibility is strict, not a hidden portable promotion.
 
 The source-derived snap fix waits for actual `hike_ball` instead of
 request-time Live. Its generation-scoped focused receipt does not resolve
 original `bc_adjust[6]`: the runtime-stack table has only six ints, and after
-six blocks the source computes index6. No approved corrected semantics or
-matching target runtime evidence defines that read. Strict failure must
-remain; do not add a row/clamp/default, evade the input or accept the boundary
-as a passing full smoke. Public R_SKIP remains zero. Full M1/CI/PR21 merge
+six blocks the source computes index6. StrictSource continues to fail there.
+Explicit M1 Portable corrects only the consumer index using existing rows,
+retaining raw values/history/diagnostics and making no target-memory claim.
+Do not evade the input or accept that boundary as passing full smoke.
+The known single portable12k observation has no source fault but still zero
+positive public R_SKIP. Full M1/CI/PR21 merge
 are blocked; no replay or new exploration was run for these docs.
 
 The parent-autonomous `PORTABILITY_REPAIR:NO_ELIGIBLE_CANDIDATE` before original
 `bearing(me,-1)` remains separately disclosed, with no captured explicit user
 approval and no target-memory/instruction/ABI claim. It does not authorize a
-similar policy for `bc_adjust[6]`.
+new implicit policy; Portable M1 is a separately explicit engineering correction.
 
 <a id="original-source-campaigns-and-reference-only-apis"></a>
 

@@ -38,7 +38,8 @@ B1_COMMAND = (f"python3 tests/ball/run.py --source-root {ORIGINAL} --input-profi
               f"--fixture-manifest {CURRENT}/fixture.json --sound-functions {CURRENT}/audio-functions/sound-functions.safn")
 M1_COMMAND = (f"python3 tests/movement-callers/run.py --source-root {ORIGINAL} --input-profile contact272 "
               f"--fixture-manifest {CURRENT}/fixture.json --sound-functions {CURRENT}/audio-functions/sound-functions.safn "
-              f"--c2-m1-inputs {M1} --replay-commands {PUBLIC_REPLAY} --output .squad/.scratch/m1-ci-full-qualification")
+              f"--c2-m1-inputs {M1} --replay-commands {PUBLIC_REPLAY} --output .squad/.scratch/m1-ci-full-qualification "
+              "--source-compatibility portable")
 BASELINE_STEPS = (
     "Select the tested SDK",
     "Core tests with exact case inventory and source hash guard",
@@ -136,6 +137,9 @@ def validate_workflow(text):
     require("/data/" not in text and "--unity-editor-data" not in text and "--unity-reference" not in text,
             "clean CI has no private authoring paths or Unity requirement")
     require("--no-mutations" not in text, "complete sound CI cannot disable mutation campaigns")
+    require("--single-public-attempt" not in text, "required portable M1 must execute the complete control closure")
+    require("upload-artifact" not in text and "gh release upload" not in text,
+            "original source/data and private RNG/state proof must stay local; no proof upload")
     required = (
         FETCH_COMMAND,
         "python3 tests/parity/prepare_inputs.py --source-root " + ORIGINAL + " --output " + FIXTURE,
@@ -329,6 +333,30 @@ class ContactWorkflow(unittest.TestCase):
         self.assertIn(prepare, original)
         with self.assertRaises(AssertionError):
             validate_workflow(original.replace(prepare, "") + prepare)
+
+    def test_required_M1_is_exact_explicit_portable_full_gate_with_no_private_upload(self):
+        original = WORKFLOW.read_text()
+        command, = step_commands(original)["Compare original movement callers and post-animation physics"]
+        self.assertEqual(command, shlex.split(M1_COMMAND))
+        self.assertEqual(command.count("--source-compatibility"), 1)
+        self.assertEqual(command[command.index("--source-compatibility") + 1], "portable")
+        self.assertNotIn("--single-public-attempt", command)
+        self.assertIn("--c2-m1-inputs", command)
+        self.assertIn("--replay-commands", command)
+        for changed in (
+            M1_COMMAND.replace(" --source-compatibility portable", ""),
+            M1_COMMAND.replace("--source-compatibility portable", "--source-compatibility strict"),
+            M1_COMMAND + " --source-compatibility strict",
+            M1_COMMAND + " --source-compatibility=portable",
+            M1_COMMAND + " --single-public-attempt",
+            M1_COMMAND + " || true",
+        ):
+            with self.subTest(command=changed), self.assertRaises(AssertionError):
+                validate_workflow(original.replace(M1_COMMAND, changed, 1))
+        for upload in ("      - uses: actions/upload-artifact@unapproved\n",
+                       "      - name: Upload private proof\n        run: gh release upload tag private-rng.json\n"):
+            with self.subTest(upload=upload), self.assertRaises(AssertionError):
+                validate_workflow(original + upload)
 
 
 if __name__ == "__main__":

@@ -99,7 +99,8 @@ namespace Blitz.Gameplay
                     model.SourceOffenseFlipped,
                     SourceTeamGameplay(model, TeamId.Home), SourceTeamGameplay(model, TeamId.Away),
                     model.SourceForwardCatcher, model.SourceDronesLose, model.SourceDronesWinning,
-                    model.SourceHandicapRepetitionBonus);
+                    model.SourceHandicapRepetitionBonus, model.SourceCompatibility,
+                    model.SourceCompatibilityRepairCount, model.SourceCompatibilityRepairs);
             }
         }
 
@@ -112,7 +113,7 @@ namespace Blitz.Gameplay
                     new SourceActorPresentationView(SourceActorFlags(actor), (int)actor.SourceMode),
                     new SourceActorContactView(actor.SourceHitPartnerId, actor.SourcePuppetLinkId,
                         actor.SourcePuppetReleaseTick, actor.SourceAttackMode, actor.SourceAttackTime, actor.SourceBlockCount),
-                    actor.SourceHandicap));
+                    actor.SourceHandicap, actor.SourceRawHandicap));
         }
 
         private static SourceTeamGameplayView SourceTeamGameplay(SimulationState model, TeamId team)
@@ -120,7 +121,7 @@ namespace Blitz.Gameplay
             int side = (int)team;
             return new SourceTeamGameplayView(team, model.SourceTeamFire[side], model.SourceLastReceiver[side],
                 model.SourceConsecutiveCompletions[side], model.SourceConsecutiveLosses[side],
-                model.SourceTeamHandicap[side]);
+                model.SourceTeamHandicap[side], model.SourceEffectiveTeamHandicap[side]);
         }
 
         internal static int SourceActorFlags(ActorState actor)

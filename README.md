@@ -41,9 +41,11 @@ It removes the earlier dummy-holder timing fault, not the remaining
 qualification blockers:
 
 - A preserved public vector reaches original **`bc_adjust[6]`** after six
-  successful blocks. The function-local array has only six elements; no
-  corrected semantics or matching target runtime evidence is approved.
-  Strict failure remains—no clamp, guessed row or boundary-as-PASS.
+  successful blocks. The function-local array has only six elements.
+  **StrictSource remains the default and rejects that undefined read.**
+  Explicit M1 `Portable` is a deliberate engineering consumer correction,
+  not recovered target memory/ABI or original native behavior; raw state and
+  typed repair diagnostics are retained.
 - The required positive public **R_SKIP witness remains zero**. Full M1 and
   all sixteen parity rows remain OPEN.
 - Hosted run39070002791 used legacy69/443 data and failed on missing
@@ -51,8 +53,10 @@ qualification blockers:
   StageA extra9 and explicit StageB M1 inputs, plus the
   [tracked exact12,000-command public fixture](tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
   Historical numeric comparisons remain explicitly legacy. The actual full-M1
-  gate stays required and nonzero on source faults or unmet R_SKIP; no new
-  green hosted run or full replay is claimed. PR21 remains blocked/unmerged.
+  gate now deliberately adds exactly one `--source-compatibility portable`;
+  API defaults remain strict. It requires all controls/physics/final and
+  remains nonzero on faults or unmet R_SKIP, with no single-attempt shortcut.
+  No new green hosted run or replay is claimed. PR21 remains blocked/unmerged.
 
 **Portability disclosure:** the parent autonomously selected a narrow
 no-eligible-candidate return before original `maybe_taunt` calls

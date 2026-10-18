@@ -407,7 +407,7 @@ namespace Blitz.Gameplay
             Model.SourceBallVerticalVelocity = 0f;
             if (plan.Kind == SourceKickoffKind.Quick)
             {
-                int level = Model.SourceTeamHandicap[plan.ReceivingSide];
+                int level = Model.SourceEffectiveTeamHandicap[plan.ReceivingSide];
                 int minimum = (int)sourcePlaybook.HandicapValue("min_ko_catch_ht", level);
                 int maximum = (int)sourcePlaybook.HandicapValue("max_ko_catch_ht", level);
                 int catchYard = minimum + SourceDraw(maximum - minimum + 1);

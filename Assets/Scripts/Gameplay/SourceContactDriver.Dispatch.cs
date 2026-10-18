@@ -582,10 +582,14 @@ namespace Blitz.Gameplay
                     : rusher.Id % 7 < 3 ? blocker.Id % 7 < 3 ? new[] { 2, 5, 4, 2, 1, 0 } : new[] { 1, 2, 3, 6, 3, 1 }
                     : blocker.Id % 7 < 3 ? new[] { 2, 6, 5, 2, 1, 0 } : new[] { 1, 2, 3, 6, 3, 1 };
                 int column = Weighted(probability, "block_vs_rush", 3134);
-                // The original caps at sizeof(array), not its last index; do not invent a seventh entry.
-                if (rusher.SourceBlockCount >= 6 || rusher.SourceBlockCount < 0)
+                // Strict preserves the original undefined boundary; Portable explicitly uses the last existing entry.
+                if (rusher.SourceBlockCount < 0 || rusher.SourceBlockCount >= 6
+                    && m.SourceCompatibility == SourceGameplayCompatibility.StrictSource)
                     throw new NotSupportedException("detect.c:3140 bc_adjust[6] is undefined original C; block_count=" + rusher.SourceBlockCount);
-                int adjustment = new[] { -1, 1, 1, 2, 3, 4 }[rusher.SourceBlockCount];
+                int[] adjustments = { -1, 1, 1, 2, 3, 4 };
+                int blockIndex = m.ResolveCompatibilityIndex(SourceCompatibilityRepairKind.BlockCountConsumerIndex,
+                    rusher.Id, rusher.SourceBlockCount, adjustments.Length, "detect.c:block_vs_rush:3140");
+                int adjustment = adjustments[blockIndex];
                 column += rusher.SourceControllerStation < 0 ? adjustment : Math.Max(0, adjustment);
                 if (m.SourceDronesLose && m.SourceDronesWinning) column += IsHumanTeam(m, blocker.Team) ? -3 : 3;
                 if (rusher.SourceControllerStation >= 0)

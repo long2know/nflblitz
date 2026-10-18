@@ -51,10 +51,13 @@ namespace Blitz.Gameplay
         private uint randomState;
 
         public SimulationProfile Profile { get; }
+        public SourceGameplayCompatibility Compatibility { get; }
         public string ReferenceProfile
         {
             get
             {
+                if (Profile == SimulationProfile.OriginalRelease57Hz && Compatibility == SourceGameplayCompatibility.Portable)
+                    return "Portable Source57/M1: explicit consumer-index corrections; NOT original hardware/ABI/RNG equivalence";
                 return Profile == SimulationProfile.OriginalRelease57Hz
                     ? "Original normal57 source VM/clock/rules/ball kernels; explicit RNG provenance; M1/C1/C2/I1/cinematic caller parity remains open"
                     : "Explicit approximate 60 Hz legacy baseline";
@@ -109,8 +112,15 @@ namespace Blitz.Gameplay
             Func<int, ISourceRandom> randomFactory = null, int seed = 1, ISourceTeamRoster rosters = null,
             SourcePresentationSettings presentation = null, SourceMovementRuntimeData movementData = null,
             SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null,
-            SourceHandicapSettings handicapSettings = null)
+            SourceHandicapSettings handicapSettings = null,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
         {
+            if (compatibility != SourceGameplayCompatibility.StrictSource && compatibility != SourceGameplayCompatibility.Portable)
+                throw new ArgumentOutOfRangeException(nameof(compatibility));
+            if (compatibility == SourceGameplayCompatibility.Portable
+                && (c2Bootstrap == null || c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
+                throw new NotSupportedException("Portable gameplay requires the explicit actual M1 source bootstrap.");
+            Compatibility = compatibility;
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
             sourceGeometry = geometry;
             sourcePlaybook = playbook;
@@ -132,6 +142,7 @@ namespace Blitz.Gameplay
         {
             randomState = unchecked((uint)seed) ^ 0x9E3779B9u;
             Model = new SimulationState();
+            Model.SourceCompatibility = Compatibility;
             pendingSourceCameraHeading = 0;
             pendingSourceCameraSampleTick = 0;
             stepEvents.Clear();

@@ -13,8 +13,11 @@ namespace Blitz.Runtime
             SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
             SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
             SourceAudioFunctionData soundFunctions, Func<int, ISourceRandom> randomFactory = null, int seed = 1,
-            SourceHandicapSettings handicapSettings = null)
+            SourceHandicapSettings handicapSettings = null,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
         {
+            if (compatibility != SourceGameplayCompatibility.StrictSource)
+                throw new NotSupportedException("Portable gameplay is supported only by the explicit M1 factory.");
             SourceTeamResourceProfile.Contact272.RequireLibrary(animations);
             if (referencePivots == null || referencePivots.Count != SourceTiming.JointCount)
                 throw new SourceInterfaceException("Contact272 geometry needs all fifteen actual imported reference pivots.");

@@ -1,5 +1,50 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Explicit portable compatibility (not original-hardware evidence)
+
+Default constructors, factories and CLI select `StrictSource`. Only actual M1
+accepts the trailing `compatibility: SourceGameplayCompatibility.Portable`.
+The browser uses `source-compatibility=portable` alongside the existing M1
+profile selector. Unsupported profiles/values/duplicates reject, never promote.
+The complete query is
+`?sourceprofile=original-teams-contact281-c2-m1&source-compatibility=portable`.
+
+Run the focused real-factory compatibility contract, including C1/old-nine
+strict defaults, actual M1 strict/portable lineup and detect callers, unchanged
+raw values/counts, coherent effective indices, exact diagnostic metadata,
+in-domain RNG identity and seven compiled production controls:
+
+```sh
+python3 -B tests/movement-callers/compatibility.py \
+  --fixture-manifest "$PRODUCTION272_FIXTURE" --sound-functions "$SAFN" \
+  --c2-m1-inputs "$M1_INPUTS" --old-c2-inputs "$OLD_NINE_INPUTS" \
+  --output .squad/.scratch/portable-focused
+```
+
+There are74 declared component assertions, separate from all retained strict
+original-C case/control inventories. MovementCallerChecks now explicitly links
+the actual C1 factory for these unsupported-option/default tests; the shared
+production fingerprint closure remains67, with no new production source/GUID.
+
+For an explicitly authorized **single** changed-behavior observation, append
+`--source-compatibility portable --single-public-attempt` to the full M1 command.
+This does not alter the immutable public input, provider, seed or R_SKIP gate.
+It reports source faults and unmet R_SKIP as nonzero and cannot claim the full
+eight-caller/three-cache control closure. Full portable gate success is labelled
+`passed-portable-M1-public-caller-gate`, never original/native equivalence.
+
+The retained source474 C1 cache golden is a separate historical trajectory
+contract. Its cache-only fixture now explicitly declares the original
+random-opponent handicap mode that supplies its historical neutral rows; it
+does not change the current default game mode. Before that declaration,
+the unchanged `12->13 cylinder root displacement / SPIN_A26` assertion
+rejected at433,564 assertions on both this increment and exact source+harness
+base `5f570c132288871de2d1461860e19f85975caf5f`. The literal assertion,
+all15-joint checks,437,452 baseline inventory and three compiled controls
+are unchanged. The eight declared M1 caller controls remain independently executable with
+`compatibility.py --retained-caller-controls-only`; this does not run a public
+12k vector or qualify R_SKIP.
+
 ## Tracked exact public replay input
 
 `fixtures/canonical-public-12000.jsonl.gz` contains only the unchanged12,000
@@ -384,6 +429,31 @@ the actual post-contact resample is
 `[1115875196,3248881154,1120592457]`. All15 actor12 joints and all other actors
 are validated, not just this pelvis example.
 
+### Declared historical C1 cache inputs
+
+The literal trace was introduced before the fire/handicap engine, when both
+AI sides inherited scalar `Difficulty=5`. The source-defined engine correctly
+replaced that default with dynamic rows: this one-human, tied Cardinals/Falcons
+fixture now defaults to5/11. That is not a cache or portable-policy regression.
+`HistoricalC1CacheHandicapSettings()` declares only
+`new SourceHandicapSettings(randomDrones: true)` for `cache-contract`.
+Original `handicap.c:140–174` chooses `TEAM_BEARS` in this mode; its active
+`teamdata.c` drone base is5, independently yielding5/5 with zero user/streak/
+powerup adjustments. This is a raw source input, not a forced row or fallback.
+
+The existing private factory in `Program.cs` forwards that optional setting
+before construction on both its real-helper and cache-witness paths.
+`FullKernelInputs.cs` is unchanged. All other callers retain null/default
+settings, including the full smoke and actual M1/portable callers.
+The constructor's52 raw draws are identical between the two declared modes.
+For example, draw41/raw1234567 gives67: Away actor7's original post-lineup
+superman threshold is80 at row11 versus5 at row5, changing its unblockable
+flag without changing the draw. The first later draw-record divergence is at source377/order179 in
+`detect.c:block_vs_rush`, not a missing or filtered RNG call.
+With this explicit historical input the unchanged cache-only vector recovers
+the exact source474 roots,SPIN_A26 and pelvis bits above.
+This fixture does **not** assert the current-default or native full trajectory.
+
 ### Focused command while Core is mutable
 
 Use an **explicit immutable** local source copy sealed as
@@ -402,11 +472,13 @@ python3 -B tests/movement-callers/run.py --input-profile contact272 \
   --frozen-source-root tests/movement-callers/.artifacts/cache-contract-frozen-source \
   --frozen-source-map tests/movement-callers/.artifacts/cache-contract-frozen-source/source-manifest.json
 python3 -B tests/movement-callers/test_runner.py
+python3 -B tests/movement-callers/test_canonical.py -q
 ```
 
 This **targeted-only** trace stops at source474 after499 unchanged public host
-inputs and431 shared raw draws. No input value, random-site predicate or game
-state changes. It does not claim a full smoke, R_SKIP, new AI fix, full M1/B1,
+inputs and431 shared raw draws, under the declared historical raw handicap mode.
+No host command, provider/seed, random-site predicate or game state is tuned.
+It does not claim a full smoke, R_SKIP, new AI fix, full M1/B1,
 native/browser or all-row acceptance.
 
 The baseline/final count is437452:

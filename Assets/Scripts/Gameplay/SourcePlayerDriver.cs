@@ -57,7 +57,8 @@ namespace Blitz.Gameplay
                 actor.SourceNonATicks = actor.SourceNonBTicks = 0;
                 actor.SourceUnblockable = false;
                 actor.SourceWaveArm = false;
-                actor.SourceHandicap = model.SourceTeamHandicap[(int)actor.Team];
+                actor.SourceRawHandicap = model.SourceTeamHandicap[(int)actor.Team];
+                actor.SourceHandicap = model.SourceEffectiveTeamHandicap[(int)actor.Team];
                 actor.SourceDirections = model.SourcePlaybook.Directions;
                 actor.Velocity = default(FieldVector);
                 actor.SourceVelocity = default(FieldVector);

@@ -68,6 +68,9 @@ namespace Blitz.Runtime
             try
             {
                 SourceTeamResourceProfile profile = SourceTeamResourceProfile.SelectRuntimeProfile(Application.absoluteURL, sourceResourceProfile);
+                SourceGameplayCompatibility compatibility = SourceGameplayCompatibilityOptions.FromUrl(Application.absoluteURL);
+                if (compatibility == SourceGameplayCompatibility.Portable && !profile.IsContact281C2M1)
+                    throw new SourceInterfaceException("source-compatibility=portable requires the explicit M1 resource profile.");
                 SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(profile);
                 ISourceAnimationLibrary animations = null;
                 if (prefab == null)
@@ -90,7 +93,10 @@ namespace Blitz.Runtime
                         throw new SourceInterfaceException("The C1 services resource has an incompatible historical profile tag; no old contact path is selected.");
                     if (!ReferenceEquals(animations, SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab)))
                         throw new SourceInterfaceException("C1 Core, geometry, Team and renderer must share the SAME canonical272 animation instance.");
-                    simulation = sourceServices.CreateSimulation(prefab);
+                    simulation = sourceServices.CreateSimulation(prefab, compatibility);
+                    if (compatibility == SourceGameplayCompatibility.Portable)
+                        Debug.LogWarning("Portable M1 gameplay corrections enabled: effective handicap/block indices may saturate. "
+                            + "Raw state and bounded typed repair diagnostics remain in Match. Not original hardware equivalence.");
                     soundTransport = new SourceSoundVmTransport();
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
                     simulation.SourceStationInputTransform = SourceSelection.ApplyAtSourceTick;

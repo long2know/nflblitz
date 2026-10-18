@@ -287,14 +287,19 @@ internal static partial class Program
         {
             string c2Inputs = null;
             string c2M1Inputs = null;
-            if (args.Length >= 2 && args[args.Length - 2] == "--c2-m1-inputs")
+            bool compatibilitySpecified = false;
+            while (args.Length >= 2 && args[args.Length - 2].StartsWith("--", StringComparison.Ordinal))
             {
-                c2M1Inputs = args[args.Length - 1];
-                args = args.Take(args.Length - 2).ToArray();
-            }
-            if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
-            {
-                c2Inputs = args[args.Length - 1];
+                string flag = args[args.Length - 2], value = args[args.Length - 1];
+                if (flag == "--c2-m1-inputs" && c2M1Inputs == null) c2M1Inputs = value;
+                else if (flag == "--c2-inputs" && c2Inputs == null) c2Inputs = value;
+                else if (flag == "--compatibility-old-inputs" && compatibilityOldInputs == null) compatibilityOldInputs = value;
+                else if (flag == "--source-compatibility" && !compatibilitySpecified)
+                {
+                    gameplayCompatibility = SourceGameplayCompatibilityOptions.Parse(value);
+                    compatibilitySpecified = true;
+                }
+                else throw new ArgumentException("Unknown or duplicate option " + flag);
                 args = args.Take(args.Length - 2).ToArray();
             }
             bool canonical = args.Length == 5 && (args[2] == "canonical281" || args[2] == "canonical281-observed");
@@ -303,7 +308,7 @@ internal static partial class Program
             }.Contains(args[2]);
             bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
             if (!canonical && !m1Replay && (args.Length != 3 && args.Length != 4 ||
-                !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns" }.Contains(args[2])))
+                !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
             fixtureRoot = Path.GetDirectoryName(Path.GetFullPath(args[0]));
@@ -315,8 +320,21 @@ internal static partial class Program
                 c2M1InputsPath: m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
+            if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile)
+                throw new ArgumentException("Portable gameplay requires --c2-m1-inputs and the actual M1 factory.");
+            result["gameplay_compatibility"] = gameplayCompatibility.ToString();
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
+            if (args[2] == "compatibility")
+            {
+                compatibilitySoundFunctions = args[3];
+                CompatibilityChecks();
+                result["status"] = "passed";
+                result["assertions"] = assertions;
+                result["mode"] = "compatibility";
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return 0;
+            }
             if (m1Replay)
             {
                 M1CompleteReplay(args[5], args[2].EndsWith("-observed", StringComparison.Ordinal), historicalReplay);
@@ -434,8 +452,11 @@ internal static partial class Program
         if (!mutationRun) File.WriteAllText(Path.Combine(outputRoot, name), content);
     }
 
+    private static SourceGameplayCompatibility gameplayCompatibility = SourceGameplayCompatibility.StrictSource;
+
     private static GameSimulation Create(bool camera = true, Func<int, ISourceRandom> random = null,
-        SourceMovementSettings settings = null, SourceCacheWitness cacheWitness = null)
+        SourceMovementSettings settings = null, SourceCacheWitness cacheWitness = null,
+        SourceGameplayCompatibility? compatibility = null, SourceHandicapSettings handicapSettings = null)
     {
         var config = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
             SourceStationLayout.TwoStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
@@ -446,13 +467,14 @@ internal static partial class Program
         if (cacheWitness == null)
         {
             activeGame = real.Create(configuration: config, randomFactory: random,
-                presentation: presentation, movementSettings: movementSettings, camera: camera);
+                presentation: presentation, movementSettings: movementSettings, camera: camera,
+                compatibility: compatibility ?? gameplayCompatibility, handicapSettings: handicapSettings);
             return activeGame;
         }
         if (real.IsC2M1Profile)
             throw new InvalidOperationException("M1 successor cache proof must use actual SourceC2Composition and canonical call-site observation, never a proxy constructor.");
         var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, random, 1,
-            real.Rosters, presentation, real.MovementRuntime, movementSettings);
+            real.Rosters, presentation, real.MovementRuntime, movementSettings, handicapSettings: handicapSettings);
         game.BindSourceSoundVmData(real.SoundFunctions);
         activeGame = game;
         cacheWitness.Bind(game);
@@ -530,7 +552,8 @@ internal static partial class Program
             new SourceRandomProvenance("source-sound-smoke/raw-vector-v1",
                 "Explicit repeated raw test vector shared by ALL sites, never target libc PRNG",
                 "unfiltered public M1157 + synchronous original sound", SourceRandomEvidence.ExternalUnverified)),
-            cacheWitness: smokeCache);
+            cacheWitness: smokeCache,
+            handicapSettings: cacheContractOnly ? HistoricalC1CacheHandicapSettings() : null);
         var events = new List<object>();
         var rSkipSamples = new List<object>();
         var rSkipOrdinals = new HashSet<int>();

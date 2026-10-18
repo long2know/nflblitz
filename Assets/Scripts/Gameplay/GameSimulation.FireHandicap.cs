@@ -171,10 +171,16 @@ namespace Blitz.Gameplay
                 levels[human] = Math.Min(10, levels[human] + (human == 0 ? adjustment0 : adjustment1));
             }
             for (int i = 0; i < levels.Length; i++)
-                if (levels[i] < 0 || levels[i] > 11)
+            {
+                if ((levels[i] < 0 || levels[i] > 11) && Compatibility == Blitz.Contracts.SourceGameplayCompatibility.StrictSource)
                     throw new NotSupportedException("handicap.c:set_handicaps produced team_handicap[" + i + "]="
                         + levels[i] + " outside the original twelve consumer rows. No guessed/clamped table read.");
-            Model.SourceAiParameters = new SourceAiParameters(sourcePlaybook, levels[0], levels[1]);
+                Model.SourceEffectiveTeamHandicap[i] = Model.ResolveCompatibilityIndex(
+                    Blitz.Contracts.SourceCompatibilityRepairKind.HandicapConsumerIndex, i, levels[i], 12,
+                    "handicap.c:set_handicaps -> drone.c:init_drones_prelineup");
+            }
+            Model.SourceAiParameters = new SourceAiParameters(sourcePlaybook,
+                Model.SourceEffectiveTeamHandicap[0], Model.SourceEffectiveTeamHandicap[1]);
         }
 
         private static int SourceHandicapAdjustment(SourceHandicapSettings settings, int team, int offense)

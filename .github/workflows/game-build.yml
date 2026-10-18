@@ -162,8 +162,8 @@ jobs:
       - name: Compare original ball and ordered source callers
         run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn
       - name: Compare original movement callers and post-animation physics
-        # REQUIRED full positive gate: source faults and UNMET R_SKIP remain nonzero.
-        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/m1-public-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification
+        # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/m1-public-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets

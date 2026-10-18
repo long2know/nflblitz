@@ -181,7 +181,8 @@ internal sealed class FullKernelInputs
     internal GameSimulation Create(int seed = 1, SourceMatchConfiguration configuration = null,
         Func<int, ISourceRandom> randomFactory = null, SourcePresentationSettings presentation = null,
         SourceMovementSettings movementSettings = null, bool camera = true,
-        SourceHandicapSettings handicapSettings = null)
+        SourceHandicapSettings handicapSettings = null,
+        SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
     {
         SourceMovementSettings settings = movementSettings ?? new SourceMovementSettings(0, 0, false, 0, 0, false);
         GameSimulation game;
@@ -192,15 +193,16 @@ internal sealed class FullKernelInputs
             game = IsC2M1Profile
                 ? SourceC2Composition.CreateM1Simulation(Animations, ReferencePivots, Playbook, configuration,
                     Rosters, presentation, MovementRuntime, settings, SoundFunctions,
-                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings)
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings, compatibility)
                 : SourceC2Composition.CreateSimulation(Animations, ReferencePivots, Playbook, configuration,
                     Rosters, presentation, MovementRuntime, settings, SoundFunctions,
-                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings);
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings, compatibility);
         }
         else
         {
             game = new GameSimulation(Animations, Geometry, Playbook, configuration,
-                randomFactory, seed, Rosters, presentation, MovementRuntime, settings, handicapSettings: handicapSettings);
+                randomFactory, seed, Rosters, presentation, MovementRuntime, settings, handicapSettings: handicapSettings,
+                compatibility: compatibility);
             game.BindSourceSoundVmData(SoundFunctions);
         }
         if (camera)

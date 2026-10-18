@@ -37,6 +37,7 @@ HARNESS = (
     "tests/movement-callers/Program.cs", "tests/movement-callers/Canonical.cs",
     "tests/movement-callers/Controlled.cs", "tests/movement-callers/InputAndStation.cs",
     "tests/movement-callers/SnapHikeChecks.cs",
+    "tests/movement-callers/CompatibilityChecks.cs",
     "tests/parity/FullKernelInputs.cs", "tests/parity/FullKernelSources.props",
     "tests/audio/vm/SourceSoundVmSources.props",
 )
@@ -193,7 +194,10 @@ def snap_hike_main(argv):
     return 0 if result["status"] == "passed-focused-not-full-M1" else 1
 
 
-def require_m1_replay(code, summary, receipt):
+def require_m1_replay(code, summary, receipt, compatibility="strict"):
+    expected = "Portable" if compatibility == "portable" else "StrictSource"
+    if receipt.get("gameplayCompatibility", "StrictSource") != expected:
+        raise RuntimeError("Explicit gameplay compatibility must match the actual factory receipt.")
     if receipt.get("failure") is not None:
         raise RuntimeError("Actual M1 source fault: stop without rescue, extra wake or next replay.")
     if (receipt.get("completedHosts") != 12000 or receipt.get("SourceTick") != 11400
@@ -214,7 +218,9 @@ def _write_m1_result(output, result):
     path = output / "result.json"
     path.write_text(json.dumps(result, indent=2) + "\n")
     status = result["status"]
-    if status == "passed-full-M1-public-caller-gate":
+    if status in ("passed-full-M1-public-caller-gate", "passed-portable-M1-public-caller-gate",
+                  "passed-portable-single-public-gate-not-full-qualification",
+                  "passed-strict-single-public-gate-not-full-qualification"):
         print("M1", status)
         print("M1 report:", path)
     else:
@@ -229,7 +235,17 @@ def m1_main(argv):
     for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "source-root", "replay-commands", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--input-profile", choices=("contact272",), default="contact272")
+    parser.add_argument("--source-compatibility", action="append", metavar="{strict,portable}")
+    parser.add_argument("--single-public-attempt", action="store_true",
+                        help="Run one unchanged vector only; never claim the complete compiled-control closure.")
     args = parser.parse_args(argv)
+    modes = args.source_compatibility or ["strict"]
+    if len(modes) != 1:
+        parser.error("argument --source-compatibility: duplicate argument; specify only once")
+    if modes[0] not in ("strict", "portable"):
+        parser.error("argument --source-compatibility: invalid choice: " + repr(modes[0])
+                     + " (choose from 'strict', 'portable')")
+    args.source_compatibility = modes[0]
     output = args.output.absolute()
     if output.exists() or not any(output.is_relative_to(p) for p in (HERE / ".artifacts", ROOT / ".squad/.scratch")):
         parser.error("Choose a NEW ignored M1 output, not an existing/frozen receipt.")
@@ -258,6 +274,11 @@ def m1_main(argv):
               "harness_sha256": {k: sha(v) for k, v in harness.items()},
               "original8_controls_retained": True, "original3_cache_controls_retained": True,
               "no_new_policy_seed_vector_clock_pointer_or_live_source_changes": True}
+    result["gameplay_compatibility"] = args.source_compatibility
+    result["no_new_policy_seed_vector_clock_pointer_or_live_source_changes"] = args.source_compatibility == "strict"
+    result["public_controller_policy_seed_vector_clock_unchanged"] = True
+    result["portable_is_deliberate_correction_not_original_hardware"] = args.source_compatibility == "portable"
+    result["complete_compiled_control_closure_executed"] = False
 
     def execute(label, observed=False, mutation=None, section=None):
         copy = output / "copies" / label
@@ -304,7 +325,10 @@ def m1_main(argv):
                    str(args.sound_functions.absolute())]
         command += ["--c2-m1-inputs", str(args.c2_m1_inputs.absolute())] if section else [
             str(args.c2_m1_inputs.absolute()), str(args.replay_commands.absolute())]
+        command += ["--source-compatibility", args.source_compatibility]
         result["commands"].append(command)
+        if section is None:
+            result["public_vector_executions"] = result.get("public_vector_executions", 0) + 1
         process = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=900)
         (output / (label + ".log")).write_text(process.stdout + process.stderr)
         rows = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
@@ -324,7 +348,15 @@ def m1_main(argv):
                 raise RuntimeError("Retained M1 caller/physics inventory failed.")
         else:
             receipt = json.loads((destination / "m1-replay-result.json").read_bytes())
-            run["classification"] = require_m1_replay(process.returncode, summary, receipt)
+            run["receipt_metadata"] = {key: receipt.get(key) for key in (
+                "completedHosts", "SourceTick", "gameplayCompatibility", "compatibilityRepairCount",
+                "compatibilityRepairs", "rawHandicap", "effectiveHandicap", "rSkipFrames", "positive")}
+            if receipt.get("failure"):
+                failure = receipt["failure"]
+                run["fault_metadata"] = {key: failure.get(key) for key in ("host", "before", "SourceTick", "error")}
+                if args.source_compatibility == "portable":
+                    result["status"] = "failed-portable-source-fault"
+            run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility)
             run["replay_receipt_sha256"] = sha((destination / "m1-replay-result.json").read_bytes())
             run["receipt"] = receipt
         shutil.rmtree(copy)
@@ -332,31 +364,40 @@ def m1_main(argv):
 
     try:
         plain = execute("uninstrumented")
-        observed = execute("isolated-observer", True)
-        for name in ("m1-public-replay.jsonl", "m1-all-raw-draws.json", "m1-R_SKIP-real-poses.json"):
-            a, b = output / "uninstrumented" / name, output / "isolated-observer" / name
-            if a.read_bytes() != b.read_bytes():
-                raise RuntimeError("Passive observer changed actual recorded state/input/pose/RNG: " + name)
-        result["uninstrumented_and_actual_observer_state_RNG_and_poses_byte_identical"] = True
-        for spec in CANONICAL_CACHE_MUTANTS:
-            execute("cache-control-" + spec[0], True, spec)
-        execute("controlled-baseline", section="controlled")
-        for identity, filename, old, new, expected in controls.MUTANTS:
-            execute("caller-control-" + identity, mutation=(identity, "production",
-                "Assets/Scripts/Gameplay/" + filename, old, new, expected), section="controlled")
-        execute("controlled-final", section="controlled")
-        execute("existing-caller-physics", section="campaigns")
-        native_output = HERE / ".artifacts" / ("m1-post-VM-" + sha(str(output).encode())[:16])
-        result["original_C_post_VM"] = compare(args.source_root,
-            output / "existing-caller-physics/actual-caller-physics.tsv", native_output)
-        final = execute("final-uninstrumented")
-        if (output / "final-uninstrumented/m1-public-replay.jsonl").read_bytes() != \
-                (output / "uninstrumented/m1-public-replay.jsonl").read_bytes():
-            raise RuntimeError("Final actual-factory source baseline changed after causal controls.")
-        result["all3_cache_and8_caller_controls_compiled_and_causal"] = True
-        result["status"] = "passed-full-M1-public-caller-gate" if plain["classification"] == "positive" else "UNMET-public-R_SKIP"
-        result["whole_M1_or_game_or_native_accepted"] = False
-        result["M1_public_caller_gate_qualified"] = plain["classification"] == "positive"
+        if args.single_public_attempt:
+            result["status"] = ("passed-portable-single-public-gate-not-full-qualification"
+                if args.source_compatibility == "portable" else "passed-strict-single-public-gate-not-full-qualification"
+                ) if plain["classification"] == "positive" else "UNMET-public-R_SKIP"
+            result["M1_public_caller_gate_qualified"] = plain["classification"] == "positive"
+            result["public_vector_executions"] = 1
+        else:
+            observed = execute("isolated-observer", True)
+            for name in ("m1-public-replay.jsonl", "m1-all-raw-draws.json", "m1-R_SKIP-real-poses.json"):
+                a, b = output / "uninstrumented" / name, output / "isolated-observer" / name
+                if a.read_bytes() != b.read_bytes():
+                    raise RuntimeError("Passive observer changed actual recorded state/input/pose/RNG: " + name)
+            result["uninstrumented_and_actual_observer_state_RNG_and_poses_byte_identical"] = True
+            for spec in CANONICAL_CACHE_MUTANTS:
+                execute("cache-control-" + spec[0], True, spec)
+            execute("controlled-baseline", section="controlled")
+            for identity, filename, old, new, expected in controls.MUTANTS:
+                execute("caller-control-" + identity, mutation=(identity, "production",
+                    "Assets/Scripts/Gameplay/" + filename, old, new, expected), section="controlled")
+            execute("controlled-final", section="controlled")
+            execute("existing-caller-physics", section="campaigns")
+            native_output = HERE / ".artifacts" / ("m1-post-VM-" + sha(str(output).encode())[:16])
+            result["original_C_post_VM"] = compare(args.source_root,
+                output / "existing-caller-physics/actual-caller-physics.tsv", native_output)
+            final = execute("final-uninstrumented")
+            if (output / "final-uninstrumented/m1-public-replay.jsonl").read_bytes() != \
+                    (output / "uninstrumented/m1-public-replay.jsonl").read_bytes():
+                raise RuntimeError("Final actual-factory source baseline changed after causal controls.")
+            result["all3_cache_and8_caller_controls_compiled_and_causal"] = True
+            result["complete_compiled_control_closure_executed"] = True
+            result["status"] = ("passed-portable-M1-public-caller-gate" if args.source_compatibility == "portable"
+                else "passed-full-M1-public-caller-gate") if plain["classification"] == "positive" else "UNMET-public-R_SKIP"
+            result["whole_M1_or_game_or_native_accepted"] = False
+            result["M1_public_caller_gate_qualified"] = plain["classification"] == "positive"
     except (ValueError, OSError, RuntimeError, subprocess.TimeoutExpired) as error:
         result["error"] = str(error)
         print(str(error), file=sys.stderr)
@@ -369,7 +410,8 @@ def m1_main(argv):
         if not result["live_production_unchanged"]:
             result["status"] = "inconclusive-generation-changed"
         _write_m1_result(output, result)
-    return 0 if result["status"] == "passed-full-M1-public-caller-gate" else 1
+    return 0 if result["status"] in ("passed-full-M1-public-caller-gate", "passed-portable-M1-public-caller-gate",
+        "passed-portable-single-public-gate-not-full-qualification", "passed-strict-single-public-gate-not-full-qualification") else 1
 
 
 def main():

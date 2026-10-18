@@ -30,6 +30,45 @@ published test fixture.
 
 ## Source57 fire/handicap state-machine increment
 
+### Explicit portable M1 consumer corrections
+
+`SourceGameplayCompatibility.StrictSource` remains the default for every
+existing constructor/factory; Legacy60, C1 and old-nine behavior is unchanged.
+Only the explicit M1 factory/bootstrap accepts `Portable`. This is an authored
+portable-game correction, **not** original arcade behavior, target memory/ABI,
+PRNG equivalence, or full-M1/native acceptance. Existing NoEligible and all
+other source limitations remain disclosed and unchanged.
+
+Portable preserves original raw handicap arithmetic, five-play pointer history,
+settings and actual block counts. Only the consumer index changes: handicap
+indices saturate to existing rows 0..11; nonnegative `bc_adjust` indices at or
+above its six-entry length use its existing last entry (index5). Negative block
+counts and earlier undefined producer inputs still reject. No rows, datasets,
+RNG calls or source CPU-final-cap are invented. AI, actor/contact/catch/pass/
+movement and quick-kick consumers use the same effective team index.
+
+`GameSimulation.Compatibility` is immutable, including across restart. Match
+snapshots publish the mode, raw/effective team handicap and lifetime repair
+count with an immutable chronological tail of at most64 typed repairs
+(kind, subject/team or actor, raw/effective index, source tick/context).
+Actor `Handicap` is its effective index; `RawHandicap` retains the raw value.
+Diagnostics consume no RNG and do not generate per-frame UI notifications.
+
+Opt in with the trailing `compatibility: SourceGameplayCompatibility.Portable`
+argument to `SourceC2Composition.CreateM1Simulation`, or append
+`&source-compatibility=portable` to the existing explicit M1 browser URL.
+Missing flags select strict; unknown/duplicate values and portable requests on
+unsupported profiles reject. Resource/profile IDs, geometry, clips, callbacks
+and sound bindings do not change.
+
+Canonical CLI: `--source-compatibility portable` explicitly labels policy and
+repair metadata. `--single-public-attempt` performs exactly one unchanged
+12k-vector observation and never claims the complete control closure.
+The full runner still retains all eight caller and three cache controls,
+raw-physics comparison, and the exact after2299 same-instance/two-ordinal/
+two-real-15-joint-pose R_SKIP gate. Unmet coverage or any new fault exits nonzero;
+portable success is named separately from strict/source qualification.
+
 **Feature context: `2026-10-17T14:23:38.829-07:00`.** This is separate gameplay
 work from the frozen Contact/SnapHike QA and CI repair. It does not close any
 whole-game/native row or change the C1/old-nine/M1 resource selectors, pins,

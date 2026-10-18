@@ -15,12 +15,14 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceContactComposition.cs" />
     <Compile Include="../parity/FullKernelInputs.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Controlled.cs" />
     <Compile Include="InputAndStation.cs" />
     <Compile Include="Canonical.cs" />
     <Compile Include="SnapHikeChecks.cs" />
+    <Compile Include="CompatibilityChecks.cs" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
   <Import Project="../parity/FullKernelSources.props" />

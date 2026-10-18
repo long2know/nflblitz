@@ -328,8 +328,12 @@ namespace Blitz.Runtime
                 awayPlay == null ? default(SourcePlaySelection) : awayPlay.Selection());
         }
 
-        public GameSimulation CreateSimulation(SourcePlayerRig prefab)
+        public GameSimulation CreateSimulation(SourcePlayerRig prefab,
+            SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource)
         {
+            if (compatibility != SourceGameplayCompatibility.StrictSource
+                && (compatibility != SourceGameplayCompatibility.Portable || !Profile.IsContact281C2M1))
+                throw new SourceInterfaceException("Portable gameplay requires the explicit M1 resource profile.");
             if (!Profile.IsContact272 && !Profile.UsesC2Data)
                 throw new SourceInterfaceException("This engine requires explicit Contact272 or Contact281C2 services. Historical157 resources are not silently upgraded or routed to old contact physics.");
             Validate();
@@ -349,7 +353,8 @@ namespace Blitz.Runtime
                 Debug.LogWarning("Explicit C2 original sound-bank entry consumes announcer then taunt draws BEFORE initial AI. Pre-boundary boot RNG and old golden trajectories are not claimed equivalent.");
                 if (Profile.IsContact281C2M1)
                     return SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),
-                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
+                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
+                        compatibility: compatibility);
                 return SourceC2Composition.CreateSimulation(animations, pivots, playbook, Configuration(),
                     teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap);
             }

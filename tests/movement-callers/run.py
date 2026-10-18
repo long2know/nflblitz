@@ -180,7 +180,8 @@ def cache_contract(args):
     if actual_names != set(pins):
         raise ValueError("Frozen compile-source inventory differs; no omitted dependency or extra stand-in.")
     test_names = ["tests/movement-callers/" + name for name in
-                  ("MovementCallerChecks.csproj", "Directory.Build.props", "Program.cs", "Canonical.cs", "Controlled.cs", "InputAndStation.cs")]
+                  ("MovementCallerChecks.csproj", "Directory.Build.props", "Program.cs", "Canonical.cs",
+                   "Controlled.cs", "InputAndStation.cs", "SnapHikeChecks.cs", "CompatibilityChecks.cs")]
     test_names += ["tests/parity/FullKernelInputs.cs", "tests/parity/FullKernelSources.props",
                    "tests/audio/vm/SourceSoundVmSources.props"]
     test_snapshot = {name: (ROOT / name).read_bytes() for name in test_names}

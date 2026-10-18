@@ -67,6 +67,7 @@ namespace Blitz.Gameplay
         internal int SourceForcedMoveHeading = -1;
         internal bool SourceThrowing;
         internal int SourceHandicap = 5;
+        internal int SourceRawHandicap = 5;
         internal string SourcePendingCatch;
         internal string SourceRequestedScript;
         internal int SourceCatchLaunchTime;
@@ -180,6 +181,28 @@ namespace Blitz.Gameplay
         internal readonly bool[] SourceTeamFire = new bool[2];
         internal int SourceForwardCatcher = -1;
         internal readonly int[] SourceTeamHandicap = new int[2];
+        internal readonly int[] SourceEffectiveTeamHandicap = new int[2];
+        internal SourceGameplayCompatibility SourceCompatibility;
+        internal long SourceCompatibilityRepairCount;
+        internal readonly System.Collections.Generic.List<SourceCompatibilityRepair> SourceCompatibilityRepairs =
+            new System.Collections.Generic.List<SourceCompatibilityRepair>();
+
+        internal int ResolveCompatibilityIndex(SourceCompatibilityRepairKind kind, int subject, int raw,
+            int length, string context)
+        {
+            if (length < 1) throw new ArgumentOutOfRangeException(nameof(length));
+            if (raw >= 0 && raw < length) return raw;
+            if (SourceCompatibility != SourceGameplayCompatibility.Portable
+                || kind == SourceCompatibilityRepairKind.BlockCountConsumerIndex && raw < 0)
+                throw new NotSupportedException(context + ": unsupported consumer index " + raw + ".");
+            int effective = Math.Max(0, Math.Min(length - 1, raw));
+            SourceCompatibilityRepairCount++;
+            // Retain a bounded chronological tail, plus the lifetime count; never notify per frame.
+            if (SourceCompatibilityRepairs.Count == 64) SourceCompatibilityRepairs.RemoveAt(0);
+            SourceCompatibilityRepairs.Add(new SourceCompatibilityRepair(SourceCompatibilityRepairCount,
+                SourceTick, kind, subject, raw, effective, context));
+            return effective;
+        }
         internal readonly SourcePlayDefinition[] SourceHandicapPlayHistory = new SourcePlayDefinition[5];
         internal SourceHandicapSettings SourceHandicapSettings;
         internal int SourceHandicapRepetitionBonus;

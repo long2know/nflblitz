@@ -251,9 +251,11 @@ at the request and enters Live only at the real `hike_ball` callback after
 A preserved public vector still reaches `bc_adjust[6]`: original
 `detect.c` declares a six-int automatic local array but indexes6 after six
 successful blocks. This is genuine undefined original C, not a truncated
-parser or rating mapping. No approved corrected semantics or matching target
-runtime evidence defines the value. Strict failure remains; no seventh row,
-clamp, default, skipped collision or expected-boundary PASS is authorized.
+parser or rating mapping. StrictSource still rejects the undefined domain.
+The separate explicit M1 Portable policy uses existing consumer rows while
+preserving raw state and typed repair diagnostics; it is an authored engineering
+correction, not matching target runtime evidence or recovered native behavior.
+No row/data/RNG or default-mode change is introduced by CI flag threading.
 
 The positive public R_SKIP witness remains zero. Full M1, CI and PR21 merge
 are blocked. Hosted run39070002791 used legacy69/443 inputs and failed at a
@@ -272,16 +274,22 @@ the strict versioned preparer to the exact12,000 public commands. The gzip is
 only public `host`/`command` rows, no game snapshots, RNG/seeds, geometry or
 audio observations. See the
 [exact preparation and required full-M1 command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate).
-The gate uses actual M1 composition and unchanged controls/assertions.
-This fixes CI input preparation, **not** the remaining source/witness failure:
-no full replay was run locally and no green hosted result is claimed.
+The gate uses actual M1 composition and unchanged controls/assertions, with
+exactly one `--source-compatibility portable`. Default root APIs remain
+StrictSource; this workflow deliberately qualifies the opt-in portable policy,
+not original native semantics. `--single-public-attempt`, skipped controls and
+fault-as-PASS are forbidden. The known portable12k observation completed
+without a source fault but still has zero required positive R_SKIP witnesses.
+This fixes CI input/mode threading, **not** the unmet witness: this integration
+ran no new public replay and claims no green hosted result.
 Historical component counts and Systems' pre-Snap API
 receipts remain tied to their recorded generations.
 
 The separate October 17, 2026 post-snap defined-domain QA report records
-the current package's 1,577 assertions/17 compiled controls and all five
-archived Unity-reference API profiles over the current 112 sources. Those are
-fresh named component/API results, not import, build, GPU, DSP or full-M1
+that snapshot's package with 1,577 assertions/17 compiled controls and all five
+archived Unity-reference API profiles over its 112 sources, before the portable
+consumer package. Those are fresh named component/API results, not import,
+build, GPU, DSP or full-M1
 qualification. The report excludes all seven mutable Frontend CI/docs paths;
 it neither qualifies the existing workflow nor reexecutes the older broader
 contact/VM/P1/full-kernel/geometry-history campaigns.

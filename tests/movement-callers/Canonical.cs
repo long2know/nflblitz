@@ -373,6 +373,12 @@ internal static partial class Program
         CanonicalCacheCapture.Observer = null;
         m1ReplayEvidence = new {
             schema = "source-C2-M1-real-factory-public-replay/v1", observed, historical,
+            gameplayCompatibility = game.Compatibility.ToString(),
+            portableCorrectionsAreNotOriginalHardwareEvidence = game.Compatibility == SourceGameplayCompatibility.Portable,
+            compatibilityRepairCount = game.Model.SourceCompatibilityRepairCount,
+            compatibilityRepairs = game.Model.SourceCompatibilityRepairs.ToArray(),
+            rawHandicap = game.Model.SourceTeamHandicap,
+            effectiveHandicap = game.Model.SourceEffectiveTeamHandicap,
             profile = historical ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.C2M1StableId,
             sourceData = real.C2Data.PayloadSha256, replayFileSha256 = CanonicalHash(File.ReadAllBytes(replayPath)),
             factory = historical ? "REAL SourceC2Composition.CreateSimulation" : "REAL SourceC2Composition.CreateM1Simulation",

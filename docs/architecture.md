@@ -18,17 +18,22 @@ The two timing profiles below are distinct from these three resource profiles.
 **Blocked qualification:** Source57 now retains PreSnap/HikingBall until the
 actual `hike_ball` stream callback; request-time Live/holder assignment is not
 the source contract. That source-derived fix does not define the remaining
-original six-int automatic-array `bc_adjust[6]` read. No corrected semantics
-or matching target runtime evidence is approved; strict failure remains.
+original six-int automatic-array `bc_adjust[6]` read. StrictSource remains the
+default and rejects undefined consumer domains. Explicit M1 Portable is an
+authored consumer-index correction, not target-memory/native emulation;
+raw values, settings and repair diagnostics remain visible.
 Positive public R_SKIP is still zero. Clean CI now prepares the tracked exact
 12,000-command input-only replay without any source-state regeneration, plus
 strict Contact272 and explicit M1 data. Historical69/443 numeric controls remain
 separate; the source callers no longer use the old157 library as their closure.
 The last hosted legacy-input run failed, and the corrected actual full-M1 gate
-remains required, not an accepted source boundary or scoped substitute.
+now deliberately selects `--source-compatibility portable` exactly once.
+It still requires the complete controls/physics/final and positive R_SKIP,
+not an accepted source boundary or scoped/single-attempt substitute.
 [Current post-snap defined-domain QA](source-parity.md#current-post-snap-defined-domain-qa)
 qualifies the named B1, snap, running-binding, package and archived-API surfaces
-only; its fingerprint excludes all seven mutable Frontend paths. It is not
+only on that pre-portable snapshot; its fingerprint excludes all seven mutable
+Frontend paths. It is not
 full-generation acceptance. Full M1/CI/PR21 merge and all sixteen parity rows
 remain OPEN.
 
