@@ -127,6 +127,11 @@ class ContactRunnerTests(unittest.TestCase):
         self.assertEqual(specs[0][0], "carrier-probability45")
         self.assertEqual(specs[24][0], "receiver-latch-too-late")
         self.assertEqual(specs[-1][0], "repair-hides-invalid-receiver")
+        by_name = {row[0]: row for row in specs}
+        self.assertIn("Model.SourceC2Whistles.RemoveAt(index)", by_name["whistle-chance-inclusive25"][2])
+        self.assertNotIn("Model.SourceC2Whistles.Remove(process)", by_name["whistle-chance-inclusive25"][3])
+        self.assertIn("process.Started = true;\n                    process.SleepRemaining = 30;",
+                      by_name["whistle-sleep29"][2])
         for identity, path, old, new, field in specs:
             with self.subTest(identity=identity):
                 self.assertEqual((run.ROOT / path).read_bytes().count(old.encode()), 1)
