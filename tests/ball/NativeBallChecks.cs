@@ -227,6 +227,91 @@ internal static class NativeBallChecks
         return assertions;
     }
 
+    internal static int RunOrientation(FullKernelInputs real, string oracleRoot)
+    {
+        int before = assertions, spinStep = 0;
+        var counts = new Dictionary<string, int> { { "spin", 0 }, { "matrix", 0 }, { "motion", 0 }, { "held", 0 } };
+        SimulationState spinning = null;
+        foreach (string line in File.ReadLines(Path.Combine(oracleRoot, "orientation-cases.tsv")))
+        {
+            string[] t = line.Split('\t');
+            if (t.Length != 43 || t[0] != "H" || !counts.ContainsKey(t[3]))
+                throw new BallAssertionFailure("Unknown original orientation oracle row.");
+            int side = Int(t[4]), mode = Int(t[6]);
+            var model = new SimulationState
+            {
+                SourceMode = true, SourcePlaybook = real.Playbook, SourceTick = 1000,
+                SourceRules = new SourceRulesState(side, side, 1, 30, 100, (SourcePlayType)Int(t[5])),
+                Possession = (TeamId)side,
+                Phase = mode == 1 ? GamePhase.LiveBall : mode == 2 ? GamePhase.DeadBall : GamePhase.PreSnap,
+                SourceKickApproach = mode == 3, CarrierId = Int(t[7]), BallKind = Kind(Int(t[8])),
+                SourceBallFlags = (SourceBallFlags)UInt(t[9]), SourceBallHeading = Int(t[10]),
+                SourceBallElevation = Int(t[11]), SourceBallPitch = Int(t[12]),
+                SourceBallPitchRate = Int(t[13]), SourceBallRoll = Int(t[14]),
+                PassTicksElapsed = Int(t[15]), SourceFlags = (SourceGameFlags)UInt(t[16]),
+                SourceBallPosition = new SourceVector3(Float(t[17]), Float(t[18]), Float(t[19])),
+                SourceBallVelocity = new FieldVector(Float(t[20]), Float(t[22])),
+                SourceBallVerticalVelocity = Float(t[21]),
+                SourceBallTarget = new SourceVector3(Float(t[23]), 0f, Float(t[24])),
+                SourceClock = SourceClock.Create(playTime: 123)
+            };
+            string label = "original ball_proc orientation " + t[3] + " case " + t[1] + " step " + t[2];
+            if (t[3] == "spin")
+            {
+                Check(Int(t[2]) == spinStep++, label + " continuous next wake");
+                if (spinning == null)
+                {
+                    model.SourceBallFlags = SourceBallFlags.White | SourceBallFlags.Bounce | SourceBallFlags.Bobble
+                        | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.Freeze
+                        | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost;
+                    model.SourceBallElevation = 384;
+                    model.SourceBallRoll = -100;
+                    model.CarrierId = 3;
+                    model.SourceBallVelocity = new FieldVector(2f, 3f);
+                    model.SourceBallVerticalVelocity = 1f;
+                    SourceBallDriver.Spin(model, new SourceVector3(13f, 9f, -7f));
+                    spinning = model;
+                }
+                else
+                {
+                    model = spinning;
+                    model.SourceTick++;
+                }
+                CheckOrientationState(model, t, 10, 9, 7, 15, 16, 17, label + " retained input");
+            }
+            int draws = 0;
+            SourceBallStep result = SourceBallDriver.Advance(model, bound => { draws++; return 0; });
+            CheckOrientationState(model, t, 25, 30, 31, 32, 33, 34, label);
+            Check(!result.EndPlay, label + " no invented play-end");
+            Check(draws == Int(t[42]), label + " original RNG count");
+            counts[t[3]]++;
+        }
+        Check(counts["spin"] == 61, "all 61 consecutive original spin_ball wakes");
+        Check(counts["matrix"] == 1280, "all original zero-horizontal phase/side/play/flag/elevation cases");
+        Check(counts["motion"] == 420, "all retained moving velocity-pitch/pass-roll cases");
+        Check(counts["held"] == 8, "all retained held/phantom boundary cases");
+        return assertions - before;
+    }
+
+    private static void CheckOrientationState(SimulationState model, string[] t, int angles, int flags,
+        int carrier, int flight, int gameFlags, int floats, string label)
+    {
+        int[] actualAngles = { model.SourceBallHeading, model.SourceBallElevation, model.SourceBallPitch,
+            model.SourceBallPitchRate, model.SourceBallRoll };
+        for (int i = 0; i < actualAngles.Length; i++)
+            Check(actualAngles[i] == Int(t[angles + i]), label + " angle" + i
+                + " " + actualAngles[i] + " != " + t[angles + i]);
+        Check((uint)model.SourceBallFlags == UInt(t[flags]), label + " ball flags");
+        Check(model.CarrierId == Int(t[carrier]), label + " carrier");
+        Check(model.PassTicksElapsed == Int(t[flight]), label + " flight time");
+        Check((uint)model.SourceFlags == UInt(t[gameFlags]), label + " game flags");
+        float[] actual = { model.SourceBallPosition.X, model.SourceBallPosition.Y, model.SourceBallPosition.Z,
+            model.SourceBallVelocity.X, model.SourceBallVerticalVelocity, model.SourceBallVelocity.Z,
+            model.SourceBallTarget.X, model.SourceBallTarget.Z };
+        for (int i = 0; i < actual.Length; i++)
+            Check(Bits(actual[i]) == UInt(t[floats + i]), label + " float" + i);
+    }
+
     private static void CheckBounds(List<int> actual, string native, string label)
     {
         int[] values = native.Split(',').Select(Int).ToArray();

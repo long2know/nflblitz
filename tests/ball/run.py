@@ -21,11 +21,26 @@ from contact_inputs import ANIMATION_SHA as CONTACT_ANIMATION_SHA, fixture_profi
 from kernel_sources import production_paths, canonical_hashes, C2_ANIMATION_SHA
 
 EXPECTED = {"sentinel_assertions": 36, "native_ball_assertions": 470666,
-            "caller_assertions": 18017, "geometry_caller_assertions": 32}
+            "caller_assertions": 18017, "geometry_caller_assertions": 32,
+            "orientation_ball_assertions": 34713}
 CONTACT272_CALLER_ASSERTIONS = 18018  # 17980 +14 FlipCases +23 RawSnapAndPass +1 inventory; no C2 additions.
 FIFO_ADDED_ASSERTIONS = 44
 C2_CALLER_ASSERTIONS = 18062  # 17980 +14 +23 +1 retained inventory +44 NEW compatibility checks.
 GEOMETRY_ADDED_ASSERTIONS = 9
+ORIENTATION_MUTATIONS = (
+    ("kickoff-standing-phase", "SourceBallDriver.cs",
+     "model.Phase == GamePhase.PreSnap && model.SourceRules.PlayType == SourcePlayType.Kickoff",
+     "model.Phase == GamePhase.LiveBall && model.SourceRules.PlayType == SourcePlayType.Kickoff",
+     "orientation", "original ball_proc orientation matrix", 1),
+    ("kickoff-standing-side", "SourceBallDriver.cs",
+     "model.Possession == TeamId.Home ? 256 : 768",
+     "model.Possession == TeamId.Home ? 768 : 256",
+     "orientation", "original ball_proc orientation matrix", 1),
+    ("spin-original-overshoot", "SourceBallDriver.cs",
+     "model.SourceBallElevation < 256\n                        ? model.SourceBallElevation + 5 : 256",
+     "Math.Min(256, model.SourceBallElevation + 5)",
+     "orientation", "original ball_proc orientation spin case 0 step 51 angle1", 1),
+)
 GEOMETRY_MUTATIONS = (
     ("standing-air-guard-strict", "SourceCatchRules.cs", "height >= 0f", "height > 0f", "geometry",
      "default-seed standing BatDown retains carrier-1/noCatch20/realBobble6", 1),
@@ -101,7 +116,8 @@ def hashes(paths):
 
 
 def require_baseline(code, summary, section, animation_sha=None):
-    field = {"geometry": "geometry_caller_assertions", "native": "native_ball_assertions"}.get(
+    field = {"geometry": "geometry_caller_assertions", "native": "native_ball_assertions",
+             "orientation": "orientation_ball_assertions"}.get(
         section, section + "_assertions")
     required = dict(EXPECTED) if section == "all" else (
         {"caller_assertions": 58} if section == "flip-fifo" else {field: EXPECTED[field]})
@@ -152,9 +168,10 @@ def main():
     parser.add_argument("--sound-functions", type=Path, help="Explicit frozen SAFN input for synchronous source VM sound.")
     parser.add_argument("--c2-inputs", type=Path, help="Explicit frozen current281 production outputs, never a272 alias.")
     parser.add_argument("--output", type=Path, help="New ignored child output; preserve previous generation receipts.")
-    parser.add_argument("--section", choices=("all", "sentinel", "native", "caller", "geometry", "flip-fifo"), default="all")
+    parser.add_argument("--section", choices=("all", "sentinel", "native", "caller", "geometry", "flip-fifo", "orientation"), default="all")
     parser.add_argument("--fifo-controls", action="store_true", help="Focused saved-packet delivery plus three causal controls.")
     parser.add_argument("--geometry-controls", action="store_true", help="Focused two-profile geometry plus causal standing/drop controls.")
+    parser.add_argument("--orientation-controls", action="store_true", help="Focused original heading lifecycle and three compiled causal controls.")
     parser.add_argument("--no-mutations", action="store_true", help="Focused author check only; not the complete CI proof.")
     args = parser.parse_args()
     if args.output is not None:
@@ -166,7 +183,10 @@ def main():
         parser.error("--fifo-controls requires explicit current281 --section flip-fifo and mutations enabled.")
     if args.geometry_controls and (args.section != "geometry" or args.c2_inputs is None or args.no_mutations or args.fifo_controls):
         parser.error("--geometry-controls requires current281 --section geometry, mutations, no FIFO-only flag.")
-    if args.section != "all" and not args.no_mutations and not args.fifo_controls and not args.geometry_controls:
+    if args.orientation_controls and (args.section != "orientation" or args.no_mutations
+                                      or args.fifo_controls or args.geometry_controls):
+        parser.error("--orientation-controls requires --section orientation and mutations enabled without other focused controls.")
+    if args.section != "all" and not args.no_mutations and not args.fifo_controls and not args.geometry_controls and not args.orientation_controls:
         parser.error("Focused sections require explicit --no-mutations; CI uses the complete default.")
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     fixture = args.fixture_manifest.resolve()
@@ -230,9 +250,9 @@ def main():
             print(text[-5000:])
             raise
         if not args.no_mutations:
-            selected = FIFO_MUTATIONS if args.fifo_controls else (
+            selected = ORIENTATION_MUTATIONS if args.orientation_controls else FIFO_MUTATIONS if args.fifo_controls else (
                 GEOMETRY_MUTATIONS + tuple(row for row in MUTATIONS if row[0] == "delayed-catch-controller")
-                if args.geometry_controls else MUTATIONS + (
+                if args.geometry_controls else MUTATIONS + ORIENTATION_MUTATIONS + (
                     FIFO_MUTATIONS + GEOMETRY_MUTATIONS if args.c2_inputs is not None else ()))
             for name, filename, anchor, replacement, section, expected_field, occurrences in selected:
                 source_root = workspace / name / "source"

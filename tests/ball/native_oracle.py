@@ -26,6 +26,7 @@ PINS = {
     "lib/ani3d/TRIGS.H": "a07d76798931f1240bdf7f3b8e753ebd7832763a",
 }
 EXPECTED = {"C": 24000, "D": 4096, "F": 10000, "A": 8000}
+ORIENTATION_CASES = 1769
 
 
 def sha(data):
@@ -115,6 +116,14 @@ def build(source_root, fixture_manifest, output):
     crossing_end = matching_brace(player, opening)
     functions.append("static void advance_kernel(void) {\nfloat prev[3],f,vxz;\n" + physics +
                      select("player.c", crossing, crossing_end, "ball_proc/original-cross-LOS-block") + "\n}\n")
+    heading_start = player.index(b"\n\t\t\t// heading", end, ball_end)
+    heading_closings = list(re.finditer(rb"\r?\n\t\t}\r?\n\t\telse", player[heading_start:ball_end]))
+    if len(heading_closings) != 1:
+        raise ValueError("Expected the unique original free-ball/held-ball heading boundary.")
+    heading_end = heading_start + heading_closings[0].start()
+    functions.append("static void orientation_kernel(void) {\nfloat vx,vy,vz,vxz,vxyz;\nint angle;\n" +
+                     select("player.c", heading_start, heading_end, "ball_proc/original-heading-block") + "\n}\n")
+    functions.append(function("player.c", "spin_ball"))
     fixture_manifest = Path(fixture_manifest).resolve()
     manifest = json.loads(fixture_manifest.read_bytes())
     catalog_path = fixture_manifest.parent / manifest["playbook"]["path"]
@@ -161,7 +170,7 @@ def build(source_root, fixture_manifest, output):
         if process.returncode:
             raise ValueError("Pinned original C compilation failed; see " + label + "-compiler.log")
         if label == "ball":
-            modes = [(None, "oracle-cases.tsv")]
+            modes = [(None, "oracle-cases.tsv"), ("orientation", "orientation-cases.tsv")]
         else:
             modes = [("gate", "caller-gate-oracle.tsv"), ("receiver", "caller-receiver-oracle.tsv"),
                      ("sentinel", "pat-sentinel.tsv")]
@@ -173,16 +182,17 @@ def build(source_root, fixture_manifest, output):
     if dict(rows) != EXPECTED:
         raise ValueError("Original ball oracle case inventory changed: " + str(rows))
     for name, count in (("caller-gate-oracle.tsv", 800), ("caller-receiver-oracle.tsv", 12544),
-                        ("pat-sentinel.tsv", 1)):
+                        ("pat-sentinel.tsv", 1), ("orientation-cases.tsv", ORIENTATION_CASES)):
         if len((output / name).read_text().splitlines()) != count:
             raise ValueError("Original caller oracle case inventory changed: " + name)
     outputs = {name: sha((output / name).read_bytes()) for name in (
-        "oracle-cases.tsv", "caller-gate-oracle.tsv", "caller-receiver-oracle.tsv", "pat-sentinel.tsv")}
+        "oracle-cases.tsv", "caller-gate-oracle.tsv", "caller-receiver-oracle.tsv", "pat-sentinel.tsv",
+        "orientation-cases.tsv")}
     receipt = {"schema": "source-ball-original-c/v1", "status": "passed", "source_blobs": PINS,
                "source_sha256": {name: sha(data) for name, data in sources.items()},
                "original_windows": windows, "inactive_debug_omissions": omitted, "commands": commands,
                "case_counts": dict(rows), "caller_gate_cases": 800, "receiver_cases": 12544,
-               "sentinel_assignment_witness_cases": 1, "output_sha256": outputs,
+               "sentinel_assignment_witness_cases": 1, "orientation_cases": ORIENTATION_CASES, "output_sha256": outputs,
                "boundary": "Original active decision/ball bodies; projected host structs, prescribed RNG, host sqrtf and qsort. Audio/effects callbacks excluded.",
                "original_target_binary_scheduler_random_qsort_or_full_game_parity": False}
     (output / "native-result.json").write_text(json.dumps(receipt, indent=2) + "\n")

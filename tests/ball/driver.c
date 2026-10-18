@@ -66,8 +66,10 @@
 #define CR_DEFLECT 5
 #define JOINT_RWRIST 4
 #define JOINT_LWRIST 7
+#define GM_PRE_SNAP 0
 #define GM_IN_PLAY 1
 #define GM_PLAY_OVER 2
+#define GM_PRE_KICKOFF 3
 #define PEC_DEAD_BALL_IB 4
 #define TEAM_MASK(side) (1<<(side))
 #define PLYRH(p) ((p)->hcap)
@@ -77,7 +79,7 @@
 #define ISDRONETEAM(p) (!ISHUMANTEAM(p))
 #define MSG_FUMBLE_PID 0
 typedef struct { unsigned animode; int seq_index; } anidata;
-typedef struct { float x,y,z,vx,vy,vz,ay; unsigned flags; int plyrmode; anidata adata[2]; } obj_3d;
+typedef struct { float x,y,z,vx,vy,vz,ay; unsigned flags; int plyrmode; anidata adata[2]; int fwd,fwd2; } obj_3d;
 typedef struct { obj_3d odata; int team,plyrnum,station,no_catch_time,hcap; float jpos[15][3]; } fbplyr_data;
 typedef struct { int flags; } play_t;
 static play_t plays[2];
@@ -90,6 +92,7 @@ static struct {
 } game_info;
 static struct {
  obj_3d odata; int type,flags,flight_time,total_time,who_threw,int_receiver,catch_pcount,bounces,bounce_time;
+ int pitch,pitch_rate,phi;
  float scale,tx,ty,tz,ox,oy,oz;
 } ball_obj;
 static struct { int deflections,bobbles,fumbles,lost_fumbles,interceptions,off_plays,last_receiver; } tdata_blocks[2];
@@ -153,7 +156,78 @@ static int iasin(float v) { int negative=v<0.0f;float x=negative?-v:v;int lo=0,h
 #define FRELX(x,z,h) ((z)*isin(h)+(x)*icos(h))
 #define FRELZ(x,z,h) ((z)*icos(h)-(x)*isin(h))
 /* RUNTIME_ORIGINAL_FUNCTIONS */
-int main(void) {
+static void orientation_defaults(void) {
+ reset();cursor=0;pcount=1000;clock_active=0;
+ game_info.ball_carrier=-1;game_info.los=30;game_info.play_time=123;
+ ball_obj.type=LB_KICKOFF;ball_obj.scale=2.0f;ball_obj.odata.y=50.0f;
+ ball_obj.odata.fwd=137;ball_obj.odata.fwd2=251;
+ ball_obj.pitch=1001;ball_obj.pitch_rate=40;ball_obj.phi=44;
+ ball_obj.tx=222.0f;ball_obj.tz=111.0f;
+}
+static void orientation_row(const char *family,int id,int step) {
+ printf("H\t%d\t%d\t%s",id,step,family);
+ int input[]={game_info.off_side,game_info.play_type,game_info.game_mode,
+  game_info.ball_carrier,ball_obj.type,ball_obj.flags,ball_obj.odata.fwd,
+  ball_obj.odata.fwd2,ball_obj.pitch,ball_obj.pitch_rate,ball_obj.phi,
+  ball_obj.flight_time,(int)game_info.game_flags};
+ for(int i=0;i<13;i++)printf("\t%d",input[i]);
+ float before[]={ball_obj.odata.x,ball_obj.odata.y,ball_obj.odata.z,
+  ball_obj.odata.vx,ball_obj.odata.vy,ball_obj.odata.vz,ball_obj.tx,ball_obj.tz};
+ for(int i=0;i<8;i++)printf("\t%u",bits(before[i]));
+ if(game_info.ball_carrier==-1 || (ball_obj.flags&BF_PHANTOM)) {
+  advance_kernel();orientation_kernel();
+ }
+ int out[]={ball_obj.odata.fwd,ball_obj.odata.fwd2,ball_obj.pitch,ball_obj.pitch_rate,
+  ball_obj.phi,ball_obj.flags,game_info.ball_carrier,ball_obj.flight_time,(int)game_info.game_flags};
+ for(int i=0;i<9;i++)printf("\t%d",out[i]);
+ float after[]={ball_obj.odata.x,ball_obj.odata.y,ball_obj.odata.z,
+  ball_obj.odata.vx,ball_obj.odata.vy,ball_obj.odata.vz,ball_obj.tx,ball_obj.tz};
+ for(int i=0;i<8;i++)printf("\t%u",bits(after[i]));
+ printf("\t%d\n",cursor);
+}
+static int orientation_cases(void) {
+ int id=0;
+ orientation_defaults();
+ game_info.game_mode=GM_PLAY_OVER;
+ ball_obj.type=LB_FUMBLE;
+ ball_obj.flags=BF_WHITE|BF_BOUNCE|BF_BOBBLE|BF_FIRE_PASS|BF_TURBO_PASS|BF_FREEZE|BF_FG_BOUNCE|BF_FG_HITPOST;
+ actors[3].jpos[JOINT_RWRIST][0]=13.0f;
+ actors[3].jpos[JOINT_RWRIST][1]=9.0f;
+ actors[3].jpos[JOINT_RWRIST][2]=-7.0f;
+ spin_ball(&actors[3].odata);
+ for(int step=0;step<61;step++,pcount++)orientation_row("spin",id,step);
+ id++;
+ int modes[]={GM_PRE_SNAP,GM_PRE_KICKOFF,GM_IN_PLAY,GM_PLAY_OVER};
+ int flags[]={0,BF_SPINING,BF_FREEZE,BF_SPINING|BF_FREEZE};
+ int elevations[]={-5,0,250,251,255,256,260,384};
+ for(int side=0;side<2;side++)for(int mode=0;mode<4;mode++)for(int play=0;play<5;play++)
+  for(int flag=0;flag<4;flag++)for(int elevation=0;elevation<8;elevation++) {
+   orientation_defaults();game_info.off_side=side;game_info.game_mode=modes[mode];
+   game_info.play_type=play;ball_obj.flags=flags[flag];
+   ball_obj.odata.fwd2=elevations[elevation];
+   orientation_row("matrix",id++,0);
+  }
+ float velocities[][3]={{0,3,0},{0,-3,-0.0f},{1,3,0},{-1,-3,0},{0,0,1},
+  {0,0,-1},{1,2,1},{1,-2,-1},{-1,2,1},{-1,-2,-1}};
+ int moving_flags[]={0,BF_VEL_PITCH,BF_BOBBLE,BF_FREEZE,BF_PHANTOM,BF_SPINING};
+ for(int velocity=0;velocity<10;velocity++)for(int kind=0;kind<7;kind++)for(int flag=0;flag<6;flag++) {
+  orientation_defaults();game_info.off_side=velocity%2;game_info.game_mode=modes[velocity%4];
+  ball_obj.type=kind;ball_obj.flags=moving_flags[flag];
+  ball_obj.odata.vx=velocities[velocity][0];ball_obj.odata.vy=velocities[velocity][1];
+  ball_obj.odata.vz=velocities[velocity][2];
+  ball_obj.pitch=velocity%2?-1080:1001;ball_obj.pitch_rate=velocity%2?-45:40;
+  orientation_row("motion",id++,0);
+ }
+ int held_flags[]={0,BF_PHANTOM,BF_SPINING,BF_SPINING|BF_PHANTOM};
+ for(int held=0;held<2;held++)for(int flag=0;flag<4;flag++) {
+  orientation_defaults();game_info.game_mode=GM_IN_PLAY;
+  game_info.ball_carrier=held?3:-1;ball_obj.flags=held_flags[flag];ball_obj.odata.vx=2.0f;
+  orientation_row("held",id++,0);
+ }
+ return 0;
+}
+int main(int argc,char **argv) {
+ if(argc==2 && strcmp(argv[1],"orientation")==0)return orientation_cases();
  for(int n=0;n<24000;n++) {
   reset();draw_tape(n);
   int side=(n/2)%2,team=n%2,id=team*7+(int)(next()%7);

@@ -28,7 +28,7 @@ class BallRunnerGuards(unittest.TestCase):
                     RUNNER.require_baseline(0, summary, "all")
 
     def test_each_author_section_still_checks_its_exact_inventory(self):
-        for section in ("native", "caller", "sentinel", "geometry"):
+        for section in ("native", "caller", "sentinel", "geometry", "orientation"):
             with self.subTest(section=section):
                 RUNNER.require_baseline(0, self.summary(), section)
                 with self.assertRaises(RuntimeError):
@@ -164,6 +164,19 @@ class BallRunnerGuards(unittest.TestCase):
         apply = source.index("ApplySourceMovement(actor, state);", merge)
         self.assertLess(tick, merge)
         self.assertLess(merge, apply)
+
+    def test_orientation_is_additive_and_each_control_targets_actual_compilable_production(self):
+        self.assertEqual(34713, RUNNER.EXPECTED["orientation_ball_assertions"])
+        self.assertEqual(470666, RUNNER.EXPECTED["native_ball_assertions"])
+        self.assertEqual(20, len(RUNNER.MUTATIONS))
+        self.assertEqual(3, len(RUNNER.ORIENTATION_MUTATIONS))
+        self.assertEqual(3, len({row[0] for row in RUNNER.ORIENTATION_MUTATIONS}))
+        for name, filename, old, new, section, expected, count in RUNNER.ORIENTATION_MUTATIONS:
+            with self.subTest(control=name):
+                self.assertEqual(section, "orientation")
+                self.assertEqual((RUNNER.ROOT / "Assets/Scripts/Gameplay" / filename).read_text().count(old), count)
+                self.assertNotEqual(old, new)
+                self.assertIn("original ball_proc orientation", expected)
 
 
 if __name__ == "__main__":
