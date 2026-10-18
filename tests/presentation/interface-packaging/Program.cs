@@ -8,6 +8,7 @@ using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Editor;
 using Blitz.Gameplay;
+using Blitz.Runtime;
 
 internal static class Program
 {
@@ -26,11 +27,77 @@ internal static class Program
         try
         {
             CheckConfiguration();
+            CheckPublicCabinetConfigurations();
             if (args.Length > 0) CheckActual(args[0], args[1], args[2], args[3]);
             Console.WriteLine("PASS original interface packaging / " + assertions + " production-preflight assertions");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+
+    private static void CheckPublicCabinetConfigurations()
+    {
+        string directory = Path.Combine(AppContext.BaseDirectory, "CabinetConfigurations");
+        SourceInterfacePackageConfiguration baseline = Parse(File.ReadAllText(Path.Combine(directory, "match-settings.json")));
+        Equal(baseline.Match.StationLayout, SourceStationLayout.TwoStation, "public default retains two-station cabinet");
+        Equal(baseline.Match.Stations.Count, 1, "public default remains one human");
+        Equal(baseline.Match.Stations[0].StationId, 0, "public default keeps station zero");
+        Equal(baseline.Match.Stations[0].Team, TeamId.Home, "public default keeps Home human");
+        foreach (int count in new[] { 2, 4 })
+        {
+            string name = count == 2 ? "match-settings.two-player.json" : "match-settings.four-player.json";
+            SourceInterfacePackageConfiguration selected = Parse(File.ReadAllText(Path.Combine(directory, name)));
+            var stations = Enumerable.Range(0, count)
+                .Select(id => new SourceStationConfiguration(id, id % 2 == 0 ? TeamId.Home : TeamId.Away)).ToArray();
+            var expected = new SourceMatchConfiguration(baseline.Match.Profile, (SourceStationLayout)count,
+                baseline.Match.HomeTeam, baseline.Match.AwayTeam, stations, baseline.Match.FirstPossession,
+                baseline.Match.Captain, baseline.Match.TimeAdjustment, baseline.Match.Difficulty,
+                baseline.Match.ContinueAfterCabinetGate, baseline.Match.HomePlay, baseline.Match.AwayPlay);
+            SourceTeamInterfaceChecks.ConfigurationEquals(selected, expected, baseline.Presentation, baseline.NativeGamepadsEnabled);
+            assertions++;
+            Equal(selected.Match.Stations.Count, count, "public cabinet example binds every human station");
+            Check(selected.Match.Stations.Select(s => s.StationId).SequenceEqual(Enumerable.Range(0, count)),
+                "public cabinet example preserves distinct physical station IDs");
+            CheckCabinetBuffer(selected.Match);
+        }
+    }
+
+    private static void CheckCabinetBuffer(SourceMatchConfiguration configuration)
+    {
+        var buffer = new SourceCabinetInputBuffer(configuration);
+        var neutral = configuration.Stations.Select(station =>
+            new SourceCabinetSample(station.StationId, new SourceCabinetStick(24, 0, 0), SourceButtons.None)).ToArray();
+        int[] ordinals = { 0, 6, 42, 48 };
+        SourceButtons[] buttons = { SourceButtons.A, SourceButtons.B, SourceButtons.C, SourceButtons.A | SourceButtons.B | SourceButtons.C };
+        var held = configuration.Stations.Select((station, index) =>
+            new SourceCabinetSample(station.StationId, new SourceCabinetStick(ordinals[index], 0, 0), buttons[index])).ToArray();
+        buffer.Capture(neutral);
+        buffer.Capture(held);
+        SourceInputFrame pressed = buffer.NextHostFrame();
+        Equal(pressed.Stations.Count, configuration.Stations.Count, "actual cabinet buffer retains all configured humans");
+        for (int i = 0; i < held.Length; i++)
+        {
+            Equal(pressed.Stations[i].StationId, held[i].StationId, "actual cabinet station identity");
+            Equal(pressed.Stations[i].StickX, held[i].Stick.StickX, "actual cabinet independent X");
+            Equal(pressed.Stations[i].StickZ, held[i].Stick.StickZ, "actual cabinet independent Z");
+            Equal(pressed.Stations[i].Held, buttons[i], "actual cabinet independent held A/B/C");
+            Equal(pressed.Stations[i].Pressed, buttons[i], "actual cabinet independent pressed A/B/C");
+        }
+        Check(buffer.NextHostFrame().Stations.All(s => s.Pressed == SourceButtons.None), "held frames do not replay source edges");
+        buffer.Clear();
+        Check(buffer.WaitingForNeutral && buffer.NextHostFrame().Stations.All(s =>
+            s.Held == SourceButtons.None && s.Pressed == SourceButtons.None), "focus clear neutralizes every human");
+        buffer.Capture(held);
+        Check(buffer.WaitingForNeutral && buffer.PendingFrames == 0, "held controllers cannot bypass the shared neutral gate");
+        buffer.Capture(neutral);
+        Check(!buffer.WaitingForNeutral, "all configured cabinets can release the neutral gate");
+        buffer.Capture(held);
+        Check(buffer.NextHostFrame().Stations.Select(s => s.Pressed).SequenceEqual(buttons.Take(held.Length)),
+            "focus recovery produces fresh edges for every human");
+        Reject(() => buffer.Capture(held.Take(held.Length - 1).ToArray()), "Sample all configured", "missing human cabinet sample");
+        SourceCabinetSample[] duplicate = held.ToArray();
+        duplicate[duplicate.Length - 1] = held[0];
+        Reject(() => buffer.Capture(duplicate), "duplicate", "duplicate human cabinet sample");
     }
 
     private static void CheckConfiguration()

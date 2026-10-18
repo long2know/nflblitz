@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Runtime/SourceCabinetInput.cs" Link="Production/SourceCabinetInput.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs" Link="Production/SourceTeamInterfacePackage.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs" Link="Production/SourceTeamInterfaceImporter.cs" />
     <Compile Include="$(BlitzPackagingRoot)Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs" Link="Production/SourceTeamInterfaceChecks.cs" />
@@ -27,6 +28,12 @@
     <Compile Include="$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs" Link="Frozen/SourceInterfaceData.cs" />
     <Compile Include="$(BlitzUiRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs" Link="Explicit/SourceInterfaceMovementData.cs" />
     <Compile Include="$(BlitzB1Root)Assets/Scripts/Gameplay/*.cs" Link="Explicit/Gameplay/%(Filename)%(Extension)" />
+    <Content Include="$(BlitzPackagingRoot)tools/source-player/match-settings.json"
+    Link="CabinetConfigurations/match-settings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(BlitzPackagingRoot)tools/source-player/match-settings.two-player.json"
+    Link="CabinetConfigurations/match-settings.two-player.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(BlitzPackagingRoot)tools/source-player/match-settings.four-player.json"
+    Link="CabinetConfigurations/match-settings.four-player.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="RequireProtectedInputs" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzB1Root)Assets/Scripts/Gameplay/SourcePlaybook.cs')" Text="Explicit frozen B1 root required; Primary M1 is not a substitute." />
