@@ -34,6 +34,7 @@ uniform sampler2D atlas;
 uniform float cutoff;
 uniform bool constantAlpha;
 uniform bool textureTimesAlpha;
+uniform float playerFlashAdd;
 uniform vec4 identityOutput;
 out vec4 pixel;
 void main() {
@@ -41,6 +42,7 @@ void main() {
   if(constantAlpha) color.a=1.0;
   if(color.a<=cutoff) discard;
   if(textureTimesAlpha) color.rgb*=color.a;
+  color.rgb=clamp(color.rgb+playerFlashAdd,0.0,1.0);
   pixel=identityOutput.a>0.0?identityOutput:color;
 }`;
 const hudVertex = `#version 300 es
@@ -59,8 +61,28 @@ precision highp float;
 in vec2 texcoord;
 in vec4 vertexColor;
 uniform sampler2D atlas;
+uniform float highlightAdd;
 out vec4 pixel;
-void main() { pixel=texture(atlas,texcoord)*vertexColor; }`;
+void main() {
+  vec4 color=texture(atlas,texcoord)*vertexColor;
+  pixel=vec4(clamp(color.rgb+highlightAdd,0.0,1.0),color.a);
+}`;
+export const fireVertex = `#version 300 es
+layout(location=0) in vec3 position;
+layout(location=1) in vec2 uv;
+uniform mat4 sourceProjection;
+out vec2 texcoord;
+void main() { texcoord=uv; gl_Position=sourceProjection*vec4(position,1.0); }`;
+export const fireFragment = `#version 300 es
+precision highp float;
+in vec2 texcoord;
+uniform sampler2D atlas;
+uniform bool proofMask;
+out vec4 pixel;
+void main() {
+  vec4 texel=texture(atlas,texcoord);
+  pixel=proofMask?vec4(texel.a):vec4(texel.rgb*texel.a,texel.a);
+}`;
 
 export class SourceRenderer {
   constructor(canvas) {
@@ -74,9 +96,16 @@ export class SourceRenderer {
     this.models = new Map(); this.world = []; this.frameCount = 0; this.meshUploads = 0;
     this.scene = program(gl, sceneVertex, sceneFragment);
     this.hud = program(gl, hudVertex, hudFragment);
+    this.fire = program(gl, fireVertex, fireFragment);
     this.sceneUniforms = Object.fromEntries(['viewProjection', 'model', 'atlas', 'cutoff', 'constantAlpha',
-      'textureTimesAlpha', 'identityOutput'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
-    this.hudUniforms = Object.fromEntries(['contentSize', 'atlas'].map(name => [name, gl.getUniformLocation(this.hud, name)]));
+      'textureTimesAlpha', 'identityOutput', 'playerFlashAdd'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
+    this.hudUniforms = Object.fromEntries(['contentSize', 'atlas', 'highlightAdd'].map(name => [name, gl.getUniformLocation(this.hud, name)]));
+    this.fireUniforms = Object.fromEntries(['sourceProjection', 'atlas', 'proofMask']
+      .map(name => [name, gl.getUniformLocation(this.fire, name)]));
+    this.fireBuffer = gl.createBuffer(); this.fireVao = gl.createVertexArray();
+    gl.bindVertexArray(this.fireVao); gl.bindBuffer(gl.ARRAY_BUFFER, this.fireBuffer);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
     this.hudBuffer = gl.createBuffer();
     this.hudVao = gl.createVertexArray();
     gl.bindVertexArray(this.hudVao);
@@ -180,6 +209,26 @@ export class SourceRenderer {
     this.ball = { mesh, texture, origin };
   }
 
+  effects(projection, vertices, textures, rawFlags, flashAlpha, metadata) {
+    const styles = JSON.parse(metadata), frame = styles.frame;
+    requireValue(projection.length === 16 && rawFlags.length === 14 && flashAlpha.length === 14 &&
+      vertices.length === textures.length * 6 * 5, 'Incomplete authoritative C# effect/actor-flash packet.');
+    requireValue(styles.hudConstantColor === 0xc0000000 && styles.hudCombiner === 'DECAL_TEXTURE_ADD_CCALPHA' &&
+      Array.isArray(styles.hudHighlight) && styles.hudHighlight.every(i => Number.isInteger(i) && i >= 0) &&
+      new Set(styles.hudHighlight).size === styles.hudHighlight.length,
+    'Missing/invalid authoritative source meter primitive/material packet.');
+    requireValue(frame.enabled || textures.length === 0, 'Disabled Core fire cannot submit renderer-side particles.');
+    requireValue(!frame.enabled || textures.every(t => Number.isInteger(t) && t >= 0 && t < 17 && this.textures.has(`fire/${t}`)),
+      'Actual Core particle selected an unbound original TRAIL frame.');
+    requireValue(flashAlpha.every((alpha, actor) => alpha === ((rawFlags[actor] & 0x400) ? 192 / 255 : 0)),
+      'Only actual raw0x400 may request the original DECAL_TEXTURE_ADD_CCALPHA/0xc0000000 combiner.');
+    this.fx = {
+      projection: Float32Array.from(projection), vertices: Float32Array.from(vertices),
+      textures: Array.from(textures), rawFlags: Array.from(rawFlags), flashAlpha: Array.from(flashAlpha), metadata: frame,
+      hudHighlight: new Set(styles.hudHighlight), hudStyle: styles,
+    };
+  }
+
   present(camera, joints, models, appearances, ball, hudVertices, hudColors, hudTextures, hudCounts, status) {
     const start = performance.now();
     requireValue(camera.length === 16 && joints.length === 14 * 15 * 16 && models.length === 14 &&
@@ -190,6 +239,7 @@ export class SourceRenderer {
       hudColors: Array.from(hudColors), hudTextures: Array.from(hudTextures), hudCounts: Array.from(hudCounts),
     };
     this.drawScene(false);
+    this.drawEffects(false);
     this.drawHud();
     this.assertHealthy('live C# source frame');
     this.frameCount++;
@@ -222,7 +272,9 @@ export class SourceRenderer {
     const gl = this.gl, frame = this.current;
     gl.useProgram(this.scene);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
-    gl.frontFace(gl.CCW);
+    // Raster X now uses the approved source geom.s negation, not a camera/cache reflection.
+    gl.frontFace(gl.CW);
+    gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(this.sceneUniforms.atlas, 0);
     gl.uniformMatrix4fv(this.sceneUniforms.viewProjection, false, frame.camera);
     gl.clearColor(0, 0, 0, 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -248,6 +300,7 @@ export class SourceRenderer {
     gl.uniform1i(this.sceneUniforms.constantAlpha, false);
     gl.uniform1i(this.sceneUniforms.textureTimesAlpha, false);
     for (let actor = 0; actor < 14; actor++) {
+      gl.uniform1f(this.sceneUniforms.playerFlashAdd, this.fx?.flashAlpha[actor] || 0);
       const model = this.models.get(frame.models[actor]), appearance = this.appearances.get(frame.appearances[actor]);
       requireValue(model && appearance, `Actor ${actor} has no real original appearance/pose.`);
       for (let joint = 0; joint < 15; joint++) {
@@ -263,6 +316,7 @@ export class SourceRenderer {
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
     if (frame.ball[0]) {
+      gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
       const matrix = new Float32Array(identity);
       matrix[12] = frame.ball[1]; matrix[13] = frame.ball[2]; matrix[14] = frame.ball[3];
       this.draw(this.ball.mesh, this.ball.texture, matrix, identityPass ? 200 : null);
@@ -270,11 +324,33 @@ export class SourceRenderer {
     gl.bindVertexArray(null);
   }
 
+  drawEffects(proofMask) {
+    const fx = this.fx, gl = this.gl;
+    if (!fx?.metadata.enabled || fx.textures.length === 0) return;
+    gl.useProgram(this.fire); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    if (fx.metadata.cull === 0) gl.disable(gl.CULL_FACE);
+    else { gl.enable(gl.CULL_FACE); gl.cullFace(fx.metadata.cull === 1 ? gl.FRONT : gl.BACK); }
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.uniformMatrix4fv(this.fireUniforms.sourceProjection, false, fx.projection);
+    gl.uniform1i(this.fireUniforms.proofMask, proofMask); gl.uniform1i(this.fireUniforms.atlas, 0);
+    gl.bindVertexArray(this.fireVao); gl.bindBuffer(gl.ARRAY_BUFFER, this.fireBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, fx.vertices, gl.DYNAMIC_DRAW);
+    for (let i = 0; i < fx.textures.length; i++) {
+      gl.bindTexture(gl.TEXTURE_2D, this.textures.get(`fire/${fx.textures[i]}`).texture);
+      gl.drawArrays(gl.TRIANGLES, i * 6, 6);
+    }
+    gl.bindVertexArray(null); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
+  }
+
   drawHud() {
     const gl = this.gl, frame = this.current;
     requireValue(frame.hudCounts.length === frame.hudColors.length && frame.hudCounts.length === frame.hudTextures.length &&
       frame.hudCounts.reduce((a, b) => a + b, 0) * 4 === frame.hudVertices.length,
     'Actual original HUD draw-command inventory is incomplete.');
+    requireValue(!this.fx || [...this.fx.hudHighlight].every(i => i < frame.hudCounts.length),
+      'Source meter highlight referenced a missing authored HUD primitive.');
     gl.useProgram(this.hud); gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     const rect = this.canvas.getBoundingClientRect();
@@ -299,11 +375,13 @@ export class SourceRenderer {
     first = 0;
     for (let primitive = 0; primitive < frame.hudCounts.length;) {
       const textureId = frame.hudTextures[primitive];
+      const highlight = this.fx?.hudHighlight.has(primitive) === true;
       let count = 0;
       do { count += frame.hudCounts[primitive++]; } while (primitive < frame.hudCounts.length &&
-        frame.hudTextures[primitive] === textureId);
+        frame.hudTextures[primitive] === textureId && (this.fx?.hudHighlight.has(primitive) === true) === highlight);
       const texture = this.textures.get(textureId);
       requireValue(texture, `Actual authored HUD atlas is missing: ${textureId}.`);
+      gl.uniform1f(this.hudUniforms.highlightAdd, highlight ? 192 / 255 : 0);
       gl.bindTexture(gl.TEXTURE_2D, texture.texture); gl.drawArrays(gl.TRIANGLES, first, count);
       first += count;
     }
@@ -346,6 +424,14 @@ export class SourceRenderer {
         if (pixels[i] === 200) ballPixels++;
       }
       this.assertHealthy('actual original geometry GPU identity pass');
+      let firePixels = 0;
+      if (this.fx?.metadata.enabled) {
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        this.drawEffects(true);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        for (let i = 0; i < pixels.length; i += 4) if (pixels[i] || pixels[i + 1] || pixels[i + 2]) firePixels++;
+        this.assertHealthy('actual original fire geometry/alpha/frame GPU pass');
+      }
       return {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
         visibleHome: actorPixels.slice(0, 7).filter(n => n > 0).length,
@@ -354,12 +440,16 @@ export class SourceRenderer {
         device: this.device, meshUploads: this.meshUploads, worldDraws: this.world.length,
         appearances: this.current.appearances.map(id => this.appearances.get(id)),
         textureCount: this.textures.size, frameCount: this.frameCount,
+        firePixels, fireFrame: this.fx?.metadata,
+        actorFlash: this.fx?.flashAlpha, actorRawFlags: this.fx?.rawFlags,
+        meterHighlightPrimitives: this.fx ? Array.from(this.fx.hudHighlight) : [],
+        meterCombiner: this.fx?.hudStyle.hudCombiner, meterConstantColor: this.fx?.hudStyle.hudConstantColor,
       };
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.deleteFramebuffer(framebuffer); gl.deleteTexture(color); gl.deleteRenderbuffer(depth);
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-      this.drawScene(false); this.drawHud();
+      this.drawScene(false); this.drawEffects(false); this.drawHud();
     }
   }
 }

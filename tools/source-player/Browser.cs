@@ -11,12 +11,13 @@ public static partial class Browser
     public static void Main() { }
 
     [JSExport]
-    public static void Start(byte[] manifest)
+    public static void Start(byte[] manifest, string url)
     {
         if (host != null) throw new InvalidOperationException("The source player is already initialized.");
+        var options = PreviewOptions.FromUrl(url);
         var catalog = new DataCatalog(manifest, ReadFile);
         var data = new PlayerData(catalog, Progress);
-        host = new PlayerHost(data, new WebGlSink(), Progress);
+        host = new PlayerHost(data, new WebGlSink(), Progress, options);
     }
 
     [JSExport]
@@ -55,6 +56,9 @@ public static partial class Browser
     private static partial void Appearance(int id, string metadata);
     [JSImport("freeBall", "source-player")]
     private static partial void FreeBall(string mesh, string texture, string origin);
+    [JSImport("effects", "source-player")]
+    private static partial void Effects(double[] projection, double[] vertices, int[] textures,
+        int[] rawFlags, double[] flashAlpha, string metadata);
     [JSImport("present", "source-player")]
     private static partial void Present(double[] camera, double[] joints, int[] models, int[] appearances,
         double[] ball, double[] hudVertices, int[] hudColors, string[] hudTextures, int[] hudCounts, string status);
@@ -69,6 +73,9 @@ public static partial class Browser
         public void Model(int id, string joints) => Browser.Model(id, joints);
         public void Appearance(int id, string metadata) => Browser.Appearance(id, metadata);
         public void FreeBall(string mesh, string texture, string origin) => Browser.FreeBall(mesh, texture, origin);
+        public void Effects(double[] projection, double[] vertices, int[] textures, int[] rawFlags,
+            double[] flashAlpha, string metadata) =>
+            Browser.Effects(projection, vertices, textures, rawFlags, flashAlpha, metadata);
         public void Present(double[] camera, double[] joints, int[] models, int[] appearances, double[] ball,
             double[] hudVertices, int[] hudColors, string[] hudTextures, int[] hudCounts, string status) =>
             Browser.Present(camera, joints, models, appearances, ball, hudVertices, hudColors, hudTextures, hudCounts, status);

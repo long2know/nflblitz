@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="SourcePlayer.Core.csproj" />
     <Compile Include="Checks.cs" />
+    <Compile Include="FeatureChecks.cs" />
   </ItemGroup>
 </Project>

@@ -31,7 +31,9 @@ COMMANDS = {
         PUBLIC_DOTNET + ' restore tools/source-player/SourcePlayer.Checks.csproj --source "$PWD/tools/source-player/.runtime/empty-nuget" -p:NuGetAudit=false --nologo',
         PUBLIC_DOTNET + " build tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-restore --nologo",
     ),
-    "Test public cabinet input": ("node --test tools/source-player/input.test.mjs",),
+    "Test public cabinet input and renderer contracts": (
+        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs",
+    ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
     ),
@@ -120,6 +122,7 @@ class SourcePlayerCI(unittest.TestCase):
             (PUBLIC_DOTNET + " build", PUBLIC_DOTNET + " run"),
             ("--no-restore", "--source-root /data/private"),
             ("node --test tools/source-player/input.test.mjs", "echo node --test tools/source-player/input.test.mjs"),
+            (" tools/source-player/renderer.test.mjs", ""),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),
             ("python3 -B tools/source-player/hosting_test.py", "true"),
@@ -147,6 +150,9 @@ class SourcePlayerCI(unittest.TestCase):
         self.assertIn("new PlayerData(catalog)", checks)
         self.assertIn("./artifacts/portable-player/evidence.json", (HERE / "assertions.test.mjs").read_text())
         self.assertEqual(3, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
+        renderer = (HERE / "renderer.test.mjs").read_text()
+        self.assertEqual(5, len(re.findall(r"^test\(", renderer, re.M)))
+        self.assertNotIn("artifacts/", renderer)
         tree = ast.parse((HERE / "prepare_test.py").read_text())
         cases = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PreparationChecks")
         methods = {node.name: node for node in cases.body if isinstance(node, ast.FunctionDef)}

@@ -87,6 +87,9 @@ function frame(time) {
     timings.push({ totalMilliseconds: performance.now() - before, webglMilliseconds: renderer.lastMilliseconds, hostSteps: steps });
     if (timings.length > 300) timings.shift();
     const state = renderer.status;
+    const featureStatus = document.querySelector('#feature-status');
+    if (featureStatus) featureStatus.textContent = `Audio output unqualified · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
+      `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · Native pixels/Unity/DSP remain unqualified.`;
     sourceSamples.push({ time: performance.now(), tick: state.sourceTick });
     if (sourceSamples.length > 300) sourceSamples.shift();
     if (!ready && state.sourceTick >= 2 && state.actorCount === 14 && renderer.frameCount >= 2) {
@@ -123,7 +126,9 @@ function frame(time) {
         `${policy.repairs?.slice(-4).map(repair => `Repair ${repair.sequence} @${repair.sourceTick}: ` +
           `${repair.kind} subject${repair.subject} ${repair.rawIndex}->${repair.effectiveIndex} ${repair.sourceContext}`).join('\n') || 'No compatibility repairs observed.'}\n` +
         `${renderer.device.unmaskedRenderer || renderer.device.renderer}\n` +
-        'Audio output unqualified · Dust/fire FX unqualified · native Unity / arcade bit-exact acceptance open';
+        `Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
+        `kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit)\n` +
+        'Audio output unqualified · native Unity / arcade bit-exact acceptance open';
     }
     frameHandle = requestAnimationFrame(frame);
   } catch (error) { fail(error); }
@@ -155,6 +160,7 @@ async function startPlayer() {
     model: (...args) => renderer.model(...args),
     appearance: (...args) => renderer.appearance(...args),
     freeBall: (...args) => renderer.freeBall(...args),
+    effects: (...args) => renderer.effects(...args),
     present: (...args) => renderer.present(...args),
   });
   const config = runtime.getConfig();
@@ -165,7 +171,7 @@ async function startPlayer() {
   if (!api?.Start || !api?.Frame || !api?.Capture) throw new Error('Actual C# browser exports are missing; JavaScript gameplay is not a fallback.');
   await runtime.runMain();
   if (failed) return;
-  api.Start(originalData.manifestBytes);
+  api.Start(originalData.manifestBytes, location.href);
   if (failed) return;
   if (files.size !== 0) throw new Error(`The real source loaders left ${files.size} unconsumed private input files.`);
   input = new SourceInput(api, canvas, originalData.stations, fail, () => { previousTime = undefined; });

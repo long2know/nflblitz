@@ -10,6 +10,112 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+## Independent original fire and kick-meter opt-ins
+
+Both new features are **disabled by default**, independently of the existing
+Portable gameplay compatibility setting. Select them explicitly:
+
+```text
+?source-fire=portable
+?source-kick-meters=portable-authored
+?source-fire=portable&source-kick-meters=portable-authored
+```
+
+The actual Core parsers reject duplicate, unknown, native-metric and conflicting
+profile options. This browser bundle remains the explicit original281/M1
+generation; no C1/old-nine alias is substituted. The actual M1 factory receives
+`fireEffects` and `kickMeterMetrics` by name. Fire assets and the strict authored
+HUD metric service are validated before constructing the simulation.
+Field-goal151, marker27 and punt209 are **portable-authored dimensions, not
+recovered native Composit/generated metrics**.
+
+Extend an existing verified private preview bundle without changing it:
+
+```sh
+python3 -B tools/source-player/prepare_features.py \
+  --base-data "$READONLY_BASE_DATA" --base-manifest-sha256 "$BASE_MANIFEST_SHA256" \
+  --fire-bundle "$APPROVED_FIRE_BUNDLE" \
+  --fire-manifest-sha256 8bca6ef9e1f089209aca7201e30d281d54444b6cc5b621c42f339394ef04fe88 \
+  --output tools/source-player/data
+```
+
+The approved original SDL/factor4 and all17 original TRAIL TGAs remain private.
+The actual production `SourceFireSpfxFrameConsumer` consumes each immutable Core
+after-source frame once. The browser draws those exact camera-space vertices,
+UVs, selected original textures, inherited cull and source-alpha color/alpha
+blend, with always-depth/write and explicitly portable reciprocal depth.
+There is no JS particle simulation, renderer clock/RNG, OnFire-edge emitter,
+re-posed attachment, fabricated site, or private RNG.
+The source's negative664 horizontal raster projection is shared by world,
+players, ball, indicators and fire; camera/cache/world coordinates are not
+reflected to compensate. A restart creates a new presentation epoch without
+re-uploading static textures or accepting the prior epoch's tick stream.
+
+Actor raw0x400 selects the approved source
+`DECAL_TEXTURE_ADD_CCALPHA/0xc0000000` white combiner; other bits and team-fire
+state do not synthesize white. The original uniforms remain bound underneath.
+The real `SourceKickMeterView.Highlighted` selects the same source center
+combiner on the field-goal ball or punt bar (original `plyrinfo.c`814–815 /
+959–965); restoration follows the actual snapshot. The production
+`SourceHudComposer` supplies meter art, cursor position, wind, timeout text and
+source lifetime. Native `flash_text_proc` phase/pixels and DSP output are still
+unqualified; no render-frame timer or synthetic click is invented.
+
+Special-team choices remain the **original public fourth-down/field-position
+menu options**, not arbitrary first-down page shortcuts. Use WASD/N/B to select
+the actually offered FG/punt play, then B to lock its real source meter. The
+actual animation release/physical ball state and `LastKickLaunch` come from Core.
+The adapter does not change downs, field position, seed, assistance, actors,
+ball state, flags or plays to obtain a witness.
+
+Eligible actual CSI, shaker and return-to-normal cues already use production
+`SourceCinematicPlayback`. This adapter retains that source-stage ordering and
+adds a bounded read-only cue/frame journal (actual process order, source tick,
+table/ordinal, shaker draws and return), not random drama or slow motion.
+
+For a distinct Docker candidate, leave existing projects/ports alone:
+
+```sh
+SOURCE_PLAYER_PORT=8083 SOURCE_PLAYER_BIND_ADDRESS=127.0.0.1 \
+  docker compose --env-file /dev/null -p nflblitz-source-fire-kick \
+  -f tools/source-player/compose.yaml up -d --force-recreate
+```
+
+Run **after publish**: publish replaces the AppBundle directory, so force
+recreation rebinds only this candidate's fresh directory inode. The existing
+8082 preview must not be recreated or rebuilt.
+
+Fresh browser evidence uses the repository's guarded browser/CDP helpers:
+
+```sh
+bash tools/source-player/with-browser-runtime.sh tools/source-player/feature-browser.mjs \
+  --goal spectacle --seconds 300 --url 'http://127.0.0.1:8083/?source-fire=portable&source-kick-meters=portable-authored' \
+  --output tools/source-player/artifacts/spectacle-attempt1
+```
+
+`--goal punt` / `--goal fieldGoal` target the actual public menu and release.
+Attempts are bounded, and unmet witnesses/errors are recorded explicitly.
+The fresh profile is an owned project-contained POSIX tmpfs in a private
+mount/chroot namespace, exposed there as short `/r` for the unchanged0700,
+identity and socket guards. No system temporary profile or shared Chrome
+profile/page is used. GPU flags request a backend only; evidence records the
+actual WebGL renderer. Only owned Chrome PIDs/profile files are cleaned.
+
+Adapter controls:
+
+```sh
+python3 -B tools/source-player/feature_mutations.py --data tools/source-player/data \
+  --output tools/source-player/artifacts/adapter-controls-01
+```
+
+The five actual C# adapter mutations must compile, then fail named assertions for
+omitted fire/meter binding, wrong projection sign, stale fire epoch and the wrong
+meter-highlight target. Two additional executable actual-JS renderer controls
+reject wrong HUD additive intensity and an incorrect linked player shader.
+`node --test tools/source-player/renderer.test.mjs` runs five asset-free consumer
+tests. These isolated renderer fixtures are not gameplay witnesses or GPU/native
+pixel qualification. Core/component gates remain frozen.
+
 ## Required production dependency
 
 The accepted portable Core API must be present before compiling this consumer:
@@ -56,6 +162,9 @@ The wrapper confines SDK scratch/CLI/NuGet files to that directory. An already
 installed appropriate SDK can instead be selected with
 `SOURCE_PLAYER_DOTNET=/absolute/path/to/dotnet`. No Unity Editor, entitlement,
 activation, credentials, environment files or firmware are inspected.
+Select an **owned writable** SDK: .NET can register workload installation
+bookkeeping even when the workload packs already exist. Reuse a local copy,
+not another preview's read-only SDK directory.
 
 ### Explicit private original inputs
 
@@ -234,8 +343,15 @@ hardware qualification is separate from the tested standard mapping.
   unqualified; there is no procedural sphere or fabricated flight physics.
 - Production sound selection still executes with its actual RNG ordering.
   **Audio output unqualified**: no PCM/DSP playback, synthesized substitute or
-  claimed audible output. Dust/fire visual effects are also explicitly
-  unqualified here, pending their separate frozen producer/render integration.
+  claimed audible output. Dust remains unqualified. The independent portable
+  fire opt-in now consumes the approved real source producer/render contract
+  described above; this is not native WMS/TEXUS or arcade-pixel qualification.
+- The pinned original team archive has no qualifying popped-head limb.
+  A real `HelmetPopped` activation therefore stops at the strict production
+  presentation reader, visibly naming that missing original. The preview never
+  clears the flag, supplies a helmeted/generic head, or changes gameplay/seed
+  to conceal the input gap. A bounded successful witness is not a claim that
+  every later original-data branch can render.
 - The explicit Portable Core mode preserves raw handicap/block counts while
   selecting bounded original consumer indices. The actual immutable mode,
   lifetime repair count, tail64 typed repairs and raw/effective team/actor values
@@ -256,8 +372,9 @@ bash tools/source-player/dotnet.sh run \
 # -p:BlitzSourceRoot="$ACCEPTED_CORE_ROOT/"
 
 node --test tools/source-player/input.test.mjs
+node --test tools/source-player/renderer.test.mjs
 python3 -B -m unittest discover -s tools/source-player -p 'prepare_test.py'
-# The three hosting guards use the real Docker Compose parser and mutate the
+# The four hosting guards use the real Docker Compose parser and mutate the
 # actual Compose configuration to reject public/writable/empty/unpinned defaults.
 python3 -B tools/source-player/hosting_test.py
 
@@ -269,8 +386,14 @@ node tools/source-player/browser-smoke.mjs \
 node tools/source-player/loader.browser.test.mjs \
   --url http://127.0.0.1:8082/ --cdp-port "$ALLOWED_CDP_PORT"
 
+# Isolated fresh-browser feature modes, epochs, and terminal option errors:
+bash tools/source-player/with-browser-runtime.sh tools/source-player/browser-suite.mjs \
+  features tools/source-player/artifacts/features-current
+
 # Mutate real emitted browser-frame artifacts; run after browser evidence exists:
 node --test tools/source-player/assertions.test.mjs
+# Current feature witness facts, independent options and explicit incomplete-gate rejection:
+node --test tools/source-player/feature-artifacts.test.mjs
 ```
 
 The driver reuses the repository's browser/CDP/PNG helpers, creates and closes
@@ -307,7 +430,8 @@ All evidence stays in ignored `tools/source-player/artifacts/`.
 itself and its public source/Docker dependencies. Its read-only, ten-minute job
 uses the same pinned checkout/Node/.NET10.0.100 setup as `game-build.yml`. It
 compiles the actual native Checks/Core projects with an empty local NuGet feed,
-runs the existing three cabinet-input tests, the two named public preparation
+runs the existing three cabinet-input and five public renderer contract tests,
+the two named public preparation
 failure gates, the four hosting guards, and workflow mutation guards. Hosting
 checks use the existing Compose CLI parser with an unavailable daemon endpoint;
 the job does not install Docker, Chrome or browser-WASM workloads.

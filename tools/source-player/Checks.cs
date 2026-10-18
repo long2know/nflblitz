@@ -79,6 +79,7 @@ static class Checks
             RejectMissingAndChanged(manifest, Read, catalog.Entry("model"));
             VerifyCausalInput(data);
             VerifyDeferredOriginalHud(data);
+            if (data.Fire != null) FeatureChecks.Run(data);
             if (args.Contains("--require-portable"))
                 Check(KernelBinding.IsPortable(host.Game) && host.Game.Compatibility == SourceGameplayCompatibility.Portable,
                     "A player-ready test must reject an unbound portable factory even when strict rendering works.");
@@ -239,6 +240,8 @@ static class Checks
         }
         public void FreeBall(string mesh, string texture, string origin) =>
             HasOriginalBall = Meshes.Contains(mesh) && Textures.ContainsKey(texture);
+        public void Effects(double[] projection, double[] vertices, int[] textures, int[] rawFlags,
+            double[] flashAlpha, string metadata) { }
         public void Present(double[] camera, double[] joints, int[] models, int[] appearances, double[] ball,
             double[] hudVertices, int[] hudColors, string[] hudTextures, int[] hudCounts, string status)
         {

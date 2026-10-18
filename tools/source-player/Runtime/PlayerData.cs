@@ -23,6 +23,7 @@ public sealed class PlayerData
     public SourceInterfaceData Hud { get; }
     public SourceCinematicLibrary Impact { get; }
     public SourceEnvironmentBundle World { get; }
+    public SourceFireSpfxBundle Fire { get; }
     private readonly Dictionary<string, string> headers = new(StringComparer.Ordinal);
 
     public PlayerData(DataCatalog data, Action<string> progress = null)
@@ -77,6 +78,12 @@ public sealed class PlayerData
         SourceTeamResourceProfile.Contact281C2M1.RequireImpact(Impact);
         World = SourceEnvironmentReader.Read(data.EntryBytes("world"), data.EntryHash("world"),
             path => data.Read("world/" + path));
+        if (data.HasEntry("fire"))
+        {
+            progress?.Invoke("Verifying original SDL/seventeen TRAIL authoring frames; portable not native WMS");
+            Fire = SourceFireSpfxReader.Read(data.EntryBytes("fire"), data.EntryHash("fire"),
+                path => data.Read("fire/" + path));
+        }
     }
 
     public string Header(string path) => headers.TryGetValue(path, out string text) ? text :

@@ -8,17 +8,7 @@ public static class FrameMath
 {
     public static double[] Camera(SourceCinematicTransform camera, float width, float height, float far)
     {
-        SourceCameraFrameClock.RequireOriginalRasterAspect(width, height);
-        double near = 0.3 * SourceTiming.SourceUnitsPerYard;
-        DataCatalog.Require(far > near && float.IsFinite(far), "Invalid actual source world depth envelope.");
-        double tangent = Math.Max(192d / NormalCameraModel.ReferenceFocalPixels,
-            256d / NormalCameraModel.ReferenceFocalPixels / (width / height));
-        var projection = new double[] {
-            1 / tangent / (width / height), 0, 0, 0,
-            0, 1 / tangent, 0, 0,
-            0, 0, (far + near) / (far - near), 1,
-            0, 0, -2 * far * near / (far - near), 0
-        };
+        double[] projection = CameraSpace(width, height, far);
         var m = camera.Transform;
         var eye = camera.Position;
         var view = new double[] {
@@ -28,6 +18,21 @@ public static class FrameMath
             -(m[8] * eye.X + m[9] * eye.Y + m[10] * eye.Z) + m[11], 1
         };
         return Multiply(projection, view);
+    }
+
+    public static double[] CameraSpace(float width, float height, float far)
+    {
+        SourceCameraFrameClock.RequireOriginalRasterAspect(width, height);
+        double near = 0.3 * SourceTiming.SourceUnitsPerYard;
+        DataCatalog.Require(far > near && float.IsFinite(far), "Invalid actual source world depth envelope.");
+        // The same unclamped active-geom.s projection as the approved FX consumer.
+        // Reflect raster X here, never the Core camera, actor, or historical cache.
+        return new double[] {
+            -2 * NormalCameraModel.ReferenceFocalPixels / width, 0, 0, 0,
+            0, 2 * NormalCameraModel.ReferenceFocalPixels * (height == 256 ? 2d / 3d : 1d) / height, 0, 0,
+            0, 0, (far + near) / (far - near), 1,
+            0, 0, -2 * far * near / (far - near), 0
+        };
     }
 
     public static void Joint(double[] destination, int offset, SourceJointTransform joint,
