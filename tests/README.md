@@ -68,6 +68,11 @@ python3 -B tests/kick-meter/test_runner.py
 python3 -B tests/fire-kick-integration/test_runner.py
 ```
 
+These permanent direct commands execute four kick-runner and two combined-runner
+unit tests; both are enforced by the existing asset-free CI inventory stage.
+They check actual control anchors, source closures, factory suffixes and the
+retained required assertion categories, not enabled-feature gameplay.
+
 Run the original-data feature commands in
 [kick-meter](kick-meter/README.md), [fire-producers](fire-producers/README.md),
 [fire-spfx](fire-spfx/README.md) and
