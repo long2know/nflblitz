@@ -95,6 +95,7 @@ class InventoryGuardTests(unittest.TestCase):
             "contact/ContactChecks.csproj",
             "fire-handicap/FireHandicapChecks.csproj",
             "kick-meter/KickMeterChecks.csproj",
+            "match-lifecycle/MatchLifecycleChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
         ], affected)
