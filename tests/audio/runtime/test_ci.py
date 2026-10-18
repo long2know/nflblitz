@@ -134,7 +134,7 @@ def validate_workflow(text):
     require(set(BASELINE_STEPS).issubset(names), "every prior Core/fixture/camera/function/mutation/tool check is retained")
     jobs = re.findall(r"^  ([A-Za-z][A-Za-z0-9_-]*):\n    name:", text, re.M)
     require(jobs == ["core-and-tooling"], "sound closure retains the ordinary single job")
-    require("timeout-minutes: 30" in text, "measured sound campaigns need bounded30-minute headroom")
+    require("timeout-minutes: 40" in text, "measured full-chain campaigns need bounded40-minute headroom")
     require(not re.search(r"^\s+if:", text, re.M), "required sound checks cannot be silently gated")
     require(not re.search(r"^\s+continue-on-error:", text, re.M), "required integration failures cannot be allowed green")
     require("/data/" not in text and "--unity-editor-data" not in text and "--unity-reference" not in text,
@@ -233,7 +233,7 @@ class SoundWorkflow(unittest.TestCase):
     def test_isolated_workflow_regressions_are_rejected(self):
         original = WORKFLOW.read_text()
         mutations = (
-            ("timeout-minutes: 30", "timeout-minutes: 20"),
+            ("timeout-minutes: 40", "timeout-minutes: 30"),
             (" --mutations\n", "\n"),
             ("python3 -B tests/presentation/sound-runtime/mutations.py", "true"),
             ("python3 -B tests/audio/runtime/run.py --fixture-manifest", "python3 -B tests/audio/runtime/run.py --no-mutations --fixture-manifest"),
@@ -325,7 +325,7 @@ class ContactWorkflow(unittest.TestCase):
             (M1_COMMAND, M1_COMMAND + " --no-mutations"),
             (M1_COMMAND, M1_COMMAND + " --bounded156-diagnostic"),
             (M1_COMMAND, "echo " + M1_COMMAND),
-            ("    timeout-minutes: 30", "    timeout-minutes: 30\n    continue-on-error: true"),
+            ("    timeout-minutes: 40", "    timeout-minutes: 40\n    continue-on-error: true"),
         )
         for old, new in mutations:
             with self.subTest(mutation=old):
