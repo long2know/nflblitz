@@ -55,8 +55,24 @@ disabled; enabled reads return immutable snapshots without RNG or simulation
 advancement. `SourceFireSoundSubmissions` retains ordered original direct-call
 metadata per tick, deliberately not resubmitted through an unrelated VM
 binding or claimed audible DSP playback. `SourceBallEffectSelection` returns
-the sticky nonfire selection to the ball owner; this feature does not implement
-the separate nonfire trail/blink processes.
+the sticky nonfire selection to the ball owner. That owner now applies the
+original `BF_WHITE` write on each post-increment flight-time multiple of ten
+selected as Blink. The existing next free/phantom wake clears it; held balls,
+sticky Bobble selection and play-over priority retain their original behavior.
+This stays behind the existing independent fire opt-in. The separate nonfire
+trail objects remain unimplemented, not substituted with generic particles.
+
+The caller suite retains its original **40 assertions** and adds **171** owner
+assertions: 25 ordered enabled cases plus disabled/default controls. The actual Core inputs and outputs are
+also compared to the unchanged original free/phantom guard, flight increment,
+white clear, sticky selector and blink write, extracted from the selected
+module proof's SHA-pinned `originalInputs.player`. No source/cases are shipped.
+These are declared component states, not public gameplay or native scheduling.
+The five new compiled controls reject a dropped write, wrong cadence, lost
+sticky Bobble selection, omitted next-wake clear and an illegal held-ball write.
+All ten existing producer controls remain required. Asset-free inventory,
+shape, pin and control-anchor guards run in the existing Game source checks;
+they are not counted as actual gameplay or original-C execution.
 
 ## Real ordering, cache, and consumer path
 
