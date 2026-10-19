@@ -28,6 +28,44 @@ the snapshot. This does not add native game-over records/cabinet screens.
 See `../../tests/match-lifecycle/README.md` for real producer/bridge/PAT and
 Legacy-preservation checks.
 
+## Original impact dust (existing `source-fire=portable` opt-in)
+
+Actual animation `dust_cloud` callbacks now queue all original one/two/four
+`dustcld` children in the existing SPFX scheduler. Raw callback identity/order
+remains available in `state.visualCallbacks.cues`; `dust`, `boundDust`, and
+`unqualified` distinguish a real consumer from fire-off observation. Entry
+reads the retained canonical `jpos`/paired camera cache and original facing
+table, copies velocity, and consumes the shared source `randrng(3)`. Rendering
+does not follow later actor poses or advance processes. There is no turf gate.
+
+Prepare an explicit v2 authoring bundle using the unchanged SDL/17-TRAIL pins
+plus all ten exact DIRT TGA blobs:
+
+```sh
+python3 -B tools/fire-spfx/prepare.py --original-root "$AUTHORIZED_ORIGINAL_ROOT" \
+  --output .squad/.scratch/fire-dust-v2 --authorization-reference "$LOCAL_AUTHORIZATION" --with-dust
+python3 -B tools/source-player/prepare_features.py --base-data "$READONLY_V1_DATA" \
+  --base-manifest-sha256 "$BASE_SHA256" --fire-bundle .squad/.scratch/fire-dust-v2 \
+  --fire-manifest-sha256 "$V2_FIRE_SHA256" --replace-fire-with-dust \
+  --output .squad/.scratch/player-dust-v2
+```
+
+Migration verifies the prior approved fire identity, preserves every non-fire
+input and all existing fire pins, and writes a new output. The original TGA
+developer directory/tag20/footer is authenticated before a declared nonpixel
+adapter passes the pixel view to the existing strict decoder. No WMS/TEXUS or
+generated-header equivalence is inferred. V1 component reading is retained;
+enabled Unity/browser composition requires v2 and fails visibly with
+`SOURCE_DUST_DATA_REQUIRED` rather than substituting generic smoke. The stable
+Unity resource key/GUIDs are unchanged; reimport the explicitly prepared bundle.
+
+DIRT reuses the existing source SDL billboard, texture-alpha/RGB-times-alpha,
+WRAP, separate source-alpha blend and ALWAYS/write-depth renderer. Effects
+have no new flag and remain disabled by default. Target PRNG, native WBUFFER,
+Glide/MIPS/FMA/qsort, audio, performance, full-game and all-sixteen acceptance
+remain unqualified. `dust.browser.mjs` is a bounded private actual-build,
+public-control/GPU campaign, not an asset-free CI test or fixture image.
+
 ## Required source free-ball geometry/material/flight binding
 
 The former recentered `hand001b` material6 extraction was a **held-ball**

@@ -24,6 +24,7 @@ static class Checks
             byte[] Read(string path) => File.ReadAllBytes(Path.Combine(root, path));
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
+            if (args.Contains("--dust-only")) { DustAdapterChecks.Run(data); return 0; }
             if (args.Contains("--ball-trails-only")) { BallTrailChecks.Run(data); return 0; }
             if (args.Contains("--fire-adapter-only")) { FeatureChecks.Run(data); return 0; }
             if (args.Contains("--free-ball-only")) { FreeBallChecks.Run(data); return 0; }

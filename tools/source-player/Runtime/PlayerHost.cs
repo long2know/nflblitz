@@ -19,6 +19,7 @@ public sealed class PlayerHost
     private readonly Queue<SourceCommand>[] commands = { new(), new(), new(), new() };
     private readonly Queue<object> events = new();
     private readonly Queue<object> contacts = new();
+    private readonly Queue<object> dustCues = new();
     private readonly Dictionary<string, long> eventCounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> contactCounts = new(StringComparer.Ordinal);
     private readonly int[] lastButtons = new int[4];
@@ -41,6 +42,8 @@ public sealed class PlayerHost
     public long SoundSelections { get; private set; }
     public long UnqualifiedSoundCalls { get; private set; }
     public long UnqualifiedVisualCallbacks { get; private set; }
+    public long DustCallbacks { get; private set; }
+    public long BoundDustCallbacks { get; private set; }
     public bool Active { get; private set; } = true;
     public string LastStatus { get; private set; } = "{}";
     private long lastSourceTick;
@@ -79,7 +82,24 @@ public sealed class PlayerHost
         Bridge.AfterSimulationStep += ObserveSound;
         Bridge.SourcePresentationCueRaised += cue => {
             Camera.Cue(cue);
-            if (cue.Kind == SourcePresentationCueKind.DustCallback) UnqualifiedVisualCallbacks++;
+            if (cue.Kind == SourcePresentationCueKind.DustCallback)
+            {
+                DustCallbacks++;
+                var callback = (SourceCallbackCue)cue;
+                Enqueue(dustCues, new { sourceTick = cue.Context.SourceTick, order = cue.Context.ProcessOrder,
+                    actor = cue.Context.ActorPlayerId, path = cue.Context.SourcePath, symbol = cue.Context.ExecutingSymbol,
+                    line = cue.Context.SourceLine, callback.FunctionSymbol, callback.Argument0, callback.Argument1,
+                    callback.Argument2, cue.Context.ScriptInstanceId, cue.Context.OpcodeSymbol }, 64);
+                if (!Game.SourceFireEnabled) UnqualifiedVisualCallbacks++;
+                else
+                {
+                    DataCatalog.Require(Game.SourceFireRecords.Any(r => r.Kind == "CreateProcess" &&
+                        r.Detail == "dustcld" && r.Site.SourceTick == cue.Context.SourceTick &&
+                        r.Site.ActorId == cue.Context.ActorPlayerId),
+                        "DUST_CALLBACK_UNBOUND: an enabled real DustCallback did not queue its source dustcld children.");
+                    BoundDustCallbacks++;
+                }
+            }
         };
         Bridge.AfterHostStep += ObserveStep;
         Bridge.Restarted += ResetPresentation;
@@ -181,9 +201,11 @@ public sealed class PlayerHost
         lastSourceTick = 0;
         events.Clear();
         contacts.Clear();
+        dustCues.Clear();
         eventCounts.Clear();
         contactCounts.Clear();
         SourceWakes = SoundSelections = UnqualifiedSoundCalls = UnqualifiedVisualCallbacks = 0;
+        DustCallbacks = BoundDustCallbacks = 0;
         foreach (var pending in commands) pending.Clear();
     }
 
@@ -346,6 +368,10 @@ public sealed class PlayerHost
             audio = new { output = "Audio output unqualified", selections = SoundSelections,
                 unplayedRawCalls = UnqualifiedSoundCalls },
             effects = Fire.Describe(),
+            visualCallbacks = new { dust = DustCallbacks, boundDust = BoundDustCallbacks,
+                unqualified = UnqualifiedVisualCallbacks,
+                cues = dustCues.ToArray(),
+                qualification = "Original source processes and authored DIRT rendering; not native pixels or target PRNG." },
             kick = new { mode = kicking.KickMeterMode.ToString(), meter = kicking.KickMeter,
                 lastLaunch = kicking.LastKickLaunch, metrics = kicking.KickMeterMetrics,
                 origin = "portable-authored HUD metrics; NOT native Composit/generated dimensions" },

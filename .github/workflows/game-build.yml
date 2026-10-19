@@ -14,6 +14,7 @@ on:
       - 'tools/interface/**'
       - 'tools/audio/**'
       - 'tools/environments/**'
+      - 'tools/fire-spfx/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -38,6 +39,7 @@ on:
       - 'tools/interface/**'
       - 'tools/audio/**'
       - 'tools/environments/**'
+      - 'tools/fire-spfx/**'
       - 'scripts/**'
       - 'hosting/**'
       - 'Dockerfile'
@@ -91,6 +93,9 @@ jobs:
           python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
           python3 -B tests/movement-callers/test_public_replay.py -q
           python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls
+          python3 -B tests/impact-dust/test_ci.py
+          python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls
+          python3 -B tests/impact-dust/js_controls.py --output .squad/.scratch/impact-dust-js-ci
       - name: Test detached source match and input contracts
         run: |
           python3 tests/contracts/test_runner.py

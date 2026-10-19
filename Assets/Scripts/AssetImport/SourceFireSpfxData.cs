@@ -32,6 +32,7 @@ namespace Blitz.AssetImport
         [DataMember] public bool rightOrigin;
         [DataMember] public int integerAspect;
         [DataMember] public string aspectOrigin;
+        [DataMember] public string nonPixelDataOrigin;
     }
 
     [Serializable, DataContract]
@@ -57,6 +58,8 @@ namespace Blitz.AssetImport
         [DataMember] public string meshSha256;
         [DataMember] public SourceFireInputRecord[] inputs;
         [DataMember] public SourceFireTextureRecord[] frames;
+        [DataMember] public SourceFireInputRecord[] dustInputs;
+        [DataMember] public SourceFireTextureRecord[] dustFrames;
     }
 
     public sealed class SourceFireTextureFrame
@@ -92,16 +95,38 @@ namespace Blitz.AssetImport
         public bool GeneratedSpfxHeaderEquivalent { get { return false; } }
         public SourceFireGeometry Geometry { get; }
         public ReadOnlyCollection<SourceFireTextureFrame> Frames { get; }
-        internal SourceFireSpfxBundle(string manifestSha, string authorizationReference, SourceFireGeometry geometry, SourceFireTextureFrame[] frames)
-        { ManifestSha256 = manifestSha; AuthorizationReference = authorizationReference; Geometry = geometry; Frames = Array.AsReadOnly(frames); }
+        public ReadOnlyCollection<SourceFireTextureFrame> DustFrames { get; }
+        public ReadOnlyCollection<SourceFireTextureFrame> Textures { get; }
+        internal SourceFireSpfxBundle(string manifestSha, string authorizationReference, SourceFireGeometry geometry,
+            SourceFireTextureFrame[] frames, SourceFireTextureFrame[] dustFrames = null)
+        {
+            ManifestSha256 = manifestSha; AuthorizationReference = authorizationReference; Geometry = geometry;
+            Frames = Array.AsReadOnly(frames); DustFrames = Array.AsReadOnly(dustFrames ?? new SourceFireTextureFrame[0]);
+            var all = new List<SourceFireTextureFrame>(frames); all.AddRange(DustFrames); Textures = all.AsReadOnly();
+        }
+        public void RequireDust()
+        {
+            SourceFireGuard.Require(DustFrames.Count == SourceFireIds.DustFrameCount,
+                "SOURCE_DUST_DATA_REQUIRED: source-fire=portable dust_cloud requires the authenticated v2 bundle with all ten original DIRT TGAs; reprepare, no smoke fallback.");
+        }
+        public SourceFireTextureFrame Texture(SourceFireTextureKind kind, int index)
+        {
+            SourceFireGuard.Require(kind == SourceFireTextureKind.Trail || kind == SourceFireTextureKind.Dust, "Unknown source effect texture family.");
+            if (kind == SourceFireTextureKind.Dust) RequireDust();
+            var frames = kind == SourceFireTextureKind.Dust ? DustFrames : Frames;
+            SourceFireGuard.Require(index >= 0 && index < frames.Count, "Source effect selected a missing original texture frame.");
+            return frames[index];
+        }
     }
 
     public static class SourceFireSpfxReader
     {
         public const string Schema = "blitz-source-fire-spfx-portable/v1";
+        public const string DustSchema = "blitz-source-fire-spfx-portable/v2";
         public const string InputOrigin = "original-authoring-TGA32-and-SDL-portable-not-WMS";
         public const string AspectOrigin = "decoded-authoring-dimensions-Glide-enum-not-observed-WMS-header";
         public const string UvOrigin = "raw-SDL-ST-normalized-Unity-bottom-left-not-generated-spfx.h";
+        public const string DustMetadataOrigin = "authenticated-TGA-v2-tag20-developer-area-excluded-from-pixel-view";
         public const string SourceCommit = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded";
         private static readonly string[] Blobs = {
             "bee1894074a84b1cfdb1a9099e51ccf9afa5fca8",
@@ -114,6 +139,13 @@ namespace Blitz.AssetImport
             "ada8172d3687218b46afa4af61eeadab52d57133", "5b0c6bd286af37a1e93d0e3b5f8df7380908782d",
             "b0332d728c30c6166ae499cb152ec952147f3e61", "c5070f3f51525726f5a86c8749d180d92d458e57",
             "bf4705fd2342b18f4f071bd75d9c057b6d998795"
+        };
+        private static readonly string[] DustBlobs = {
+            "0d78216c4051c5bc64be90d53f91a27b8180c351", "bc38f27e7c37fd5f0eea0677e57749daa405a5a1",
+            "eb4782ebd8f7acd76d9f76cc93613cc4483c5d60", "349726235a6ded4b4032317f304c2adf6d7f4018",
+            "4d67c17a22ae91eea722f7292e0a2eb9962ccfe4", "46afae76a0cac1d0ae47a517462f5574c0055edc",
+            "ed283cd05fb7d00477c1119167c8b07302032aa3", "158e4243f7826b45583ae5a249995cdf0107dc75",
+            "5d424954d314604338b66738c6d90fe817bba9ac", "6ee890862ab035a73452342e9dcb7c4bf1e05b3e"
         };
 
         public static SourceFireSpfxBundle ReadAuthorized(string absoluteBundleRoot, string relativeManifest, string expectedManifestSha256)
@@ -130,7 +162,8 @@ namespace Blitz.AssetImport
             SourceFireSpfxManifest manifest;
             using (var stream = new MemoryStream(manifestBytes, false))
                 manifest = (SourceFireSpfxManifest)new DataContractJsonSerializer(typeof(SourceFireSpfxManifest)).ReadObject(stream);
-            SourceFireGuard.Require(manifest != null && manifest.schema == Schema && manifest.stableId == SourceFireIds.PortableAssetSet &&
+            SourceFireGuard.Require(manifest != null && (manifest.schema == Schema || manifest.schema == DustSchema) &&
+                manifest.stableId == SourceFireIds.PortableAssetSet &&
                 manifest.sourceRepository == "historicalsource/nflblitz2000" && manifest.sourceCommit == SourceCommit &&
                 manifest.sourceTree == "a7e0352125d46075b7d98e87253ab89b9160a4c7" &&
                 manifest.toolsCommit == "1792293aaaea00a919b59e8c05716978e85b4333", "Wrong fire schema/source/catalog identity.");
@@ -161,12 +194,36 @@ namespace Blitz.AssetImport
                 SourceFireGuard.Require(GitBlob(original) == record.gitBlobSha1, "Wrong original Git blob: " + path);
                 if (i > 0) frames[i - 1] = DecodeOriginalTga(original, manifest.frames[i - 1], path, record.sha256, i);
             }
+            var dust = new SourceFireTextureFrame[manifest.schema == DustSchema ? SourceFireIds.DustFrameCount : 0];
+            SourceFireGuard.Require(manifest.schema == DustSchema
+                ? manifest.dustInputs != null && manifest.dustInputs.Length == 10 &&
+                  manifest.dustFrames != null && manifest.dustFrames.Length == 10
+                : manifest.dustInputs == null && manifest.dustFrames == null,
+                "SOURCE_DUST_DATA_REQUIRED: v2 requires exactly ten ordered authenticated DIRT inputs/frames; v1 cannot claim dust data.");
+            for (int i = 0; i < dust.Length; i++)
+            {
+                SourceFireInputRecord record = manifest.dustInputs[i];
+                string path = "img3d/dirt" + (i + 1) + ".tga";
+                SourceFireGuard.Require(record != null && record.path == path && record.gitBlobSha1 == DustBlobs[i] &&
+                    record.bytes == 4458, "Wrong original DIRT input pin/order/length: " + path);
+                AuthorizedAssetRoot.ValidateRelativePath(record.payloadPath);
+                SourceFireGuard.Require(record.payloadPath == "inputs/" + path + ".bytes" && paths.Add(record.payloadPath),
+                    "Wrong/duplicate authorized DIRT payload: " + path);
+                byte[] original = readFile(record.payloadPath);
+                SourceFireGuard.Require(original != null && original.Length == record.bytes, "Missing/truncated original DIRT: " + path);
+                CheckHash(original, record.sha256, path);
+                SourceFireGuard.Require(GitBlob(original) == record.gitBlobSha1, "Wrong original DIRT Git blob: " + path);
+                SourceFireGuard.Require(manifest.dustFrames[i] != null &&
+                    manifest.dustFrames[i].nonPixelDataOrigin == DustMetadataOrigin,
+                    "Original DIRT nonpixel TGA developer-area adapter must be explicit.");
+                dust[i] = DecodeOriginalTga(original, manifest.dustFrames[i], path, record.sha256, i);
+            }
             AuthorizedAssetRoot.ValidateRelativePath(manifest.meshPath);
             SourceFireGuard.Require(manifest.meshPath == "geometry.bytes" && paths.Add(manifest.meshPath), "Wrong prepared geometry identity.");
             byte[] geometry = readFile(manifest.meshPath);
             SourceFireGuard.Require(geometry != null && geometry.Length == manifest.meshBytes, "Missing/truncated prepared SDL geometry.");
             CheckHash(geometry, manifest.meshSha256, "portable SDL geometry");
-            return new SourceFireSpfxBundle(expectedManifestSha256, manifest.authorizationReference, ReadGeometry(geometry), frames);
+            return new SourceFireSpfxBundle(expectedManifestSha256, manifest.authorizationReference, ReadGeometry(geometry), frames, dust);
         }
 
         public static int AspectFromDecodedDimensions(int width, int height)
@@ -183,10 +240,21 @@ namespace Blitz.AssetImport
         public static SourceFireTextureFrame DecodeOriginalTga(byte[] bytes, SourceFireTextureRecord record,
             string label, string sha256, int inputIndex)
         {
+            if (record != null && record.nonPixelDataOrigin == DustMetadataOrigin)
+            {
+                SourceFireGuard.Require(bytes != null && bytes.Length == 4458 && label.StartsWith("img3d/dirt", StringComparison.Ordinal),
+                    "Original DIRT requires its authenticated TGA v2 developer-area adapter, not an arbitrary trailing-data bypass.");
+                var metadata = new byte[344];
+                Buffer.BlockCopy(bytes, 4114, metadata, 0, metadata.Length);
+                CheckHash(metadata, "4de6fb5218a64c3a2ee6c5fd52d32bbf3359295ed4033501c3b9044e89bc89a5", "original DIRT nonpixel developer directory/tag20/footer");
+                var pixels = new byte[4114];
+                Buffer.BlockCopy(bytes, 0, pixels, 0, pixels.Length);
+                bytes = pixels;
+            }
             TgaImageInfo info = TgaImageInfo.Read(bytes, label);
             SourceFireGuard.Require(info.Width == 32 && info.Height == 32 && info.BitsPerPixel == 32 && (bytes[17] & 15) == 8 &&
                 !info.TopOrigin && !info.RightOrigin && bytes[8] == 0 && bytes[9] == 0 && bytes[10] == 0 && bytes[11] == 0,
-                "Original TRAIL requires32x32 BGRA8/alpha8, zero offsets, bottom-left origin.");
+                "Original TRAIL/DIRT requires32x32 BGRA8/alpha8, zero offsets, bottom-left origin.");
             int aspect = AspectFromDecodedDimensions(info.Width, info.Height);
             SourceFireGuard.Require(record != null && record.inputIndex == inputIndex && record.width == info.Width &&
                 record.height == info.Height && record.bitsPerPixel == info.BitsPerPixel && record.alphaBits == 8 &&

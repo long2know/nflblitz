@@ -78,9 +78,11 @@ static class FeatureChecks
             draws == random.Trace.Count, "Render/held frames must neither age FX nor consume Core RNG.");
         Require(registered == sink.TextureCount && sink.LastFlags.Length == 14 && sink.LastFlash.Length == 14,
             "Original texture uploads stay static and authoritative actor flags span all14 actors.");
-        Require(sink.FireTextures.Count == 17 && sink.FireTextures.Select(t => t.Hash)
+        Require(sink.FireTextures.Count == 27 && sink.FireTextures.Take(17).Select(t => t.Hash)
             .SequenceEqual(data.Fire.Frames.Select(t => t.SourceSha256)),
             "All17 renderer TRAIL bindings must use the authenticated selected original frame identities.");
+        Require(sink.FireTextures.Skip(17).Select(t => t.Hash).SequenceEqual(data.Fire.DustFrames.Select(t => t.SourceSha256)),
+            "The ten appended DIRT bindings must retain their separate authenticated original identities.");
         double[] originalRaster = FrameMath.CameraSpace(data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution, 10000);
         Require(host.Camera.LastSourceTick == host.Game.SourceTick &&
             host.Game.SourceCameraHeadingSampleTick == host.Game.SourceTick &&

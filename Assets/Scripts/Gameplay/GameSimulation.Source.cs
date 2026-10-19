@@ -1849,6 +1849,7 @@ namespace Blitz.Gameplay
                 var cue = new SourceCallbackCue(context, kind, instruction.Text,
                     instruction.A, instruction.B, instruction.C, Model.CarrierId);
                 sourcePresentationCues.Add(cue);
+                if (kind == SourcePresentationCueKind.DustCallback) AdmitSourceDust(actor, instruction.A);
                 if (kind != SourcePresentationCueKind.PlayerDownCallback) ExecuteSourceSoundVm(actor, cue);
             }
         }

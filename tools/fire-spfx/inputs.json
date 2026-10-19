@@ -22,11 +22,24 @@
     {"path":"img3d/trail16.tga","bytes":4140,"gitBlobSha1":"c5070f3f51525726f5a86c8749d180d92d458e57","sha256":"112d7450c678826a0d03d4437ecfc74370f93c2963c951f7b7492eac1a8682f2"},
     {"path":"img3d/trail17.tga","bytes":4140,"gitBlobSha1":"bf4705fd2342b18f4f071bd75d9c057b6d998795","sha256":"7ea96b7929a6b24837447e3aa6c1057610145c70e64b004fe02beabbb9cb4add"}
   ],
+  "dustInputs": [
+    {"path":"img3d/dirt1.tga","bytes":4458,"gitBlobSha1":"0d78216c4051c5bc64be90d53f91a27b8180c351","sha256":"81dd5b05bec7aaf81de79955c93aa80dddaa7956521693b91238d7915b6aa197"},
+    {"path":"img3d/dirt2.tga","bytes":4458,"gitBlobSha1":"bc38f27e7c37fd5f0eea0677e57749daa405a5a1","sha256":"27ea095863359bc883110af93ccf39c3a0353805feade6f9ed41b0463b61a596"},
+    {"path":"img3d/dirt3.tga","bytes":4458,"gitBlobSha1":"eb4782ebd8f7acd76d9f76cc93613cc4483c5d60","sha256":"77e79700ff2edff0108709bf85fe59e6d1b5059be471fe917503842d2a72dab0"},
+    {"path":"img3d/dirt4.tga","bytes":4458,"gitBlobSha1":"349726235a6ded4b4032317f304c2adf6d7f4018","sha256":"a975cc25695d55454eb8f1d12fd6068712970e3e49d6e6ecebbe8d941ce71378"},
+    {"path":"img3d/dirt5.tga","bytes":4458,"gitBlobSha1":"4d67c17a22ae91eea722f7292e0a2eb9962ccfe4","sha256":"fad6b70958ec9851fbe60338b5908e5ca684c0f233f5c25831323a55e00694a5"},
+    {"path":"img3d/dirt6.tga","bytes":4458,"gitBlobSha1":"46afae76a0cac1d0ae47a517462f5574c0055edc","sha256":"2828d906a333506208a11d8731eb1c28616bda32d20cc3f0aab9b2b9f2d8e17f"},
+    {"path":"img3d/dirt7.tga","bytes":4458,"gitBlobSha1":"ed283cd05fb7d00477c1119167c8b07302032aa3","sha256":"c8391163a8683de07ddf7aaaf8b4e56f601d5548d207f3cbbd6df44e743ce70b"},
+    {"path":"img3d/dirt8.tga","bytes":4458,"gitBlobSha1":"158e4243f7826b45583ae5a249995cdf0107dc75","sha256":"96226d4598939c906287b30b478d6a361d7072b139a17156e04e0ba7865d9aaf"},
+    {"path":"img3d/dirt9.tga","bytes":4458,"gitBlobSha1":"5d424954d314604338b66738c6d90fe817bba9ac","sha256":"ebc5272f44fb1cfd10e7f043633a88f62abd5b4291db4be924cc6aabc1894abb"},
+    {"path":"img3d/dirt10.tga","bytes":4458,"gitBlobSha1":"6ee890862ab035a73452342e9dcb7c4bf1e05b3e","sha256":"92944aa596f985f749d8cfa4beaf26f8fb33737564692be2e85fb2be32b9bd1b"}
+  ],
   "sourceReferences": {
     "SDL": "NFL models/spfx.sdl bee1894074a84b1cfdb1a9099e51ccf9afa5fca8",
     "scaleRecipe": "NFL models/models.mak:96-98 -f 4.0 -name spfx",
     "aspectEnum": "Midway include/glide/GLIDE.H:195-202 blob999f1d9310a908ae706dbafdac5de1d80ab61613",
-    "activeAspectMapping": "NFL lib/ani3d/geom.s:537-590 blobfecf16a0511ab5d14a7f5e3a96742407e1d43aa6"
+    "activeAspectMapping": "NFL lib/ani3d/geom.s:537-590 blobfecf16a0511ab5d14a7f5e3a96742407e1d43aa6",
+    "dustLoader": "NFL nfl.c:499-506 blob15b49474fb55e8bac280b6515fcf7bf59cdf8664; include/player.h:170 bloba86b1a5b52ba842b206cd7dd0bbb26521db6dcb8"
   },
   "nativeConvertedTextureEquivalent": false,
   "generatedSpfxHeaderEquivalent": false

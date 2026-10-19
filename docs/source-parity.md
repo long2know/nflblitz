@@ -32,6 +32,34 @@ published test fixture.
 
 <a id="published-portable-browser-evidence"></a>
 
+## Bounded original impact-dust implementation
+
+`dust_cloud` animation callbacks are consumed by the existing opt-in source
+effect runtime, not merely counted. Original one/two/four child ordering,
+SPFX PID/level-zero head insertion, first-wake cached joints/paired camera,
+ground-plane placement, copied table-based velocity and shared entry
+`randrng(3)` are explicit. Initial texture remains DIRT0; original `j >
+sleep_time`, movement-before-pre-snap, sleep1, next-wake deletion and the
+object-exists exit alert are preserved. The commented turf check stays inactive.
+The shared portable scheduler still labels its declared ordering rather than
+claiming native qsort ties or a verified platform PRNG.
+
+The explicit v2 local preparation extends the unchanged eighteen fire inputs
+with ten authenticated authoring DIRT TGAs. Its declared nonpixel developer-area
+adapter reuses the existing strict TGA decoder; the source SDL billboard and
+material pipeline are shared, not a Unity ParticleSystem or substitute smoke.
+See [setup and qualification](../tools/source-player/README.md#original-impact-dust-existing-source-fireportable-opt-in).
+Old v1 component fixtures retain their identities; enabled runtime composition
+fails by name if the ten DIRT frames are absent. No original art, decoded
+textures, poses, C bodies or builds are checked in. Existing144 metadata/GUID
+files are preserved, with zero new Unity assets/metas.
+
+The durable asset-free Game checks run real compiled C# dust regressions and
+semantic source controls; Source-player checks include the executed dust draw
+receiver suite in addition to all prior eighteen Node tests. Private pinned-C
+comparisons and actual-WASM/public-input browser evidence remain separate local
+campaigns, never invented public-CI or whole-game/native/audio/performance proof.
+
 ## Published portable browser evidence - October 18, 2026
 
 Implementation PRs21 through27 are merged. The implementation generation

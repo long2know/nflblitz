@@ -26,6 +26,7 @@ namespace Blitz.Editor
             var paths = new List<string> { "geometry.bytes" };
             paths.Add("inputs/models/spfx.sdl.bytes");
             for (int i = 1; i <= 17; i++) paths.Add("inputs/img3d/trail" + i + ".tga.bytes");
+            for (int i = 1; i <= bundle.DustFrames.Count; i++) paths.Add("inputs/img3d/dirt" + i + ".tga.bytes");
             Directory.CreateDirectory(destination);
             var files = new TextAsset[paths.Count];
             for (int i = 0; i < paths.Count; i++)

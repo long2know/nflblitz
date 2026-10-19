@@ -25,12 +25,13 @@ public sealed class FirePresentation
         Enabled = enabled; this.bundle = bundle; this.sink = sink; Epoch = epoch;
         if (!enabled) return;
         DataCatalog.Require(bundle != null, "Enabled fire presentation requires the authenticated original SDL/17-TGA generation.");
+        bundle.RequireDust();
         consumer = new SourceFireSpfxFrameConsumer(bundle);
-        for (int i = 0; uploadTextures && i < bundle.Frames.Count; i++)
+        for (int i = 0; uploadTextures && i < bundle.Textures.Count; i++)
         {
-            var texture = bundle.Frames[i];
+            var texture = bundle.Textures[i];
             sink.Texture("fire/" + i, texture.Width, texture.Height, texture.CopyRgba(), 1, true, true,
-                texture.SourceSha256, bundle.InputOrigin + "; original TRAIL frame" + (i + 1));
+                texture.SourceSha256, bundle.InputOrigin + "; " + texture.SourcePath);
         }
     }
 
@@ -89,7 +90,7 @@ public sealed class FirePresentation
                 vertices[offset++] = draw.UnityUvs[2 * i]; vertices[offset++] = draw.UnityUvs[2 * i + 1];
             }
         int[] hudHighlight = HighlightedHudPrimitives(kicking, hud);
-        sink.Effects(projection, vertices, Draws.Select(d => d.TextureFrame).ToArray(), flags, flash,
+        sink.Effects(projection, vertices, Draws.Select(d => d.TextureSlot).ToArray(), flags, flash,
             JsonSerializer.Serialize(new { frame = Describe(), hudHighlight, hudConstantColor = 0xc0000000u,
                 hudCombiner = "DECAL_TEXTURE_ADD_CCALPHA", hudRestore = "TEXTURE_TIMES_ALPHA/0xff000000",
                 timeoutFlasher = "TIME EXPIRED source lifetime/glyphs; native flash_text_proc phase unqualified" }));
@@ -98,6 +99,8 @@ public sealed class FirePresentation
     public object Describe() => new {
         enabled = Enabled, epoch = Epoch, sourceTick = Frame?.SourceTick ?? -1,
         framesConsumed = FramesConsumed, particles = Frame?.Particles.Count ?? 0,
+        dustParticles = Frame?.Particles.Count(p => p.TextureKind == SourceFireTextureKind.Dust) ?? 0,
+        dustDraws = Draws.Count(p => p.TextureKind == SourceFireTextureKind.Dust),
         ballTrails = Frame?.BallTrails.Count ?? 0,
         selectedBallEffect = ballEffect.ToString(),
         draws = Draws.Count, hidden = Frame?.Particles.Count(p => p.Hidden) ?? 0,
@@ -110,10 +113,15 @@ public sealed class FirePresentation
         sourceVres = Frame?.Basis.VerticalResolution ?? 384,
         recordCounts, records = records.ToArray(),
         objects = Frame?.Particles.Take(12).Select(p => new {
-            p.ObjectSerial, p.ProcessSerial, p.TextureFrame, p.Hidden,
+            p.ObjectSerial, p.ProcessSerial, p.TextureFrame, textureKind = p.TextureKind.ToString(), p.TextureSlot, p.Hidden,
             world = new[] { p.WorldPosition.X, p.WorldPosition.Y, p.WorldPosition.Z }
         }).ToArray(),
-        selectedTextures = Draws.Select(p => new { p.ObjectSerial, p.TextureFrame, p.TextureSourceSha256 }).ToArray(),
+        dustObjects = Frame?.Particles.Where(p => p.TextureKind == SourceFireTextureKind.Dust).Select(p => new {
+            p.ObjectSerial, p.ProcessSerial, p.TextureFrame, p.TextureSlot, p.Hidden,
+            world = new[] { p.WorldPosition.X, p.WorldPosition.Y, p.WorldPosition.Z }
+        }).ToArray(),
+        selectedTextures = Draws.Select(p => new { p.ObjectSerial, p.TextureFrame, textureKind = p.TextureKind.ToString(),
+            p.TextureSlot, p.TextureSourceSha256 }).ToArray(),
         boundaries = Frame?.PortableBoundaries,
         sound = "Original ordered metadata only; Audio output unqualified",
         nativePixelsQualified = false

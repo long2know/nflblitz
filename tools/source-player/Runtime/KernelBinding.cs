@@ -13,6 +13,7 @@ public static class KernelBinding
         options ??= PreviewOptions.FromUrl("");
         if (options.FireEnabled && data.Fire == null)
             throw new InvalidDataException("source-fire=portable requires the authenticated original SDL/17-TGA fire bundle before simulation.");
+        if (options.FireEnabled) data.Fire.RequireDust();
         SourceFireGameplayConfiguration fire = options.FireEnabled ?
             new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(data.Fire), 0, SourceFireCull.Off) : null;
         SourceKickMeterMetrics meters = options.KickMeters == SourceKickMeterMode.PortableAuthored ?

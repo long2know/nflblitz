@@ -9,11 +9,14 @@ namespace Blitz.Contracts
         public const int Spfx = 0x0f98, Player = 0x0500, PlayerFlash = 0x1300;
         public const int PuffObject = 0x510, PuffDrawOrder = 0x00050001, FlashWhite = 0x400;
         public const int Ball = 0x0900, BallObject = 0x400, BallDrawOrder = 0x00050000;
-        public const int InPlay = 2, PlayOver = 3, FrameCount = 17;
+        public const int PreSnap = 1, InPlay = 2, PlayOver = 3, FrameCount = 17, DustFrameCount = 10;
+        public const int DustWipeoutCause = 0x0002;
         public const string PortableAssetSet = "source-fire-spfx-authoring-tga-sdl-v1";
+        public const string DustAssetSet = "source-dust-cloud-authoring-tga-sdl-v1";
     }
 
-    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite, BallTrail }
+    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite, BallTrail, DustCloud }
+    public enum SourceFireTextureKind { Trail, Dust }
     public enum SourceFireOperation
     {
         CreateProcess, KillProcessGroup, DeleteObjectGroup, SuspendMask, ResumeMask,
@@ -198,10 +201,13 @@ namespace Blitz.Contracts
         }
         public static SourceFireCommand Create(SourceFireSite site, SourceFireEntry entry, SourceFireArgs args)
         {
-            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 4, "Unknown active effect entry.");
+            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 5, "Unknown active effect entry.");
             if (entry != SourceFireEntry.BallPuff && entry != SourceFireEntry.BallTrail) SourceFireGuard.Actor(args.A0);
-            if (entry == SourceFireEntry.PlayerPuff)
+            if (entry == SourceFireEntry.PlayerPuff || entry == SourceFireEntry.DustCloud)
                 SourceFireGuard.Require(args.A1 >= 0 && args.A1 < 15, "Original joint index must be 0..14.");
+            if (entry == SourceFireEntry.DustCloud)
+                SourceFireGuard.Require(args.A2 >= 0 && args.A2 <= 32767 && args.A3 == 0,
+                    "Original dust requires a bounded sleep_time and zero fourth argument.");
             if (entry == SourceFireEntry.PlayerBurst || entry == SourceFireEntry.FlashPlayerWhite)
                 SourceFireGuard.Require(args.A1 >= 0 && args.A2 > 0 && args.A2 <= 32767, "Invalid original wave/flash count or short sleep.");
             if (entry == SourceFireEntry.BallPuff)
@@ -210,11 +216,25 @@ namespace Blitz.Contracts
                 SourceFireGuard.Require(args.A0 == 0 && args.A1 == 0 && args.A2 == 0 && args.A3 == 0,
                     "Original balltrl has four zero arguments; its ball copy is taken at process entry.");
             string name = entry == SourceFireEntry.PlayerBurst ? "fburst" : entry == SourceFireEntry.PlayerPuff ? "ofire" :
-                entry == SourceFireEntry.BallPuff ? "smkpuf" : entry == SourceFireEntry.BallTrail ? "balltrl" : "flash";
+                entry == SourceFireEntry.BallPuff ? "smkpuf" : entry == SourceFireEntry.BallTrail ? "balltrl" :
+                entry == SourceFireEntry.DustCloud ? "dustcld" : "flash";
             int group = entry == SourceFireEntry.FlashPlayerWhite ? SourceFireIds.PlayerFlash :
                 entry == SourceFireEntry.BallPuff ? SourceFireIds.Player :
                 entry == SourceFireEntry.BallTrail ? SourceFireIds.Ball : SourceFireIds.Spfx;
             return new SourceFireCommand(site, SourceFireOperation.CreateProcess, entry, args, name, group, -1, null);
+        }
+        public static ReadOnlyCollection<SourceFireCommand> DustCloud(SourceFireSite site, int argument)
+        {
+            SourceFireGuard.Actor(site.ActorId);
+            int[] joints = argument == 4 ? new[] { 10 } : argument == 3 ? new[] { 13 } :
+                argument == 1 ? new[] { 14, 11 } : argument == 2 ? new[] { 13, 10 } : new[] { 8, 0, 13, 10 };
+            int firstLine = argument == 4 ? 5895 : argument == 3 ? 5897 : argument == 1 ? 5899 :
+                argument == 2 ? 5904 : 5909;
+            var result = new SourceFireCommand[joints.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = Create(site.At("dust_cloud", firstLine + i, site.WithinWakeCallOrdinal + i, site.ActorId),
+                    SourceFireEntry.DustCloud, new SourceFireArgs(site.ActorId, joints[i], 1));
+            return Array.AsReadOnly(result);
         }
         public static SourceFireCommand Control(SourceFireSite site, SourceFireOperation operation, int id = 0, int mask = -1)
         {
@@ -422,6 +442,7 @@ namespace Blitz.Contracts
         public Func<int, SourceFireCachedPlayerFrame> ReadCachedPlayer { get; }
         public Func<SourceFireBallWorldSample> ReadBallWorld { get; }
         public Func<SourceFireBallRenderSample> ReadBallRender { get; }
+        public Func<int, SourceVector3> ReadDustVelocity { get; }
         public Func<int, int> ReadRawActorFlags { get; }
         public Action<int, int, SourceFireSite> WriteRawActorFlags { get; }
         public Action<SourceFireSite> EnterEffectWake { get; }
@@ -433,7 +454,8 @@ namespace Blitz.Contracts
             Func<int, int> readRawActorFlags, Action<int, int, SourceFireSite> writeRawActorFlags,
             Action<SourceFireSite> enterEffectWake, Action<SourceFireWakeSlot, int> runHostContinuation,
             Func<SourceFireDirectSound, SourceFireSoundSubmission> submitSound, Func<long> allocateEffectProcessSerial,
-            Func<SourceFireBallRenderSample> readBallRender = null)
+            Func<SourceFireBallRenderSample> readBallRender = null,
+            Func<int, SourceVector3> readDustVelocity = null)
         {
             Draw = draw ?? throw new ArgumentNullException(nameof(draw)); ReadRawGameMode = readRawGameMode ?? throw new ArgumentNullException(nameof(readRawGameMode));
             ReadCachedPlayer = readCachedPlayer ?? throw new ArgumentNullException(nameof(readCachedPlayer));
@@ -445,6 +467,7 @@ namespace Blitz.Contracts
             SubmitSound = submitSound ?? throw new ArgumentNullException(nameof(submitSound));
             AllocateEffectProcessSerial = allocateEffectProcessSerial ?? throw new ArgumentNullException(nameof(allocateEffectProcessSerial));
             ReadBallRender = readBallRender;
+            ReadDustVelocity = readDustVelocity;
         }
     }
 
@@ -472,19 +495,24 @@ namespace Blitz.Contracts
         public SourceVector3 WorldPosition { get; }
         public float VelocityY { get; }
         public int TextureFrame { get; }
+        public SourceFireTextureKind TextureKind { get; }
+        public int TextureSlot { get { return TextureFrame + (TextureKind == SourceFireTextureKind.Dust ? SourceFireIds.FrameCount : 0); } }
         public int IntegerAspect { get; }
         public bool Hidden { get; }
         public int ObjectId { get { return SourceFireIds.PuffObject; } }
         public int DrawOrder { get { return SourceFireIds.PuffDrawOrder; } }
-        public string AssetSet { get { return SourceFireIds.PortableAssetSet; } }
+        public string AssetSet { get { return TextureKind == SourceFireTextureKind.Dust ? SourceFireIds.DustAssetSet : SourceFireIds.PortableAssetSet; } }
         public SourceFireParticle(long objectSerial, long processSerial, SourceVector3 position, float velocityY,
-            int frame, int aspect, bool hidden)
+            int frame, int aspect, bool hidden, SourceFireTextureKind textureKind = SourceFireTextureKind.Trail)
         {
-            SourceFireGuard.Require(objectSerial > 0 && processSerial > 0 && frame >= 0 && frame < 17 &&
+            SourceFireGuard.Require((textureKind == SourceFireTextureKind.Trail || textureKind == SourceFireTextureKind.Dust) &&
+                objectSerial > 0 && processSerial > 0 && frame >= 0 &&
+                frame < (textureKind == SourceFireTextureKind.Dust ? SourceFireIds.DustFrameCount : SourceFireIds.FrameCount) &&
                 aspect >= 0 && aspect <= 6, "Invalid resolved fire object/frame/aspect.");
             SourceFireGuard.Finite(position); SourceFireGuard.Finite(velocityY);
             ObjectSerial = objectSerial; ProcessSerial = processSerial; WorldPosition = position;
             VelocityY = velocityY; TextureFrame = frame; IntegerAspect = aspect; Hidden = hidden;
+            TextureKind = textureKind;
         }
     }
 

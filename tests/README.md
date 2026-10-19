@@ -37,6 +37,27 @@ Unity-reference API compilation,
 native import/pixels, a Unity-built player and browser-observed gameplay are
 different evidence layers.
 
+## Original impact dust
+
+The actual Game workflow requires `tests/impact-dust/test_ci.py`, the pure
+C#7.3 `tests/impact-dust/run.py --controls`, and
+`tests/impact-dust/js_controls.py`. Both suites compile/parse the real production
+source, then require named semantic failures from isolated changed sources;
+compiler errors and hashes alone never kill controls. Coupled guards reject
+test removal, skipped/continued failures or changing the existing40-minute
+budget. The source-player workflow retains its prior18 Node cases and adds
+three actual dust-receiver/draw/deletion tests.
+
+`tests/impact-dust/original.py` additionally accepts explicit authenticated
+private original C/header/process/object/trig inputs and a prepared v2 bundle.
+It compares seven1/2/4-emission inputs,27 texture/sleep/pre-snap cases, original
+Goose kill/object-exists/exit cleanup, actual draw_spfx state/basis and all ten
+decoded original DIRT frames. Those private component comparisons and the
+separate real-WASM `tools/source-player/dust.browser.mjs` public-input campaign
+are local qualifications, not fabricated asset-free CI, native rendering,
+PRNG, full-game, performance or audio acceptance. All existing144 Unity GUIDs
+remain unchanged.
+
 ## Combined fire and portable-authored human kick checks
 
 The [combined runtime suite](fire-kick-integration/README.md) reconciles actual

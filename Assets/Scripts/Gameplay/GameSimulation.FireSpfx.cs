@@ -47,7 +47,22 @@ namespace Blitz.Gameplay
             () => new SourceFireBallRenderSample(Model.SourceTick, Model.SourceBallPosition,
                 Model.SourceBallHeading, Model.SourceBallElevation, Model.SourceBallRoll,
                 Model.SourceBallScale, unchecked((int)Model.SourceBallFlags),
-                "actual Core ball_proc render fields read at trail_ball_proc entry; no live pose reconstruction"));
+                "actual Core ball_proc render fields read at trail_ball_proc entry; no live pose reconstruction"),
+            actor =>
+            {
+                int facing = Model.Players[actor].Facing;
+                SourceDirectionMath directions = Model.SourcePlaybook.Directions;
+                return new SourceVector3(.35f * directions.Sin(facing) + 0f * directions.Cos(facing), .10f,
+                    .35f * directions.Cos(facing) - 0f * directions.Sin(facing));
+            });
+        }
+
+        private void AdmitSourceDust(ActorState actor, int argument)
+        {
+            if (!SourceFireEnabled) return;
+            foreach (SourceFireCommand command in SourceFireCommand.DustCloud(
+                FireSite("player.c", "dust_cloud", 5885, actor.Id), argument))
+                FireRuntime.Apply(command);
         }
 
         private void InitializeSourceFire()

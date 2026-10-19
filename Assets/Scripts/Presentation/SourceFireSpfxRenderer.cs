@@ -24,14 +24,15 @@ namespace Blitz.Presentation
                 "Bind the actual authenticated fire asset and camera once; no implicit default asset/camera.");
             data = asset.Load(); target = actualSourceCamera; consumer = new SourceFireSpfxFrameConsumer(data);
             SourceFireGuard.Require(asset.SourceShader.isSupported, "Exact source-fire shader unsupported on this graphics backend; no fallback material.");
-            textures = new Texture2D[17]; materials = new Material[17];
-            for (int i = 0; i < 17; i++)
+            data.RequireDust();
+            textures = new Texture2D[data.Textures.Count]; materials = new Material[data.Textures.Count];
+            for (int i = 0; i < data.Textures.Count; i++)
             {
-                SourceFireTextureFrame original = data.Frames[i];
+                SourceFireTextureFrame original = data.Textures[i];
                 textures[i] = new Texture2D(original.Width, original.Height, TextureFormat.RGBA32, false, true)
                 { name = original.SourcePath, wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 0 };
                 textures[i].LoadRawTextureData(original.CopyRgba()); textures[i].Apply(false, true);
-                materials[i] = new Material(asset.SourceShader) { name = "Original TRAIL frame" + (i + 1), mainTexture = textures[i] };
+                materials[i] = new Material(asset.SourceShader) { name = original.SourcePath, mainTexture = textures[i] };
             }
             commands = new CommandBuffer { name = "Source fire: ordered immutable57Hz authoring-input objects (portable)" };
             target.AddCommandBuffer(CameraEvent.AfterForwardAlpha, commands);
@@ -62,7 +63,7 @@ namespace Blitz.Presentation
                     uvs[i] = new Vector2(draw.UnityUvs[2 * i], draw.UnityUvs[2 * i + 1]); triangles[i] = i;
                 }
                 mesh.Clear(); mesh.vertices = vertices; mesh.uv = uvs; mesh.triangles = triangles;
-                Material material = materials[draw.TextureFrame];
+                Material material = materials[draw.TextureSlot];
                 material.SetInt("_Cull", (int)draw.State.InheritedCull);
                 var properties = new MaterialPropertyBlock(); properties.SetVector("_SourceRaster", raster);
                 commands.DrawMesh(mesh, Matrix4x4.identity, material, 0, 0, properties);
