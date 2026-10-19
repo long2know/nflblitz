@@ -1,5 +1,13 @@
 # Actual-source ball and input/cue caller regressions
 
+## Ordered input mutation binding
+
+The `source-transform-wake` control targets the actual shared station-observation
+helper's null-return guard after the possession lifecycle refactor. It still
+omits odd source dispatches and must fail the same "ordered raw drain transforms
+exactly once" assertion. The original 20-control inventory, caller counts and
+other semantic mutations are unchanged; a strict guard also checks this binding.
+
 ## Source ball orientation lifecycle
 
 The actual `SourceBallDriver.Advance` now retains the original standing kickoff

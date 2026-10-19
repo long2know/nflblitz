@@ -165,6 +165,20 @@ class BallRunnerGuards(unittest.TestCase):
         self.assertLess(tick, merge)
         self.assertLess(merge, apply)
 
+    def test_source_transform_mutant_still_omits_odd_dispatches_in_the_actual_shared_helper(self):
+        row = next(item for item in RUNNER.MUTATIONS if item[0] == "source-transform-wake")
+        self.assertEqual("GameSimulation.Source.cs", row[1])
+        self.assertEqual("if (SourceStationInputTransform == null) return command;", row[2])
+        self.assertEqual(
+            "if (SourceStationInputTransform == null || Model.SourceTick % 2 != 0) return command;", row[3])
+        self.assertEqual(("caller", "ordered raw drain transforms exactly once", 1), row[4:])
+        source = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_text()
+        start = source.index("private PlayerCommand TransformSourceStationInput(")
+        end = source.index("private void SourceStep(", start)
+        helper = source[start:end]
+        self.assertIn(row[2], helper)
+        self.assertIn("SourceStationInputTransform(new GameSnapshot(Model)", helper)
+
     def test_orientation_is_additive_and_each_control_targets_actual_compilable_production(self):
         self.assertEqual(34713, RUNNER.EXPECTED["orientation_ball_assertions"])
         self.assertEqual(470666, RUNNER.EXPECTED["native_ball_assertions"])
