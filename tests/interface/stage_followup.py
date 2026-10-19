@@ -155,10 +155,10 @@ def validate_runtime(source):
     awake = compact(method(source, "Awake"))
     configure = ("playCamera.ConfigureSourceStage(State,()=>simulation.SourceCameraStageOrder,"
                  "simulation.DrawSourceCameraRandom,state=>simulation.SourceCameraRawGameMode,"
-                 "simulation.SourceActorWorldPosition);")
+                 "simulation.SourceActorWorldPosition,simulation.ApplySourceCameraFeedback);")
     register = "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);"
     attach = "simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;"
-    require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots via five-argument Configure")
+    require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots and camera feedback via six-argument Configure")
     require(awake.count(register) == 1, "actual Team SampleAtSourceTick must be registered exactly once")
     require(awake.count(attach) == 1 and awake.index(configure) < awake.index(register) < awake.index(attach),
             "configure/register before exposing Core's executing-source callback")

@@ -158,7 +158,7 @@ internal static partial class Program
     private static IEnumerable<string> InputRow(GameSimulation game, int index, int[] tape)
     {
         SimulationState m = game.Model;
-        var row = new List<string> { "D", index.ToString(), game.SourceCameraRawGameMode.ToString(),
+        var row = new List<string> { "D", index.ToString(), GameSnapshot.RawMovementPhase(m).ToString(),
             ((int)m.Possession).ToString(), m.SourceLastPossession.ToString(), m.CarrierId.ToString(),
             ((uint)m.SourceFlags).ToString(), ((int)m.SourceRules.PlayType).ToString(),
             m.SourceClock.PlayTime.ToString(), m.SourceTick.ToString(), "3",

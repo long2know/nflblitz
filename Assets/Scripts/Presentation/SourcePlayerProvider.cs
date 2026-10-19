@@ -63,6 +63,17 @@ namespace Blitz.Presentation
             return library;
         }
 
+        public static SourceNormalCameraData ResolveRequiredNormalCameraData(SourcePlayerRig sourcePrefab)
+        {
+            if (sourcePrefab == null || !SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsContact281C2M1)
+                throw new InvalidOperationException("Original CAMBOT normal requires the explicit M1 source profile.");
+            SourceTeamResourceProfile profile = SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId);
+            SourceCinematicLibraryAsset asset = Resources.Load<SourceCinematicLibraryAsset>(profile.ImpactResourceKey);
+            if (asset == null) throw new InvalidOperationException("The original M1 camera resource is missing.");
+            profile.RequireImpact(asset.Load());
+            return asset.LoadOriginalNormal();
+        }
+
         internal static SourcePlayerRig ResolveActorMode()
         { return ResolveActorMode(false); }
 

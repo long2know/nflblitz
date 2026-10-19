@@ -50,6 +50,12 @@ Disabled fire retains its old C2/game dispatcher. Disabled meters add no
 process, launch substitution or random draw. No projection sign, lineup scope,
 Core RNG, pose evaluation or camera ordering is changed.
 
+The current raw-CAMBOT integration records its ball-target camera cache before
+the completed fire frame. The mixed-frame disconnection control preserves that
+cache call and disconnects only fire-frame capture. Retained inventory guards
+require both new camera data/contracts files explicitly: 76 shared kernel files,
+or 83 with this suite's existing extra consumers.
+
 ## Measured combined evidence
 
 The October18 integration executed2,284 assertions with:

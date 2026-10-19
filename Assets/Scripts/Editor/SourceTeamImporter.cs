@@ -131,6 +131,12 @@ namespace Blitz.Editor
             var impactInput = new AuthorizedAssetRoot(preparedImpactRoot);
             byte[] impactBytes = impactInput.ReadBytes("impact-presentation.json", 1024 * 1024);
             profile.RequireImpact(SourceCinematicLibrary.Read(impactBytes, expectedImpactSha256));
+            byte[] normalBytes = null;
+            if (profile.IsContact281C2M1)
+            {
+                normalBytes = impactInput.ReadBytes("normal-camera-original.json", 1024 * 1024);
+                SourceNormalCameraData.Read(normalBytes);
+            }
             Shader shader = Shader.Find("Unlit/Transparent Cutout");
             if (shader == null) throw new PlayerAssetException("The original texture-decal material adapter needs Unlit/Transparent Cutout; no tinted shader fallback.");
             var output = new AuthorizedAssetRoot(Path.GetDirectoryName(Application.dataPath));
@@ -249,6 +255,8 @@ namespace Blitz.Editor
             }
             var impactAsset = ScriptableObject.CreateInstance<SourceCinematicLibraryAsset>();
             impactAsset.Initialize(Text(output, resourceFolder + "/impact-catalog.json", impactBytes), expectedImpactSha256);
+            if (normalBytes != null)
+                impactAsset.InitializeOriginalNormal(Text(output, resourceFolder + "/normal-camera-original.json", normalBytes));
             AssetDatabase.CreateAsset(impactAsset, resourceFolder + "/impact-library.asset");
             AssetDatabase.SaveAssets();
             Debug.Log("PASS original opposing-team import:31 teams /496 records /32 model selectors /20 heads /" +

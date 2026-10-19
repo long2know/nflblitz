@@ -60,6 +60,9 @@ namespace Blitz.Presentation
         private int stageRandomAxis;
         private readonly SourcePlayerRig sourceProfilePrefab;
         private readonly bool movement157;
+        private readonly bool rawSourceCamera;
+        private System.Action<SourceCameraFeedback> sourceCameraFeedback;
+        private float sourceHorizontalResolution = 512f, sourceVerticalResolution = 384f;
         private bool sourceMovementRasterConfigured;
 
         internal Camera Camera { get { return camera; } }
@@ -81,9 +84,10 @@ namespace Blitz.Presentation
 
         internal void ConfigureSourceMovementRaster(float horizontalResolution, float verticalResolution)
         {
-            if (!movement157 || sourceStageDriven)
+            if ((!movement157 && !rawSourceCamera) || sourceStageDriven)
                 throw new System.InvalidOperationException("Configure M1's explicit original DIP raster512x384 or512x256 before initializing the source camera.");
             sourceAspect = SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
+            sourceHorizontalResolution = horizontalResolution; sourceVerticalResolution = verticalResolution;
             sourceMovementRasterConfigured = true;
         }
         internal int SourceHeading1024
@@ -107,24 +111,38 @@ namespace Blitz.Presentation
             if (sourceCinematics != null)
                 throw new System.InvalidOperationException("Source camera stage is already initialized.");
             camera.rect = new Rect(0f, 0f, 1f, 1f);
-            if (movement157 && !sourceMovementRasterConfigured)
+            if ((movement157 || rawSourceCamera) && !sourceMovementRasterConfigured)
                 throw new System.InvalidOperationException("Original movement source camera needs explicitly configured DIP resolution; browser viewport is not an input.");
-            if (!movement157) sourceAspect = Mathf.Max(.01f, Screen.width / (float)Mathf.Max(1, Screen.height));
-            sourceNormalFrame = model.Update(initialState, sourceAspect, 0f, true);
-            previousNormalSourceState = SourceSeed(sourceNormalFrame, default(SourceVector3), 0f);
-            AttachSourceCinematics(new SourceCinematicPlayback(SourcePlayerProvider.ResolveRequiredCinematicLibrary(sourceProfilePrefab),
-                previousNormalSourceState));
+            if (rawSourceCamera)
+            {
+                ISourceCameraState source = initialState as ISourceCameraState;
+                if (source == null || source.CameraBoundary == null || sourceCameraFeedback == null)
+                    throw new System.InvalidOperationException("Original CAMBOT requires its immutable Core camera boundary and feedback owner.");
+                AttachSourceCinematics(new SourceCinematicPlayback(
+                    SourcePlayerProvider.ResolveRequiredCinematicLibrary(sourceProfilePrefab),
+                    SourcePlayerProvider.ResolveRequiredNormalCameraData(sourceProfilePrefab), source.CameraBoundary));
+            }
+            else
+            {
+                if (!movement157) sourceAspect = Mathf.Max(.01f, Screen.width / (float)Mathf.Max(1, Screen.height));
+                sourceNormalFrame = model.Update(initialState, sourceAspect, 0f, true);
+                previousNormalSourceState = SourceSeed(sourceNormalFrame, default(SourceVector3), 0f);
+                AttachSourceCinematics(new SourceCinematicPlayback(SourcePlayerProvider.ResolveRequiredCinematicLibrary(sourceProfilePrefab),
+                    previousNormalSourceState));
+            }
             sourceStageDriven = true;
         }
 
         internal void ConfigureSourceStage(IGameState initialState, System.Func<int> actualCameraOrder,
             System.Func<int, string, int> actualCameraRandom, System.Func<IGameState, int> actualRawGameMode,
-            System.Func<int, SourceVector3> actualSourceActorRoot)
+            System.Func<int, SourceVector3> actualSourceActorRoot,
+            System.Action<SourceCameraFeedback> actualCameraFeedback = null)
         {
             if (actualCameraOrder == null || actualCameraRandom == null || actualRawGameMode == null || actualSourceActorRoot == null)
                 throw new System.InvalidOperationException("Original source camera registration requires actual Core order/RNG/game-mode/source-world getters.");
             sourceCameraOrder = actualCameraOrder; sourceCameraRandom = actualCameraRandom;
             sourceRawGameMode = actualRawGameMode; sourceActorRoot = actualSourceActorRoot;
+            sourceCameraFeedback = actualCameraFeedback;
             stageRandomDraw = DrawStageRandom;
             InitializeSourceStage(initialState);
         }
@@ -148,6 +166,8 @@ namespace Blitz.Presentation
             if (source == null || source.SourceTick != executingSourceTick)
                 throw new System.InvalidOperationException("Source camera needs the exact executing pre-actor source-tick snapshot.");
             ObserveSourceCameraSuspension(false);
+            if (rawSourceCamera)
+                return AdvanceOriginalSourceStage(preActorState, executingSourceTick, sourceCameraOrder());
             stageRandomAxis = 0;
             if (sourceRawGameMode != null)
                 return AdvanceSourceStage(preActorState, executingSourceTick, sourceCameraOrder(), stageRandomDraw,
@@ -192,6 +212,8 @@ namespace Blitz.Presentation
         internal int AdvanceSourceStage(IGameState beforeActors, long executingSourceTick, int actualProcessOrder,
             System.Func<int, int> actualCameraRandrng, int actualRawGameMode)
         {
+            if (rawSourceCamera)
+                return AdvanceOriginalSourceStage(beforeActors, executingSourceTick, actualProcessOrder);
             bool newPlay = sourceProcessClock.BeginsNewPlay(actualRawGameMode);
             int heading = AdvanceSourceStage(beforeActors, executingSourceTick, actualProcessOrder, actualCameraRandrng, newPlay);
             sourceProcessClock.CompleteCameraTick(actualRawGameMode);
@@ -201,6 +223,8 @@ namespace Blitz.Presentation
         internal int AdvanceSourceStage(IGameState beforeActors, long executingSourceTick, int actualProcessOrder,
             System.Func<int, int> actualCameraRandrng, bool actualNewPlayAfterPlayOver)
         {
+            if (rawSourceCamera)
+                return AdvanceOriginalSourceStage(beforeActors, executingSourceTick, actualProcessOrder);
             if (!sourceStageDriven || sourceCinematics == null || actualCameraRandrng == null)
                 throw new System.InvalidOperationException("Bind the original camera stage and its real Core camera-process RNG before source actors execute.");
             if (sourceCameraSuspended)
@@ -243,6 +267,21 @@ namespace Blitz.Presentation
             return sourceCinematics.Playback.SourceHeading1024;
         }
 
+        private int AdvanceOriginalSourceStage(IGameState beforeActors, long executingSourceTick, int actualProcessOrder)
+        {
+            ISourceCameraState source = beforeActors as ISourceCameraState;
+            if (!sourceStageDriven || sourceCameraSuspended || source == null || source.CameraBoundary == null ||
+                source.CameraBoundary.SourceTick != executingSourceTick ||
+                source.CameraBoundary.ProcessOrder != actualProcessOrder ||
+                source.CameraBoundary.RawGameMode != sourceRawGameMode(beforeActors))
+                throw new System.InvalidOperationException("Original normal camera consumes only the executing typed pre-actor Core boundary.");
+            SourcePlayback.CameraSourceTick(source.CameraBoundary, sourceHorizontalResolution, sourceVerticalResolution,
+                sourceCameraRandom);
+            sourceCameraFeedback(SourcePlayback.CameraFeedback);
+            lastSourceStageTick = executingSourceTick; allowSourceStageGap = false;
+            return SourcePlayback.SourceHeading1024;
+        }
+
         internal void ObserveSourceCameraSuspension(bool actualSuspended)
         {
             if (!sourceStageDriven)
@@ -255,9 +294,15 @@ namespace Blitz.Presentation
         internal void ResetSourceStage(IGameState initialState)
         {
             if (!sourceStageDriven) return;
-            sourceNormalFrame = model.Update(initialState, sourceAspect, 0f, true);
-            previousNormalSourceState = SourceSeed(sourceNormalFrame, default(SourceVector3), 0f);
-            sourceCinematics.Playback.Reset(previousNormalSourceState); lastSourceStageTick = -1;
+            if (rawSourceCamera)
+                sourceCinematics.Playback.Reset(((ISourceCameraState)initialState).CameraBoundary);
+            else
+            {
+                sourceNormalFrame = model.Update(initialState, sourceAspect, 0f, true);
+                previousNormalSourceState = SourceSeed(sourceNormalFrame, default(SourceVector3), 0f);
+                sourceCinematics.Playback.Reset(previousNormalSourceState);
+            }
+            lastSourceStageTick = -1;
             sourceCameraSuspended = allowSourceStageGap = false;
             sourceProcessClock.Reset();
             stageRandomAxis = 0;
@@ -278,6 +323,7 @@ namespace Blitz.Presentation
         {
             sourceProfilePrefab = sourcePrefab;
             movement157 = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsMovement157;
+            rawSourceCamera = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsContact281C2M1;
             camera = new GameObject("Play camera").AddComponent<Camera>();
             camera.transform.SetParent(parent, false);
             camera.tag = "MainCamera";
@@ -309,20 +355,28 @@ namespace Blitz.Presentation
             HudLayout layout = new HudLayout(Screen.width, Screen.height);
             camera.rect = sourceStageDriven ? new Rect(0f, 0f, 1f, 1f) : layout.Viewport;
             float aspect = Mathf.Max(0.01f, camera.pixelWidth / (float)Mathf.Max(1, camera.pixelHeight));
-            if (!movement157) sourceAspect = aspect;
+            if (!movement157 && !rawSourceCamera) sourceAspect = aspect;
             bool focused = Application.isFocused;
             ISourceGameState source = state as ISourceGameState;
             if (sourceStageDriven && immediate && source != null && lastSourceStageTick >= 0 && source.SourceTick < lastSourceStageTick)
                 ResetSourceStage(state);
-            NormalCameraFrame frame = sourceStageDriven ?
-                new NormalCameraFrame(sourceNormalFrame.Focus, sourceNormalFrame.Distance, aspect, sourceNormalFrame.Direction) :
-                model.Update(state, aspect, focused ? Time.unscaledDeltaTime : 0f, immediate || (focused && !wasFocused));
+            if (rawSourceCamera && sourceStageDriven)
+            {
+                camera.aspect = SourceCameraProjection.OpticalAspect(sourceHorizontalResolution, sourceVerticalResolution);
+                camera.fieldOfView = SourceCameraProjection.VerticalFieldOfView(sourceHorizontalResolution, sourceVerticalResolution);
+            }
+            else
+            {
+                NormalCameraFrame frame = sourceStageDriven ?
+                    new NormalCameraFrame(sourceNormalFrame.Focus, sourceNormalFrame.Distance, aspect, sourceNormalFrame.Direction) :
+                    model.Update(state, aspect, focused ? Time.unscaledDeltaTime : 0f, immediate || (focused && !wasFocused));
+                normalDirection = frame.Direction;
+                camera.aspect = frame.Aspect;
+                camera.fieldOfView = frame.VerticalFieldOfView;
+                camera.transform.position = new Vector3(frame.Eye.X, frame.EyeHeight, frame.Eye.Z);
+                camera.transform.LookAt(new Vector3(frame.Focus.X, NormalCameraModel.FocusHeightYards, frame.Focus.Z));
+            }
             wasFocused = focused;
-            normalDirection = frame.Direction;
-            camera.aspect = frame.Aspect;
-            camera.fieldOfView = frame.VerticalFieldOfView;
-            camera.transform.position = new Vector3(frame.Eye.X, frame.EyeHeight, frame.Eye.Z);
-            camera.transform.LookAt(new Vector3(frame.Focus.X, NormalCameraModel.FocusHeightYards, frame.Focus.Z));
             if (sourceCinematics != null) sourceCinematics.Apply(camera);
             if (hasOriginalWorldBounds)
             {

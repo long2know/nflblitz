@@ -29,7 +29,7 @@ class KickRunnerContracts(unittest.TestCase):
 
     def test_real_compile_closure_includes_existing_cabinet_and_HUD_consumers(self):
         paths = {str(p.relative_to(RUNNER.ROOT)) for p in RUNNER.production_paths()}
-        self.assertEqual(len(paths), 74)
+        self.assertEqual(len(paths), 76)
         self.assertIn("Assets/Scripts/Contracts/SourceKickMeterContracts.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/SourceKickMeterProcess.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs", paths)
@@ -37,6 +37,8 @@ class KickRunnerContracts(unittest.TestCase):
         self.assertIn("Assets/Scripts/AssetImport/SourceFireSpfxData.cs", paths)
         self.assertIn("Assets/Scripts/AssetImport/SourceTeamPoppedHeadData.cs", paths)
         self.assertIn("Assets/Scripts/AssetImport/SourceFreeBallData.cs", paths)
+        self.assertIn("Assets/Scripts/AssetImport/SourceNormalCameraData.cs", paths)
+        self.assertIn("Assets/Scripts/Contracts/SourceCameraContracts.cs", paths)
         self.assertEqual(len(RUNNER.EXTRA_PURE), 5)
         for name in RUNNER.EXTRA_PURE:
             self.assertTrue((RUNNER.ROOT / name).is_file(), name)

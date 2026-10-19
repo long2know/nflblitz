@@ -273,7 +273,8 @@ internal static class Program
             Near(model.State.Eye.X, old.X, 0, "no-selection preserves existing camera");
             frame = model.Step(new SourceCinematicTarget(new SourceVector3(30, 2, -8), 700));
             Check(!frame.Active && frame.ReturnedToNormal && !frame.SnapOnReturn, "exact odd-travel source expiry returns to normal");
-            Equal(frame.ElapsedTicks, 5, "no extra special tick at mode duration");
+            Equal(frame.ElapsedTicks, mode <= 6 ? 6 : 5,
+                "original zoom increments after expiry; spline/rail return without another active special tick");
         }
         var snap = new SourceCinematicEntry("snap", 0, 1, 5, "CAM_ZO_NR", 357, 0, 135, -5, 70, new SourceVector3[0]);
         var camera = new SourceCinematicModel(CameraSeed());

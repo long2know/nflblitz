@@ -346,7 +346,23 @@ public sealed class PlayerHost
                 sourceVres = Data.Bootstrap.VerticalResolution, cameraTrace = Camera.Trace,
                 transientTable = Camera.Playback.Frame.Table, transientOrdinal = Camera.Playback.Frame.Ordinal,
                 transientElapsed = Camera.Playback.Frame.ElapsedTicks, resuming = Camera.Playback.IsResumingNormal,
-                needsShakeDraws = Camera.Playback.NeedsShakeDraws
+                needsShakeDraws = Camera.Playback.NeedsShakeDraws,
+                producer = "original-active-CAMBOT-normal-kickoff-impact",
+                normalWakes = Camera.Playback.OriginalNormal.NormalWakes,
+                rawGameMode = Camera.Playback.LastCameraBoundary == null ? -1 : Camera.Playback.LastCameraBoundary.RawGameMode,
+                focus = new[] { Camera.Playback.SourceState.Focus.X, Camera.Playback.SourceState.Focus.Y,
+                    Camera.Playback.SourceState.Focus.Z }, distance = Camera.Playback.SourceState.Distance,
+                viewProjection = Camera.ViewProjection, cameraSpaceProjection = Camera.CameraSpaceProjection
+            },
+            sourceRandom = new {
+                evidence = Game.SourceRandomService.Provenance.Evidence.ToString(),
+                tail = Game.SourceRandomService is SourceInjectedRandom ledger ?
+                    ledger.Trace.Skip(Math.Max(0, ledger.Trace.Count - 64)).Select(draw => new {
+                        order = draw.Order, sourceTick = draw.Site.SourceTick, actor = draw.Site.ActorId,
+                        process = draw.Site.Process, processOrder = draw.Site.ProcessOrder,
+                        callIndex = draw.Site.CallIndex, site = draw.Site.SourceIdentity,
+                        bound = draw.Site.BoundOrModulus, value = draw.Value
+                    }).ToArray() : Array.Empty<object>()
             },
             hud = new { primitives = hudDraw.Count, vertices = hudVertices.Length / 4,
                 origin = "original authored atlas/font/draw composer; portable raster origin",
@@ -378,7 +394,8 @@ public sealed class PlayerHost
             limitations = new[] {
                 "Not a Unity player build, native Unity qualification or bit-exact arcade acceptance.",
                 "Authored TGA/portable HUD raster origin; missing Texus/WMS quantization is not reconstructed.",
-                "Production source-derived normal framing and original cinematic/MatInput; normal camera native parity remains open.",
+                "Original active CAMBOT normal/tracking/integrator, kickoff and special-return source stages; " +
+                    "host comparisons are separate from native fast trig/global scheduler/initial QB-box/possession-message services.",
                 "Original medball2 SDL/HEDSHU and source-entry football ghosts; native generated header/FMA/WBUFFER/pixels/global scheduler remain unqualified.",
                 "Production default preview RNG is explicitly unverified against the historical platform PRNG.",
                 "No PCM/DSP output or synthetic sound. Dust callbacks are not substituted with generic particles.",

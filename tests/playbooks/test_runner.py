@@ -100,14 +100,15 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, support.live_hashes())
-        self.assertEqual(9, len(support.CONTRACTS))
-        self.assertEqual(15, sum(name.endswith(".cs") for name in contents))
-        for name in ("SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs"):
+        self.assertEqual(10, len(support.CONTRACTS))
+        self.assertEqual(16, sum(name.endswith(".cs") for name in contents))
+        for name in ("SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs", "SourceCameraContracts.cs"):
             relative = "Assets/Scripts/Contracts/" + name
             self.assertEqual(contents[relative], (support.ROOT / relative).read_bytes())
             self.assertEqual(hashes[relative], support.sha256(contents[relative]))
         runner_source = (support.SUITE / "run.py").read_text()
-        self.assertIn('"profile": "Actual complete nine Contracts +', runner_source)
+        self.assertIn('"profile": "Actual complete ten Contracts +', runner_source)
+        self.assertNotIn('"profile": "Actual complete nine Contracts +', runner_source)
         self.assertNotIn('"profile": "Actual complete seven Contracts +', runner_source)
         self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in contents))
         for name in ("model/PurePlaybooks.csproj", "PlaybookChecks.csproj"):
@@ -127,7 +128,7 @@ class PlaybookRunnerGuards(unittest.TestCase):
     def test_live_source_hash_guard_rejects_changed_actual_copied_source(self):
         contents, before = support.snapshot()
         contracts = {name for name in contents if name.startswith("Assets/Scripts/Contracts/")}
-        self.assertEqual(9, len(contracts))
+        self.assertEqual(10, len(contracts))
         self.assertIn("Assets/Scripts/Contracts/SourceContactContracts.cs", contracts)
         self.assertEqual({"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}, contracts)
         for name, data in contents.items():
@@ -135,7 +136,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         support.require_unchanged(before, self.directory)
-        for name in ("SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs"):
+        for name in ("SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs",
+                     "SourceCameraContracts.cs"):
             relative = "Assets/Scripts/Contracts/" + name
             contract = self.directory / relative
             contract.unlink()

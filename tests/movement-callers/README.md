@@ -126,6 +126,13 @@ source474 assertions/control counts, named public12k input and positive R_SKIP
 requirements are not changed. Dated earlier qualification remains historical;
 the required full caller gate executes again against the new exact generation.
 
+The current raw-CAMBOT integration pins the approved `483162af...` generation.
+Its shared movement-mode mapping and added ground-center observations leave the
+unique post-player geometry call, captured arguments and byte normalization
+unchanged. The exact source pin is not replaced with a permissive hash check;
+recordings, policies and earlier full-gate receipts are not regenerated or
+relabeled by this observer-fixture update.
+
 For an explicitly authorized **single** changed-behavior observation, append
 `--source-compatibility portable --single-public-attempt` to the full M1 command.
 This does not alter the immutable public input, provider, seed or R_SKIP gate.

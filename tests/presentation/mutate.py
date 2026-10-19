@@ -62,7 +62,9 @@ def main():
         raise SystemExit("Run run.py --actual --cinematics --source-root first; actual baseline and C oracle are required.")
     source_files = sorted((ROOT / "Assets/Scripts/AssetImport").glob("*.cs"))
     source_files += sorted((ROOT / "Assets/Scripts/Contracts").glob("*.cs"))
-    for name in ("SourceCinematicModel", "SourceCinematicPlayback", "SourceImpactShaker", "SourceCinematicDepthRange"):
+    source_files += sorted((ROOT / "Assets/Scripts/Gameplay").glob("*.cs"))
+    for name in ("SourceCinematicModel", "SourceCinematicPlayback", "SourceNormalCameraModel", "SourceImpactShaker",
+                 "SourceCinematicDepthRange", "SourceAudioFunctions", "SourceC2SoundFunctions"):
         source_files.append(ROOT / ("Assets/Scripts/Presentation/" + name + ".cs"))
     protected = {str(path.relative_to(ROOT)): digest(path) for path in source_files
                  if not path.name.startswith("SourceInterface")}

@@ -535,13 +535,18 @@ universal original pre-snap selection.
 ### Camera and simulation isolation
 
 `PlayCamera.Render(IGameState, bool)` reads detached snapshots only.
-`NormalCameraModel` ports normal tracking/projection in yard space; no camera
-time, Unity physics or imported-pose transform writes gameplay state. Real-time
-follow smoothing adapts the archive 57 Hz response while the host stays 60 Hz
-and the injected profile runs 57 source ticks per 60 calls.
-QB-mode inference, current-receiver pass span, remembered dead-ball orientation,
-HUD/aspect-aware fitting and focus/rewind recovery are explicit adaptations,
-not identical original engine timing. See
+The explicit M1 source profile calls the same pure original normal/tracking/
+integrator and transient owner from Unity and the portable player, once per
+pre-player source wake. Its immutable Core boundary contains raw actor/ball
+roots, modes/flags, lead endpoints and preceding source camera caches. Restricted
+camera feedback preserves the original offscreen flag and kickoff/FG writes;
+actor/ball physics are not changed. Render time/HUD/viewport fitting is not an
+input. A mode-only transient return retains original CSI operands, dispatch
+clock and target; normal state writes are not lifecycle resets. Field-goal static
+state clears at its later original boundary, while explicit new-match reset
+still clears the full owner. The unchanged `NormalCameraModel` and its real-time EMA/actor envelope
+remain historical legacy/diagnostic behavior only. Source57 and host60 clocks,
+original DIP raster and browser content viewport stay separate. See
 [source camera evidence and limits](source-parity.md#source-derived-normal-camera).
 
 Frontend owns only the outer page/host/build tooling; the in-player HUD is Unity

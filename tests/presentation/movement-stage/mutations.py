@@ -34,7 +34,7 @@ PURE = (
 GUARDS = (
     ("getter-stamp-removed", "Assets/Scripts/Presentation/PlayCamera.cs", "lastSourceStageTick != executingSourceTick", "false"),
     ("render-changes-source-aspect", "Assets/Scripts/Presentation/PlayCamera.cs",
-     "if (!movement157) sourceAspect = aspect;", "sourceAspect = aspect;"),
+     "if (!movement157 && !rawSourceCamera) sourceAspect = aspect;", "sourceAspect = aspect;"),
     ("frame-publish-not-produced", "Assets/Scripts/Presentation/SourceCinematicPlayback.cs",
      "executingSourceCamera.Publish(sourceTick, CurrentSourceCamera);", ""),
     ("runtime-current-frame-not-injected", "Assets/Scripts/Runtime/BlitzRuntime.cs",

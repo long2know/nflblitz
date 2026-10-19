@@ -78,7 +78,7 @@ namespace Blitz.Gameplay
         public int SourceCameraStageOrder { get; private set; } = -1;
         public int SourceCameraHeading { get { return Model.SourceCameraHeading; } }
         public long SourceCameraHeadingSampleTick { get { return Model.SourceCameraHeadingSampleTick; } }
-        public int SourceCameraRawGameMode { get { return (int)MovementPhase; } }
+        public int SourceCameraRawGameMode { get { return GameSnapshot.RawCameraGameMode(Model); } }
         public long SourceTick { get { return Model.SourceMode ? Model.SourceTick : Model.Tick; } }
         public SourceVector3 SourceBallWorldPosition
         {
@@ -296,6 +296,28 @@ namespace Blitz.Gameplay
             if (sourceTick != Model.SourceTick) throw new ArgumentOutOfRangeException(nameof(sourceTick));
             Model.SourceMovementCamera = frame ?? throw new ArgumentNullException(nameof(frame));
             Model.SourceMovementCameraTick = sourceTick;
+        }
+
+        public void ApplySourceCameraFeedback(SourceCameraFeedback feedback)
+        {
+            if (!Model.SourceMode || !executingSourceCamera || feedback.SourceTick != Model.SourceTick ||
+                Model.SourceCameraFeedbackTick == Model.SourceTick)
+                throw new InvalidOperationException("Apply CAMBOT feedback once inside its exact executing pre-player wake.");
+            Model.SourceCameraFeedbackTick = Model.SourceTick;
+            if (feedback.TargetOffscreen) Model.SourceBallFlags |= SourceBallFlags.TargetOffscreen;
+            else Model.SourceBallFlags &= ~SourceBallFlags.TargetOffscreen;
+            if (feedback.OpeningAutoHikeTicks.HasValue)
+            {
+                if (Model.SourceRules.PlayType != SourcePlayType.Kickoff || Model.Quarter != 1)
+                    throw new InvalidOperationException("Only the original opening CAMBOT selector sets auto_hike_cntr.");
+                Model.PreSnapTicksRemaining = feedback.OpeningAutoHikeTicks.Value;
+            }
+            if (feedback.FieldGoalLastCarrier.HasValue)
+            {
+                if (Model.SourceOffensePlay == null || (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) == 0)
+                    throw new InvalidOperationException("Only original field-goal camera selection sets last_carrier.");
+                Model.SourceLastCarrierId = feedback.FieldGoalLastCarrier.Value;
+            }
         }
 
         public SourceVector3 SourceActorWorldPosition(int playerId)
