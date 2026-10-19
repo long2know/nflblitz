@@ -36,11 +36,11 @@ namespace Blitz.Presentation
         public ReadOnlyCollection<float> WorldMatrix { get; }
         public bool Alternate { get { return (State.RawFlags & 0x40) != 0; } }
         public bool White { get { return (State.RawFlags & 1) != 0; } }
-        // player.c only assigns the main ball's alpha at initialization (255).
-        // The separately scheduled trail_ball_proc objects are not main-ball snapshots.
-        public int Alpha { get { return 255; } }
-        internal SourceFreeBallDraw(SourceFreeBallState state, float[] matrix)
-        { State = state; WorldMatrix = Array.AsReadOnly(matrix); }
+        public int Alpha { get; }
+        public int EffectiveAlpha { get { return White ? 255 : Alpha; } }
+        public SourceBallTrail? Trail { get; }
+        internal SourceFreeBallDraw(SourceFreeBallState state, float[] matrix, int alpha = 255, SourceBallTrail? trail = null)
+        { State = state; WorldMatrix = Array.AsReadOnly(matrix); Alpha = alpha; Trail = trail; }
 
         public float[] CameraMatrix(SourceCinematicTransform camera)
         {
@@ -57,6 +57,25 @@ namespace Blitz.Presentation
     public static class SourceFreeBallRenderModel
     {
         public static SourceFreeBallDraw Evaluate(SourceFreeBallState state, SourceDirectionMath directions)
+        { return Build(state, directions, 255, null); }
+
+        public static SourceFreeBallDraw EvaluateTrail(SourceBallTrail trail, long sourceTick, int currentCarrier,
+            int globalBallFlags, int pupBigBall, SourceDirectionMath directions)
+        {
+            SourceFireGuard.Require(trail.ObjectSerial > 0 && trail.ProcessSerial > 0,
+                "An unspecified football-trail object is not a render fallback.");
+            if (sourceTick < trail.EntrySample.SourceTick)
+                throw new ArgumentException("A football ghost cannot predate its process-entry copy.");
+            SourceFireBallRenderSample entry = trail.EntrySample;
+            var state = new SourceFreeBallState(sourceTick,
+                !trail.Hidden && (currentCarrier == -1 || (globalBallFlags & 0x800) != 0),
+                entry.WorldPosition, entry.Heading, entry.Elevation, entry.Roll, trail.Scale,
+                trail.LocalFlags | (globalBallFlags & 1), pupBigBall);
+            return Build(state, directions, trail.Alpha, trail);
+        }
+
+        private static SourceFreeBallDraw Build(SourceFreeBallState state, SourceDirectionMath directions,
+            int alpha, SourceBallTrail? trail)
         {
             if (directions == null) throw new ArgumentNullException(nameof(directions));
             if (!state.IsSpecified) throw new ArgumentException("Unspecified free-ball render state is not a valid resource fallback.");
@@ -74,7 +93,7 @@ namespace Blitz.Presentation
             for (int row = 0; row < 3; row++)
                 for (int column = 0; column < 3; column++) matrix[row * 4 + column] *= scale;
             matrix[3] = state.Position.X; matrix[7] = state.Position.Y; matrix[11] = state.Position.Z;
-            return new SourceFreeBallDraw(state, matrix);
+            return new SourceFreeBallDraw(state, matrix, alpha, trail);
         }
 
         public static float[] Multiply(float[] a, float[] b)

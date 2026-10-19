@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -24,10 +25,26 @@ namespace Blitz.Presentation
         }
 
         public void Present(SourceFreeBallDraw draw, SourceCinematicTransform sourceCamera)
+        { Present(draw, sourceCamera, null); }
+
+        public void Present(SourceFreeBallDraw draw, SourceCinematicTransform sourceCamera,
+            IReadOnlyList<SourceFreeBallDraw> trails)
         {
             if (commands == null || draw == null)
                 throw new InvalidOperationException("Initialize the original free-ball renderer and bind its actual source state.");
             commands.Clear();
+            Append(draw, sourceCamera);
+            if (trails == null) return;
+            foreach (SourceFreeBallDraw trail in trails)
+            {
+                if (trail == null || !trail.Trail.HasValue || trail.State.SourceTick != draw.State.SourceTick)
+                    throw new InvalidOperationException("Actual same-dispatch football-trail draws required.");
+                Append(trail, sourceCamera);
+            }
+        }
+
+        private void Append(SourceFreeBallDraw draw, SourceCinematicTransform sourceCamera)
+        {
             if (!draw.State.Visible) return;
             float[] source = draw.CameraMatrix(sourceCamera);
             Matrix4x4 matrix = Matrix4x4.identity;

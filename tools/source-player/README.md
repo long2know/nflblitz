@@ -111,9 +111,52 @@ The defined-domain source-authoring mesh/transform is not recovered native
 `medball2.h`, native global render-counter/triangle-cache behavior, WBUFFER,
 Texus/WMS quantization, native compiler/FMA or pixel equivalence. The consumer
 uses actual current Core orientation fields; it does not certify all historical
-`ball_proc` lifecycle branches. Main-ball alpha255 is not a claim to implement
-the separately scheduled trail objects. Unity source/API compilation is not an
-Editor execution or native Unity player qualification.
+`ball_proc` lifecycle branches. Main-ball alpha255 remains separate from the
+source-entry football ghosts described below. Unity source/API compilation is
+not an Editor execution or native Unity player qualification.
+
+### Mechanical integrated-C34 build provenance
+
+The following football-ghost section and its linked C33 evidence remain
+unchanged. The separate integrated candidate uses actual merged C34
+`b163938fe4ba494bb69a116d35c000d5caeb3447`, tree
+`78107e2b2a442bf0fab98694bef15f4420ddee5c`, retaining its typed MatchEnded
+producer/tests and exact40 CI guards. The fresh builder receipt is
+`936682d6b2f054308b95af5db759717c02fa5128a842697fd5666112723eaffa`.
+Its metadata-only C34 provenance annotation yields served receipt
+`2716dc210f8fabccef4f10b75ecfeb4e2381ac09f353f87b698ab80d58398948`;
+the HTTP build-info and both genuinely new WASM assemblies were authenticated.
+No old receipt is relabelled as integrated output.
+
+The unchanged bounded browser/artefact gates record the natural five-stage
+ghost, exact source wakes177..181/deletion182, public-paused PNG [177,177]
+and continuing PNG [297,314], ending315/epoch0 without reset/errors. Full
+production/fire18,800, unchanged trail/fire-adapter routes and C34 terminal/
+bridge regression pass separately. The known broad-preview station guard is
+retained as a failure, not bypassed or called all green. Exact source/text/
+binary/PNG hashes and remaining qualifications are in the integrated worktree's
+`.squad/.scratch/ball-trails-integrated-proof/handoff.json`; publication and
+integrated review remain separate.
+
+### Original non-fire football ghosts
+
+With the existing explicit `?source-fire=portable`, BTRAIL and PCLOUD now queue
+the real `trail_ball_proc` football-mesh lifetime at default level0, rather than
+only returning an unused selector. Each first wake copies actual source
+XYZ/heading/elevation/roll. The copy stays static through the original five
+alpha/scale stages and five sleeps, then deletes. It reuses the same genuine
+medball2/HEDSHU2 mesh/decal, not the puff renderer or generic particles.
+Current global carrier/Phantom/White/bigball and local ALT retain their distinct
+source roles. Both RGB multiplication and blend alpha consume CC_ALPHA;
+GLIDE3 White overrides it withFF.
+
+The main20-value ball packet is unchanged; additional immutable ghost packets
+follow it. Actual snapshots, GPU material/matrix/texture/depth readbacks,
+normal-color/identity diagnostics and source-wake records expose the complete
+typed lifecycle. A render frame is not assumed to represent every source wake.
+See [the focused trail suite](../../tests/ball-trails/README.md) for extracted
+original C, compiled controls, real four-human/browser proofs, retained failed
+attempts, PNG brackets, safe own8093 commands and exact remaining limitations.
 
 ## Original popped-head input extension
 

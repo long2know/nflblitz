@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using Blitz.Contracts;
 using Blitz.Gameplay;
 using Blitz.Presentation;
 
@@ -19,6 +22,23 @@ namespace Blitz.Runtime
                 model.SourceBallRoll, model.SourceBallScale, unchecked((int)model.SourceBallFlags),
                 SourceInterfacePresentation.Settings(simulation.State).PupBigBall);
             return SourceFreeBallRenderModel.Evaluate(state, model.SourcePlaybook.Directions);
+        }
+
+        public static ReadOnlyCollection<SourceFreeBallDraw> CaptureTrails(GameSimulation simulation)
+        {
+            if (simulation == null || simulation.Profile != SimulationProfile.OriginalRelease57Hz)
+                throw new InvalidOperationException("Football-trail binding requires the actual Source57 simulation.");
+            var draws = new List<SourceFreeBallDraw>();
+            SourceFireRenderFrame frame = simulation.SourceFireFrame;
+            if (frame == null) return draws.AsReadOnly();
+            SimulationState model = simulation.Model;
+            if (frame.SourceTick != model.SourceTick)
+                throw new InvalidOperationException("Football ghosts must come from the completed current source dispatch.");
+            int bigBall = SourceInterfacePresentation.Settings(simulation.State).PupBigBall;
+            foreach (SourceBallTrail trail in frame.BallTrails)
+                draws.Add(SourceFreeBallRenderModel.EvaluateTrail(trail, model.SourceTick, model.CarrierId,
+                    unchecked((int)model.SourceBallFlags), bigBall, model.SourcePlaybook.Directions));
+            return draws.AsReadOnly();
         }
     }
 }

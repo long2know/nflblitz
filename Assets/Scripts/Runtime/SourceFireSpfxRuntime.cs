@@ -24,12 +24,20 @@ namespace Blitz.Runtime
             internal int Frame;
             internal bool Hidden;
         }
+        private sealed class Trail
+        {
+            internal long Serial, Owner;
+            internal SourceFireBallRenderSample EntrySample;
+            internal int Stage;
+            internal bool Hidden;
+        }
 
         private readonly SourceFireSpfxBundle data;
         private readonly LinkedList<Process> processes = new LinkedList<Process>();
         private readonly Dictionary<long, LinkedListNode<Process>> bySerial = new Dictionary<long, LinkedListNode<Process>>();
         private readonly HashSet<long> usedProcessSerials = new HashSet<long>();
         private readonly List<Puff> objects = new List<Puff>();
+        private readonly List<Trail> trails = new List<Trail>();
         private readonly List<SourceFireRecord> records = new List<SourceFireRecord>();
         private readonly List<string> portableBoundaries = new List<string>();
         private SourceFireBootstrap bootstrap;
@@ -54,6 +62,7 @@ namespace Blitz.Runtime
             SourceFireGuard.Require(!dispatching, "Cannot reset while executing a source wake.");
             bootstrap = value; tick = null; host = null; faulted = false;
             processes.Clear(); bySerial.Clear(); usedProcessSerials.Clear(); objects.Clear(); records.Clear(); portableBoundaries.Clear();
+            trails.Clear();
             AlmostFireFlash = FireFlash = false; DefensiveFlashCount = 0; BallEffect = SourceFireBallEffect.None; nextObject = 1;
         }
 
@@ -145,11 +154,12 @@ namespace Blitz.Runtime
                     p.Sleep--;
                     if (p.Sleep != 0) continue;
                     wakeSite = new SourceFireSite(tick.SourceTick, tick.OriginalPcount, p.Serial, 0, ordinal, 0,
-                        p.Entry == SourceFireEntry.BallPuff ? -1 : p.Args.A0, "player.c", Function(p.Entry), EntryLine(p.Entry));
+                        BallEntry(p.Entry) ? -1 : p.Args.A0, "player.c", Function(p.Entry), EntryLine(p.Entry));
                     wakeCall = 0;
                     host.EnterEffectWake(wakeSite);
                     Record("Wake", wakeSite, p, 0, 0, slot.Function);
-                    if (p.ObjectSerial != 0 && FindObject(p.ObjectSerial) == null)
+                    if (p.ObjectSerial != 0 && (p.Entry == SourceFireEntry.BallTrail ?
+                        FindTrail(p.ObjectSerial) == null : FindObject(p.ObjectSerial) == null))
                     {
                         if (bootstrap.StalePolicy == SourceFireStalePolicy.RejectUndefinedAccess)
                             throw new SourceFireBoundaryException("Original continuation references a deleted object node; target pointer reuse is undefined.");
@@ -194,11 +204,17 @@ namespace Blitz.Runtime
                     if ((SourceFireIds.PuffObject & command.Mask) == command.GroupId)
                     { RecordObject("DeleteObjectGroup", command.Site, objects[i]); objects.RemoveAt(i); }
                     else i++;
+                for (int i = 0; i < trails.Count;)
+                    if ((SourceFireIds.BallObject & command.Mask) == command.GroupId)
+                    { RecordTrail("DeleteObjectGroup", command.Site, trails[i]); trails.RemoveAt(i); }
+                    else i++;
             }
             else if (command.Operation == SourceFireOperation.HideAllObjects || command.Operation == SourceFireOperation.UnhideAllObjects)
             {
                 foreach (Puff obj in objects)
                 { obj.Hidden = command.Operation == SourceFireOperation.HideAllObjects; RecordObject("ObjectHidden", command.Site, obj); }
+                foreach (Trail obj in trails)
+                { obj.Hidden = command.Operation == SourceFireOperation.HideAllObjects; RecordTrail("ObjectHidden", command.Site, obj); }
             }
             else if (command.Operation == SourceFireOperation.ResetLineupLatches)
             { AlmostFireFlash = FireFlash = false; DefensiveFlashCount = 0; }
@@ -258,8 +274,19 @@ namespace Blitz.Runtime
             }
             var flags = new int[14];
             for (int i = 0; i < 14; i++) flags[i] = host.ReadRawActorFlags(i);
+            var ballTrails = new List<SourceBallTrail>();
+            foreach (Trail obj in trails)
+            {
+                if (!bySerial.ContainsKey(obj.Owner))
+                {
+                    SourceFireGuard.Require(bootstrap.StalePolicy == SourceFireStalePolicy.PortableCancelDeletedAndFreezeOrphan,
+                        "Killed balltrl left stack-backed ball_data; native pointer lifetime is undefined.");
+                    Boundary("portable:freeze-orphan-stack-object:" + obj.Serial);
+                }
+                ballTrails.Add(new SourceBallTrail(obj.Serial, obj.Owner, obj.EntrySample, obj.Stage, obj.Hidden));
+            }
             return new SourceFireRenderFrame(tick.SourceTick, tick.OriginalPcount, bootstrap, tick.OrderEvidence, basis,
-                particles, flags, records, portableBoundaries, data.ManifestSha256);
+                particles, flags, records, portableBoundaries, data.ManifestSha256, ballTrails);
         }
 
         private void Run(Process p)
@@ -278,6 +305,7 @@ namespace Blitz.Runtime
                     break;
                 case SourceFireEntry.PlayerPuff: RunPlayerPuff(p); break;
                 case SourceFireEntry.BallPuff: RunBallPuff(p); break;
+                case SourceFireEntry.BallTrail: RunBallTrail(p); break;
                 case SourceFireEntry.FlashPlayerWhite:
                     if (p.State == 0 && p.Args.A1 == 0 || p.State == 2 && ++p.Cursor >= p.Args.A1)
                     { Retire(p, "ReturnDie", Site(9856, p.Args.A0), 1); return; }
@@ -342,6 +370,40 @@ namespace Blitz.Runtime
             if (p.Cursor >= p.End) { DeleteAndReturn(p, 9452); return; }
             Puff current = RequireObject(p); current.Frame = p.Cursor;
             current.Position = Rise(current.Position, current.VelocityY); Sleep(p, 1, 9450);
+        }
+
+        private void RunBallTrail(Process p)
+        {
+            if (p.State == 0)
+            {
+                SourceFireGuard.Require(host.ReadBallRender != null,
+                    "balltrl requires actual entry XYZ/fwd/fwd2/phi; a position-only fire sample is not a ball copy.");
+                SourceFireBallRenderSample sample = host.ReadBallRender();
+                SourceFireGuard.Require(sample.SourceTick == tick.SourceTick,
+                    "trail_ball_proc copies the actual ball at its first wake, not at qcreate or render time.");
+                SourceFireGuard.Identity(sample.Provenance, "entry ball render provenance");
+                var obj = new Trail { Serial = nextObject++, Owner = p.Serial, EntrySample = sample };
+                trails.Add(obj);
+                p.ObjectSerial = obj.Serial; p.State = 1; p.Cursor = 0; p.End = 5;
+                RecordTrail("BallTrailEntrySample", Site(10551, -1), obj);
+                RecordTrail("CreateObject", Site(10556, -1), obj);
+            }
+            else
+            {
+                p.Cursor++;
+                Trail obj = FindTrail(p.ObjectSerial);
+                if (p.Cursor == p.End)
+                {
+                    SourceFireSite site = Site(10570, -1);
+                    RecordTrail("DeleteObject", site, obj); trails.Remove(obj);
+                    Retire(p, "ReturnDie", site, 1);
+                    return;
+                }
+                obj.Stage = p.Cursor;
+            }
+            Trail current = FindTrail(p.ObjectSerial);
+            RecordTrail("BallTrailStage", Site(p.Cursor == 0 ? 10553 : 10555 + 3 * p.Cursor, -1), current);
+            Sleep(p, 1, 10557 + 3 * p.Cursor);
         }
 
         public void MaybePlayerFire(SourceFireSite site, SourceFirePlayerEmitterInput input)
@@ -445,19 +507,23 @@ namespace Blitz.Runtime
                 default: throw new SourceFireBoundaryException("Map SourceBallKind by NAME, never cast it to original LB_ numbers.");
             }
             if (host.ReadRawGameMode() == SourceFireIds.PlayOver) BallEffect = SourceFireBallEffect.None;
-            if (BallEffect == SourceFireBallEffect.Fire && input.PostIncrementFlightTime % 2 == 0)
+            if (BallEffect == SourceFireBallEffect.PlayerCloud || BallEffect == SourceFireBallEffect.BallTrail)
+            {
+                int ordinal = site.WithinWakeCallOrdinal;
+                QueueAt(site, ref ordinal, SourceFireEntry.BallTrail, new SourceFireArgs(0, 0, 0), "ball_proc", 10361);
+            }
+            else if (BallEffect == SourceFireBallEffect.Fire && input.PostIncrementFlightTime % 2 == 0)
             {
                 int ordinal = site.WithinWakeCallOrdinal;
                 QueueAt(site, ref ordinal, SourceFireEntry.BallPuff, new SourceFireArgs(4, 2, 0), "ball_proc", 10367);
                 QueueAt(site, ref ordinal, SourceFireEntry.BallPuff, new SourceFireArgs(3, -1, 2), "ball_proc", 10368);
                 QueueAt(site, ref ordinal, SourceFireEntry.BallPuff, new SourceFireArgs(3, -1, -2), "ball_proc", 10369);
             }
-            // Nonfire trail/blink selection is returned to the ball owner, not silently replaced by fire.
             return BallEffect;
         }
 
         private void QueueAt(SourceFireSite site, ref int ordinal, SourceFireEntry entry, SourceFireArgs args, string function, int line)
-        { Apply(SourceFireCommand.Create(site.At(function, line, ordinal++, entry == SourceFireEntry.BallPuff ? -1 : args.A0), entry, args)); }
+        { Apply(SourceFireCommand.Create(site.At(function, line, ordinal++, BallEntry(entry) ? -1 : args.A0), entry, args)); }
         private void PlayerSound(SourceFireSite site, ref int ordinal, int call, string function, int line, int actor, string path = "player.c")
         {
             var soundSite = new SourceFireSite(site.SourceTick, site.OriginalPcount, site.NativeProcessSerial, site.NativeRunLevel,
@@ -481,7 +547,7 @@ namespace Blitz.Runtime
             records.Add(new SourceFireRecord("ActorFlags", site, site.NativeProcessSerial, 0, value, set ? "OR0x400" : "AND~0x400"));
         }
         private void Sleep(Process p, int delay, int line)
-        { p.Sleep |= (ushort)delay; Record("Sleep", Site(line, p.Entry == SourceFireEntry.BallPuff ? -1 : p.Args.A0), p, p.ObjectSerial, delay, "cooperative"); }
+        { p.Sleep |= (ushort)delay; Record("Sleep", Site(line, BallEntry(p.Entry) ? -1 : p.Args.A0), p, p.ObjectSerial, delay, "cooperative"); }
         private Puff CreateObject(Process p, SourceVector3 position, int line)
         {
             var obj = new Puff { Serial = nextObject++, Owner = p.Serial, Position = position, Frame = 0 };
@@ -491,6 +557,8 @@ namespace Blitz.Runtime
         }
         private Puff FindObject(long serial)
         { foreach (Puff obj in objects) if (obj.Serial == serial) return obj; return null; }
+        private Trail FindTrail(long serial)
+        { foreach (Trail obj in trails) if (obj.Serial == serial) return obj; return null; }
         private Puff RequireObject(Process p)
         { Puff obj = FindObject(p.ObjectSerial); SourceFireGuard.Require(obj != null, "Deleted original object-node access."); return obj; }
         private void DeleteAndReturn(Process p, int line)
@@ -513,6 +581,9 @@ namespace Blitz.Runtime
         { records.Add(new SourceFireRecord(kind, site, p.Serial, obj, value, detail)); }
         private void RecordObject(string kind, SourceFireSite site, Puff obj)
         { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, obj.Frame, obj.Hidden ? "hidden" : "visible")); }
+        private void RecordTrail(string kind, SourceFireSite site, Trail obj)
+        { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, 215 - 15 * obj.Stage,
+            "balltrl:stage=" + obj.Stage + (obj.Hidden ? ";hidden" : ";visible"))); }
         private void Boundary(string value)
         { if (!portableBoundaries.Contains(value)) portableBoundaries.Add(value); }
         private void ReorderKnownEffects(IReadOnlyList<long> order)
@@ -530,10 +601,13 @@ namespace Blitz.Runtime
         { return new SourceVector3(position.X, position.Y + vy, position.Z); }
         private static string Function(SourceFireEntry entry)
         { return entry == SourceFireEntry.PlayerBurst ? "player_burst_into_flames" : entry == SourceFireEntry.PlayerPuff ?
-            "plyr_fire_trail_proc" : entry == SourceFireEntry.BallPuff ? "ball_fire_trail_proc" : "flash_plyr_proc"; }
+            "plyr_fire_trail_proc" : entry == SourceFireEntry.BallPuff ? "ball_fire_trail_proc" :
+            entry == SourceFireEntry.BallTrail ? "trail_ball_proc" : "flash_plyr_proc"; }
         private static int EntryLine(SourceFireEntry entry)
         { return entry == SourceFireEntry.PlayerBurst ? 4523 : entry == SourceFireEntry.PlayerPuff ? 9518 :
-            entry == SourceFireEntry.BallPuff ? 9422 : 9838; }
+            entry == SourceFireEntry.BallPuff ? 9422 : entry == SourceFireEntry.BallTrail ? 10546 : 9838; }
+        private static bool BallEntry(SourceFireEntry entry)
+        { return entry == SourceFireEntry.BallPuff || entry == SourceFireEntry.BallTrail; }
         private static bool IsWitness(string value)
         {
             if (!value.StartsWith("sha256:", StringComparison.Ordinal) || value.Length != 71) return false;

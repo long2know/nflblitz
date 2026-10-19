@@ -13,5 +13,6 @@
     <Compile Include="FeatureChecks.cs" />
     <Compile Include="PoppedHeadChecks.cs" />
     <Compile Include="FreeBallChecks.cs" />
+    <Compile Include="BallTrailChecks.cs" />
   </ItemGroup>
 </Project>

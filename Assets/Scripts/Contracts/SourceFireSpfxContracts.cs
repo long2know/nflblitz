@@ -8,11 +8,12 @@ namespace Blitz.Contracts
     {
         public const int Spfx = 0x0f98, Player = 0x0500, PlayerFlash = 0x1300;
         public const int PuffObject = 0x510, PuffDrawOrder = 0x00050001, FlashWhite = 0x400;
+        public const int Ball = 0x0900, BallObject = 0x400, BallDrawOrder = 0x00050000;
         public const int InPlay = 2, PlayOver = 3, FrameCount = 17;
         public const string PortableAssetSet = "source-fire-spfx-authoring-tga-sdl-v1";
     }
 
-    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite }
+    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite, BallTrail }
     public enum SourceFireOperation
     {
         CreateProcess, KillProcessGroup, DeleteObjectGroup, SuspendMask, ResumeMask,
@@ -197,18 +198,22 @@ namespace Blitz.Contracts
         }
         public static SourceFireCommand Create(SourceFireSite site, SourceFireEntry entry, SourceFireArgs args)
         {
-            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 3, "Unknown active fire entry.");
-            if (entry != SourceFireEntry.BallPuff) SourceFireGuard.Actor(args.A0);
+            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 4, "Unknown active effect entry.");
+            if (entry != SourceFireEntry.BallPuff && entry != SourceFireEntry.BallTrail) SourceFireGuard.Actor(args.A0);
             if (entry == SourceFireEntry.PlayerPuff)
                 SourceFireGuard.Require(args.A1 >= 0 && args.A1 < 15, "Original joint index must be 0..14.");
             if (entry == SourceFireEntry.PlayerBurst || entry == SourceFireEntry.FlashPlayerWhite)
                 SourceFireGuard.Require(args.A1 >= 0 && args.A2 > 0 && args.A2 <= 32767, "Invalid original wave/flash count or short sleep.");
             if (entry == SourceFireEntry.BallPuff)
                 SourceFireGuard.Require(args.A0 == 3 || args.A0 == 4, "Active original ball puff bound is 3 or 4.");
+            if (entry == SourceFireEntry.BallTrail)
+                SourceFireGuard.Require(args.A0 == 0 && args.A1 == 0 && args.A2 == 0 && args.A3 == 0,
+                    "Original balltrl has four zero arguments; its ball copy is taken at process entry.");
             string name = entry == SourceFireEntry.PlayerBurst ? "fburst" : entry == SourceFireEntry.PlayerPuff ? "ofire" :
-                entry == SourceFireEntry.BallPuff ? "smkpuf" : "flash";
+                entry == SourceFireEntry.BallPuff ? "smkpuf" : entry == SourceFireEntry.BallTrail ? "balltrl" : "flash";
             int group = entry == SourceFireEntry.FlashPlayerWhite ? SourceFireIds.PlayerFlash :
-                entry == SourceFireEntry.BallPuff ? SourceFireIds.Player : SourceFireIds.Spfx;
+                entry == SourceFireEntry.BallPuff ? SourceFireIds.Player :
+                entry == SourceFireEntry.BallTrail ? SourceFireIds.Ball : SourceFireIds.Spfx;
             return new SourceFireCommand(site, SourceFireOperation.CreateProcess, entry, args, name, group, -1, null);
         }
         public static SourceFireCommand Control(SourceFireSite site, SourceFireOperation operation, int id = 0, int mask = -1)
@@ -344,6 +349,63 @@ namespace Blitz.Contracts
         }
     }
 
+    public readonly struct SourceFireBallRenderSample
+    {
+        public long SourceTick { get; }
+        public SourceVector3 WorldPosition { get; }
+        public int Heading { get; }
+        public int Elevation { get; }
+        public int Roll { get; }
+        public float Scale { get; }
+        public int RawFlags { get; }
+        public string Provenance { get; }
+        public SourceFireBallRenderSample(long sourceTick, SourceVector3 worldPosition,
+            int heading, int elevation, int roll, float scale, int rawFlags, string provenance)
+        {
+            SourceFireGuard.Require(sourceTick >= 0 && scale > 0, "Actual source ball render fields required at entry.");
+            SourceFireGuard.Finite(worldPosition); SourceFireGuard.Finite(scale);
+            SourceFireGuard.Identity(provenance, nameof(provenance));
+            SourceTick = sourceTick; WorldPosition = worldPosition; Heading = heading;
+            Elevation = elevation; Roll = roll; Scale = scale; RawFlags = rawFlags; Provenance = provenance;
+        }
+    }
+
+    public readonly struct SourceBallTrail
+    {
+        public long ObjectSerial { get; }
+        public long ProcessSerial { get; }
+        public SourceFireBallRenderSample EntrySample { get; }
+        public int Stage { get; }
+        public bool Hidden { get; }
+        public int ObjectId { get { return SourceFireIds.BallObject; } }
+        public int DrawOrder { get { return SourceFireIds.BallDrawOrder; } }
+        public int LocalFlags { get { return 0x40; } }
+        public int Alpha { get { return 215 - 15 * Stage; } }
+        public float Scale
+        {
+            get
+            {
+                switch (Stage)
+                {
+                    case 0: return 2.25f;
+                    case 1: return 2.15f;
+                    case 2: return 2.05f;
+                    case 3: return 1.95f;
+                    default: return 1.85f;
+                }
+            }
+        }
+        public SourceBallTrail(long objectSerial, long processSerial, SourceFireBallRenderSample entrySample,
+            int stage, bool hidden)
+        {
+            SourceFireGuard.Require(objectSerial > 0 && processSerial > 0 && stage >= 0 && stage < 5,
+                "Original football trail requires one of five live stages.");
+            SourceFireGuard.Identity(entrySample.Provenance, "actual entry ball copy");
+            ObjectSerial = objectSerial; ProcessSerial = processSerial; EntrySample = entrySample;
+            Stage = stage; Hidden = hidden;
+        }
+    }
+
     public readonly struct SourceFireRandomRequest
     {
         public SourceFireSite Site { get; }
@@ -359,6 +421,7 @@ namespace Blitz.Contracts
         public Func<int> ReadRawGameMode { get; }
         public Func<int, SourceFireCachedPlayerFrame> ReadCachedPlayer { get; }
         public Func<SourceFireBallWorldSample> ReadBallWorld { get; }
+        public Func<SourceFireBallRenderSample> ReadBallRender { get; }
         public Func<int, int> ReadRawActorFlags { get; }
         public Action<int, int, SourceFireSite> WriteRawActorFlags { get; }
         public Action<SourceFireSite> EnterEffectWake { get; }
@@ -369,7 +432,8 @@ namespace Blitz.Contracts
             Func<int, SourceFireCachedPlayerFrame> readCachedPlayer, Func<SourceFireBallWorldSample> readBallWorld,
             Func<int, int> readRawActorFlags, Action<int, int, SourceFireSite> writeRawActorFlags,
             Action<SourceFireSite> enterEffectWake, Action<SourceFireWakeSlot, int> runHostContinuation,
-            Func<SourceFireDirectSound, SourceFireSoundSubmission> submitSound, Func<long> allocateEffectProcessSerial)
+            Func<SourceFireDirectSound, SourceFireSoundSubmission> submitSound, Func<long> allocateEffectProcessSerial,
+            Func<SourceFireBallRenderSample> readBallRender = null)
         {
             Draw = draw ?? throw new ArgumentNullException(nameof(draw)); ReadRawGameMode = readRawGameMode ?? throw new ArgumentNullException(nameof(readRawGameMode));
             ReadCachedPlayer = readCachedPlayer ?? throw new ArgumentNullException(nameof(readCachedPlayer));
@@ -380,6 +444,7 @@ namespace Blitz.Contracts
             RunHostContinuation = runHostContinuation ?? throw new ArgumentNullException(nameof(runHostContinuation));
             SubmitSound = submitSound ?? throw new ArgumentNullException(nameof(submitSound));
             AllocateEffectProcessSerial = allocateEffectProcessSerial ?? throw new ArgumentNullException(nameof(allocateEffectProcessSerial));
+            ReadBallRender = readBallRender;
         }
     }
 
@@ -460,19 +525,22 @@ namespace Blitz.Contracts
         public SourceFireRenderBasis Basis { get; }
         public string AssetManifestSha256 { get; }
         public ReadOnlyCollection<SourceFireParticle> Particles { get; }
+        public ReadOnlyCollection<SourceBallTrail> BallTrails { get; }
         public ReadOnlyCollection<int> ActorRawFlags { get; }
         public ReadOnlyCollection<SourceFireRecord> Records { get; }
         public ReadOnlyCollection<string> PortableBoundaries { get; }
         public bool NativePixelsQualified { get { return false; } }
         public SourceFireRenderFrame(long sourceTick, int pcount, SourceFireBootstrap bootstrap, string orderEvidence,
             SourceFireRenderBasis basis, IReadOnlyList<SourceFireParticle> particles, IReadOnlyList<int> flags,
-            IReadOnlyList<SourceFireRecord> records, IReadOnlyList<string> boundaries, string assetManifestSha256)
+            IReadOnlyList<SourceFireRecord> records, IReadOnlyList<string> boundaries, string assetManifestSha256,
+            IReadOnlyList<SourceBallTrail> ballTrails = null)
         {
             SourceFireGuard.Require(sourceTick >= 0 && bootstrap != null && basis != null &&
                 flags != null && flags.Count == 14 && assetManifestSha256 != null && assetManifestSha256.Length == 64,
                 "Incomplete immutable fire render frame or authenticated portable asset identity.");
             SourceTick = sourceTick; OriginalPcount = pcount; Bootstrap = bootstrap; OrderEvidence = orderEvidence; Basis = basis;
             Particles = SourceFireGuard.Copy(particles); ActorRawFlags = SourceFireGuard.Copy(flags);
+            BallTrails = SourceFireGuard.Copy(ballTrails ?? new SourceBallTrail[0]);
             Records = SourceFireGuard.Copy(records); PortableBoundaries = SourceFireGuard.Copy(boundaries);
             AssetManifestSha256 = assetManifestSha256;
         }

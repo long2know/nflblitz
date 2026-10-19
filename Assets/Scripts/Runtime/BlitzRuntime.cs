@@ -267,7 +267,8 @@ namespace Blitz.Runtime
         private void PresentSourceFreeBall()
         {
             if (sourceFreeBallRenderer != null)
-                sourceFreeBallRenderer.Present(SourceFreeBallBinding.Capture(simulation), playCamera.CurrentSourceCamera);
+                sourceFreeBallRenderer.Present(SourceFreeBallBinding.Capture(simulation), playCamera.CurrentSourceCamera,
+                    SourceFreeBallBinding.CaptureTrails(simulation));
         }
 
         private void Advance(FieldVector move, bool turbo)

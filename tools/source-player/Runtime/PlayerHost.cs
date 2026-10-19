@@ -264,6 +264,7 @@ public sealed class PlayerHost
         SourceVector3 ball = Game.SourceBallWorldPosition;
         SourceFreeBallDraw ballDraw = SourceFreeBallBinding.Capture(Game);
         double[] ballPacket = FrameMath.FreeBall(ballDraw);
+        var ballTrails = SourceFreeBallBinding.CaptureTrails(Game);
         var match = ((ISourceMatchState)state).Match;
         var source = (ISourceGameState)state;
         Frames++;
@@ -293,6 +294,27 @@ public sealed class PlayerHost
                 alpha = ballDraw.Alpha, alternate = ballDraw.Alternate, white = ballDraw.White,
                 worldMatrix = ballDraw.WorldMatrix, packet = ballPacket,
                 sourceOrigin = SourceFreeBallData.Origin },
+            ballTrails = ballTrails.Select(draw => new {
+                objectSerial = draw.Trail.Value.ObjectSerial, processSerial = draw.Trail.Value.ProcessSerial,
+                stage = draw.Trail.Value.Stage, hidden = draw.Trail.Value.Hidden,
+                objectId = draw.Trail.Value.ObjectId, drawOrder = draw.Trail.Value.DrawOrder,
+                localFlags = draw.Trail.Value.LocalFlags,
+                sourceTick = draw.State.SourceTick, visible = draw.State.Visible,
+                position = new[] { draw.State.Position.X, draw.State.Position.Y, draw.State.Position.Z },
+                heading = draw.State.Heading, elevation = draw.State.Elevation, roll = draw.State.Roll,
+                scale = draw.State.Scale, pupBigBall = draw.State.PupBigBall, rawFlags = draw.State.RawFlags,
+                alpha = draw.Alpha, effectiveAlpha = draw.EffectiveAlpha, white = draw.White, alternate = draw.Alternate,
+                entry = new {
+                    sourceTick = draw.Trail.Value.EntrySample.SourceTick,
+                    position = new[] { draw.Trail.Value.EntrySample.WorldPosition.X,
+                        draw.Trail.Value.EntrySample.WorldPosition.Y, draw.Trail.Value.EntrySample.WorldPosition.Z },
+                    heading = draw.Trail.Value.EntrySample.Heading, elevation = draw.Trail.Value.EntrySample.Elevation,
+                    roll = draw.Trail.Value.EntrySample.Roll, scale = draw.Trail.Value.EntrySample.Scale,
+                    rawFlags = draw.Trail.Value.EntrySample.RawFlags, provenance = draw.Trail.Value.EntrySample.Provenance
+                },
+                worldMatrix = draw.WorldMatrix, packet = FrameMath.FreeBall(draw),
+                sourceOrigin = SourceFreeBallData.Origin
+            }).ToArray(),
             camera = new {
                 sourceTick = Camera.LastSourceTick, suspended = Camera.Suspended,
                 sourceHeading = Game.SourceCameraHeading, headingSampleTick = Game.SourceCameraHeadingSampleTick,
@@ -331,7 +353,7 @@ public sealed class PlayerHost
                 "Not a Unity player build, native Unity qualification or bit-exact arcade acceptance.",
                 "Authored TGA/portable HUD raster origin; missing Texus/WMS quantization is not reconstructed.",
                 "Production source-derived normal framing and original cinematic/MatInput; normal camera native parity remains open.",
-                "Original medball2 SDL/HEDSHU and actual ball_proc angles; native generated header/FMA/WBUFFER/pixels and separately scheduled ball trails remain unqualified.",
+                "Original medball2 SDL/HEDSHU and source-entry football ghosts; native generated header/FMA/WBUFFER/pixels/global scheduler remain unqualified.",
                 "Production default preview RNG is explicitly unverified against the historical platform PRNG.",
                 "No PCM/DSP output or synthetic sound. Dust callbacks are not substituted with generic particles.",
                 KernelBinding.IsPortable(Game) ? "Portable repairs are explicit; StrictSource is not silently changed." :
@@ -339,7 +361,7 @@ public sealed class PlayerHost
             }
         });
         sink.Present(Camera.ViewProjection, joints, modelIds, appearanceIds,
-            ballPacket,
+            FrameMath.FreeBalls(ballDraw, ballTrails),
             hudVertices, hudDraw.Select(p => unchecked((int)p.Color)).ToArray(),
             hudDraw.Select(p => "hud/" + p.Texture).ToArray(), hudDraw.Select(p => p.Vertices.Count).ToArray(), LastStatus);
     }

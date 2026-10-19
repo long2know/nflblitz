@@ -90,15 +90,10 @@ def run(original_player, cases_path, geometry_path, original_object, original_pr
     original = raw.decode("ascii")
     selection_start = original.index("switch( ball_obj.type )", original.index("// ball special effects"))
     selection_end = original.index("switch( effect )", selection_start)
-    fire_start = original.index("if( ball_obj.flight_time % 2 == 0 )", selection_end)
-    fire_break = re.search(r"\n\s*break;", original[fire_start:])
-    if fire_break is None:
-        raise AssertionError("Original fire triplet block not bounded.")
-    fire_end = fire_start + fire_break.start()
+    effect_end = original.index("// heading", selection_end)
     selection = ('static int original_ball_selection_body(void) {\nstatic int effect=EFFECT_NONE;\n#line ' +
-                 str(original[:selection_start].count("\n") + 1) + ' "player.c"\n' + original[selection_start:selection_end] +
-                 "\nif(effect==EFFECT_FIRE) {\n#line " + str(original[:fire_start].count("\n") + 1) +
-                 ' "player.c"\n' + original[fire_start:fire_end] + "\n}\nreturn effect;\n}\n")
+                 str(original[:selection_start].count("\n") + 1) + ' "player.c"\n' + original[selection_start:effect_end] +
+                 "\nreturn effect;\n}\n")
     target.write_text(source.replace("/* ORIGINAL_FUNCTIONS */", extracted).replace("/* ORIGINAL_BALL_SELECTION_BODY */", selection))
     env = dict(os.environ, TMPDIR=str(output), TMP=str(output), TEMP=str(output))
     executable = output / "oracle"
@@ -137,7 +132,8 @@ def run(original_player, cases_path, geometry_path, original_object, original_pr
               "caseCount": len(results), "cases": results,
               "render": render, "emitters": emitters, "ballSequence": json.loads(result.stdout),
               "ballSelectionBody": {"sourceLines": [original[:selection_start].count("\n") + 1, original[:selection_end].count("\n")],
-                                    "namedBindingsOnly": True, "includesOriginalFireTripletBody": True},
+                                    "namedBindingsOnly": True, "includesOriginalFireTripletBody": True,
+                                    "includesOriginalPcloudBtrailFallthroughAndBlink": True},
               "qualification": "Extracted original C on declared host inputs/component order; no native scheduler/ABI/WMS/MIPS-pixel proof."}
     object_bytes, process_bytes = original_object.read_bytes(), original_process.read_bytes()
     if hashlib.sha1(b"blob " + str(len(object_bytes)).encode("ascii") + b"\0" + object_bytes).hexdigest() != "c99e75df81f4993e463a65362358b304e2bc5c6c":

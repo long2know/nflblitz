@@ -152,8 +152,79 @@ or private effect RNG is substituted.
 Logical epoch0 and effects-before-host slots are explicitly portable-authored,
 not native `pcount`/scheduler witnesses. Ordered original direct sound metadata
 does not establish audible playback/DSP. Native Glide combiner precision,
-shader/GPU pixels, nonfire trails and missing native audible/menu producers
-remain bounded as described in [the H suite](../tests/fire-producers/README.md).
+native pixels and missing native audible/menu producers remain bounded as
+described in [the H suite](../tests/fire-producers/README.md). The separate
+non-fire football-mesh increment is described below; it is not native pixel
+or whole-game acceptance.
+
+### Mechanical C34 trail-build integration provenance
+
+The following C33 trail subsection is retained **verbatim as pre-integration
+evidence**, including its original pending-integration status and8676 receipt.
+This separate, uncommitted candidate is rooted at actual merged C34
+`b163938fe4ba494bb69a116d35c000d5caeb3447`, tree
+`78107e2b2a442bf0fab98694bef15f4420ddee5c`. C34's typed terminal producer,
+all lifecycle tests and exact40-minute CI/enforcement remain unchanged.
+The29 locked reviewed paths, other128 Assets C# files and144 metadata files
+retain their frozen identities; the only source difference from BR outside
+its increment is actual C34's `GameSimulation.Source.cs`.
+
+The unchanged builder produced fresh raw receipt
+`936682d6b2f054308b95af5db759717c02fa5128a842697fd5666112723eaffa`;
+adding explicit C34 provenance metadata, without changing assemblies or source,
+produced served receipt
+`2716dc210f8fabccef4f10b75ecfeb4e2381ac09f353f87b698ab80d58398948`.
+Both new assemblies were HTTP-authenticated. The unchanged four-human544-payload
+fixture and source-wake/PNG gates passed: queued176, stages177..181,
+deleted182, continuing to315/epoch0. PNG brackets are [177,177], [195,217]
+and [297,314]; source wakes are not relabelled rendered frames.
+
+Integrated checks retain the unchanged full fire18,800 suite, trail2,642/
+fire-adapter63 routes, affected renderer gates, and C34 terminal593 assertions/
+71 cases plus9 controls. A separate declared-boundary probe of the exact
+published Core/real bridge verifies one typed and one legacy terminal event,
+idle non-replay and restart with fire/ghosts enabled; it is not a naturally
+played terminal match. The broad-preview single-station guard still fails
+unchanged on this four-human input; no bypass or all-green claim is made.
+The integrated hash/command/PNG handoff is
+`.squad/.scratch/ball-trails-integrated-proof/handoff.json` in the integrated
+worktree. Frozen-C33 approval is not integrated approval or publication;
+native/performance qualification and all16 parity rows remain open.
+
+### Non-fire original football-mesh trails — October 18 increment
+
+`trail_ball_proc` now runs in the existing explicit portable effect scheduler.
+PCLOUD falls through BTRAIL and queues a BALL_PID football child every selected
+ball wake at default level0, not RL_BALL. Actual XYZ/fwd/fwd2/phi are copied at
+**first process entry**, held static through alpha215/200/185/170/155 and
+scale2.25/2.15/2.05/1.95/1.85, with five sleeps and then deletion. Source
+selection suspension/hiding freezes existing BALL nodes; SPFX cleanup does not
+invent BALL deletion. Current global carrier/Phantom/White/bigball and local ALT
+retain their distinct draw roles. Both actual consumers reuse original medball2/
+HEDSHU2 and CC_ALPHA RGB/blend behavior; main-ball alpha255/packet is unchanged.
+
+The [focused suite](../tests/ball-trails/README.md) retains a compiling red-before-
+fix regression,3,495 production assertions, defined original-C normal/suspended/
+240 draw comparisons,13 compiled production controls and6 JS controls. Core156,
+fire18,800, main-ball1,752, fire-adapter63 and all5 actual archived Unity API
+profiles pass. No Editor/import/player execution was attempted.
+
+The actual own8093 C# WASM candidate uses the unchanged four-human bundle
+(544 payload entries plus its manifest).
+Receipt `8676f984eb6895377262db917000a9426b5f8d705ccb2ceaad34cf87f9684065`
+binds both delivered assemblies and all real source inputs. A natural kickoff's
+five-football chain at public-paused tick177 has223 colored/nonwhite ghost-only
+GPU pixels and actual mesh/decal/matrix/alpha/depth/cull/blend readbacks.
+One object queued176, entered177, staged177..181 and deleted182; real gameplay
+continued to317 without reset. Unmodified PNG brackets are [177,177],
+[190,212] and [298,316]. Exact source-wake records are distinct from sampled
+render frames; the failed GPU-heavy first observer attempt is retained.
+
+This remains a portable source-authoring/runtime increment, pending its separate
+material review/publication. Native generated headers, global scheduler/object
+ABI/order, cull/alpha-test inheritance, WBUFFER/FMA/Texus/native pixels, DSP,
+performance budgets and **all sixteen full-parity rows remain open**. The
+independent terminal-event fix is not integrated into this branch.
 
 ### Actual human kick process, launch and existing HUD
 
