@@ -67,6 +67,25 @@ namespace Blitz.AssetImport
 
     public static class SourceTeamPresentationModel
     {
+        public static SourceLooseHelmetDecal LooseHelmetDecal(SourceTeamRosterLibrary library,
+            SourceTeamPresentationData catalog, SourceMatchConfiguration match, SourcePresentationSettings settings,
+            SourceRosterIdentity identity, TeamId side)
+        {
+            if (library == null || catalog == null || match == null || settings == null)
+                throw new ArgumentNullException("Actual selected team/roster/presentation resources are required.");
+            int team = side == TeamId.Home ? match.HomeTeam.TeamIndex : match.AwayTeam.TeamIndex;
+            SourceFireGuard.Require(identity.IsSpecified && identity.TeamIndex == team,
+                "Loose helmet actor roster and actual match side must agree.");
+            SourceRosterPlayer player = library.GetPlayerData(identity);
+            SourceRosterUniformPair pair = library.SelectMatchUniforms(match.HomeTeam.TeamIndex, match.AwayTeam.TeamIndex,
+                (int)settings.DesignatedHomeSide);
+            SourceRosterAsset decal = library.GetUniform(team, side == TeamId.Home ? pair.Side0 : pair.Side1, player.Skin).Slots[2];
+            foreach (SourceTeamTexture texture in catalog.Textures)
+                if (texture.Id == decal.Id)
+                    return new SourceLooseHelmetDecal(texture.Id, texture.Sha256, texture.SourcePath, texture.Width, texture.Height);
+            throw new SourceFireBoundaryException("SOURCE_HELMET_DECAL_REQUIRED: missing actual selected pdecal[2] " + decal.Id + ".");
+        }
+
         public static SourceTeamDrawState DrawState(ISourcePresentationState snapshot, PlayerView actor)
         {
             if (snapshot == null || snapshot.Presentation == null)

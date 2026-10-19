@@ -52,12 +52,44 @@ namespace Blitz.Presentation
             for (int i = 0; i < basis.Length; i++) basis[i] = camera.Transform[i];
             return SourceFreeBallRenderModel.Multiply(basis, relative);
         }
+
+        public float[] CameraMatrix(SourceFireCameraFrame camera)
+        {
+            if (camera == null) throw new ArgumentNullException(nameof(camera));
+            var relative = new float[12]; WorldMatrix.CopyTo(relative, 0);
+            relative[3] -= camera.Position.X; relative[7] -= camera.Position.Y; relative[11] -= camera.Position.Z;
+            var basis = new float[12]; camera.Transform.CopyTo(basis, 0);
+            return SourceFreeBallRenderModel.Multiply(basis, relative);
+        }
+    }
+
+    public sealed class SourceLooseHelmetDraw
+    {
+        public SourceLooseHelmet Helmet { get; }
+        public SourceFreeBallDraw Transform { get; }
+        internal SourceLooseHelmetDraw(SourceLooseHelmet helmet, SourceFreeBallDraw transform)
+        { Helmet = helmet; Transform = transform; }
+        public string AlphaSource { get { return "CC_ALPHA"; } }
+        public string DepthFunction { get { return "LESS"; } }
+        public bool DepthWrite { get { return true; } }
+        public string Wrap { get { return "WRAP/WRAP"; } }
+        public string ColorCombine { get { return Transform.White ? "DECAL_TEXTURE_ADD_CCALPHA/FF" : "TEXTURE_TIMES_ALPHA"; } }
     }
 
     public static class SourceFreeBallRenderModel
     {
         public static SourceFreeBallDraw Evaluate(SourceFreeBallState state, SourceDirectionMath directions)
         { return Build(state, directions, 255, null); }
+
+        public static SourceLooseHelmetDraw EvaluateHelmet(SourceLooseHelmet helmet, long sourceTick,
+            int globalBallFlags, SourceDirectionMath directions)
+        {
+            SourceFireGuard.Require(helmet.ObjectSerial > 0 && sourceTick >= helmet.EntrySourceTick && helmet.Decal.IsSpecified,
+                "An actual detached PHELM object, entry decal and current source frame are required.");
+            var state = new SourceFreeBallState(sourceTick, !helmet.Hidden, helmet.Position,
+                helmet.Heading, helmet.Elevation, helmet.Roll, helmet.Scale, globalBallFlags & 1, 0);
+            return new SourceLooseHelmetDraw(helmet, Build(state, directions, helmet.Alpha, null));
+        }
 
         public static SourceFreeBallDraw EvaluateTrail(SourceBallTrail trail, long sourceTick, int currentCarrier,
             int globalBallFlags, int pupBigBall, SourceDirectionMath directions)

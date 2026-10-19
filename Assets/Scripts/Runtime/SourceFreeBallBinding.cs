@@ -40,5 +40,20 @@ namespace Blitz.Runtime
                     unchecked((int)model.SourceBallFlags), bigBall, model.SourcePlaybook.Directions));
             return draws.AsReadOnly();
         }
+
+        public static ReadOnlyCollection<SourceLooseHelmetDraw> CaptureHelmets(GameSimulation simulation)
+        {
+            if (simulation == null || simulation.Profile != SimulationProfile.OriginalRelease57Hz)
+                throw new InvalidOperationException("Loose-helmet binding requires the actual Source57 simulation.");
+            var draws = new List<SourceLooseHelmetDraw>();
+            SourceFireRenderFrame frame = simulation.SourceFireFrame;
+            if (frame == null) return draws.AsReadOnly();
+            SourceFireGuard.Require(frame.SourceTick == simulation.Model.SourceTick,
+                "Detached helmet draws must bind the actual completed current source dispatch.");
+            foreach (SourceLooseHelmet helmet in frame.LooseHelmets)
+                draws.Add(SourceFreeBallRenderModel.EvaluateHelmet(helmet, frame.SourceTick,
+                    frame.GlobalBallFlags, simulation.Model.SourcePlaybook.Directions));
+            return draws.AsReadOnly();
+        }
     }
 }

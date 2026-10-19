@@ -4,8 +4,9 @@ The core suites compile the **actual** `Assets/Scripts/Contracts/**/*.cs` and
 `Assets/Scripts/Gameplay/**/*.cs`, including the actual pure
 `Assets/Scripts/AssetImport/*.cs` dependencies used by the source runtime.
 There is no replacement simulation, Unity
-assembly, public debug command, reflection-based field editing, or historical
-source/asset import. Assertions target the bounded slice in
+assembly or public browser debug/state-injection command. Declared component
+boundary suites may set synthetic internal fields explicitly; those are not
+natural-play witnesses or historical source/asset imports. Assertions target the bounded slice in
 `docs/architecture.md` and `docs/source-parity.md`, **not whole-game parity**.
 
 The checked-in Contact/C2 source is distinct from the recorded live56 browser
@@ -57,6 +58,25 @@ separate real-WASM `tools/source-player/dust.browser.mjs` public-input campaign
 are local qualifications, not fabricated asset-free CI, native rendering,
 PRNG, full-game, performance or audio acceptance. All existing144 Unity GUIDs
 remain unchanged.
+
+## Original loose-helmet process
+
+The actual Game selector requires `tests/loose-helmet/test_ci.py`,
+`tests/loose-helmet/run.py --controls` and
+`tests/loose-helmet/js_controls.py`; the source-player selector retains all21
+old Node cases and adds seven actual PHELM receiver/draw/material tests.
+They compile/parse the real production sources, execute each isolated mutant,
+and require named semantic failures, never compiler/hash/verifier kills.
+Removal negatives, exact40-minute/lower30 and continue-on-error guards remain.
+
+The asset-free C# suite uses defined synthetic caches, tapes and state
+boundaries to exercise the real helper/new-play caller and existing scheduler,
+global carryover, float-store/int-field physics, sleep/cleanup and draw
+projection. Private pinned original C/header/Glide-branch comparisons and
+actual original CVTMOD execution are separate local commands. Natural
+managed-host and real-WASM/GPU public-key campaigns are not relabeled as
+synthetic component, native or whole-game proof. See
+[commands, domains and qualifications](loose-helmet/README.md).
 
 ## Combined fire and portable-authored human kick checks
 

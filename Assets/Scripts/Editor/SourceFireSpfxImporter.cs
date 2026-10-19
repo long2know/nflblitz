@@ -21,12 +21,18 @@ namespace Blitz.Editor
             string destination = project.NewPath(Destination);
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Scripts/Presentation/SourceFireSpfx.shader");
             Shader flash = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Scripts/Presentation/SourcePlayerFlash.shader");
+            Shader helmet = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Scripts/Presentation/SourceFreeBall.shader");
             SourceFireGuard.Require(shader != null, "Source fire shader must exist; no built-in particle/material substitution.");
             SourceFireGuard.Require(flash != null, "Explicit authored source-player white-combine shader is required.");
             var paths = new List<string> { "geometry.bytes" };
             paths.Add("inputs/models/spfx.sdl.bytes");
             for (int i = 1; i <= 17; i++) paths.Add("inputs/img3d/trail" + i + ".tga.bytes");
             for (int i = 1; i <= bundle.DustFrames.Count; i++) paths.Add("inputs/img3d/dirt" + i + ".tga.bytes");
+            if (bundle.HelmetGeometry != null)
+            {
+                SourceFireGuard.Require(helmet != null, "Explicit source-rotation/CC-alpha loose-helmet shader required.");
+                paths.Add("inputs/models/phelm.sdl.bytes"); paths.Add("helmet-geometry.bytes");
+            }
             Directory.CreateDirectory(destination);
             var files = new TextAsset[paths.Count];
             for (int i = 0; i < paths.Count; i++)
@@ -42,7 +48,7 @@ namespace Blitz.Editor
             File.WriteAllBytes(provenancePath, manifest);
             AssetDatabase.ImportAsset(provenancePath, ImportAssetOptions.ForceSynchronousImport);
             var asset = ScriptableObject.CreateInstance<SourceFireSpfxAsset>();
-            asset.InitializeGenerated(AssetDatabase.LoadAssetAtPath<TextAsset>(provenancePath), bundle.ManifestSha256, paths.ToArray(), files, shader, flash);
+            asset.InitializeGenerated(AssetDatabase.LoadAssetAtPath<TextAsset>(provenancePath), bundle.ManifestSha256, paths.ToArray(), files, shader, flash, helmet);
             string resourcePath = Destination + "/Resources/" + SourceFireSpfxAsset.ResourceKey + ".asset";
             Directory.CreateDirectory(Path.GetDirectoryName(resourcePath));
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);

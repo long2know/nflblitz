@@ -32,6 +32,55 @@ published test fixture.
 
 <a id="published-portable-browser-evidence"></a>
 
+## Bounded original detached-helmet implementation
+
+The existing helmet-pop decision/flag/event/sounds and original phead body
+substitution now have the missing detached consumer under the **same
+default-off** `source-fire=portable` gate. Original helper order is first100
+draw, mode/secret-head guards, kill0950/delete0450, carrier guard, existing
+fire45/second10 decision and sounds, then qcreate. There are no duplicated
+helper probability draws or renderer-side random motion.
+
+`loosehlm` uses the existing canonical cache and portable source-effect
+scheduler: head insertion/default level0/sleep1, first-wake cached neck8 plus
+its paired camera, world-axis launch, original bounce/target/heading/spin
+stores and shared100/35/201/157 draws. Global raw phi/flags/flight/target/bounce
+time carry across replacements; entry resets only the fields written by the
+original. Resting objects continue ground/counter work without a TTL, fade
+or deadball disappearance. Kill does not invoke a dust exit alert or
+automatically delete this global-backed object. The actual Source new-play
+boundary kills then deletes at original `nfl.c:867–868`.
+
+The exact original PHELM SDL is authenticated independently of phead/ball.
+Its factor1.2/no-recenter authoring reconstruction, normalized printed ST and
+literal ratio4 bind the actual captured actor pdecal2/current team atlas.
+Unity/browser use the original detached mesh, original Y*X(-fwd2)*Z(raw phi)
+transform, current **global ball WHITE**, CC alpha, WRAP, LESS/write and
+separate source-alpha/ONE-ZERO blend. The existing free-ball transform/shader
+is shared without importing its carrier visibility or big-ball rules.
+Explicit v3 migration retains the complete v2 fire/dust generation and every
+other private service; old v1/v2 component/default-off identities remain
+unchanged, and enabled composition rejects missing PHELM by name.
+
+Actual compiled-source and executed-JS semantic controls are required in
+asset-free CI, retaining all old commands and exact40-minute budget.
+Separate private comparisons use pinned original C/helper/proc/draw and
+header types, exact IEEE-binary32/int fields across defined wakes/tapes,
+both Glide branches and actual host-adapted original CVTMOD expanded faces.
+See [setup](../tools/source-player/README.md#original-detached-loose-helmet-same-opt-in)
+and [qualification domains](../tests/loose-helmet/README.md).
+No original art, numeric meshes, source bodies, poses, build payloads or
+captures are checked in; existing Unity metadata/GUIDs are preserved.
+
+Host epoch zeroing is explicitly portable, not native program/BSS proof.
+Signed-overflow/iasin domains are not repaired with guessed wrap/clamp;
+the C draw component uses alpha127 to avoid claiming defined signed
+alpha255-shift behavior. Portable WHITE uses the existing GLIDE3 shader
+branch. Actual natural WASM/GPU evidence remains distinct from component
+traces and render samples. Target PRNG is **ExternalUnverified**;
+native `helm.h`, ABI/FMA/qsort/Glide/WBUFFER, Unity engine execution,
+all16/full-game, audio and performance acceptance remain **OPEN**.
+
 ## Bounded original impact-dust implementation
 
 `dust_cloud` animation callbacks are consumed by the existing opt-in source

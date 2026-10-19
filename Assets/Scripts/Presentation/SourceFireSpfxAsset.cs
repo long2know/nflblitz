@@ -15,8 +15,19 @@ namespace Blitz.Presentation
         [SerializeField] private TextAsset[] payloads;
         [SerializeField] private Shader sourceShader;
         [SerializeField] private Shader playerFlashShader;
+        [SerializeField] private Shader looseHelmetShader;
         public string ManifestSha256 { get { return manifestSha256; } }
         public Shader SourceShader { get { return sourceShader; } }
+        public Shader LooseHelmetShader
+        {
+            get
+            {
+                SourceFireGuard.Require(looseHelmetShader != null && looseHelmetShader.isSupported &&
+                    looseHelmetShader.name == "Blitz/SourceFreeBallPortable",
+                    "SOURCE_HELMET_SHADER_REQUIRED: reimport v3 with the verified CC-alpha/depth-LESS/source-rotation shader.");
+                return looseHelmetShader;
+            }
+        }
         public Shader PlayerFlashShader
         {
             get
@@ -29,19 +40,20 @@ namespace Blitz.Presentation
         }
 
         public void InitializeGenerated(TextAsset provenance, string expectedSha256, string[] relativePaths,
-            TextAsset[] files, Shader shader, Shader actorFlashShader = null)
+            TextAsset[] files, Shader shader, Shader actorFlashShader = null, Shader helmetShader = null)
         {
             manifest = provenance; manifestSha256 = expectedSha256;
             paths = relativePaths == null ? null : (string[])relativePaths.Clone();
             payloads = files == null ? null : (TextAsset[])files.Clone(); sourceShader = shader;
             playerFlashShader = actorFlashShader;
+            looseHelmetShader = helmetShader;
             Load();
         }
 
         public SourceFireSpfxBundle Load()
         {
             SourceFireGuard.Require(manifest != null && paths != null && payloads != null &&
-                (paths.Length == 19 || paths.Length == 29) &&
+                (paths.Length == 19 || paths.Length == 29 || paths.Length == 31) &&
                 payloads.Length == paths.Length && sourceShader != null && sourceShader.name == "Blitz/SourceFireSpfxPortable",
                 "Actual portable fire/dust provenance, original inputs, SDL geometry and shader required; no particles or art fallback.");
             var files = new Dictionary<string, TextAsset>(StringComparer.Ordinal);

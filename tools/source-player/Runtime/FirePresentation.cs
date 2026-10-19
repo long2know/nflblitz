@@ -3,6 +3,7 @@ using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Gameplay;
 using Blitz.Presentation;
+using Blitz.Runtime;
 
 namespace Blitz.SourcePlayer;
 
@@ -18,6 +19,7 @@ public sealed class FirePresentation
     public long FramesConsumed { get; private set; }
     public SourceFireRenderFrame Frame => consumer?.LastFrame;
     public IReadOnlyList<SourceFireDrawPacket> Draws => consumer?.Draws ?? (IReadOnlyList<SourceFireDrawPacket>)Array.Empty<SourceFireDrawPacket>();
+    public IReadOnlyList<SourceLooseHelmetDraw> Helmets { get; private set; } = Array.Empty<SourceLooseHelmetDraw>();
     private readonly SourceFireSpfxBundle bundle;
 
     public FirePresentation(SourceFireSpfxBundle bundle, bool enabled, IRenderSink sink, long epoch = 0, bool uploadTextures = true)
@@ -26,6 +28,7 @@ public sealed class FirePresentation
         if (!enabled) return;
         DataCatalog.Require(bundle != null, "Enabled fire presentation requires the authenticated original SDL/17-TGA generation.");
         bundle.RequireDust();
+        bundle.RequireHelmet();
         consumer = new SourceFireSpfxFrameConsumer(bundle);
         for (int i = 0; uploadTextures && i < bundle.Textures.Count; i++)
         {
@@ -44,6 +47,7 @@ public sealed class FirePresentation
         if (ReferenceEquals(Frame, frame)) return;
         DataCatalog.Require(frame.SourceTick == game.SourceTick, "Consume only the actual after-source immutable fire frame.");
         consumer.Consume(frame);
+        Helmets = SourceFreeBallBinding.CaptureHelmets(game);
         FramesConsumed++;
         foreach (var record in frame.Records)
         {
@@ -91,9 +95,38 @@ public sealed class FirePresentation
             }
         int[] hudHighlight = HighlightedHudPrimitives(kicking, hud);
         sink.Effects(projection, vertices, Draws.Select(d => d.TextureSlot).ToArray(), flags, flash,
-            JsonSerializer.Serialize(new { frame = Describe(), hudHighlight, hudConstantColor = 0xc0000000u,
+            JsonSerializer.Serialize(new { frame = Describe(), looseHelmets = Helmets.Select(HelmetPacket).ToArray(),
+                helmetAsset = Enabled ? new {
+                    mesh = SourceFireSpfxReader.HelmetMeshId, sourceSha256 = SourceFireSpfxReader.HelmetSourceSha256,
+                    geometrySha256 = SourceFireSpfxReader.HelmetGeometrySha256, origin = SourceFireSpfxReader.HelmetGeometryOrigin,
+                    uvOrigin = SourceFireSpfxReader.HelmetUvOrigin, sourceScale = 1.2, sourceTriangleOrder = "Renderer321",
+                    nativeGeneratedHeaderEquivalent = false
+                } : null, hudHighlight, hudConstantColor = 0xc0000000u,
                 hudCombiner = "DECAL_TEXTURE_ADD_CCALPHA", hudRestore = "TEXTURE_TIMES_ALPHA/0xff000000",
                 timeoutFlasher = "TIME EXPIRED source lifetime/glyphs; native flash_text_proc phase unqualified" }));
+    }
+
+    private static object HelmetPacket(SourceLooseHelmetDraw draw)
+    {
+        SourceLooseHelmet h = draw.Helmet;
+        return new {
+            objectSerial = h.ObjectSerial, processSerial = h.ProcessSerial, actor = h.ActorId,
+            entrySourceTick = h.EntrySourceTick, cacheSourceTick = h.CacheSourceTick,
+            entryPosition = new[] { h.EntryWorldPosition.X, h.EntryWorldPosition.Y, h.EntryWorldPosition.Z },
+            sourceTick = draw.Transform.State.SourceTick, visible = draw.Transform.State.Visible, hidden = h.Hidden,
+            objectId = h.ObjectId, drawOrder = h.DrawOrder,
+            position = new[] { h.Position.X, h.Position.Y, h.Position.Z },
+            velocity = new[] { h.Velocity.X, h.Velocity.Y, h.Velocity.Z },
+            target = new[] { h.Target.X, h.Target.Y, h.Target.Z },
+            heading = h.Heading, elevation = h.Elevation, roll = h.Roll, pitch = h.Pitch, pitchRate = h.PitchRate,
+            alpha = h.Alpha, scale = h.Scale, flightTime = h.FlightTime, rawFlags = h.RawFlags,
+            bounces = h.Bounces, bounceTime = h.BounceTime,
+            white = draw.Transform.White, effectiveAlpha = draw.Transform.EffectiveAlpha,
+            texture = "teams/" + h.Decal.TextureId, textureSha256 = h.Decal.SourceSha256,
+            textureSourcePath = h.Decal.SourcePath, textureWidth = h.Decal.Width, textureHeight = h.Decal.Height,
+            decalSlot = h.Decal.DecalSlot, integerAspect = h.Decal.IntegerAspect,
+            worldMatrix = draw.Transform.WorldMatrix, packet = FrameMath.FreeBall(draw.Transform)
+        };
     }
 
     public object Describe() => new {
@@ -102,6 +135,8 @@ public sealed class FirePresentation
         dustParticles = Frame?.Particles.Count(p => p.TextureKind == SourceFireTextureKind.Dust) ?? 0,
         dustDraws = Draws.Count(p => p.TextureKind == SourceFireTextureKind.Dust),
         ballTrails = Frame?.BallTrails.Count ?? 0,
+        looseHelmets = Helmets.Select(HelmetPacket).ToArray(),
+        globalBallFlags = Frame?.GlobalBallFlags ?? 0,
         selectedBallEffect = ballEffect.ToString(),
         draws = Draws.Count, hidden = Frame?.Particles.Count(p => p.Hidden) ?? 0,
         pcount = Frame?.OriginalPcount, assetManifestSha256 = bundle?.ManifestSha256,

@@ -6,9 +6,12 @@ from pathlib import Path
 from prepare import Bundle, PINS, digest, read, require
 
 FIRE_SHA256 = "8bca6ef9e1f089209aca7201e30d281d54444b6cc5b621c42f339394ef04fe88"
+DUST_SHA256 = "63f18701c490268c3aa6b8f65b505f5329a028392b3cc4491d86eea001c259c1"
 
 
-def extend(base, base_hash, fire, fire_hash, output, replace_fire_with_dust=False):
+def extend(base, base_hash, fire, fire_hash, output, replace_fire_with_dust=False, replace_fire_with_helmet=False):
+    require(not (replace_fire_with_dust and replace_fire_with_helmet), "Choose exactly one explicit fire data migration.")
+    replace_fire = replace_fire_with_dust or replace_fire_with_helmet
     base = base.resolve()
     manifest = json.loads(read(base, "manifest.json", base_hash))
     require(manifest["schema"] == "blitz-portable-source-player/v1" and
@@ -16,37 +19,50 @@ def extend(base, base_hash, fire, fire_hash, output, replace_fire_with_dust=Fals
             "Only the actual selected M1 private input generation may be extended.")
     bundle = Bundle()
     for record in manifest["files"]:
-        if replace_fire_with_dust and record["path"].startswith("fire/"):
+        if replace_fire and record["path"].startswith("fire/"):
             read(base, record["path"], record["sha256"])
         else:
             bundle.add(base, record["path"], record["sha256"])
     entries, origins = dict(manifest["entrypoints"]), dict(manifest["origins"])
-    require("fire" not in entries or replace_fire_with_dust, "Base data already contains a fire generation.")
-    if replace_fire_with_dust:
+    require("fire" not in entries or replace_fire, "Base data already contains a fire generation.")
+    if replace_fire:
+        prior = DUST_SHA256 if replace_fire_with_helmet else FIRE_SHA256
         require(entries.get("fire") == "fire/manifest.json" and
-                digest(read(base, entries["fire"], FIRE_SHA256)) == FIRE_SHA256,
-                "Dust migration replaces only the actual approved v1 fire generation.")
+                digest(read(base, entries["fire"], prior)) == prior,
+                "Explicit migration replaces only the actual approved prior fire generation.")
     fire = fire.resolve()
-    require(replace_fire_with_dust or fire_hash == FIRE_SHA256, "The exact approved SDL/17-TGA portable generation is required.")
+    require(replace_fire or fire_hash == FIRE_SHA256, "The exact approved SDL/17-TGA portable generation is required.")
     definition = bundle.document(fire, "manifest.json", fire_hash, "fire/manifest.json")
     require(definition["sourceCommit"] == manifest["sourceRevision"] and len(definition["inputs"]) == 18 and
             len(definition["frames"]) == 17 and not definition["nativeConvertedTextureEquivalent"] and
             not definition["generatedSpfxHeaderEquivalent"], "Original portable fire origin/identities required.")
-    if replace_fire_with_dust:
+    if replace_fire:
         pins = json.loads((Path(__file__).parents[1] / "fire-spfx/inputs.json").read_text())
-        require(definition["schema"] == "blitz-source-fire-spfx-portable/v2" and
+        require(definition["schema"] == ("blitz-source-fire-spfx-portable/v3" if replace_fire_with_helmet else
+                                        "blitz-source-fire-spfx-portable/v2") and
                 len(definition.get("dustFrames", [])) == 10 and
                 definition["inputs"] == [dict(p, payloadPath="inputs/" + p["path"] + ".bytes") for p in pins["inputs"]] and
                 definition.get("dustInputs") == [dict(p, payloadPath="inputs/" + p["path"] + ".bytes") for p in pins["dustInputs"]],
                 "Explicit dust migration requires unchanged original fire pins and all ten exact DIRT inputs in source order.")
+    if replace_fire_with_helmet:
+        require(definition.get("helmetInput", {}).get("gitBlobSha1") == "d086f6944207a0ff2fa906ef7fc9692dcfb289ec" and
+                definition["helmetInput"]["path"] == "models/phelm.sdl" and
+                definition["helmetMeshPath"] == "helmet-geometry.bytes" and definition["helmetGeometryFactor"] == 1.2 and
+                definition["helmetIntegerAspect"] == 4 and not definition["nativeGeneratedHelmetHeaderEquivalent"],
+                "Explicit helmet migration requires original PHELM, factor1.2, literal ratio4 and no native-header claim.")
     for record in definition["inputs"]:
         bundle.add(fire, record["payloadPath"], record["sha256"], "fire/" + record["payloadPath"])
     for record in definition.get("dustInputs", []):
         bundle.add(fire, record["payloadPath"], record["sha256"], "fire/" + record["payloadPath"])
     bundle.add(fire, definition["meshPath"], definition["meshSha256"], "fire/" + definition["meshPath"])
+    if replace_fire_with_helmet:
+        record = definition["helmetInput"]
+        bundle.add(fire, record["payloadPath"], record["sha256"], "fire/" + record["payloadPath"])
+        bundle.add(fire, definition["helmetMeshPath"], definition["helmetMeshSha256"], "fire/" + definition["helmetMeshPath"])
     entries["fire"] = "fire/manifest.json"
     origins["fire"] = definition["inputOrigin"] + "; source SDL factor4,17original TRAIL frames" + (
-        ",10original DIRT frames" if replace_fire_with_dust else "") + "; no native TEXUS/WMS claim"
+        ",10original DIRT frames" if replace_fire else "") + (
+        ",original PHELM factor1.2/pdecal2 ratio4; native helm.h unqualified" if replace_fire_with_helmet else "") + "; no native TEXUS/WMS claim"
     new, pin = bundle.persist(output, entries, origins)
     return {"manifestSha256": pin, "files": len(new["files"]), "baseManifestSha256": base_hash,
             "fireManifestSha256": fire_hash, "output": str(output.absolute())}
@@ -60,10 +76,12 @@ def main():
     parser.add_argument("--fire-manifest-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--replace-fire-with-dust", action="store_true")
+    parser.add_argument("--replace-fire-with-helmet", action="store_true")
     args = parser.parse_args()
     try:
         print(json.dumps(extend(args.base_data, args.base_manifest_sha256, args.fire_bundle,
-                                args.fire_manifest_sha256, args.output, args.replace_fire_with_dust), indent=2))
+                                args.fire_manifest_sha256, args.output, args.replace_fire_with_dust,
+                                args.replace_fire_with_helmet), indent=2))
     except (ValueError, OSError, KeyError) as error:
         parser.exit(1, "Feature data rejected: " + str(error) + "\n")
 

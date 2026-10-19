@@ -109,8 +109,11 @@ namespace Blitz.Runtime
                         sourceFireAsset = Resources.Load<SourceFireSpfxAsset>(SourceFireSpfxAsset.ResourceKey);
                         if (sourceFireAsset == null)
                             throw new SourceInterfaceException("Missing actual authenticated source-fire asset; no placeholder fire.");
+                        SourceTeamPresentationAsset helmetTeams = SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab);
                         fire = new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(sourceFireAsset.Load()),
-                            0, SourceFireCull.Off);
+                            0, SourceFireCull.Off, (identity, side) => SourceTeamPresentationModel.LooseHelmetDecal(
+                                helmetTeams.Rosters, helmetTeams.Catalog, sourceServices.Configuration(),
+                                sourceServices.PresentationSettings, identity, side));
                     }
                     simulation = sourceServices.CreateSimulation(prefab, compatibility, fireEffects: fire, kickMeters: kickMeters);
                     if (kickMeters == SourceKickMeterMode.PortableAuthored)
@@ -140,7 +143,8 @@ namespace Blitz.Runtime
                 if (IsSourceProfile && simulation.SourceFireEnabled)
                 {
                     sourceFireRenderer = gameObject.AddComponent<SourceFireSpfxRenderer>();
-                    sourceFireRenderer.Initialize(sourceFireAsset, playCamera.Camera);
+                    sourceFireRenderer.Initialize(sourceFireAsset, playCamera.Camera,
+                        SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab));
                     Debug.LogWarning("Authored portable source-fire enabled: shared Core RNG,logical epoch0,effects then C2/game slots. Not native scheduler/clock/pixel equivalence.");
                 }
                 if (IsSourceProfile)
@@ -434,7 +438,7 @@ namespace Blitz.Runtime
         {
             if (!IsSourceProfile) return;
             if (sourceFireRenderer != null && simulation.SourceFireFrame != null)
-                sourceFireRenderer.ConsumeAfterSourceStep(simulation.SourceFireFrame);
+                sourceFireRenderer.ConsumeAfterSourceStep(simulation.SourceFireFrame, SourceFreeBallBinding.CaptureHelmets(simulation));
             SourceSoundVmBatch batch = simulation.TakeSourceSoundVmDispatches();
             soundTransport.Drain(batch);
             Action<SourceSoundVmDispatch> observed = SourceSoundVmDispatchRaised;

@@ -33,7 +33,7 @@ COMMANDS = {
         PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic",
     ),
     "Test public cabinet input and renderer contracts": (
-        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs tools/source-player/ball-trails.renderer.test.mjs tools/source-player/dust.renderer.test.mjs",
+        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs tools/source-player/ball-trails.renderer.test.mjs tools/source-player/dust.renderer.test.mjs tools/source-player/helmet.renderer.test.mjs",
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
@@ -128,6 +128,7 @@ class SourcePlayerCI(unittest.TestCase):
             (" tools/source-player/free-ball.renderer.test.mjs", ""),
             (" tools/source-player/ball-trails.renderer.test.mjs", ""),
             (" tools/source-player/dust.renderer.test.mjs", ""),
+            (" tools/source-player/helmet.renderer.test.mjs", ""),
             (PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic", "true"),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),
@@ -168,6 +169,9 @@ class SourcePlayerCI(unittest.TestCase):
         dust_renderer = (HERE / "dust.renderer.test.mjs").read_text()
         self.assertEqual(3, len(re.findall(r"^test\(", dust_renderer, re.M)))
         self.assertNotIn("artifacts/", dust_renderer)
+        helmet_renderer = (HERE / "helmet.renderer.test.mjs").read_text()
+        self.assertEqual(7, len(re.findall(r"^test\(", helmet_renderer, re.M)))
+        self.assertNotIn("artifacts/", helmet_renderer)
         self.assertIn('args[0] == "--free-ball-synthetic"', checks)
         self.assertIn('Compile Include="FreeBallChecks.cs"', (HERE / "SourcePlayer.Checks.csproj").read_text())
         sources = ET.parse(HERE / "ProductionSources.props")

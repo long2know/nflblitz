@@ -53,8 +53,14 @@ Explicit `prepare.py --with-dust` writes schema v2, retaining every v1
 SDL/17-TRAIL input and adding ten ordered original DIRT TGAs. Its authenticated
 nonpixel developer-area adapter reuses the strict decoder; native WMS remains
 unqualified. V1 is still accepted for this retained component suite, while
-enabled Unity/browser composition requires the full v2 dust generation.
+enabled Unity/browser composition requires the v3 extension retaining full v2
+dust plus the separately authenticated original PHELM mesh. V1/v2 remain
+readable component inputs. Missing PHELM is a typed data error, never a
+phead/ball/sphere substitute.
 See [impact-dust regression scope](../README.md#original-impact-dust).
+The separate [loose-helmet suite](../loose-helmet/README.md) qualifies its global
+ball_data flight, lifecycle and real draw consumers without changing this
+retained fire/ball/Goose campaign.
 
 Use only explicitly authorized local originals. `tools/fire-spfx/inputs.json`
 pins the SDL and all seventeen TGAs; public availability does not grant reuse

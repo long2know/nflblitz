@@ -9,13 +9,14 @@ namespace Blitz.Contracts
         public const int Spfx = 0x0f98, Player = 0x0500, PlayerFlash = 0x1300;
         public const int PuffObject = 0x510, PuffDrawOrder = 0x00050001, FlashWhite = 0x400;
         public const int Ball = 0x0900, BallObject = 0x400, BallDrawOrder = 0x00050000;
+        public const int LooseHelmet = 0x0950, LooseHelmetObject = 0x450;
         public const int PreSnap = 1, InPlay = 2, PlayOver = 3, FrameCount = 17, DustFrameCount = 10;
         public const int DustWipeoutCause = 0x0002;
         public const string PortableAssetSet = "source-fire-spfx-authoring-tga-sdl-v1";
         public const string DustAssetSet = "source-dust-cloud-authoring-tga-sdl-v1";
     }
 
-    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite, BallTrail, DustCloud }
+    public enum SourceFireEntry { PlayerBurst, PlayerPuff, BallPuff, FlashPlayerWhite, BallTrail, DustCloud, LooseHelmet }
     public enum SourceFireTextureKind { Trail, Dust }
     public enum SourceFireOperation
     {
@@ -34,13 +35,15 @@ namespace Blitz.Contracts
         public ISourceFireSpfxRuntime Runtime { get; }
         public int LogicalPcountAtTickZero { get; }
         public SourceFireCull AuthoredCull { get; }
+        public Func<SourceRosterIdentity, TeamId, SourceLooseHelmetDecal> ReadHelmetDecal { get; }
         public string ExecutionOrigin { get { return "portable-authored-effects-before-C2-whistles-before-game-proc"; } }
         public SourceFireGameplayConfiguration(ISourceFireSpfxRuntime runtime, int logicalPcountAtTickZero,
-            SourceFireCull authoredCull)
+            SourceFireCull authoredCull, Func<SourceRosterIdentity, TeamId, SourceLooseHelmetDecal> readHelmetDecal = null)
         {
             Runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
             SourceFireGuard.Require((int)authoredCull >= 0 && (int)authoredCull <= 2, "Explicit portable effect-pass cull required.");
             LogicalPcountAtTickZero = logicalPcountAtTickZero; AuthoredCull = authoredCull;
+            ReadHelmetDecal = readHelmetDecal;
         }
     }
 
@@ -201,7 +204,7 @@ namespace Blitz.Contracts
         }
         public static SourceFireCommand Create(SourceFireSite site, SourceFireEntry entry, SourceFireArgs args)
         {
-            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 5, "Unknown active effect entry.");
+            SourceFireGuard.Require((int)entry >= 0 && (int)entry <= 6, "Unknown active effect entry.");
             if (entry != SourceFireEntry.BallPuff && entry != SourceFireEntry.BallTrail) SourceFireGuard.Actor(args.A0);
             if (entry == SourceFireEntry.PlayerPuff || entry == SourceFireEntry.DustCloud)
                 SourceFireGuard.Require(args.A1 >= 0 && args.A1 < 15, "Original joint index must be 0..14.");
@@ -215,12 +218,16 @@ namespace Blitz.Contracts
             if (entry == SourceFireEntry.BallTrail)
                 SourceFireGuard.Require(args.A0 == 0 && args.A1 == 0 && args.A2 == 0 && args.A3 == 0,
                     "Original balltrl has four zero arguments; its ball copy is taken at process entry.");
+            if (entry == SourceFireEntry.LooseHelmet)
+                SourceFireGuard.Require(args.A1 == 0 && args.A2 == 0 && args.A3 == 0,
+                    "Original loosehlm takes only the selected actor and three zero arguments.");
             string name = entry == SourceFireEntry.PlayerBurst ? "fburst" : entry == SourceFireEntry.PlayerPuff ? "ofire" :
                 entry == SourceFireEntry.BallPuff ? "smkpuf" : entry == SourceFireEntry.BallTrail ? "balltrl" :
-                entry == SourceFireEntry.DustCloud ? "dustcld" : "flash";
+                entry == SourceFireEntry.DustCloud ? "dustcld" : entry == SourceFireEntry.LooseHelmet ? "loosehlm" : "flash";
             int group = entry == SourceFireEntry.FlashPlayerWhite ? SourceFireIds.PlayerFlash :
                 entry == SourceFireEntry.BallPuff ? SourceFireIds.Player :
-                entry == SourceFireEntry.BallTrail ? SourceFireIds.Ball : SourceFireIds.Spfx;
+                entry == SourceFireEntry.BallTrail ? SourceFireIds.Ball :
+                entry == SourceFireEntry.LooseHelmet ? SourceFireIds.LooseHelmet : SourceFireIds.Spfx;
             return new SourceFireCommand(site, SourceFireOperation.CreateProcess, entry, args, name, group, -1, null);
         }
         public static ReadOnlyCollection<SourceFireCommand> DustCloud(SourceFireSite site, int argument)
@@ -435,6 +442,72 @@ namespace Blitz.Contracts
         { SourceFireGuard.Require(bound > 0, "randrng requires its original positive bound."); Site = site; Bound = bound; }
     }
 
+    public readonly struct SourceLooseHelmetDecal
+    {
+        public bool IsSpecified { get; }
+        public string TextureId { get; }
+        public string SourceSha256 { get; }
+        public string SourcePath { get; }
+        public int Width { get; }
+        public int Height { get; }
+        public int DecalSlot { get { return 2; } }
+        public int IntegerAspect { get { return 4; } }
+        public SourceLooseHelmetDecal(string textureId, string sourceSha256, string sourcePath, int width, int height)
+        {
+            SourceFireGuard.Identity(textureId, nameof(textureId)); SourceFireGuard.Identity(sourcePath, nameof(sourcePath));
+            SourceFireGuard.Require(sourceSha256 != null && sourceSha256.Length == 64 && width == 128 && height == 256,
+                "SOURCE_HELMET_DECAL_REQUIRED: bind actual selected odata.pdecal[2], its authenticated 128x256 team atlas and literal ratio4.");
+            IsSpecified = true; TextureId = textureId; SourceSha256 = sourceSha256;
+            SourcePath = sourcePath; Width = width; Height = height;
+        }
+    }
+
+    public readonly struct SourceLooseHelmet
+    {
+        public long ObjectSerial { get; }
+        public long ProcessSerial { get; }
+        public int ActorId { get; }
+        public long EntrySourceTick { get; }
+        public long CacheSourceTick { get; }
+        public SourceVector3 EntryWorldPosition { get; }
+        public SourceVector3 Position { get; }
+        public SourceVector3 Velocity { get; }
+        public SourceVector3 Target { get; }
+        public int Heading { get; }
+        public int Elevation { get; }
+        public int Roll { get; }
+        public int Pitch { get; }
+        public int PitchRate { get; }
+        public int Alpha { get; }
+        public float Scale { get; }
+        public int FlightTime { get; }
+        public int RawFlags { get; }
+        public int Bounces { get; }
+        public int BounceTime { get; }
+        public bool Hidden { get; }
+        public SourceLooseHelmetDecal Decal { get; }
+        public int ObjectId { get { return SourceFireIds.LooseHelmetObject; } }
+        public int DrawOrder { get { return SourceFireIds.BallDrawOrder; } }
+        public SourceLooseHelmet(long objectSerial, long processSerial, int actor, long entryTick, long cacheTick,
+            SourceVector3 entry, SourceVector3 position, SourceVector3 velocity, SourceVector3 target,
+            int heading, int elevation, int roll, int pitch, int pitchRate, int alpha, float scale,
+            int flightTime, int rawFlags, int bounces, int bounceTime, bool hidden, SourceLooseHelmetDecal decal)
+        {
+            SourceFireGuard.Actor(actor);
+            SourceFireGuard.Require(objectSerial > 0 && processSerial > 0 && entryTick >= 0 && cacheTick >= 0 &&
+                cacheTick <= entryTick && decal.IsSpecified && alpha >= 0 && alpha <= 255 && scale > 0,
+                "Actual immutable global loose_helmet_obj fields, entry cache and pdecal[2] required.");
+            SourceFireGuard.Finite(entry); SourceFireGuard.Finite(position); SourceFireGuard.Finite(velocity);
+            SourceFireGuard.Finite(target); SourceFireGuard.Finite(scale);
+            ObjectSerial = objectSerial; ProcessSerial = processSerial; ActorId = actor;
+            EntrySourceTick = entryTick; CacheSourceTick = cacheTick; EntryWorldPosition = entry;
+            Position = position; Velocity = velocity; Target = target; Heading = heading; Elevation = elevation;
+            Roll = roll; Pitch = pitch; PitchRate = pitchRate; Alpha = alpha; Scale = scale;
+            FlightTime = flightTime; RawFlags = rawFlags; Bounces = bounces; BounceTime = bounceTime;
+            Hidden = hidden; Decal = decal;
+        }
+    }
+
     public sealed class SourceFireHostCallbacks
     {
         public Func<SourceFireRandomRequest, int> Draw { get; }
@@ -443,6 +516,8 @@ namespace Blitz.Contracts
         public Func<SourceFireBallWorldSample> ReadBallWorld { get; }
         public Func<SourceFireBallRenderSample> ReadBallRender { get; }
         public Func<int, SourceVector3> ReadDustVelocity { get; }
+        public Func<int, float> ReadDirectionSin { get; }
+        public Func<int, SourceLooseHelmetDecal> ReadHelmetDecal { get; }
         public Func<int, int> ReadRawActorFlags { get; }
         public Action<int, int, SourceFireSite> WriteRawActorFlags { get; }
         public Action<SourceFireSite> EnterEffectWake { get; }
@@ -455,7 +530,8 @@ namespace Blitz.Contracts
             Action<SourceFireSite> enterEffectWake, Action<SourceFireWakeSlot, int> runHostContinuation,
             Func<SourceFireDirectSound, SourceFireSoundSubmission> submitSound, Func<long> allocateEffectProcessSerial,
             Func<SourceFireBallRenderSample> readBallRender = null,
-            Func<int, SourceVector3> readDustVelocity = null)
+            Func<int, SourceVector3> readDustVelocity = null,
+            Func<int, float> readDirectionSin = null, Func<int, SourceLooseHelmetDecal> readHelmetDecal = null)
         {
             Draw = draw ?? throw new ArgumentNullException(nameof(draw)); ReadRawGameMode = readRawGameMode ?? throw new ArgumentNullException(nameof(readRawGameMode));
             ReadCachedPlayer = readCachedPlayer ?? throw new ArgumentNullException(nameof(readCachedPlayer));
@@ -468,6 +544,7 @@ namespace Blitz.Contracts
             AllocateEffectProcessSerial = allocateEffectProcessSerial ?? throw new ArgumentNullException(nameof(allocateEffectProcessSerial));
             ReadBallRender = readBallRender;
             ReadDustVelocity = readDustVelocity;
+            ReadDirectionSin = readDirectionSin; ReadHelmetDecal = readHelmetDecal;
         }
     }
 
@@ -554,6 +631,8 @@ namespace Blitz.Contracts
         public string AssetManifestSha256 { get; }
         public ReadOnlyCollection<SourceFireParticle> Particles { get; }
         public ReadOnlyCollection<SourceBallTrail> BallTrails { get; }
+        public ReadOnlyCollection<SourceLooseHelmet> LooseHelmets { get; }
+        public int GlobalBallFlags { get; }
         public ReadOnlyCollection<int> ActorRawFlags { get; }
         public ReadOnlyCollection<SourceFireRecord> Records { get; }
         public ReadOnlyCollection<string> PortableBoundaries { get; }
@@ -561,7 +640,8 @@ namespace Blitz.Contracts
         public SourceFireRenderFrame(long sourceTick, int pcount, SourceFireBootstrap bootstrap, string orderEvidence,
             SourceFireRenderBasis basis, IReadOnlyList<SourceFireParticle> particles, IReadOnlyList<int> flags,
             IReadOnlyList<SourceFireRecord> records, IReadOnlyList<string> boundaries, string assetManifestSha256,
-            IReadOnlyList<SourceBallTrail> ballTrails = null)
+            IReadOnlyList<SourceBallTrail> ballTrails = null, IReadOnlyList<SourceLooseHelmet> looseHelmets = null,
+            int globalBallFlags = 0)
         {
             SourceFireGuard.Require(sourceTick >= 0 && bootstrap != null && basis != null &&
                 flags != null && flags.Count == 14 && assetManifestSha256 != null && assetManifestSha256.Length == 64,
@@ -569,6 +649,8 @@ namespace Blitz.Contracts
             SourceTick = sourceTick; OriginalPcount = pcount; Bootstrap = bootstrap; OrderEvidence = orderEvidence; Basis = basis;
             Particles = SourceFireGuard.Copy(particles); ActorRawFlags = SourceFireGuard.Copy(flags);
             BallTrails = SourceFireGuard.Copy(ballTrails ?? new SourceBallTrail[0]);
+            LooseHelmets = SourceFireGuard.Copy(looseHelmets ?? new SourceLooseHelmet[0]);
+            GlobalBallFlags = globalBallFlags;
             Records = SourceFireGuard.Copy(records); PortableBoundaries = SourceFireGuard.Copy(boundaries);
             AssetManifestSha256 = assetManifestSha256;
         }

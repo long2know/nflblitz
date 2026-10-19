@@ -11,7 +11,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/GeneratedPlayerData.cs" Link="Production/GeneratedPlayerData.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs" Link="Production/AuthorizedAssetFiles.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs" Link="Production/SourceTeamRosterLibrary.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamPresentationData.cs" Link="Production/SourceTeamPresentationData.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterfaceData.cs" Link="Production/SourceInterfaceData.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs" Link="Production/SourceInterfaceMovementData.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceTeamPresentationModel.cs" Link="Production/SourceTeamPresentationModel.cs" />

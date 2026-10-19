@@ -96,6 +96,9 @@ jobs:
           python3 -B tests/impact-dust/test_ci.py
           python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls
           python3 -B tests/impact-dust/js_controls.py --output .squad/.scratch/impact-dust-js-ci
+          python3 -B tests/loose-helmet/test_ci.py
+          python3 -B tests/loose-helmet/run.py --output .squad/.scratch/loose-helmet-ci --controls
+          python3 -B tests/loose-helmet/js_controls.py --output .squad/.scratch/loose-helmet-js-ci
       - name: Test detached source match and input contracts
         run: |
           python3 tests/contracts/test_runner.py

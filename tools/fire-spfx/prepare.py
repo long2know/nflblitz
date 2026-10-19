@@ -16,6 +16,12 @@ spec.loader.exec_module(assets)
 
 SCHEMA = "blitz-source-fire-spfx-portable/v1"
 DUST_SCHEMA = "blitz-source-fire-spfx-portable/v2"
+HELMET_SCHEMA = "blitz-source-fire-spfx-portable/v3"
+HELMET_ORIGIN = "original-phelm-SDL-factor1.2-authoring-origin-not-native-helm.h"
+HELMET_UV_ORIGIN = "original-cvtmod-normalized-six-decimal-ST-ratio4-bottom-left"
+HELMET_PIN = {"path": "models/phelm.sdl", "bytes": 19258,
+              "gitBlobSha1": "d086f6944207a0ff2fa906ef7fc9692dcfb289ec",
+              "sha256": "03130e8e5dab04b4d5bd64290595b884bfb1e007440d9d228db9419f47614e5a"}
 ORIGIN = "original-authoring-TGA32-and-SDL-portable-not-WMS"
 ASPECT_ORIGIN = "decoded-authoring-dimensions-Glide-enum-not-observed-WMS-header"
 UV_ORIGIN = "raw-SDL-ST-normalized-Unity-bottom-left-not-generated-spfx.h"
@@ -60,7 +66,49 @@ def geometry_from_sdl(data):
     return bytes(packed)
 
 
-def prepare(original_root, output, authorization_reference, with_dust=False):
+def helmet_geometry_from_sdl(data):
+    text = assets.uncomment(data.decode("ascii"))
+    declarations = assets.declarations(text, "polyset")
+    assets.require(len(declarations) == 1 and declarations[0][0] == "phelm_obj",
+                   "Exactly the original phelm_obj is required; no body head, football or generic mesh.")
+    number = assets.FLOAT
+    point = r"\(\s*cv\s*\(\s*\(\s*" + number + r"\s*,\s*" + number + r"\s*,\s*" + number + r"\s*\)\s*,\s*1\s*\)\s*\)"
+    uv = r"st\s*\(\s*" + number + r"\s*,\s*" + number + r"\s*\)"
+    triple = r"\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)"
+    face = r"polygon\s*\(\s*" + triple + r"\s*,\s*" + triple + r"\s*,\s*0\s*\)"
+    sequence = lambda item: r"\(\s*" + item + r"(?:\s*,\s*" + item + r")*\s*\)"
+    grammar = (r"\s*active\s*=\s*ON\s*,\s*motion_blur\s*=\s*ON\s*,\s*smooth\s*=\s*ON\s*,"
+               r"\s*doublesided\s*=\s*OFF\s*,\s*opposite\s*=\s*OFF\s*,"
+               r"\s*shader\s*=\s*\(\s*Shader\s*\)\s*,\s*casts_shadow\s*=\s*TRUE\s*,"
+               r"\s*vertices\s*=\s*" + sequence(point) + r"\s*,\s*texture_vertices\s*=\s*" +
+               sequence(uv) + r"\s*,\s*polygons\s*=\s*" + sequence(face) + r"\s*")
+    assets.require(re.fullmatch(grammar, declarations[0][1]) is not None,
+                   "Changed/unsupported original PHELM geometry/material grammar.")
+    scene = assets.read_sdl(data, "models/phelm.sdl", scale=(1.2, 1.2, 1.2))
+    poly = scene.polysets[0]
+    texture = scene.textures[scene.shaders[poly.shaders[0]]]
+    assets.require((len(poly.positions), len(poly.uvs), len(poly.triangles)) == (63, 105, 89) and
+                   texture.file == "beah.tif" and texture.repeat == (1, 1) and
+                   texture.offset == (0, 0) and texture.rotation == 0,
+                   "Original PHELM authoring inventory/atlas transform changed.")
+    packed = bytearray(b"BZHLG001" + struct.pack("<3I", 63, 105, 89))
+    for point in poly.positions:
+        packed.extend(struct.pack("<3f", *point))
+    for s, t in poly.uvs:
+        # helm.h's recipe has neither -square nor -x: normalized printed ST,
+        # then draw_tris applies literal ratio4 (128/256 Glide units).
+        s = assets.printed_float(s)
+        source_t = assets.printed_float(assets.f32(1.0 - t))
+        packed.extend(struct.pack("<2f", s, assets.f32(1.0 - source_t)))
+    for selector in (0, 1):
+        for triangle in poly.triangles:
+            assets.require(triangle[2] == 0, "PHELM must bind the sole supplied pdecal[2].")
+            packed.extend(struct.pack("<3I", *triangle[selector]))
+    return bytes(packed)
+
+
+def prepare(original_root, output, authorization_reference, with_dust=False, with_helmet=False):
+    with_dust = with_dust or with_helmet
     assets.require(authorization_reference and len(authorization_reference) <= 1024, "Explicit local reuse authorization reference required.")
     assets.require(Path(original_root).is_absolute(), "Supply an explicit absolute authorized original root.")
     original_root = assets.physical(original_root, directory=True)
@@ -113,6 +161,18 @@ def prepare(original_root, output, authorization_reference, with_dust=False):
                 "inputs": inputs, "frames": frames}
     if with_dust:
         manifest.update(dustInputs=dust_inputs, dustFrames=dust_frames)
+    if with_helmet:
+        data = assets.read_file(original_root, HELMET_PIN["path"], maximum=65536)
+        assets.require(assets.fingerprint(data) == {k: HELMET_PIN[k] for k in ("bytes", "sha256", "gitBlobSha1")},
+                       "Exact original PHELM input pin required.")
+        relative = "inputs/models/phelm.sdl.bytes"
+        payloads[relative] = data
+        payloads["helmet-geometry.bytes"] = helmet_geometry_from_sdl(data)
+        manifest.update(schema=HELMET_SCHEMA, helmetInput=dict(HELMET_PIN, payloadPath=relative),
+                        helmetMeshPath="helmet-geometry.bytes", helmetMeshBytes=len(payloads["helmet-geometry.bytes"]),
+                        helmetMeshSha256=assets.digest(payloads["helmet-geometry.bytes"]),
+                        helmetGeometryOrigin=HELMET_ORIGIN, helmetUvOrigin=HELMET_UV_ORIGIN,
+                        helmetGeometryFactor=1.2, helmetIntegerAspect=4, nativeGeneratedHelmetHeaderEquivalent=False)
     output.mkdir()
     for relative, data in payloads.items():
         path = output / assets.portable(relative)
@@ -120,8 +180,9 @@ def prepare(original_root, output, authorization_reference, with_dust=False):
         path.write_bytes(data)
     raw = assets.json_bytes(manifest)
     (output / "manifest.json").write_bytes(raw)
-    return {"manifestSha256": assets.digest(raw), "inputs": len(inputs) + len(dust_inputs),
+    return {"manifestSha256": assets.digest(raw), "inputs": len(inputs) + len(dust_inputs) + int(with_helmet),
             "frames": len(frames), "dustFrames": len(dust_frames),
+            "helmetGeometrySha256": assets.digest(payloads["helmet-geometry.bytes"]) if with_helmet else None,
             "inputOrigin": ORIGIN, "nativeConvertedTextureEquivalent": False, "generatedSpfxHeaderEquivalent": False}
 
 
@@ -131,8 +192,9 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--authorization-reference", required=True)
     parser.add_argument("--with-dust", action="store_true", help="Explicit v2 migration retaining the v1 SDL/17-TRAIL pins plus all ten DIRT frames.")
+    parser.add_argument("--with-helmet", action="store_true", help="Explicit v3 migration retaining v2 plus the original PHELM authoring mesh; no new texture or native-header claim.")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.original_root, args.output, args.authorization_reference, args.with_dust), indent=2))
+    print(json.dumps(prepare(args.original_root, args.output, args.authorization_reference, args.with_dust, args.with_helmet), indent=2))
 
 
 if __name__ == "__main__":

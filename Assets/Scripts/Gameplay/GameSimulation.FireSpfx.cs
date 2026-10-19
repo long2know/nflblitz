@@ -54,7 +54,28 @@ namespace Blitz.Gameplay
                 SourceDirectionMath directions = Model.SourcePlaybook.Directions;
                 return new SourceVector3(.35f * directions.Sin(facing) + 0f * directions.Cos(facing), .10f,
                     .35f * directions.Cos(facing) - 0f * directions.Sin(facing));
+            }, angle => Model.SourcePlaybook.Directions.Sin(angle), actor =>
+            {
+                SourceFireGuard.Require(sourceFireConfiguration.ReadHelmetDecal != null,
+                    "SOURCE_HELMET_DECAL_REQUIRED: the actual team renderer must bind selected actor odata.pdecal[2].");
+                return sourceFireConfiguration.ReadHelmetDecal(Model.Players[actor].SourceRoster, Model.Players[actor].Team);
             });
+        }
+
+        private void ClearSourceLooseHelmet(string path, string function, int killLine, int deleteLine, int actor = -1)
+        {
+            if (!SourceFireEnabled) return;
+            FireRuntime.Apply(SourceFireCommand.Control(FireSite(path, function, killLine, actor),
+                SourceFireOperation.KillProcessGroup, SourceFireIds.LooseHelmet));
+            FireRuntime.Apply(SourceFireCommand.Control(FireSite(path, function, deleteLine, actor),
+                SourceFireOperation.DeleteObjectGroup, SourceFireIds.LooseHelmetObject));
+        }
+
+        private void AdmitSourceLooseHelmet(ActorState actor, int line)
+        {
+            if (SourceFireEnabled)
+                FireRuntime.Apply(SourceFireCommand.Create(FireSite("player.c", "maybe_pop_helmet", line, actor.Id),
+                    SourceFireEntry.LooseHelmet, new SourceFireArgs(actor.Id, 0, 0)));
         }
 
         private void AdmitSourceDust(ActorState actor, int argument)

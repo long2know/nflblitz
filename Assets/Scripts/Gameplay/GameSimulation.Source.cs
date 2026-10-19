@@ -362,6 +362,7 @@ namespace Blitz.Gameplay
         private void PrepareSourceKickoff(bool first, bool half)
         {
             RequireSourcePlaybook();
+            ClearSourceLooseHelmet("nfl.c", "game_proc", 867, 868);
             SourceFireSelectionExit();
             SourcePlayStart start = SourceMatchFlow.BeginPlay(Model.SourceRules, Model.Quarter - 1,
                 Model.SourceClock.PackedTime, first);
@@ -1011,6 +1012,7 @@ namespace Blitz.Gameplay
                 return;
             }
             Model.Phase = GamePhase.PlaySelect;
+            ClearSourceLooseHelmet("nfl.c", "game_proc", 867, 868);
             SourceFireSelectionEntry();
             Model.SourceOffenseFlipped = false;
             Model.SourceMatchPhase = Model.SourceRules.PlayType == SourcePlayType.ExtraPoint

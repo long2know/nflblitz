@@ -62,7 +62,9 @@ See [stage/API details](STAGE.md) and
 The model compiles **actual production C# 7.3 / .NET Standard 2.1**, warnings as
 errors. It uses all current Contracts, the existing immutable roster JSON reader,
 production input/menu/bridge code and the actual HUD composer, not fake Unity
-APIs or substitute DTOs.
+APIs or substitute DTOs. The isolated source capture and project also include the
+actual team-presentation catalog and its shared player-data and authorized-file/
+TGA dependencies, required by the loose-helmet decal selection signature.
 
 Synthetic-only checks require no original assets:
 

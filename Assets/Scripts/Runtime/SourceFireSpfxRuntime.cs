@@ -32,6 +32,19 @@ namespace Blitz.Runtime
             internal int Stage;
             internal bool Hidden;
         }
+        private sealed class HelmetObject
+        {
+            internal long Serial, Owner, EntryTick, CacheTick;
+            internal int Actor;
+            internal SourceVector3 EntryPosition;
+            internal bool Hidden;
+        }
+        private sealed class HelmetGlobal
+        {
+            internal float X, Y, Z, Vx, Vy, Vz, Tx, Ty, Tz, Scale;
+            internal int Heading, Elevation, Phi, Pitch, PitchRate, Alpha, FlightTime, Flags, Bounces, BounceTime;
+            internal SourceLooseHelmetDecal Decal;
+        }
 
         private readonly SourceFireSpfxBundle data;
         private readonly LinkedList<Process> processes = new LinkedList<Process>();
@@ -39,6 +52,8 @@ namespace Blitz.Runtime
         private readonly HashSet<long> usedProcessSerials = new HashSet<long>();
         private readonly List<Puff> objects = new List<Puff>();
         private readonly List<Trail> trails = new List<Trail>();
+        private readonly List<HelmetObject> helmets = new List<HelmetObject>();
+        private HelmetGlobal helmet = new HelmetGlobal();
         private readonly List<SourceFireRecord> records = new List<SourceFireRecord>();
         private readonly List<string> portableBoundaries = new List<string>();
         private SourceFireBootstrap bootstrap;
@@ -64,6 +79,7 @@ namespace Blitz.Runtime
             bootstrap = value; tick = null; host = null; faulted = false;
             processes.Clear(); bySerial.Clear(); usedProcessSerials.Clear(); objects.Clear(); records.Clear(); portableBoundaries.Clear();
             trails.Clear();
+            helmets.Clear(); helmet = new HelmetGlobal();
             AlmostFireFlash = FireFlash = false; DefensiveFlashCount = 0; BallEffect = SourceFireBallEffect.None; nextObject = 1;
         }
 
@@ -159,7 +175,7 @@ namespace Blitz.Runtime
                     wakeCall = 0;
                     host.EnterEffectWake(wakeSite);
                     Record("Wake", wakeSite, p, 0, 0, slot.Function);
-                    if (p.ObjectSerial != 0 && (p.Entry == SourceFireEntry.BallTrail ?
+                    if (p.ObjectSerial != 0 && p.Entry != SourceFireEntry.LooseHelmet && (p.Entry == SourceFireEntry.BallTrail ?
                         FindTrail(p.ObjectSerial) == null : FindObject(p.ObjectSerial) == null))
                     {
                         if (bootstrap.StalePolicy == SourceFireStalePolicy.RejectUndefinedAccess)
@@ -209,6 +225,10 @@ namespace Blitz.Runtime
                     if ((SourceFireIds.BallObject & command.Mask) == command.GroupId)
                     { RecordTrail("DeleteObjectGroup", command.Site, trails[i]); trails.RemoveAt(i); }
                     else i++;
+                for (int i = 0; i < helmets.Count;)
+                    if ((SourceFireIds.LooseHelmetObject & command.Mask) == command.GroupId)
+                    { RecordHelmet("DeleteObjectGroup", command.Site, helmets[i]); helmets.RemoveAt(i); }
+                    else i++;
             }
             else if (command.Operation == SourceFireOperation.HideAllObjects || command.Operation == SourceFireOperation.UnhideAllObjects)
             {
@@ -216,6 +236,8 @@ namespace Blitz.Runtime
                 { obj.Hidden = command.Operation == SourceFireOperation.HideAllObjects; RecordObject("ObjectHidden", command.Site, obj); }
                 foreach (Trail obj in trails)
                 { obj.Hidden = command.Operation == SourceFireOperation.HideAllObjects; RecordTrail("ObjectHidden", command.Site, obj); }
+                foreach (HelmetObject obj in helmets)
+                { obj.Hidden = command.Operation == SourceFireOperation.HideAllObjects; RecordHelmet("ObjectHidden", command.Site, obj); }
             }
             else if (command.Operation == SourceFireOperation.ResetLineupLatches)
             { AlmostFireFlash = FireFlash = false; DefensiveFlashCount = 0; }
@@ -287,8 +309,23 @@ namespace Blitz.Runtime
                 }
                 ballTrails.Add(new SourceBallTrail(obj.Serial, obj.Owner, obj.EntrySample, obj.Stage, obj.Hidden));
             }
+            var looseHelmets = new List<SourceLooseHelmet>();
+            foreach (HelmetObject obj in helmets)
+                looseHelmets.Add(new SourceLooseHelmet(obj.Serial, obj.Owner, obj.Actor, obj.EntryTick, obj.CacheTick,
+                    obj.EntryPosition, new SourceVector3(helmet.X, helmet.Y, helmet.Z),
+                    new SourceVector3(helmet.Vx, helmet.Vy, helmet.Vz), new SourceVector3(helmet.Tx, helmet.Ty, helmet.Tz),
+                    helmet.Heading, helmet.Elevation, helmet.Phi, helmet.Pitch, helmet.PitchRate, helmet.Alpha, helmet.Scale,
+                    helmet.FlightTime, helmet.Flags, helmet.Bounces, helmet.BounceTime, obj.Hidden, helmet.Decal));
+            int globalBallFlags = 0;
+            if (helmets.Count != 0)
+            {
+                SourceFireGuard.Require(host.ReadBallRender != null, "Loose helmet draw reads current global ball_obj.flags, not its own flags.");
+                SourceFireBallRenderSample ball = host.ReadBallRender();
+                SourceFireGuard.Require(ball.SourceTick == tick.SourceTick, "Loose helmet WHITE requires the current global ball flags.");
+                globalBallFlags = ball.RawFlags;
+            }
             return new SourceFireRenderFrame(tick.SourceTick, tick.OriginalPcount, bootstrap, tick.OrderEvidence, basis,
-                particles, flags, records, portableBoundaries, data.ManifestSha256, ballTrails);
+                particles, flags, records, portableBoundaries, data.ManifestSha256, ballTrails, looseHelmets, globalBallFlags);
         }
 
         private void Run(Process p)
@@ -309,6 +346,7 @@ namespace Blitz.Runtime
                 case SourceFireEntry.BallPuff: RunBallPuff(p); break;
                 case SourceFireEntry.BallTrail: RunBallTrail(p); break;
                 case SourceFireEntry.DustCloud: RunDustCloud(p); break;
+                case SourceFireEntry.LooseHelmet: RunLooseHelmet(p); break;
                 case SourceFireEntry.FlashPlayerWhite:
                     if (p.State == 0 && p.Args.A1 == 0 || p.State == 2 && ++p.Cursor >= p.Args.A1)
                     { Retire(p, "ReturnDie", Site(9856, p.Args.A0), 1); return; }
@@ -448,6 +486,125 @@ namespace Blitz.Runtime
             Trail current = FindTrail(p.ObjectSerial);
             RecordTrail("BallTrailStage", Site(p.Cursor == 0 ? 10553 : 10555 + 3 * p.Cursor, -1), current);
             Sleep(p, 1, 10557 + 3 * p.Cursor);
+        }
+
+        private void RunLooseHelmet(Process p)
+        {
+            const float gravity = -.08f;
+            if (p.State == 0)
+            {
+                data.RequireHelmet();
+                SourceFireGuard.Require(host.ReadDirectionSin != null && host.ReadHelmetDecal != null,
+                    "SOURCE_HELMET_INPUT_REQUIRED: actual original direction table and selected actor pdecal[2] are required.");
+                SourceFireCachedPlayerFrame cache = host.ReadCachedPlayer(p.Args.A0);
+                SourceFireGuard.Require(cache != null && cache.ActorId == p.Args.A0 && cache.Camera.SourceTick <= tick.SourceTick &&
+                    (cache.CacheSourceTick >= tick.SourceTick - 1 || cache.RetentionEvidence != null),
+                    "loose_helmet_proc requires cached JOINT_NECK8 and its matching cambot at first wake, not a fresh attachment.");
+                SourceVector3 j = cache.CameraJoints[8], c = cache.Camera.Position;
+                ReadOnlyCollection<float> m = cache.Camera.Transform;
+                helmet.X = j.X * m[0] + j.Y * m[4] + j.Z * m[8] + c.X;
+                helmet.Y = j.X * m[1] + j.Y * m[5] + j.Z * m[9] + c.Y;
+                helmet.Z = j.X * m[2] + j.Y * m[6] + j.Z * m[10] + c.Z;
+                helmet.Vy = 1.6f; helmet.Vx = .35f; helmet.Vz = .35f;
+                if (Draw(100, Site(9234, p.Args.A0)) < 45)
+                { helmet.Vx *= -1; helmet.Vz *= -1; }
+                helmet.Alpha = 255; helmet.Pitch = 0; helmet.PitchRate = 40; helmet.Scale = 2f; helmet.Bounces = 0;
+                helmet.Decal = host.ReadHelmetDecal(p.Args.A0);
+                SourceFireGuard.Require(helmet.Decal.IsSpecified, "SOURCE_HELMET_DECAL_REQUIRED: missing actual selected pdecal[2].");
+                // player.c's ball_data is global. Entry does not reset phi/flags/flight_time/targets/bounce_time.
+                var obj = new HelmetObject { Serial = nextObject++, Owner = p.Serial, Actor = p.Args.A0,
+                    EntryTick = tick.SourceTick, CacheTick = cache.CacheSourceTick,
+                    EntryPosition = new SourceVector3(helmet.X, helmet.Y, helmet.Z) };
+                helmets.Add(obj); p.ObjectSerial = obj.Serial; p.State = 1;
+                Record("LooseHelmetEntryCache", Site(9223, p.Args.A0), p, obj.Serial, 8,
+                    "cache-tick=" + cache.CacheSourceTick + "|" + cache.CacheProvenance + "|" + cache.Camera.Provenance);
+                RecordHelmet("CreateObject", Site(9248, p.Args.A0), obj);
+                Boundary("portable:loose-helmet-global-zeroed-only-at-explicit-host-epoch;native-program-BSS-equivalence-unverified");
+            }
+            helmet.X += helmet.Vx;
+            helmet.Y += helmet.Vy + gravity / 2f;
+            helmet.Z += helmet.Vz;
+            helmet.Vy += gravity;
+            if (helmet.Y <= .9f * helmet.Scale)
+            {
+                int previousBounces = helmet.Bounces;
+                helmet.Bounces = HelmetAdd(helmet.Bounces, 1, "bounces");
+                if (previousBounces < 3)
+                    Apply(SourceFireCommand.DirectSound(new SourceFireDirectSound(Site(9262, p.Args.A0),
+                        "players", 108, 115, 127, "PRIORITY_LVL2", 10)));
+                helmet.Flags |= 0x20;
+                helmet.Y = .9f * helmet.Scale; helmet.BounceTime = tick.OriginalPcount;
+                helmet.Vy = (float)(helmet.Vy * -0.5d);
+                helmet.Vy = (float)(helmet.Vy - 0.10d);
+                if (helmet.Vy <= 0f)
+                {
+                    helmet.Vx = 0f; helmet.Vy = 0f; helmet.Vz = 0f;
+                    helmet.Tx = helmet.X; helmet.Tz = helmet.Z; helmet.Ty = 0f;
+                }
+                else
+                {
+                    float speed = (float)Math.Sqrt(helmet.Vx * helmet.Vx + helmet.Vz * helmet.Vz);
+                    int theta = speed > 0f ? HelmetAsin(helmet.Vz / speed) : 0;
+                    if (helmet.Vx < 0f) theta = 512 - theta;
+                    theta += Draw(201, Site(9298, p.Args.A0));
+                    theta += Draw(157, Site(9299, p.Args.A0));
+                    theta += Draw(157, Site(9300, p.Args.A0));
+                    theta -= Draw(201, Site(9301, p.Args.A0));
+                    theta -= Draw(157, Site(9302, p.Args.A0));
+                    theta -= Draw(157, Site(9303, p.Args.A0));
+                    helmet.Vx = .5f * speed * host.ReadDirectionSin(unchecked(theta + 256));
+                    helmet.Vz = .5f * speed * host.ReadDirectionSin(theta);
+                    float time = -2f * helmet.Vy / gravity;
+                    helmet.Tx = helmet.X + time * helmet.Vx; helmet.Tz = helmet.Z + time * helmet.Vz; helmet.Ty = 0f;
+                }
+                Record("LooseHelmetBounce", Site(9312, p.Args.A0), p, p.ObjectSerial, helmet.Bounces, "global-ball_data;no-object-retirement");
+            }
+            helmet.FlightTime = HelmetAdd(helmet.FlightTime, 1, "flight_time");
+            float vx = helmet.Vx, vy = helmet.Vy, vz = helmet.Vz;
+            float horizontal = (float)Math.Sqrt(vx * vx + vz * vz);
+            float magnitude = (float)Math.Sqrt(vx * vx + vy * vy + vz * vz);
+            if (vx == 0f && vz == 0f) helmet.Elevation = 0;
+            else
+            {
+                int angle = HelmetAsin(vx / horizontal);
+                if (vz < 0f) angle = (512 - angle) & 1023;
+                helmet.Heading = angle;
+                if ((helmet.Flags & 2) != 0) helmet.Elevation = HelmetAsin(vy / magnitude);
+                else
+                {
+                    helmet.Pitch = HelmetAdd(helmet.Pitch, helmet.PitchRate, "pitch");
+                    helmet.Elevation = helmet.Pitch % 1024;
+                }
+                helmet.Phi = HelmetAdd(helmet.Phi, Draw(35, Site(9350, p.Args.A0)) + 30, "phi");
+            }
+            Record("LooseHelmetStep", Site(9352, p.Args.A0), p, p.ObjectSerial, helmet.FlightTime, "original-while1;no-TTL-or-fade");
+            Sleep(p, 1, 9352);
+        }
+
+        private int HelmetAsin(float value)
+        {
+            SourceFireGuard.Require(!float.IsNaN(value) && value >= -1f && value <= 1f,
+                "SOURCE_HELMET_UNDEFINED: original iasin outside its table domain; no clamp or guessed heading.");
+            bool negative = value < 0f;
+            float x = negative ? -value : value;
+            int low = 0, high = 255;
+            while (low < high)
+            {
+                int mid = (low + high) / 2;
+                if (host.ReadDirectionSin(mid + 1) < x) low = mid + 1;
+                else high = mid;
+            }
+            float ld = host.ReadDirectionSin(low) - x, hd = host.ReadDirectionSin(low + 1) - x;
+            ld *= ld; hd *= hd;
+            int result = hd < ld ? low + 1 : low;
+            return negative ? -result : result;
+        }
+
+        private static int HelmetAdd(int value, int amount, string field)
+        {
+            try { return checked(value + amount); }
+            catch (OverflowException)
+            { throw new SourceFireBoundaryException("SOURCE_HELMET_UNDEFINED: original signed int " + field + " overflow; native wrap is not proven."); }
         }
 
         public void MaybePlayerFire(SourceFireSite site, SourceFirePlayerEmitterInput input)
@@ -642,6 +799,9 @@ namespace Blitz.Runtime
         private void RecordTrail(string kind, SourceFireSite site, Trail obj)
         { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, 215 - 15 * obj.Stage,
             "balltrl:stage=" + obj.Stage + (obj.Hidden ? ";hidden" : ";visible"))); }
+        private void RecordHelmet(string kind, SourceFireSite site, HelmetObject obj)
+        { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, helmet.Alpha,
+            "loosehlm:global-ball_data;pdecal[2]=" + helmet.Decal.TextureId + ";ratio4;" + (obj.Hidden ? "hidden" : "visible"))); }
         private void Boundary(string value)
         { if (!portableBoundaries.Contains(value)) portableBoundaries.Add(value); }
         private void ReorderKnownEffects(IReadOnlyList<long> order)
@@ -661,11 +821,11 @@ namespace Blitz.Runtime
         { return entry == SourceFireEntry.PlayerBurst ? "player_burst_into_flames" : entry == SourceFireEntry.PlayerPuff ?
             "plyr_fire_trail_proc" : entry == SourceFireEntry.BallPuff ? "ball_fire_trail_proc" :
             entry == SourceFireEntry.BallTrail ? "trail_ball_proc" : entry == SourceFireEntry.DustCloud ?
-            "dust_cloud_proc" : "flash_plyr_proc"; }
+            "dust_cloud_proc" : entry == SourceFireEntry.LooseHelmet ? "loose_helmet_proc" : "flash_plyr_proc"; }
         private static int EntryLine(SourceFireEntry entry)
         { return entry == SourceFireEntry.PlayerBurst ? 4523 : entry == SourceFireEntry.PlayerPuff ? 9518 :
             entry == SourceFireEntry.BallPuff ? 9422 : entry == SourceFireEntry.BallTrail ? 10546 :
-            entry == SourceFireEntry.DustCloud ? 9576 : 9838; }
+            entry == SourceFireEntry.DustCloud ? 9576 : entry == SourceFireEntry.LooseHelmet ? 9213 : 9838; }
         private static bool BallEntry(SourceFireEntry entry)
         { return entry == SourceFireEntry.BallPuff || entry == SourceFireEntry.BallTrail; }
         private static bool IsWitness(string value)
