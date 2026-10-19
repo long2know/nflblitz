@@ -182,6 +182,11 @@ namespace Blitz.Editor
                 services.NativeGamepadsEnabled);
             Require(services.Profile.StableId == profile.StableId, "Saved services explicit generation tag differs; old resources are not upgraded.");
             Require(ReferenceEquals(services.Hud, hud), "Saved services refer to a different original HUD.");
+            if (profile.IsContact281C2M1)
+            {
+                SourceTeamInterfaceImporter.RequirePossessionSpeechResource();
+                Require(hud.PossessionSound != null, "Saved M1 HUD must load the pinned canonical CAMBOT speech operands.");
+            }
             SourceAnimationLibraryAsset animation = Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey);
             SourceTeamInterfaceImporter.RequireAnimationProfileAsset(profile, animation);
             Require(animation != null && animation.InventorySha256 == profile.AnimationSha256 &&

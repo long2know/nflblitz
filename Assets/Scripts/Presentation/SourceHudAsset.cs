@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Blitz.AssetImport;
+using Blitz.Gameplay;
 using UnityEngine;
 
 namespace Blitz.Presentation
@@ -18,6 +19,7 @@ namespace Blitz.Presentation
     public sealed class SourceHudAsset : ScriptableObject
     {
         public const string ResourceKey = "BlitzSourceInterface/original-interface";
+        public const string PossessionSpeechResourceKey = ResourceKey + "-possession-speech";
         public const string PreparedManifestSha256 = "258d5f4361d7da852b1446e774c5aad7d389ed268daabf3d4971c68a29fd8435";
         [SerializeField] private TextAsset manifest;
         [SerializeField] private string manifestSha256;
@@ -26,6 +28,22 @@ namespace Blitz.Presentation
         private SourceInterfaceData data;
         private Dictionary<string, Texture2D> textures;
         private Material material;
+        private SourcePossessionSoundData possessionSound;
+        public SourcePossessionSoundData PossessionSound
+        {
+            get
+            {
+                if (possessionSound == null)
+                {
+                    TextAsset original = Resources.Load<TextAsset>(PossessionSpeechResourceKey);
+                    if (original == null)
+                        throw new SourceInterfaceException("Missing pinned original message operands at Resources/" +
+                            PossessionSpeechResourceKey + ".bytes; run tools/interface/prepare_possession.py and explicitly import its ignored output.");
+                    possessionSound = SourcePossessionSoundData.Read(original.bytes);
+                }
+                return possessionSound;
+            }
+        }
 
         public SourceInterfaceData Data { get { Load(); return data; } }
         public Material Material { get { Load(); return material; } }
@@ -62,6 +80,18 @@ namespace Blitz.Presentation
             }
             if (loaded.Count != parsed.Textures.Count)
                 throw new SourceInterfaceException("An original HUD/selection texture was omitted; no transparent fallback is allowed.");
+            foreach (SourceHudTextureBytes binding in textureBytes)
+                if (binding.Id == "interface")
+                {
+                    SourceInterfaceTexture definition = parsed.Textures[binding.Id];
+                    byte[] mask = SourceHudTextureMask.WhiteFlash(parsed.RequireTextureBytes(binding.Id, binding.Data.bytes));
+                    var texture = new Texture2D(definition.Width, definition.Height, TextureFormat.RGBA32, false);
+                    texture.name = "source-interface-white-chromakey-" + definition.Sha256;
+                    texture.filterMode = definition.PointSampled ? FilterMode.Point : FilterMode.Bilinear;
+                    texture.wrapMode = TextureWrapMode.Clamp;
+                    texture.LoadRawTextureData(mask); texture.Apply(false, true);
+                    loaded.Add("interface-white", texture);
+                }
             material = new Material(sourceHudShader) { name = "Original interface source-alpha renderer" };
             textures = loaded; data = parsed;
         }

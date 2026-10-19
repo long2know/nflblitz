@@ -31,7 +31,7 @@ namespace Blitz.Runtime
         private readonly int[] left = new int[2];
         private readonly bool[] hidden = new bool[2];
         private readonly bool[] selected = new bool[2];
-        private long entered = -1;
+        private int menuSleepRemaining;
         private long lastSourceTick = -1;
         private bool inMenu;
         public bool Flipped { get; private set; }
@@ -57,21 +57,25 @@ namespace Blitz.Runtime
             if (source == null || source.Match == null) throw new SourceInterfaceException("Source selection needs the actual match snapshot.");
             if (sourceTick <= lastSourceTick || lastSourceTick >= 0 && sourceTick != lastSourceTick + 1)
                 throw new SourceInterfaceException("Source play selection must execute once for every ordered SOURCE tick, never per render/host tick.");
+            if (sourceTick != source.SourceTick)
+                throw new SourceInterfaceException("Source selection needs the current dispatched SOURCE snapshot.");
             lastSourceTick = sourceTick;
             SourceMatchView match = source.Match;
             bool menu = match.Phase == SourceMatchPhase.PlaySelection || match.Phase == SourceMatchPhase.PatSelection;
             if (!menu) { inMenu = false; return frame; }
+            if (!MenuConsumerAwake(state, sourceTick)) return frame;
             if (!inMenu)
             {
-                ResetMenu(); entered = sourceTick; inMenu = true;
+                ResetMenu(); menuSleepRemaining = 20; inMenu = true;
             }
+            else if (menuSleepRemaining > 0) menuSleepRemaining--;
             var output = new SourceStationInput[frame.Stations.Count];
             for (int i = 0; i < output.Length; i++)
             {
                 SourceStationInput input = frame.Stations[i];
                 TeamId side = SourceCabinetStations.Team(match, input.StationId);
                 SourceCommand command = input.Command;
-                if (sourceTick >= entered + 20 && SourceCabinetStations.Captain(match, side) == input.StationId &&
+                if (menuSleepRemaining == 0 && SourceCabinetStations.Captain(match, side) == input.StationId &&
                     !selected[(int)side] && (!command.IsSpecified ||
                         command.Action == SourceAction.None && !command.OffenseFlipped.HasValue))
                 {
@@ -87,6 +91,25 @@ namespace Blitz.Runtime
                     input.Pressed, input.Released, command);
             }
             return new SourceInputFrame(output);
+        }
+
+        private static bool MenuConsumerAwake(IGameState state, long sourceTick)
+        {
+            var processState = state as ISourcePossessionState;
+            if (processState == null || processState.Processes == null)
+                throw new SourceInterfaceException("Source menu input requires the actual portable process snapshot.");
+            SourceProcessView? consumer = null;
+            foreach (SourceProcessView process in processState.Processes)
+                if (process.Function == "game_proc")
+                {
+                    if (consumer.HasValue || process.Id != 0x0010)
+                        throw new SourceInterfaceException("Source menu input requires one actual game_proc consumer.");
+                    consumer = process;
+                }
+            if (!consumer.HasValue)
+                throw new SourceInterfaceException("Source menu input requires one actual game_proc consumer.");
+            // The portable menu is owned by game_proc; an input scan is not its wake.
+            return !consumer.Value.Suspended && consumer.Value.LastWakeTick == sourceTick;
         }
 
         private SourceCommand Process(IGameState state, long tick, TeamId side, SourceStationInput input)
@@ -201,7 +224,7 @@ namespace Blitz.Runtime
 
         public void Clear()
         {
-            ResetMenu(); inMenu = false; entered = lastSourceTick = -1;
+            ResetMenu(); inMenu = false; lastSourceTick = -1;
         }
 
         public void ClearPendingInput()
@@ -211,7 +234,7 @@ namespace Blitz.Runtime
         {
             Array.Clear(cursor, 0, 2); Array.Clear(page, 0, 2); Array.Clear(up, 0, 2); Array.Clear(left, 0, 2);
             Array.Clear(hidden, 0, 2); Array.Clear(selected, 0, 2); previousJoy[0] = previousJoy[1] = -1;
-            Flipped = false;
+            Flipped = false; menuSleepRemaining = 0;
         }
 
         private static SourceCommand SelectionCommand(SourcePlaySelection play, bool flipped)

@@ -40,7 +40,8 @@ static class Checks
             Check(sink.State.GetProperty("actorCount").GetInt32() == 14 &&
                 sink.State.GetProperty("jointsPerActor").GetInt32() == 15 && sink.Joints.Length == 14 * 15 * 16,
                 "Actual production fourteen-actor/fifteen-joint render data is required, not static inspection.");
-            Check(sink.Models.Count == 32 && sink.WorldDraws > 0 && sink.Textures.Count == data.Teams.Textures.Count + 27,
+            Check(sink.Models.Count == 32 && sink.WorldDraws > 0 && sink.Textures.Count == data.Teams.Textures.Count + 28 &&
+                sink.Textures.ContainsKey("hud/interface-white"),
                 "The actual complete original model selector, world and texture inventories must be uploaded.");
             Check(sink.HasOriginalBall, "The original medball2/HEDSHU free-ball mesh must be bound, never a hand extraction or sphere.");
             var actors = sink.State.GetProperty("actors").EnumerateArray().ToArray();
@@ -56,11 +57,23 @@ static class Checks
             VerifyJointMath(data, host);
             var quantizer = new SourceCabinetQuantizer(data.Hud.Input);
             var input = new SourceCabinetInputBuffer(data.Configuration.Match);
-            input.Capture(new[] { new SourceCabinetSample(0, quantizer.SevenLevel(0, 0), SourceButtons.B) });
-            input.Capture(new[] { new SourceCabinetSample(0, quantizer.SevenLevel(0, 0), SourceButtons.None) });
-            Check(input.NextHostFrame().Stations[0].Pressed == SourceButtons.B &&
-                input.NextHostFrame().Stations[0].Released == SourceButtons.B,
+            var configured = data.Configuration.Match.Stations;
+            Check(configured.Count > 0, "Public cabinet checks require an explicitly configured human station.");
+            int firstStation = configured[0].StationId;
+            SourceCabinetSample[] CabinetSamples(SourceButtons held) => configured.Select(station =>
+                new SourceCabinetSample(station.StationId, quantizer.SevenLevel(0, 0),
+                    station.StationId == firstStation ? held : SourceButtons.None)).ToArray();
+            input.Capture(CabinetSamples(SourceButtons.B));
+            input.Capture(CabinetSamples(SourceButtons.None));
+            SourceInputFrame pressed = input.NextHostFrame(), released = input.NextHostFrame();
+            Check(pressed.Stations.Count == configured.Count && released.Stations.Count == configured.Count &&
+                pressed.Stations.Single(s => s.StationId == firstStation).Pressed == SourceButtons.B &&
+                released.Stations.Single(s => s.StationId == firstStation).Released == SourceButtons.B,
                 "Real cabinet buffer preserves press/release pairs even between two source wakes.");
+            bool missingStationRejected = false;
+            try { input.Capture(CabinetSamples(SourceButtons.None).Take(configured.Count - 1).ToArray()); }
+            catch (ArgumentException error) { missingStationRejected = error.Message.Contains("all configured source stations"); }
+            Check(missingStationRejected, "Actual cabinet checks retain configured-station completeness, not a single-station shortcut.");
             var beforePose = actors.Select(a => a.GetProperty("poseDigest").GetString()).ToArray();
             int uploadsBefore = sink.Meshes.Count;
             for (int i = 0; i < 90; i++)

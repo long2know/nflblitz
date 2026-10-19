@@ -267,6 +267,11 @@ namespace Blitz.Gameplay
         internal readonly SourceVector3[] SourceCameraGroundCenters = new SourceVector3[14];
         internal SourceVector3 SourceCameraBallTarget;
         internal long SourceCameraFeedbackTick = -1;
+        internal SourcePortableProcessHost SourceProcesses;
+        internal SourcePossessionMessageView SourcePossessionMessage;
+        internal System.Collections.ObjectModel.ReadOnlyCollection<SourcePossessionMessageView> SourcePossessionMessages;
+        internal bool SourceOffenseTurnover;
+        internal bool SourceCameraPossessionContinuation;
         internal uint SourceBreathControl;
         internal Func<int, int> SourceCStandardRandom;
         internal SourceQuarterbackPlan SourceQuarterbackPlan;

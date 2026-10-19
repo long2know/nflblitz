@@ -53,8 +53,10 @@ Core RNG, pose evaluation or camera ordering is changed.
 The current raw-CAMBOT integration records its ball-target camera cache before
 the completed fire frame. The mixed-frame disconnection control preserves that
 cache call and disconnects only fire-frame capture. Retained inventory guards
-require both new camera data/contracts files explicitly: 76 shared kernel files,
-or 83 with this suite's existing extra consumers.
+require both new camera data/contracts files and the shared possession-service
+producer explicitly: 77 shared kernel files, or84 with this suite's existing
+extra consumers. The mixed-frame mutant still disconnects only fire capture,
+not the adjacent source cache/message observation.
 
 ## Measured combined evidence
 

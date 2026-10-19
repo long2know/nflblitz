@@ -20,6 +20,15 @@ HEADERS = ("include/GAME.H", "include/player.h", "include/ani3d.h", "include/cam
 INPUTS = HEADERS + ("cambot.c",
           "CamData.c", "lib/ani3d/ANIM.C", "lib/ani3d/pipe3D.c", "plyrseq.c", "detect.c", "player.c")
 
+def generate_possession_services(authority, output, cases):
+    """Separate declared process campaign; the retained math campaign's aborts remain honest."""
+    import importlib.util
+    path = Path(__file__).parent.parent / "possession-services/oracle.py"
+    spec = importlib.util.spec_from_file_location("original_possession_services", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.generate(authority, output, cases)
+
 
 def declaration(data, name):
     match = re.search(r"(?:static\s+)?(?:float|SPLINE|CAMSEQINFO|CAMBOTINFO)\s+" + re.escape(name) +

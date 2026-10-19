@@ -220,7 +220,7 @@ namespace Blitz.AssetImport
 
 namespace Blitz.Contracts
 {
-    public readonly struct SourceCameraFeedback { }
+    public readonly struct SourceCameraFeedback { public bool CameraCompleted { get { return true; } } }
 }
 
 namespace Blitz.Gameplay
@@ -236,6 +236,7 @@ namespace Blitz.Gameplay
         public int SourceCameraStageOrder = -1, SourceCameraRawGameMode, SourceCameraHeading;
         public long SourceCameraHeadingSampleTick;
         public object SourceFireFrame;
+        public readonly object SourceCameraProcesses = new object();
         public readonly List<SourceContactSoundCue> UnresolvedContactSoundCalls = new List<SourceContactSoundCue>();
         public SourcePresentationCueBatch PresentationCues { get; private set; }
         public GameSimulation(int seed) { Restart(); }
@@ -243,6 +244,7 @@ namespace Blitz.Gameplay
         public int DrawSourceCameraRandom(int range) { return 0; }
         public object SourceActorWorldPosition(int actor) { return null; }
         public void ApplySourceCameraFeedback(SourceCameraFeedback feedback) { }
+        public void BindSourcePossessionSoundData(object data) { HostProbe.Record("speech.bind"); }
         public void SetSourceMovementCameraFrame(SourceMovementCameraFrame frame, long tick) { }
         public SourceSoundVmBatch TakeSourceSoundVmDispatches()
         { HostProbe.Record("sound.take"); return new SourceSoundVmBatch(); }
@@ -269,10 +271,15 @@ namespace Blitz.Presentation
     }
     public sealed class SourceTeamPresentationAsset
     { public readonly object Rosters = new object(), Catalog = new object(); }
-    public sealed class SourceHudAsset { public readonly HudData Data = new HudData(); }
+    public sealed class SourceHudAsset
+    { public readonly HudData Data = new HudData(); public readonly object PossessionSound = new object(); }
     public sealed class HudData { public readonly object Input = new object(); }
     public sealed class SourcePresentationSettings { public int DesignatedHomeSide; }
-    public sealed class SourceCinematicPlayback { }
+    public sealed class SourceCinematicPlayback
+    {
+        public bool UsesOriginalNormalCamera { get { return false; } }
+        public SourceCameraFeedback CameraFeedback { get { return default(SourceCameraFeedback); } }
+    }
     public sealed class SourceCinematicTransform { public object Position, Transform; }
     public sealed class FieldScene
     {
@@ -293,7 +300,7 @@ namespace Blitz.Presentation
         public PlayCamera(UnityEngine.Transform parent, SourcePlayerRig prefab) { HostProbe.Record("camera.create"); }
         public void ConfigureSourceMovementRaster(int width, int height) { HostProbe.Record("camera.raster"); }
         public void ConfigureSourceStage(IGameState state, Func<int> order, Func<int, int> random,
-            Func<IGameState, int> mode, Func<int, object> position, Action<SourceCameraFeedback> feedback)
+            Func<IGameState, int> mode, Func<int, object> position, Action<SourceCameraFeedback> feedback, object processServices)
         { HostProbe.Record("camera.stage"); }
         public int SampleAtSourceTick(IGameState state, long tick) { return 0; }
         public SourceCinematicTransform RequireSourceCameraAtTick(long tick) { return CurrentSourceCamera; }

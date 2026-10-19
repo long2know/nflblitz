@@ -55,6 +55,7 @@ namespace Blitz.Gameplay
     {
         internal readonly long Id;
         internal readonly long CreatedTick;
+        internal long HostSerial;
         internal int SleepRemaining = 1;
         internal bool Started;
         internal SourceC2WhistleProcess(long id, long tick) { Id = id; CreatedTick = tick; }
@@ -293,6 +294,8 @@ namespace Blitz.Gameplay
         private void SpawnSourceC2Whistle()
         {
             var process = new SourceC2WhistleProcess(++Model.SourceC2WhistleSerial, Model.SourceTick);
+            process.HostSerial = ++sourceFireNextSerial;
+            Model.SourceProcesses.Create(process.HostSerial, 0, "whistle_proc", 0);
             Model.SourceC2Whistles.Insert(0, process);
             C2Record(SourceC2EventKind.WhistleSpawned, Model.SourceRandomActor, "player.c:5948 qcreate head; id=" + process.Id,
                 Model.SourceTaunted, Model.SourceTaunted, "player.c", "player_down", 5948);
@@ -301,52 +304,41 @@ namespace Blitz.Gameplay
         private void DispatchSourceC2Whistles()
         {
             if (!SourceC2Enabled) return;
-            for (int index = 0; index < Model.SourceC2Whistles.Count;)
+            foreach (SourceC2WhistleProcess process in Model.SourceC2Whistles.ToArray())
+                DispatchSourceC2Whistle(process);
+        }
+
+        private void DispatchSourceC2Whistle(SourceC2WhistleProcess process)
+        {
+            if (!SourceC2Enabled || !Model.SourceC2Whistles.Contains(process)) return;
+            if (!EnterSourceProcess(process.HostSerial))
             {
-                SourceC2WhistleProcess process = Model.SourceC2Whistles[index];
-                if (process.CreatedTick >= Model.SourceTick || --process.SleepRemaining > 0) { index++; continue; }
+                process.SleepRemaining = Model.SourceProcesses.Require(process.HostSerial).SleepRemaining;
+                return;
+            }
+            process.SleepRemaining = 0;
+            try
+            {
                 BeginSourceProcess("whistle_proc", -1, 0);
                 if (!process.Started)
                 {
                     int chance = SourceDraw(100, "player.c:whistle_proc:6014");
                     C2Record(SourceC2EventKind.WhistleFirstWake, -1, "id=" + process.Id + ";chance=" + chance,
                         Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6014);
-                    if (chance >= 25) { Model.SourceC2Whistles.RemoveAt(index); continue; }
-                    process.Started = true;
-                    process.SleepRemaining = 30;
-                    index++;
-                    continue;
+                    if (chance >= 25)
+                    { Model.SourceC2Whistles.Remove(process); Model.SourceProcesses.Kill(process.HostSerial); }
+                    else { process.Started = true; process.SleepRemaining = 30; Model.SourceProcesses.Sleep(30); }
+                    return;
                 }
-                var context = new SourceC2SoundContext(SourceC2SoundFunctionKind.WhistleProc, Model.SourceTick,
+                ExecuteSourceC2NativeSound(new SourceC2SoundContext(SourceC2SoundFunctionKind.WhistleProc, Model.SourceTick,
                     "whistle_proc", Model.SourceRandomProcessOrder, -1, "player.c", "whistle_proc", 6018,
-                    invocationId: process.Id, firstCallIndex: Model.SourceRandomCallIndex);
-                ExecuteSourceC2NativeSound(context);
+                    invocationId: process.Id, firstCallIndex: Model.SourceRandomCallIndex));
                 C2Record(SourceC2EventKind.WhistleEmission, -1, "player.c:6018;id=" + process.Id,
                     Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6018);
-                Model.SourceC2Whistles.RemoveAt(index);
+                Model.SourceC2Whistles.Remove(process);
+                Model.SourceProcesses.Kill(process.HostSerial);
             }
-        }
-
-        private void DispatchSourceC2Whistle(SourceC2WhistleProcess process)
-        {
-            if (!SourceC2Enabled || !Model.SourceC2Whistles.Contains(process)
-                || process.CreatedTick >= Model.SourceTick || --process.SleepRemaining > 0) return;
-            BeginSourceProcess("whistle_proc", -1, 0);
-            if (!process.Started)
-            {
-                int chance = SourceDraw(100, "player.c:whistle_proc:6014");
-                C2Record(SourceC2EventKind.WhistleFirstWake, -1, "id=" + process.Id + ";chance=" + chance,
-                    Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6014);
-                if (chance >= 25) Model.SourceC2Whistles.Remove(process);
-                else { process.Started = true; process.SleepRemaining = 30; }
-                return;
-            }
-            ExecuteSourceC2NativeSound(new SourceC2SoundContext(SourceC2SoundFunctionKind.WhistleProc, Model.SourceTick,
-                "whistle_proc", Model.SourceRandomProcessOrder, -1, "player.c", "whistle_proc", 6018,
-                invocationId: process.Id, firstCallIndex: Model.SourceRandomCallIndex));
-            C2Record(SourceC2EventKind.WhistleEmission, -1, "player.c:6018;id=" + process.Id,
-                Model.SourceTaunted, Model.SourceTaunted, "player.c", "whistle_proc", 6018);
-            Model.SourceC2Whistles.Remove(process);
+            finally { CompleteSourceProcess(); }
         }
 
         private void SourceC2ImmediateWhistle(ActorState actor)

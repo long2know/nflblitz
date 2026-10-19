@@ -1,5 +1,44 @@
 # Original HUD and cabinet preparation
 
+## Original CAMBOT possession speech resource
+
+The explicit `Contact281C2M1` runtime also requires the original interception
+speech operands. Other service generations do not acquire this requirement.
+Generate the pinned 40-byte payload locally:
+
+```sh
+python3 -B tools/interface/prepare_possession.py \
+  --source-root PATH_TO_PINNED_NFL_ARCHIVE \
+  --sound-header PATH_TO_PINNED_MIDWAYVIDEO_INCLUDE/goose/sound.h \
+  --output .squad/.scratch/new-possession-speech
+```
+
+Its SHA256 is
+`ac9bdf7c37c8f3d9d1e7184ca96e2d9c28aad2e157940d05194513b8f06da5df`.
+With a legitimately entitled Editor, explicitly import it **before** importing
+or verifying M1 match services, using these arguments:
+
+```text
+-executeMethod Blitz.Editor.SourceTeamInterfaceImporter.ImportPossessionSpeechFromCommandLine
+-interfacePossessionSpeechRoot ABSOLUTE_AUTHORIZED_PREPARED_OUTPUT
+-interfacePossessionSpeech possession-speech.bytes
+-interfaceStableId original-cambot-message-data
+```
+
+Use a separate stable id from a new match-services import. The importer creates
+`Resources/BlitzSourceInterface/original-interface-possession-speech.bytes` in
+the ignored imported-assets tree. It rejects aliases, missing/changed bytes and
+duplicate resource keys before writing; an existing canonical, byte-identical
+TextAsset is reused without overwriting its GUID. This separate entrypoint also
+adds the required resource beside already imported immutable M1 services.
+The ordinary M1 importer checks it before creating any other output, and saved
+M1 verification exercises the same runtime HUD binding.
+
+The operands select original ordered sound metadata, not PCM/DSP playback.
+API-only compilation and importer wiring/removal guards are not an executed
+Editor import, a native player build or native pixel/scheduler qualification.
+Original operands and imported resources remain ignored; never commit them.
+
 ## Current synchronous sound-VM candidate
 
 The sound-runtime candidate extends the published movement157 layer without

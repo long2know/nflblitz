@@ -32,7 +32,7 @@ namespace Blitz.Presentation
             if (source == null || source.Match == null)
                 throw new SourceInterfaceException("Source HUD consumer received a legacy snapshot.");
             SourceHudState hud = new SourceHudState(state, asset.Data);
-            status.Advance(source.SourceTick, hud.ClockWarning);
+            status.Advance(source.SourceTick, hud.ClockWarning, hud.StatusProcessSuspended);
             journal.Drain(value =>
             {
                 Action<SourceGameEvent> consumer = SourceEventConsumed;

@@ -17,7 +17,7 @@ tracking/integrator, eleven-entry kickoff/P2P and original impact-return stage.
 There is no EMA/actor-envelope fallback. The unchanged older normal model is
 legacy/diagnostic only. See
 [`tests/presentation/normal-camera`](../../tests/presentation/normal-camera/README.md)
-for31,332 executed original-C wakes,24 compiled semantic controls, raw Core
+for34,084 executed original-C wakes,26 compiled semantic controls, raw Core
 observation/feedback and native-service qualifications.
 
 Keep the existing impact catalog and every approved original data pin:
@@ -31,7 +31,6 @@ python3 -B tools/source-player/prepare_camera.py \
   --input-manifest-sha256 "$APPROVED_PLAYER_MANIFEST_SHA256" \
   --camera .squad/.scratch/camera-input/normal-camera-original.json \
   --output .squad/.scratch/camera-player-data
-python3 -B tools/source-player/build.py --data .squad/.scratch/camera-player-data
 ```
 
 Apply this extension after the required ball/head/fire preparation. It adds one
@@ -40,6 +39,46 @@ receipts; approved556 becomes557 with all556 old file pins unchanged. For the
 native **API-only** integration, the explicit M1 team importer requires the same
 JSON beside `impact-presentation.json` in `-teamImpactRoot`. This does not
 establish a Unity import/player execution or original-data redistribution right.
+
+### Required active possession-message operands
+
+The same camera owner now executes the original interception/turnover2/punt-return
+branch and its real portable sleep/suspension continuation. A prepared camera
+bundle additionally needs the authenticated interception-speech operands:
+
+```sh
+python3 -B tools/interface/prepare_possession.py \
+  --source-root "$AUTHORIZED_ORIGINAL_ROOT" \
+  --sound-header "$AUTHORIZED_MIDWAY_ROOT/include/goose/sound.h" \
+  --output .squad/.scratch/possession-speech
+python3 -B tools/source-player/prepare_possession.py \
+  --input .squad/.scratch/camera-player-data \
+  --input-manifest-sha256 "$CAMERA_MANIFEST_SHA256" \
+  --speech .squad/.scratch/possession-speech/possession-speech.bytes \
+  --output .squad/.scratch/possession-player-data
+python3 -B tools/source-player/build.py --data .squad/.scratch/possession-player-data
+```
+
+This adds one40-byte entry without changing the schema or any inherited file
+pin: approved557 becomes558. It is required independently of the fire/meter
+options; there is no invented playlist or muted fallback. Source-owned speech
+submissions preserve the selected bank and actual ordered parameters but do not
+play PCM/DSP audio. Raw sound metadata remains visible in host events.
+
+`state.possessionServices` exposes current process sleep words/last wakes, the
+actual camera-output producer tick, saved continuation, message objects,
+timeout, and speech metadata. The camera retains its last output through the
+real sleep40; it does not manufacture a frame per rendered update. Message
+entry/sleep100/flashers/deletion and earlier-versus-later resumption are covered
+by the40-scenario original-C /47-case managed campaign in the camera README.
+Punt return intentionally has no overlay.
+
+The atlas has the complete authored WIF image, not generated native `_c1`
+geometry. The shared compositor uses that union once for the in-phase logical
+pair; it never duplicates the image or invents native Composit packing. Its
+derived white/chroma mask adds one runtime texture, not a new original payload.
+Native component/Glide pixels, global scheduler qualification, new public-input
+browser captures and the material parity gate remain separate.
 
 The portable metadata exposes the actual pre-actor raw camera stage and shared
 RNG request tail; GPU evidence reads the real projection uniform and full
@@ -689,12 +728,25 @@ Share reviewed gameplay screenshots only with explicit publication authorization
 
 The original kickoff occurs first. Its in-flight stick suppression is an
 original production rule, not broken keyboard input: movement becomes human
-controlled after the actual catch. Play selection retains its20-source-wake
+controlled after the actual catch. Play selection retains its20-admitted-menu-wake
 gate; normal snaps retain the original one-second gate. Keyboard edges are
 captured on events, not just render frames, and flow through the production
 cabinet buffer and60-host/57-source scheduler. Blur/hide/pause releases controls,
 clears pending edges and prevents hidden-time catch-up. Physical controller
 hardware qualification is separate from the tested standard mapping.
+
+Possession-message suspension stops the actual gameplay processes, not source
+input observation. Both production hosts bind the same selector once per
+ordered57Hz dispatch, including dispatches without a `game_proc` wake.
+The selector checks the current snapshot and consecutive ticks; only an actual
+awake game/menu consumer may change pages/plays or consume sleep20. No gameplay
+loop or RNG is run to fill the gap. Press/release pairs completed while frozen
+are not replayed after cleanup. A still-held button is read on the first later
+actor visit and compared with its last actor sample; earlier game/clock/status
+visits resume on the next dispatch. Focus clears pending input and requires
+neutral; full restart additionally clears the selector's ordering/menu epoch.
+The persistent C#7.3 cabinet/Core/HUD regression runs in the required
+`tests/presentation/possession-services` campaign with FX enabled and disabled.
 
 ## Authentic inputs and honest renderer boundaries
 
@@ -717,8 +769,9 @@ hardware qualification is separate from the tested standard mapping.
   and explicit original DIP resolution into `SetSourceMovementCameraFrame`.
   WebGL and Unity call the same producer, not an inspection orbit or copied
   browser algorithm. The old `NormalCameraModel` remains historical legacy/
-  diagnostic only. Native fast-trig/global-scheduler/initial-QB-box/possession-
-  message services and pixels are not qualified.
+  diagnostic only. Active possession messages now use the same owned camera
+  continuation and shared Core/HUD path. Native fast-trig/global-scheduler/
+  initial-QB-box and generated-component pixels remain unqualified.
 - `SourceHudComposer` supplies actual original authored atlas/font/play-plane
   draw commands. The surrounding HTML status is explicitly adapter UI, not
   original HUD. Authored-TGA and portable-authored-raster origins do not prove

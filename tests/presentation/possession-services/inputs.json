@@ -1,0 +1,27 @@
+{
+  "schema": "possession-service-ci-inputs/v1",
+  "repositories": {
+    "nfl": {"name": "historicalsource/nflblitz2000", "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded", "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7"},
+    "midway": {"name": "historicalsource/midwayvideo", "revision": "1792293aaaea00a919b59e8c05716978e85b4333", "tree": "fe8f9ea36e656d2529e73966af675a7b310f844f"}
+  },
+  "recipes": {
+    "tools/interface/pins.json": "66122f04bc7d5a2d55ccb08c18490d860a68458762b519785d15cf18e6fb4d49",
+    "tools/fire-spfx/inputs.json": "f95c1a54cdf26a4c3f3dfd58fe73e02ea396e3ed26361cae7533bb01be979233"
+  },
+  "authority": [
+    {"authority":"cambot.c","repository":"nfl","path":"cambot.c","bytes":100663,"gitBlobSha1":"00c9c913bc6a697dfd590666bf5597f2c2bc1eb7","sha256":"7411bdd1d13b4cbe968a2888f8189cce5d16fafa9f66cf9e4665a1adfbe5ac85"},
+    {"authority":"plyrinfo.c","repository":"nfl","path":"plyrinfo.c","bytes":164637,"gitBlobSha1":"e955e1c98a0fd0123ce0b865ddafdfd7c32c59d4","sha256":"69020d3f9526ee2b841c29ba9d5699fe4c01d3ac1c83c8f5e3733c25a7143def"},
+    {"authority":"Game.c","repository":"nfl","path":"Game.c","bytes":24958,"gitBlobSha1":"a005a9b44f032080f3dd6341dd4f5eb6104d9cd7","sha256":"fe5de5c212bcbc9f1dfb36c17afed765fc7be6a18c8075166aca625c6f67e162"},
+    {"authority":"select.c","repository":"nfl","path":"lib/select/select.c","bytes":246095,"gitBlobSha1":"26c3955a4081aff73d6e4f1f7633ae86f24e2c4a","sha256":"7e66183b17ee889ab78605ee09a84ef06598c4c3a3bd39166e81a1bd6eeae863"},
+    {"authority":"process.c","repository":"midway","path":"lib/goose/process.c","bytes":24792,"gitBlobSha1":"967ca53910f24ddfa48a14485113a8fd0c989959","sha256":"9059fa40564d964706f91accb62089e8cc67293102718a86aec9a8441b6b0b7e"},
+    {"authority":"mthread.c","repository":"midway","path":"lib/goose/mthread.c","bytes":36943,"gitBlobSha1":"7b44637c3d59e2256ad099226b7ea17f108907ef","sha256":"ee27d5efe6b7ca4ab39ae82be16d3b235625e625b4220e2e96525ae42170d7a0"},
+    {"authority":"sounds.c","repository":"nfl","path":"sounds.c","bytes":59853,"gitBlobSha1":"f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9","sha256":"f42c2555cc24b31b8654eb35d163b79acf72e16cc7ac41b893ab75c9caaf4605"},
+    {"authority":"include/sndcalls.h","repository":"nfl","path":"include/sndcalls.h","bytes":12978,"gitBlobSha1":"69f6c483502fb689eb1991169e0e31858378c763","sha256":"d4b95f2d905e85426a5255af91f9ab30d84cc188c0378e457c66135ca2a99c02"},
+    {"authority":"sound.h","repository":"midway","path":"include/goose/sound.h","bytes":9795,"gitBlobSha1":"b67e1f1d07cc22faf3f4c9e0269e091460750a46","sha256":"54b2d81f5a1dc47f882499b11d7f2ede8cce0aff79841029bdb92994fedcdc4d"},
+    {"authority":"include/id.h","repository":"nfl","path":"include/id.h","bytes":9160,"gitBlobSha1":"d2cc50865dd105c4143ac6b769765bd859cc4ff4","sha256":"06748a93cc40f76bd1a38a4315744449f6c743147a2ad5439221d564583720ea"},
+    {"authority":"include/GAME.H","repository":"nfl","path":"include/GAME.H","bytes":21878,"gitBlobSha1":"09d65c92971c32c44b1dc49fb4e4e98b371b1cd3","sha256":"17f70ebdef3d903b7369050f434b948c11329f6bbda881a950e098f59e5eead3"},
+    {"authority":"include/player.h","repository":"nfl","path":"include/player.h","bytes":20167,"gitBlobSha1":"a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8","sha256":"9f280ff09cf13720501528126792d816ad7862bdf74a6b21b7e8bf5320b44d80"},
+    {"authority":"nfl.c","repository":"nfl","path":"nfl.c","bytes":107299,"gitBlobSha1":"15b49474fb55e8bac280b6515fcf7bf59cdf8664","sha256":"97013eed27a110e11f7180954ed7b7977ee7dc113c372d426392a686948ab434"}
+  ],
+  "helmet": {"repository":"nfl","path":"models/phelm.sdl","bytes":19258,"gitBlobSha1":"d086f6944207a0ff2fa906ef7fc9692dcfb289ec","sha256":"03130e8e5dab04b4d5bd64290595b884bfb1e007440d9d228db9419f47614e5a"}
+}

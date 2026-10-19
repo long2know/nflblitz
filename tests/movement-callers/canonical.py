@@ -19,7 +19,7 @@ from kernel_sources import canonical_hashes, production_paths, C2_ANIMATION_SHA
 from compare_physics import compare
 
 CACHE_SOURCE = "Assets/Scripts/Gameplay/SourceMovementIntegration.cs"
-CACHE_SOURCE_SHA = "483162af9ac3c68006e816c8acca8a67a82ff01156cbbc6225080235d6bef2c1"
+CACHE_SOURCE_SHA = "17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b"
 CALL = """                IReadOnlyList<SourceVector3> joints = geometry.CameraJoints(
                     GameSnapshot.SourcePlayerView(actor, Model.SourceTick, true), root, frame);
                 if (joints == null || joints.Count != 15)

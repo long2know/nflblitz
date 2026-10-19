@@ -57,9 +57,9 @@ def mutations():
         ("omitted-unrotation", MODEL, "if ((flags & Unrotate) != 0 && unrotateTargets)",
          "if ((flags & Unrotate) != 0 && !unrotateTargets)", "normal must track actual actor root"),
         ("normal-loop-behind-special", PLAYBACK,
-         "flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                if (flags < 0)",
+         "flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                    if (flags < 0)",
          "originalNormal.Prepare(camera.State, input, horizontalResolution, verticalResolution, actualRandom);\n"
-         "                flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                if (flags < 0)",
+         "                    flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                    if (flags < 0)",
          "original normal state must not advance behind a special"),
         ("return-reseeded-angles", PLAYBACK, "actualRandom, snapReturn, snapReturn);",
          "actualRandom, true, snapReturn);", "travel return must integrate actual transient angular state"),
@@ -96,12 +96,12 @@ def mutations():
          "Position = rawActor.Position; Facing = rawActor.Heading;", "Position = rawActor.Position; Facing = rawActor.Heading & 1023;",
          "actual Core camera preserves raw unwrapped actor facing"),
         ("new-play-destroys-dispatch-lifetime", PLAYBACK,
-         "camera.RevertToNormal();\n                resumingNormal = false;",
-         "camera.Reset(camera.State); rawSequence = 0; targetActor = -1;\n                resumingNormal = false;",
+         "camera.RevertToNormal();\n                    resumingNormal = false;",
+         "camera.Reset(camera.State); rawSequence = 0; targetActor = -1;\n                    resumingNormal = false;",
          "field-goal new-play retains source dispatch clock/target"),
         ("normal-plan-destroys-dispatch-lifetime", PLAYBACK,
-         "actualRandom, snapReturn, snapReturn);\n                camera.SetState(plan.State);",
-         "actualRandom, snapReturn, snapReturn);\n                camera.Reset(plan.State);",
+         "actualRandom, snapReturn, snapReturn);\n                    camera.SetState(plan.State);",
+         "actualRandom, snapReturn, snapReturn);\n                    camera.Reset(plan.State);",
          "original zoom expiry increments tick_cnt after ModeRevert"),
     ]
 
@@ -119,9 +119,9 @@ def caller_guards(source=ROOT):
             "portable source player calls the same pure original producer with exact immutable Core data")
     require("if (rawSourceCamera)\n                return AdvanceOriginalSourceStage(" in unity and
             "SourcePlayback.CameraSourceTick(source.CameraBoundary," in unity and
-            "sourceCameraRandom);" in unity and "sourceCameraFeedback(SourcePlayback.CameraFeedback);" in unity,
+            "sourceCameraRandom, sourceCameraProcesses);" in unity and "sourceCameraFeedback(SourcePlayback.CameraFeedback);" in unity,
             "Unity executes the same pure original producer/RNG/feedback, not a copied algorithm")
-    require("simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback);" in runtime,
+    require("simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback, simulation.SourceCameraProcesses);" in runtime,
             "actual Unity composition binds the Core-only feedback owner")
     require("new GameSnapshot(Model, SourceCameraStageOrder)" in core and
             core.index("SourceCameraHeadingProvider(new GameSnapshot") < core.index("UpdateSourceMovementPlayers(command);") <
@@ -203,7 +203,7 @@ def main():
         baseline = run("baseline", sources, True)
         require(baseline["exit"] == 0, "Actual raw camera producer failed.")
         summary = json.loads(baseline["output"])
-        require(len(summary["cases"]) == (13 if actual != "-" else 12) and summary["assertions"] >= 95,
+        require(len(summary["cases"]) == (14 if actual != "-" else 13) and summary["assertions"] >= 100,
                 "Exact raw camera case inventory changed; no skipped cases.")
         if args.controls:
             for label, name, before, after, expected in mutations():

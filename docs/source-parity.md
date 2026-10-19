@@ -1263,9 +1263,70 @@ HUD-reserved rect or a second render clock. Original active special tables and
 shaker math retain their source/pure evidence. The new raw producer additionally
 compares normal/kickoff/quick/onside/GOPHER/return and its reachable field-goal
 dependency against unchanged active C. Source draw-cache scheduling is explicitly
-portable; initial-QB instructional-box and possession-message global suspension
-services, target scheduler/RNG, native pixels and hardware cadence remain
-unqualified. All sixteen completion rows remain open.
+portable. The bounded possession continuation below now supplies the active
+in-game message services; initial-QB instructional boxes, target global
+scheduler/RNG, native pixels and hardware cadence remain unqualified.
+All sixteen completion rows remain open.
+
+### Active CAMBOT possession messages — bounded portable services
+
+`cambot.c:2886-2970` now runs through the existing single playback owner and
+both Unity/portable producers: exact interception8, turnover2/13 and
+punt-return15 predicates, short-sleep suspension masks/caller exception,
+head-created message/flashers, saved sleep40 continuation and342-actual-wake
+timeout. No second camera loop, rendered-frame timer or normal-camera clone is
+introduced. The actual fourth-down rule resolution produces `off_turnover`;
+result-box teardown clears it. Actor/ball/game/clock/FX work freezes while
+allowed HUD/post-player work continues; earlier versus later source slots
+resume at their real declared boundaries.
+
+Source-backed evidence: **40 C scenarios /4,760 declared dispatches** compared
+exactly, **50 managed cases /2,240 assertions**, and **21 compiled causal
+controls** with named failures and an identical final baseline. Coverage
+includes sleep40/message100 boundaries, mask`fffffffe`, missing/dead processes,
+real timeout, orphan/global-ID cleanup, current input on same-wake actor
+resumption, pending X/Z shaker draws, menus/new plays/new matches and explicit
+sound-data failure. The earlier47-case/17-control and32-fast-command run is
+historical: its Core integration did not bind the real cabinet selector and
+missed the resumption failure. All47 original cases and17 controls remain;
+the expanded campaign binds the actual selector, cabinet buffer, fixed-step
+bridge and authored HUD with FX enabled/disabled, and independently rejects
+missing source input observations, unexplained gaps and suspended menu work.
+See the
+[repeatable service campaign](../tests/presentation/normal-camera/README.md#active-possession-messages-and-portable-process-continuation).
+
+Input observation and process execution have distinct lifetimes. Goose global
+switch registers continue scanning while suspended process bodies do not run.
+Core therefore observes every ordered source dispatch even when `game_proc`
+is skipped. Only an actually awake menu consumer may change its selector or
+consume the original sleep20. A fully pressed/released button during the gap
+is not replayed later; a button still held at the first resumed actor visit
+is compared with that actor's last actual sample (`player.c:833-900`).
+The strict consecutive-tick guard remains; source scans are not invented
+game, clock, camera or actor wakes.
+
+`plyrinfo.c:330-374,3456-3552` supplies the exact logical image pair, IDs,
+flashers and cleanup; punt return has no image. `sounds.c:308,829-832` supplies
+the interception producer and exported operands, using the existing actual
+Core announcer selection/RNG. The40-byte extension preserves every557
+inherited player-data pin. Metadata submission is **not audible PCM/DSP**.
+The old SAFN/C2 functions do not silently stand in for this separate producer.
+
+The shared HUD draws the complete original authored WIF union once for the
+two in-phase component objects. Native Composit-generated `flash.h` rectangles,
+TEXUS/Glide pixels and independently divergent component states are not
+invented or qualified. Missing operand data/unequal unsupported component state
+fails visibly. Fresh portable public-keyboard browser evidence now observes
+a genuine interception through camera/message cleanup, continuing normal
+gameplay and a later public new-play selection. It does not qualify native
+Unity import, generated component pixels or turnover2 browser coverage.
+A separate fresh public fourth-down selection also observes an actual punt
+return/message15, with no invented sprite and with continuing gameplay,
+using the explicitly selected portable-authored meter option. Focused
+independent rereview remains required before publication.
+The original C service host uses declared portable slots/`ucontext` and
+logical preloaded resource ownership, not native MIPS/global scheduler proof.
+Native/game/audio/performance acceptance and all sixteen rows remain **OPEN**.
 
 ### Available but not fully integrated
 

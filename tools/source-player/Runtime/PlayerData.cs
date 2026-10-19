@@ -23,6 +23,7 @@ public sealed class PlayerData
     public SourceInterfaceData Hud { get; }
     public SourceCinematicLibrary Impact { get; }
     public SourceNormalCameraData NormalCamera { get; }
+    public SourcePossessionSoundData PossessionSound { get; }
     public SourceEnvironmentBundle World { get; }
     public SourceFireSpfxBundle Fire { get; }
     public SourceTeamPoppedHeadData PoppedHead { get; }
@@ -82,6 +83,9 @@ public sealed class PlayerData
         DataCatalog.Require(data.HasEntry("normalCamera"),
             "The explicit source profile requires pinned original normal/kickoff camera data; legacy EMA is not a fallback.");
         NormalCamera = SourceNormalCameraData.Read(data.EntryBytes("normalCamera"));
+        DataCatalog.Require(data.HasEntry("possessionSound"),
+            "Active CAMBOT messages require their pinned original interception-speech operands; no invented playlist.");
+        PossessionSound = SourcePossessionSoundData.Read(data.EntryBytes("possessionSound"));
         World = SourceEnvironmentReader.Read(data.EntryBytes("world"), data.EntryHash("world"),
             path => data.Read("world/" + path));
         if (data.HasEntry("fire"))

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Blitz.AssetImport;
+using Blitz.Gameplay;
 using Blitz.Presentation;
 using Blitz.Runtime;
 using UnityEditor;
@@ -53,6 +54,51 @@ namespace Blitz.Editor
         {
             string[] args = Environment.GetCommandLineArgs();
             Import(PlanFromContact281C2M1Arguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
+        }
+
+        public static void ImportPossessionSpeechFromCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            ImportPossessionSpeech(PlayerAssetImporter.RequiredArgument(args, "-interfacePossessionSpeechRoot"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfacePossessionSpeech"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
+            Debug.Log("PASS pinned CAMBOT speech TextAsset import. Import/save is not native scheduler, pixel or DSP proof.");
+        }
+
+        public static TextAsset ImportPossessionSpeech(string authorizedRoot, string relativeInput, string stableId)
+        {
+            PlayerImportPlan.ValidateStableId(stableId);
+            byte[] bytes = ReadPossessionSpeech(authorizedRoot, relativeInput);
+            string existing = FindUniqueResourcePath("TextAsset", SourceHudAsset.PossessionSpeechResourceKey);
+            if (existing != null) return RequirePossessionSpeechResource();
+            var output = new AuthorizedAssetRoot(Path.GetDirectoryName(Application.dataPath));
+            string destination = "Assets/Imported/" + stableId;
+            string path = destination + "/Resources/" + SourceHudAsset.PossessionSpeechResourceKey + ".bytes";
+            SourceInterfacePackagePlan.RequireOutputIdentity(path, SourceHudAsset.PossessionSpeechResourceKey);
+            output.NewPath(path);
+            Folder(output, "Assets/Imported"); Folder(output, destination); Folder(output, destination + "/Resources");
+            Folder(output, destination + "/Resources/BlitzSourceInterface");
+            WriteText(output, path, bytes);
+            AssetDatabase.SaveAssets();
+            return RequirePossessionSpeechResource();
+        }
+
+        internal static byte[] ReadPossessionSpeech(string authorizedRoot, string relativeInput)
+        {
+            byte[] bytes = new AuthorizedAssetRoot(authorizedRoot).ReadBytes(relativeInput, 40);
+            SourcePossessionSoundData.Read(bytes);
+            return bytes;
+        }
+
+        internal static TextAsset RequirePossessionSpeechResource()
+        {
+            string path = FindUniqueResourcePath("TextAsset", SourceHudAsset.PossessionSpeechResourceKey);
+            TextAsset asset = path == null ? null : AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+            if (asset == null || Resources.Load<TextAsset>(SourceHudAsset.PossessionSpeechResourceKey) != asset)
+                throw new SourceInterfaceException("Missing/ambiguous canonical CAMBOT speech TextAsset. Explicitly run " +
+                    "ImportPossessionSpeechFromCommandLine before importing or verifying Contact281C2M1 services.");
+            SourcePossessionSoundData.Read(asset.bytes);
+            return asset;
         }
 
         public static SourceInterfacePackagePlan PlanFromArguments(string[] args)
@@ -145,6 +191,7 @@ namespace Blitz.Editor
             if (teams == null || teams.Template.StableId != profile.StableId ||
                 teams.Rosters.ContentSha256 != SourceTeamPresentationData.PinnedRosterSha256)
                 throw new SourceInterfaceException("Missing/wrong actual opposing-team/profile/roster resources.");
+            if (profile.IsContact281C2M1) RequirePossessionSpeechResource();
 
             string existingHudPath = FindUniqueResourcePath("SourceHudAsset", SourceInterfacePackagePlan.HudResourceKey);
             SourceHudAsset hud = existingHudPath == null ? null : AssetDatabase.LoadAssetAtPath<SourceHudAsset>(existingHudPath);

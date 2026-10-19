@@ -140,12 +140,114 @@ Undefined original domains (invalid receiver indices, zero FG X velocity,
 degenerate spline/P2P directions or zero point-stream endpoint) are excluded,
 not silently clamped.
 
-The original initial-QB instructional-box globals and possession-message global
-suspension services are not supplied by current Core. The C host aborts if those
-native services are reached; these fixture traces do not qualify them or invent
-stand-in UI/suspension. Attract/debug/unselected SPECIAL_MODES are outside this
-in-game increment. The `csi_resume` table and replay path are under `#if0`;
+The retained math campaign deliberately supplies `idiot_boxes_shown=2`,
+`off_turnover=1`, and `GS_GAME_MODE`; it still aborts if message services are
+reached. Its managed boundary now names those same declared fixture values
+explicitly. It is not the possession-service qualification below. Initial-QB
+instructional boxes remain excluded. Attract/debug/unselected SPECIAL_MODES are
+outside this in-game increment. The `csi_resume` table and replay path are under `#if0`;
 active playback is false. No dormant replay/slow motion is enabled.
+
+## Active possession messages and portable process continuation
+
+`GameSimulation.Possession.cs` supplies the bounded portable process projection
+used by the **same** playback owner and both production camera callers.
+`cambot.c:2886-2970` selects interception8, turnover2/13 or punt-return15 from
+the actual raw predicates, including bounced lateral, extra flags, play-over
+failed conversion and the real `nfl.c:1662/1715` turnover-on-downs producer.
+Result-box teardown clears that latch; it is not an unexplained camera constant.
+
+Suspension preserves the signed-short high bit and sleeping low bits, excludes
+the actual caller, resumes the exact `0xfffffffe` HUD pair and post-player ID,
+and queues a sleep1 message rather than running it inline. Camera preparation
+occurs before sleep40; integration, FG work and pending X/Z shaker draws resume
+from that saved continuation, not from another normal-camera loop. During the
+gap the existing output and its real producer tick are retained explicitly.
+An ordinary sleep1 or missing frame cannot authorize stale-camera retention.
+
+Message entry preserves the original paired objects/IDs and two child flashers,
+four white/color cycles with delay4, interception speech ordering, sleep100,
+global object-ID deletion, texture-group release event and process death.
+Punt return has **no sprites or invented overlay**. A killed parent does not
+automatically delete its objects; a later same-ID message cleanup removes both
+generations. Earlier level-zero game/clock/status slots resume next dispatch;
+later players/cursors/post-player/detect/ball slots can resume on the current
+camera wake. `LastWakeTick`, not the final suspension bit, governs HUD status
+animation. Existing FX retain their own nodes and receive the same controls;
+their order/RNG and existing menu behavior are not replaced by a global scheduler.
+
+The separate `possession-services` runner executes **40 original-C scenarios /
+4,760 declared dispatches**, **50 managed cases /2,240 assertions**, and
+**21 zero-diagnostic compiled semantic controls**, followed by an identical
+final baseline. It covers missing/dead messages, actual342-wake timeout,
+creation order, both sleep boundaries, overlapping orphan cleanup, actual Core
+actor/ball/clock/FX freezing, allowed continuations, pending shaker order,
+same-wake physical input, menus/new plays/new matches, and sound-data failstop.
+All47 original cases and17 controls are retained. The original Core cases now
+bind the real cabinet selector; three additional cases bind the real cabinet
+buffer/bridge/selector/Core/camera/HUD with FX on/off and exercise strict
+source ordering and suspended menu admission. Input observation continues on
+every source dispatch independently of frozen game/actor/clock/FX processes.
+It cannot consume menu sleep20 or replay transient frozen button edges.
+The source-tick guard is not weakened; four new compiled mutants protect
+observation, unexplained gaps, menu admission and sleep20.
+The retained math campaign still has all100 sequences/34,084 wakes and26
+compiled controls; its extra asset-free process-mask case does not replace any
+historical camera case.
+
+The C side injects the authenticated selected branch/functions into ignored
+output: `cambot.c`, `plyrinfo.c`, `Game.c:flash_obj_proc`,
+`lib/select/select.c:flash_obj_white`, `sounds.c:intercepted_ball_sp`,
+and the actual Goose suspend/resume/exists bodies. A declared `ucontext`
+continuation host supplies sleep/head insertion and low-address logical sprite
+handles; only the address of static `tout` is exposed as read-only telemetry.
+Fixed host-slot adaptors are not original actor physics, MIPS pointers/stacks,
+qsort ties, hardware pcount, native texture cache, or a native global scheduler.
+
+Reproduce with explicit authorized inputs (new ignored output each time):
+
+```sh
+python3 -B tools/interface/prepare_possession.py \
+  --source-root "$AUTHORIZED_ORIGINAL_ROOT" \
+  --sound-header "$AUTHORIZED_MIDWAY_ROOT/include/goose/sound.h" \
+  --output .squad/.scratch/possession-speech
+python3 -B tests/presentation/possession-services/run.py \
+  --fixture "$CONTACT272_FIXTURE/fixture.json" \
+  --sound "$CONTACT272_FIXTURE/audio-functions/sound-functions.safn" \
+  --m1 "$CANONICAL_M1_288" --impact "$M1_IMPACT_JSON" \
+  --normal "$ORIGINAL_NORMAL_CAMERA_JSON" \
+  --speech .squad/.scratch/possession-speech/possession-speech.bytes \
+  --hud "$PINNED_HUD/interface.json" \
+  --fire "$PINNED_V3_FIRE" --fire-sha256 "$V3_FIRE_MANIFEST_SHA256" \
+  --authority "$EXPLICIT_FLAT_SERVICE_AUTHORITY" \
+  --output .squad/.scratch/possession-service-proof --controls
+```
+
+The authority's exact names/hashes are in `possession-services/oracle.py`.
+NFL files retain their names; map `lib/select/select.c` to `select.c`, Goose
+`lib/goose/{process,mthread}.c` to their basenames, and
+`include/goose/sound.h` to `sound.h`. No fallback/private-directory discovery is
+used. Existing full fixture, sound, M1, HUD and v3 FX inputs remain required.
+
+Interception speech uses Core's existing RNG and selected announcer bank.
+Its independently pinned40-byte operand file is
+`ac9bdf7c37c8f3d9d1e7184ca96e2d9c28aad2e157940d05194513b8f06da5df`.
+The earlier SAFN/C2 selector does not cover this function; the new narrow
+immutable submission preserves the actual playlist/volume/pan/priority and
+source process, **not PCM/DSP playback**. The table is exported from originals
+into ignored data, never copied into a tracked numeric table.
+
+The existing HUD atlas contains complete original WIF images, **not**
+Composit-generated `_c1` rectangles. The producer retains both logical objects
+and independent flashers. The shared consumer draws their complete authored
+union once while both component states agree; unequal states fail visibly.
+It does not duplicate the base image, guess256-pixel component cuts, or claim
+native `flash.h`/TEXUS/Glide packing. White/chroma output derives from the same
+authenticated pixels. Native generated component geometry/pixels remain open.
+Unity additionally needs the exported operand TextAsset at
+`Resources/BlitzSourceInterface/original-interface-possession-speech.bytes`;
+the runtime fails explicitly if absent. No scenes/settings/imports or Editor
+execution are established by API compilation.
 
 Real public-cabinet WASM/WebGL gameplay, GPU uniforms/frustum, stable paused
 1024×768 PNG brackets and continuing four-human controls are a separate

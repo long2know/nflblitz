@@ -133,6 +133,13 @@ unchanged. The exact source pin is not replaced with a permissive hash check;
 recordings, policies and earlier full-gate receipts are not regenerated or
 relabeled by this observer-fixture update.
 
+The possession-service increment advances this exact pin to `17ea5f52...`.
+Only the explicit source-process wake gate/retained-camera check and process
+completion are added to that producer. The unique actual geometry call and
+removable observer/byte normalization remain unchanged. The kernel closure
+adds `GameSimulation.Possession.cs` (77 files); its exact inventory and
+count-preserving rejection guards are retained rather than weakened.
+
 For an explicitly authorized **single** changed-behavior observation, append
 `--source-compatibility portable --single-public-attempt` to the full M1 command.
 This does not alter the immutable public input, provider, seed or R_SKIP gate.

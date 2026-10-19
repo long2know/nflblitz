@@ -355,7 +355,8 @@ namespace Blitz.Gameplay
         {
             var geometry = sourceGeometry as ISourceActorCameraGeometry;
             SourceMovementCameraFrame frame = Model.SourceMovementCamera;
-            if (geometry == null || frame == null || Model.SourceMovementCameraTick != Model.SourceTick)
+            if (geometry == null || frame == null || Model.SourceMovementCameraTick != Model.SourceTick &&
+                !SourceCameraHasRetainedOutput)
                 throw new InvalidOperationException("Missing actual current source camera geometry/cache generation.");
             for (int id = 0; id < 14; id++)
             {
@@ -391,6 +392,7 @@ namespace Blitz.Gameplay
         {
             for (int id = 0; id < Model.Players.Length; id++)
             {
+                if (!EnterSourceProcess(2 + id)) continue;
                 BeginSourceProcess("player_proc", id, id + 1);
                 ActorState actor = Model.Players[id];
                 FieldVector before = actor.Position;
@@ -461,6 +463,7 @@ namespace Blitz.Gameplay
                 IntegrateSourceMovementPlayer(actor);
                 actor.Velocity = PlayerSimulation.Scale(PlayerSimulation.Subtract(actor.Position, before),
                     SourceTiming.DefaultTicksPerSecond);
+                CompleteSourceProcess();
             }
         }
 

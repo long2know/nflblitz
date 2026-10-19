@@ -32,6 +32,7 @@ internal static class Program
             Run("all-kickoff-data-and-original-trig-state", Kickoff);
             Run("field-goal-new-play-lifecycle", FieldGoalLifecycle);
             Run("raw-camera-new-match-reset", MatchReset);
+            Run("portable-possession-process-mask-and-sleep", PossessionProcessMask);
             if (args.Length > 0 && args[0] == "--active")
                 Run("original-C-active-dispatch-sequences", () => CompareActive(args[1]));
             else if (args.Length > 0 && args[0] != "-") Run("original-C-normal-sequences", () => CompareNormal(args[0]));
@@ -51,6 +52,29 @@ internal static class Program
     }
 
     private static void Run(string name, Action test) { test(); cases.Add(name); }
+    private static void PossessionProcessMask()
+    {
+        var host = new SourcePortableProcessHost();
+        host.Create(1, 0x1400, "cambot_proc", 0x100);
+        host.Create(2, 0x500, "player_proc", 0x300, 7);
+        host.Create(3, 0xf80, "player-info", 0, 3);
+        host.Create(4, 0xf81, "cursor_proc", 0x400, 5);
+        host.BeginTick(1);
+        Check(host.Visit(1), "actual CAMBOT caller enters its source slot");
+        host.SuspendMultiple(0, 0x8000);
+        host.ResumeMultiple(0xf80, unchecked((int)0xfffffffe));
+        Check(!host.Require(1).Suspended && host.Require(2).SleepWord == 0x8007,
+            "source caller exemption preserves a sleeping actor's low bits");
+        Check(host.Require(3).SleepWord == 3 && host.Require(4).SleepWord == 5,
+            "source fffffffe mask resumes both actual low-bit HUD identities");
+        host.Sleep(40); host.Complete();
+        for (int tick = 2; tick < 41; tick++)
+        { host.BeginTick(tick); Check(!host.Visit(1), "source sleep40 does not execute intermediate camera wakes"); }
+        host.BeginTick(41);
+        Check(host.Visit(1), "source sleep40 reaches its real continuation boundary");
+        host.ResumeAll(); host.Complete();
+        Check(!host.Visit(2) && host.Require(2).SleepWord == 6, "resume_all preserves and decrements the actual remaining actor sleep");
+    }
     private static void Check(bool value, string message)
     { assertions++; if (!value) throw new InvalidOperationException(message); }
     private static void Near(float observed, float expected, float tolerance, string message)
@@ -457,7 +481,7 @@ internal static class Program
             "new match still fully clears transient/target/clock/shaker and original process state");
         Reject(() => playback.RequireSourceCameraAtTick(2), "new match invalidates the prior movement camera frame");
         var clean = new SourceCinematicPlayback(Library(), SyntheticData(), initial);
-        var input = Boundary(1, side: 1);
+        var input = Boundary(1, mode: 1, side: 1);
         playback.CameraSourceTick(input, 512, 384, NoRandom);
         clean.CameraSourceTick(input, 512, 384, NoRandom);
         Check(playback.CurrentSourceCamera.Transform.SequenceEqual(clean.CurrentSourceCamera.Transform) &&
@@ -576,7 +600,8 @@ internal static class Program
                 var input = new SourceCameraBoundary(integer(0), 0, integer(1), integer(2), integer(3), integer(4),
                     integer(5), integer(6), integer(7), integer(8), integer(9), integer(10) != 0, integer(11) != 0,
                     integer(12), integer(13), new SourceCameraBall(vector(16), vector(19), vector(22), vector(25),
-                        vector(28), integer(31), integer(32), integer(33), integer(34), integer(35)), actors);
+                        vector(28), integer(31), integer(32), integer(33), integer(34), integer(35)), actors,
+                     offenseTurnover: true, rawGameState: 2);
                 if (playback == null) playback = new SourceCinematicPlayback(library, data, input);
                 if (row > 0 && input.SourceTick != playback.LastCameraTick + 1)
                 {

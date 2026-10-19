@@ -208,6 +208,15 @@ jobs:
         run: |
           python3 -B tests/presentation/normal-camera/test_ci.py
           python3 -B tests/presentation/normal-camera/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/raw-camera-ci --controls
+      - name: Fetch authenticated active possession service inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tests/presentation/possession-services/fetch_inputs.py --output .squad/.scratch/SourceData/possession-service-original
+      - name: Compare active original possession messages and process services
+        run: |
+          python3 -B tests/presentation/possession-services/prepare.py --original .squad/.scratch/SourceData/possession-service-original --output .squad/.scratch/SourceData/possession-services
+          python3 -B tests/presentation/possession-services/test_ci.py --original .squad/.scratch/SourceData/possession-service-original --prepared .squad/.scratch/SourceData/possession-services --output .squad/.scratch/possession-service-ci-guards
+          python3 -B tests/presentation/possession-services/run.py --fixture .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --m1 .squad/.scratch/SourceData/c2-m1 --impact .squad/.scratch/SourceData/contact-profile/impact-m1/impact-presentation.json --normal .squad/.scratch/raw-camera-ci/original-C/normal.json --speech .squad/.scratch/SourceData/possession-services/speech/possession-speech.bytes --hud .squad/.scratch/SourceData/possession-services/hud/interface.json --fire .squad/.scratch/SourceData/possession-services/fire --fire-sha256 90a134af37fe6d43f13977f7903315ee0d9a7f37f700669b365f45dd7c941d56 --authority .squad/.scratch/SourceData/possession-services/authority --output .squad/.scratch/possession-services-ci --controls
       - name: Test source-camera frame and resource mutations
         run: python3 tests/presentation/movement-stage/mutations.py
       - name: Test original audio package reader without banks or Unity

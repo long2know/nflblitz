@@ -358,7 +358,8 @@ class CanonicalObservationGuards(unittest.TestCase):
             "Assets/Scripts/Contracts/SourceCameraContracts.cs",
         ):
             self.assertIn(name, paths)
-        self.assertEqual(len(paths), 76)
+        self.assertEqual(len(paths), 77)
+        self.assertIn("Assets/Scripts/Gameplay/GameSimulation.Possession.cs", paths)
 
 
 if __name__ == "__main__":

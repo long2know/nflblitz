@@ -17,6 +17,10 @@ def load(name, path):
 
 
 class CameraCiChecks(unittest.TestCase):
+    def test_required_possession_regression_cannot_be_removed_with_its_own_guard_step(self):
+        possession_ci = load("required_possession_ci", HERE.parent / "possession-services/test_ci.py")
+        possession_ci.validate_workflow((ROOT / ".github/workflows/game-build.yml").read_text())
+
     def test_game_ci_selects_actual_original_sequences_and_compiled_controls(self):
         workflow = (ROOT / ".github/workflows/game-build.yml").read_text()
         self.assertIn("python3 -B tests/presentation/normal-camera/test_ci.py", workflow)
@@ -50,7 +54,7 @@ class CameraCiChecks(unittest.TestCase):
             self.assertTrue(failure)
         self.assertEqual(runner.caller_guards(), 7)
         program = (HERE / "Program.cs").read_text()
-        self.assertEqual(len(re.findall(r'Run\("[^"]+", ', program)), 15)
+        self.assertEqual(len(re.findall(r'Run\("[^"]+", ', program)), 16)
         self.assertIn("1440", program)
         self.assertIn("maximumAbsoluteErrorByColumn", program)
 
@@ -75,6 +79,38 @@ class CameraCiChecks(unittest.TestCase):
                 self.assertEqual(rows[:20], tracking[:20])
                 self.assertEqual([row[1] for row in rows[20:]], [3] * 4 + [1] * 8)
                 self.assertEqual(rows[24][0] - rows[23][0], 201 if menu else 1)
+
+    def test_bounded_possession_campaign_preserves_exact_cases_and_causal_controls(self):
+        runner = load("actual_possession_service_runner", HERE.parent / "possession-services/run.py")
+        cases, controls = runner.required_inventory()
+        self.assertEqual(len(cases), 40)
+        self.assertEqual(len({row["name"] for row in cases}), 40)
+        self.assertEqual(sum(row["ticks"] for row in cases), 4760)
+        self.assertEqual(len(controls), 21)
+        self.assertEqual(len({row[0] for row in controls}), 21)
+        self.assertEqual(len(runner.INHERITED_CONTROLS), 17)
+        self.assertEqual(len(runner.LIFECYCLE_CONTROLS), 4)
+        for name, path, before, after, failure in controls:
+            self.assertEqual((ROOT / path).read_text().count(before), 1, name)
+            self.assertNotEqual(before, after)
+            self.assertGreater(len(failure), 20)
+        program = (HERE.parent / "possession-services/Program.cs").read_text()
+        for token in ("actual-Core-FX-freeze-and-resumption-boundary", "SourcePossessionProcessRecords",
+                      "SourcePossessionSoundData.Read", "actual-nfl-off-turnover-producer-and-teardown",
+                      "no-unqualified-stale-camera-retention"):
+            self.assertIn(token, program)
+        self.assertIn("CabinetLifecycleChecks.Run(hudData, output);", program)
+        self.assertIn('sources["CabinetLifecycle.cs"] = (HERE / "CabinetLifecycle.cs").read_bytes()',
+                      (HERE.parent / "possession-services/run.py").read_text())
+        cabinet = (HERE.parent / "possession-services/CabinetLifecycle.cs").read_text()
+        for token in ("actual-cabinet-Core-FX-selector-lifecycle", "actual-cabinet-Core-selector-lifecycle",
+                      "strict-cabinet-order-and-actual-menu-admission", "Selector.ApplyAtSourceTick",
+                      "new SourceCabinetInputBuffer", "new FixedStepBridge", "new SourceHudComposer"):
+            self.assertIn(token, cabinet)
+        oracle = (HERE.parent / "possession-services/oracle.py").read_text()
+        self.assertIn("Read-only address telemetry", oracle)
+        self.assertIn("nativeSchedulerQualified=False", oracle)
+        self.assertIn("generate_possession_services", (HERE / "source_oracle.py").read_text())
 
 
 if __name__ == "__main__":
