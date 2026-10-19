@@ -40,9 +40,10 @@ namespace Blitz.Presentation
 
         public SourceFireSpfxBundle Load()
         {
-            SourceFireGuard.Require(manifest != null && paths != null && payloads != null && paths.Length == 19 &&
+            SourceFireGuard.Require(manifest != null && paths != null && payloads != null &&
+                (paths.Length == 19 || paths.Length == 29) &&
                 payloads.Length == paths.Length && sourceShader != null && sourceShader.name == "Blitz/SourceFireSpfxPortable",
-                "Actual portable fire provenance/18 originals/SDL geometry/shader required; no particles or art fallback.");
+                "Actual portable fire/dust provenance, original inputs, SDL geometry and shader required; no particles or art fallback.");
             var files = new Dictionary<string, TextAsset>(StringComparer.Ordinal);
             for (int i = 0; i < paths.Length; i++)
             {

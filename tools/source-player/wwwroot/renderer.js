@@ -238,8 +238,8 @@ export class SourceRenderer {
       new Set(styles.hudHighlight).size === styles.hudHighlight.length,
     'Missing/invalid authoritative source meter primitive/material packet.');
     requireValue(frame.enabled || textures.length === 0, 'Disabled Core fire cannot submit renderer-side particles.');
-    requireValue(!frame.enabled || textures.every(t => Number.isInteger(t) && t >= 0 && t < 17 && this.textures.has(`fire/${t}`)),
-      'Actual Core particle selected an unbound original TRAIL frame.');
+    requireValue(!frame.enabled || textures.every(t => Number.isInteger(t) && t >= 0 && t < 27 && this.textures.has(`fire/${t}`)),
+      'Actual Core particle selected an unbound original TRAIL/DIRT frame.');
     requireValue(flashAlpha.every((alpha, actor) => alpha === ((rawFlags[actor] & 0x400) ? 192 / 255 : 0)),
       'Only actual raw0x400 may request the original DECAL_TEXTURE_ADD_CCALPHA/0xc0000000 combiner.');
     this.fx = {
@@ -463,7 +463,7 @@ export class SourceRenderer {
     gl.frontFace(gl.CW); gl.disable(gl.BLEND);
   }
 
-  drawEffects(proofMask) {
+  drawEffects(proofMask, dustOnly = false) {
     const fx = this.fx, gl = this.gl;
     if (!fx?.metadata.enabled || fx.textures.length === 0) return;
     gl.useProgram(this.fire); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
@@ -477,6 +477,7 @@ export class SourceRenderer {
     gl.bindVertexArray(this.fireVao); gl.bindBuffer(gl.ARRAY_BUFFER, this.fireBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, fx.vertices, gl.DYNAMIC_DRAW);
     for (let i = 0; i < fx.textures.length; i++) {
+      if (dustOnly && fx.textures[i] < 17) continue;
       gl.bindTexture(gl.TEXTURE_2D, this.textures.get(`fire/${fx.textures[i]}`).texture);
       gl.drawArrays(gl.TRIANGLES, i * 6, 6);
     }
@@ -589,13 +590,20 @@ export class SourceRenderer {
             poppedHeadPixels[pixels[i] - 1]++;
         this.assertHealthy('actual original popped-head-only geometry GPU identity pass');
       }
-      let firePixels = 0;
+      let firePixels = 0, dustPixels = 0;
       if (this.fx?.metadata.enabled) {
         gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         this.drawEffects(true);
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
         for (let i = 0; i < pixels.length; i += 4) if (pixels[i] || pixels[i + 1] || pixels[i + 2]) firePixels++;
         this.assertHealthy('actual original fire geometry/alpha/frame GPU pass');
+        if (this.fx.metadata.dustDraws > 0) {
+          gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          this.drawEffects(true, true);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+          for (let i = 0; i < pixels.length; i += 4) if (pixels[i] || pixels[i + 1] || pixels[i + 2]) dustPixels++;
+          this.assertHealthy('same actual original DIRT objects/textures/alpha dust-only GPU identity pass');
+        }
       }
       return {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
@@ -607,7 +615,7 @@ export class SourceRenderer {
         device: this.device, meshUploads: this.meshUploads, worldDraws: this.world.length,
         appearances: this.current.appearances.map(id => this.appearances.get(id)),
         textureCount: this.textures.size, frameCount: this.frameCount,
-        firePixels, fireFrame: this.fx?.metadata,
+        firePixels, dustPixels, fireFrame: this.fx?.metadata,
         poppedHeadPixels,
         poppedHeadBindings: this.current.appearances.map((id, actor) => ({ actor, ...this.appearances.get(id) }))
           .filter(binding => binding.headVariant === 'original-phead-source-authored'),

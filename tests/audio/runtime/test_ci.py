@@ -105,7 +105,7 @@ CONTACT_RUNNER_GUARDS = (
 TRIGGER_PATHS = (
     "Assets/**", "Assets.meta", "tests/**", "tools/assets/**", "tools/animation/**",
     "tools/rosters/**", "tools/playbooks/**", "tools/movement/**", "tools/interface/**",
-    "tools/audio/**", "tools/environments/**", "scripts/**", "hosting/**", "Dockerfile",
+    "tools/audio/**", "tools/environments/**", "tools/fire-spfx/**", "scripts/**", "hosting/**", "Dockerfile",
     "compose.yaml", ".dockerignore", "README.md", "docs/build.md", "docs/source-parity.md",
     "docs/architecture.md", ".github/workflows/game-build.yml",
 )

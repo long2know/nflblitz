@@ -13,15 +13,16 @@ namespace Blitz.Runtime
             internal long Serial, BirthTick, ObjectSerial;
             internal SourceFireEntry Entry;
             internal SourceFireArgs Args;
-            internal int Group, State, Cursor, End;
+            internal int Group, State, Cursor, End, Wait;
             internal ushort Sleep = 1;
         }
         private sealed class Puff
         {
             internal long Serial, Owner;
             internal SourceVector3 Position;
-            internal float VelocityY;
+            internal float VelocityX, VelocityY, VelocityZ;
             internal int Frame;
+            internal SourceFireTextureKind TextureKind;
             internal bool Hidden;
         }
         private sealed class Trail
@@ -236,7 +237,8 @@ namespace Blitz.Runtime
                     {
                         case SourceFireOperation.KillProcessGroup:
                             if (!caller && (p.Group & command.Mask) == (command.GroupId & command.Mask))
-                                Retire(p, "KillProcess", command.Site, 0);
+                                Retire(p, "KillProcess", command.Site,
+                                    p.Entry == SourceFireEntry.DustCloud ? SourceFireIds.DustWipeoutCause : 0);
                             break;
                         case SourceFireOperation.SuspendMask:
                             if (!caller && (p.Group & command.Mask) == command.GroupId)
@@ -270,7 +272,7 @@ namespace Blitz.Runtime
                     Boundary("portable:freeze-orphan-stack-object:" + obj.Serial);
                 }
                 particles.Add(new SourceFireParticle(obj.Serial, obj.Owner, obj.Position, obj.VelocityY,
-                    obj.Frame, data.Frames[obj.Frame].IntegerAspect, obj.Hidden));
+                    obj.Frame, data.Texture(obj.TextureKind, obj.Frame).IntegerAspect, obj.Hidden, obj.TextureKind));
             }
             var flags = new int[14];
             for (int i = 0; i < 14; i++) flags[i] = host.ReadRawActorFlags(i);
@@ -306,6 +308,7 @@ namespace Blitz.Runtime
                 case SourceFireEntry.PlayerPuff: RunPlayerPuff(p); break;
                 case SourceFireEntry.BallPuff: RunBallPuff(p); break;
                 case SourceFireEntry.BallTrail: RunBallTrail(p); break;
+                case SourceFireEntry.DustCloud: RunDustCloud(p); break;
                 case SourceFireEntry.FlashPlayerWhite:
                     if (p.State == 0 && p.Args.A1 == 0 || p.State == 2 && ++p.Cursor >= p.Args.A1)
                     { Retire(p, "ReturnDie", Site(9856, p.Args.A0), 1); return; }
@@ -370,6 +373,47 @@ namespace Blitz.Runtime
             if (p.Cursor >= p.End) { DeleteAndReturn(p, 9452); return; }
             Puff current = RequireObject(p); current.Frame = p.Cursor;
             current.Position = Rise(current.Position, current.VelocityY); Sleep(p, 1, 9450);
+        }
+
+        private void RunDustCloud(Process p)
+        {
+            if (p.State == 0)
+            {
+                data.RequireDust();
+                SourceFireGuard.Require(host.ReadDustVelocity != null,
+                    "dust_cloud_proc requires actual entry facing through the original direction table; no trigonometric fallback.");
+                SourceFireCachedPlayerFrame cache = host.ReadCachedPlayer(p.Args.A0);
+                SourceFireGuard.Require(cache != null && cache.ActorId == p.Args.A0 &&
+                    cache.Camera.SourceTick <= tick.SourceTick &&
+                    (cache.CacheSourceTick >= tick.SourceTick - 1 || cache.RetentionEvidence != null),
+                    "dust_cloud_proc requires the actual retained jpos15 and matching cambot pair at entry.");
+                SourceVector3 j = cache.CameraJoints[p.Args.A1], c = cache.Camera.Position;
+                ReadOnlyCollection<float> m = cache.Camera.Transform;
+                float x = j.X * m[0] + j.Y * m[4] + j.Z * m[8] + c.X;
+                float z = j.X * m[2] + j.Y * m[6] + j.Z * m[10] + c.Z;
+                records.Add(new SourceFireRecord("DustEntryCache", Site(9594, p.Args.A0), p.Serial, 0, p.Args.A1,
+                    "cache-tick=" + cache.CacheSourceTick + "|" + cache.CacheProvenance + "|" + cache.Camera.Provenance));
+                Puff obj = CreateObject(p, new SourceVector3(x, 0f, z), 9607);
+                SourceVector3 velocity = host.ReadDustVelocity(p.Args.A0);
+                SourceFireGuard.Finite(velocity);
+                SourceFireGuard.Require(velocity.Y == .10f, "dust_cloud_proc entry vy must be original .10f.");
+                obj.VelocityX = velocity.X; obj.VelocityY = velocity.Y; obj.VelocityZ = velocity.Z;
+                p.Cursor = Draw(3, Site(9624, p.Args.A0)); p.End = SourceFireIds.DustFrameCount;
+                p.Wait = 0; p.State = 1;
+            }
+            else p.Wait++; // The for-loop continuation runs only after sleep(1) resumes.
+            if (p.Cursor >= p.End) { DeleteAndReturn(p, 9644); return; }
+            Puff current = RequireObject(p);
+            if (p.Wait > p.Args.A2)
+            {
+                p.Wait = 0;
+                current.Frame = p.Cursor++;
+            }
+            current.Position = new SourceVector3(current.Position.X + current.VelocityX,
+                current.Position.Y + current.VelocityY, current.Position.Z + current.VelocityZ);
+            RecordObject("DustStage", Site(9637, p.Args.A0), current);
+            if (host.ReadRawGameMode() == SourceFireIds.PreSnap) { DeleteAndReturn(p, 9644); return; }
+            Sleep(p, 1, 9642);
         }
 
         private void RunBallTrail(Process p)
@@ -550,7 +594,8 @@ namespace Blitz.Runtime
         { p.Sleep |= (ushort)delay; Record("Sleep", Site(line, BallEntry(p.Entry) ? -1 : p.Args.A0), p, p.ObjectSerial, delay, "cooperative"); }
         private Puff CreateObject(Process p, SourceVector3 position, int line)
         {
-            var obj = new Puff { Serial = nextObject++, Owner = p.Serial, Position = position, Frame = 0 };
+            var obj = new Puff { Serial = nextObject++, Owner = p.Serial, Position = position, Frame = 0,
+                TextureKind = p.Entry == SourceFireEntry.DustCloud ? SourceFireTextureKind.Dust : SourceFireTextureKind.Trail };
             objects.Add(obj); // Every active puff has the same priority: new equals follow existing nodes.
             p.ObjectSerial = obj.Serial; RecordObject("CreateObject", Site(line, p.Entry == SourceFireEntry.BallPuff ? -1 : p.Args.A0), obj);
             return obj;
@@ -568,8 +613,20 @@ namespace Blitz.Runtime
         }
         private void Retire(Process p, string kind, SourceFireSite site, int cause)
         {
+            if (p.Entry == SourceFireEntry.DustCloud && p.ObjectSerial != 0)
+            {
+                Puff obj = FindObject(p.ObjectSerial);
+                if (obj != null)
+                {
+                    RecordObject("ExitAlertDeleteObject", site.At("dust_cloud_die_alert", 9663,
+                        site.WithinWakeCallOrdinal, p.Args.A0), obj);
+                    objects.Remove(obj);
+                }
+            }
             Record(kind, site, p, p.ObjectSerial, cause, kind == "KillProcess" ?
-                "PD_WIPEOUT-symbolic-cause;no-automatic-object-delete-or-flash-cleanup" : "no-automatic-object-delete-or-flash-cleanup");
+                (p.Entry == SourceFireEntry.DustCloud ? "PD_WIPEOUT=2;dust-object-exists-exit-alert" :
+                "PD_WIPEOUT-symbolic-cause;no-automatic-object-delete-or-flash-cleanup") :
+                "no-automatic-object-delete-or-flash-cleanup");
             LinkedListNode<Process> node = bySerial[p.Serial]; processes.Remove(node); bySerial.Remove(p.Serial);
         }
         private void RequireSite(SourceFireSite site)
@@ -580,7 +637,8 @@ namespace Blitz.Runtime
         private void Record(string kind, SourceFireSite site, Process p, long obj, int value, string detail)
         { records.Add(new SourceFireRecord(kind, site, p.Serial, obj, value, detail)); }
         private void RecordObject(string kind, SourceFireSite site, Puff obj)
-        { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, obj.Frame, obj.Hidden ? "hidden" : "visible")); }
+        { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, obj.Frame,
+            (obj.TextureKind == SourceFireTextureKind.Dust ? "Dust;" : "") + (obj.Hidden ? "hidden" : "visible"))); }
         private void RecordTrail(string kind, SourceFireSite site, Trail obj)
         { records.Add(new SourceFireRecord(kind, site, obj.Owner, obj.Serial, 215 - 15 * obj.Stage,
             "balltrl:stage=" + obj.Stage + (obj.Hidden ? ";hidden" : ";visible"))); }
@@ -602,10 +660,12 @@ namespace Blitz.Runtime
         private static string Function(SourceFireEntry entry)
         { return entry == SourceFireEntry.PlayerBurst ? "player_burst_into_flames" : entry == SourceFireEntry.PlayerPuff ?
             "plyr_fire_trail_proc" : entry == SourceFireEntry.BallPuff ? "ball_fire_trail_proc" :
-            entry == SourceFireEntry.BallTrail ? "trail_ball_proc" : "flash_plyr_proc"; }
+            entry == SourceFireEntry.BallTrail ? "trail_ball_proc" : entry == SourceFireEntry.DustCloud ?
+            "dust_cloud_proc" : "flash_plyr_proc"; }
         private static int EntryLine(SourceFireEntry entry)
         { return entry == SourceFireEntry.PlayerBurst ? 4523 : entry == SourceFireEntry.PlayerPuff ? 9518 :
-            entry == SourceFireEntry.BallPuff ? 9422 : entry == SourceFireEntry.BallTrail ? 10546 : 9838; }
+            entry == SourceFireEntry.BallPuff ? 9422 : entry == SourceFireEntry.BallTrail ? 10546 :
+            entry == SourceFireEntry.DustCloud ? 9576 : 9838; }
         private static bool BallEntry(SourceFireEntry entry)
         { return entry == SourceFireEntry.BallPuff || entry == SourceFireEntry.BallTrail; }
         private static bool IsWitness(string value)

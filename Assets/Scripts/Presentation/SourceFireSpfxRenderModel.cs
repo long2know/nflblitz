@@ -55,6 +55,8 @@ namespace Blitz.Presentation
     {
         public long ObjectSerial { get; }
         public int TextureFrame { get; }
+        public SourceFireTextureKind TextureKind { get; }
+        public int TextureSlot { get; }
         public int IntegerAspect { get; }
         public string TextureSourceSha256 { get; }
         public ReadOnlyCollection<SourceVector3> CameraVertices { get; }
@@ -67,6 +69,7 @@ namespace Blitz.Presentation
             SourceVector3[] raster, float[] uvs, float[] glideSt, SourceFireMaterialState state)
         {
             ObjectSerial = particle.ObjectSerial; TextureFrame = particle.TextureFrame; IntegerAspect = particle.IntegerAspect;
+            TextureKind = particle.TextureKind; TextureSlot = particle.TextureSlot;
             TextureSourceSha256 = texture.SourceSha256; CameraVertices = Array.AsReadOnly(camera);
             ProjectedRasterVertices = Array.AsReadOnly(raster); UnityUvs = Array.AsReadOnly(uvs); GlideSt = Array.AsReadOnly(glideSt); State = state;
         }
@@ -92,8 +95,10 @@ namespace Blitz.Presentation
             var packets = new List<SourceFireDrawPacket>();
             foreach (SourceFireParticle particle in frame.Particles)
             {
-                SourceFireGuard.Require(particle.AssetSet == SourceFireIds.PortableAssetSet &&
-                    particle.IntegerAspect == data.Frames[particle.TextureFrame].IntegerAspect, "Fire frame/data-set aspect mismatch.");
+                SourceFireTextureFrame texture = data.Texture(particle.TextureKind, particle.TextureFrame);
+                SourceFireGuard.Require(particle.AssetSet == (particle.TextureKind == SourceFireTextureKind.Dust ?
+                    SourceFireIds.DustAssetSet : SourceFireIds.PortableAssetSet) &&
+                    particle.IntegerAspect == texture.IntegerAspect, "Fire/dust frame/data-set aspect mismatch.");
                 if (particle.Hidden) continue;
                 var camera = new SourceVector3[6]; var raster = new SourceVector3[6];
                 var uvs = new float[12]; var glideSt = new float[12];
@@ -110,7 +115,7 @@ namespace Blitz.Presentation
                     glideSt[2 * i] = s * sf; glideSt[2 * i + 1] = (1f - t) * tf;
                     uvs[2 * i] = glideSt[2 * i] / sf; uvs[2 * i + 1] = 1f - glideSt[2 * i + 1] / tf;
                 }
-                packets.Add(new SourceFireDrawPacket(particle, data.Frames[particle.TextureFrame], camera, raster,
+                packets.Add(new SourceFireDrawPacket(particle, texture, camera, raster,
                     uvs, glideSt, new SourceFireMaterialState(frame.Basis)));
             }
             LastFrame = frame; Draws = packets.AsReadOnly(); return Draws;

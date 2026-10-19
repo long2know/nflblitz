@@ -15,9 +15,23 @@ sys.modules[spec.name] = assets
 spec.loader.exec_module(assets)
 
 SCHEMA = "blitz-source-fire-spfx-portable/v1"
+DUST_SCHEMA = "blitz-source-fire-spfx-portable/v2"
 ORIGIN = "original-authoring-TGA32-and-SDL-portable-not-WMS"
 ASPECT_ORIGIN = "decoded-authoring-dimensions-Glide-enum-not-observed-WMS-header"
 UV_ORIGIN = "raw-SDL-ST-normalized-Unity-bottom-left-not-generated-spfx.h"
+DUST_METADATA_ORIGIN = "authenticated-TGA-v2-tag20-developer-area-excluded-from-pixel-view"
+
+
+def tga_pixel_view(data, dust=False):
+    if not dust:
+        return data
+    # All ten authenticated authoring blobs carry the same nonpixel Photoshop
+    # developer directory (tag20). Keep the original whole-file identity; pass
+    # only its validated pixel view to the existing strict TGA decoder.
+    assets.require(len(data) == 4458 and assets.digest(data[4114:]) ==
+                   "4de6fb5218a64c3a2ee6c5fd52d32bbf3359295ed4033501c3b9044e89bc89a5",
+                   "Original DIRT nonpixel developer directory/tag20/footer changed.")
+    return data[:4114]
 
 
 def geometry_from_sdl(data):
@@ -46,7 +60,7 @@ def geometry_from_sdl(data):
     return bytes(packed)
 
 
-def prepare(original_root, output, authorization_reference):
+def prepare(original_root, output, authorization_reference, with_dust=False):
     assets.require(authorization_reference and len(authorization_reference) <= 1024, "Explicit local reuse authorization reference required.")
     assets.require(Path(original_root).is_absolute(), "Supply an explicit absolute authorized original root.")
     original_root = assets.physical(original_root, directory=True)
@@ -60,9 +74,14 @@ def prepare(original_root, output, authorization_reference):
     assets.require(catalog["sourceCommit"] == assets.SOURCE_COMMIT and
                    catalog["sourceTree"] == "a7e0352125d46075b7d98e87253ab89b9160a4c7" and
                    len(catalog["inputs"]) == 18, "Pinned input inventory must contain18 originals at the selected revision.")
-    payloads, inputs, frames = {}, [], []
-    for index, pin in enumerate(catalog["inputs"]):
-        assets.require(pin["path"] == ("models/spfx.sdl" if index == 0 else f"img3d/trail{index}.tga"),
+    payloads, inputs, frames, dust_inputs, dust_frames = {}, [], [], [], []
+    dust_pins = catalog["dustInputs"] if with_dust else []
+    assets.require(not with_dust or len(dust_pins) == 10, "Exactly ten pinned original DIRT inputs required.")
+    for ordinal, pin in enumerate(catalog["inputs"] + dust_pins):
+        dust = ordinal >= 18
+        index = ordinal - 18 if dust else ordinal
+        assets.require(pin["path"] == (f"img3d/dirt{index + 1}.tga" if dust else
+                       "models/spfx.sdl" if index == 0 else f"img3d/trail{index}.tga"),
                        "Original input paths and ordinal frame order are fixed.")
         data = assets.read_file(original_root, pin["path"], maximum=65536)
         identity = assets.fingerprint(data)
@@ -70,18 +89,20 @@ def prepare(original_root, output, authorization_reference):
                        "Wrong original input pin: " + pin["path"])
         relative = "inputs/" + pin["path"] + ".bytes"
         payloads[relative] = data
-        inputs.append(dict(pin, payloadPath=relative))
-        if index == 0:
+        (dust_inputs if dust else inputs).append(dict(pin, payloadPath=relative))
+        if not dust and index == 0:
             payloads["geometry.bytes"] = geometry_from_sdl(data)
         else:
-            decoded = assets.decode_tga(data, pin["path"])
+            decoded = assets.decode_tga(tga_pixel_view(data, dust), pin["path"])
             assets.require(decoded["width"] == decoded["height"] == 32 and decoded["sourceFormat"] == "TGA32"
-                           and data[17] == 8, "Original TRAIL dimensions, alpha or bottom-left origin changed.")
-            frames.append({"inputIndex": index, "width": decoded["width"], "height": decoded["height"],
+                           and data[17] == 8, "Original TRAIL/DIRT dimensions, alpha or bottom-left origin changed.")
+            (dust_frames if dust else frames).append({"inputIndex": index, "width": decoded["width"], "height": decoded["height"],
                            "bitsPerPixel": 32, "alphaBits": 8, "topOrigin": False, "rightOrigin": False,
                            "integerAspect": 3 + decoded["height"].bit_length() - decoded["width"].bit_length(),
                            "aspectOrigin": ASPECT_ORIGIN})
-    manifest = {"schema": SCHEMA, "stableId": "source-fire-spfx-authoring-tga-sdl-v1",
+            if dust:
+                dust_frames[-1]["nonPixelDataOrigin"] = DUST_METADATA_ORIGIN
+    manifest = {"schema": DUST_SCHEMA if with_dust else SCHEMA, "stableId": "source-fire-spfx-authoring-tga-sdl-v1",
                 "sourceRepository": "historicalsource/nflblitz2000", "sourceCommit": assets.SOURCE_COMMIT,
                 "sourceTree": "a7e0352125d46075b7d98e87253ab89b9160a4c7", "toolsCommit": assets.TOOLS_COMMIT,
                 "reuseAuthorizationConfirmed": True, "authorizationReference": authorization_reference,
@@ -90,6 +111,8 @@ def prepare(original_root, output, authorization_reference):
                 "sourceSdlVersion": "7.51", "geometryParser": "existing-cv-st-triangle-reader-with-explicit-7.51-header-adapter",
                 "meshBytes": len(payloads["geometry.bytes"]), "meshSha256": assets.digest(payloads["geometry.bytes"]),
                 "inputs": inputs, "frames": frames}
+    if with_dust:
+        manifest.update(dustInputs=dust_inputs, dustFrames=dust_frames)
     output.mkdir()
     for relative, data in payloads.items():
         path = output / assets.portable(relative)
@@ -97,7 +120,8 @@ def prepare(original_root, output, authorization_reference):
         path.write_bytes(data)
     raw = assets.json_bytes(manifest)
     (output / "manifest.json").write_bytes(raw)
-    return {"manifestSha256": assets.digest(raw), "inputs": 18, "frames": 17,
+    return {"manifestSha256": assets.digest(raw), "inputs": len(inputs) + len(dust_inputs),
+            "frames": len(frames), "dustFrames": len(dust_frames),
             "inputOrigin": ORIGIN, "nativeConvertedTextureEquivalent": False, "generatedSpfxHeaderEquivalent": False}
 
 
@@ -106,8 +130,9 @@ def main():
     parser.add_argument("--original-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--authorization-reference", required=True)
+    parser.add_argument("--with-dust", action="store_true", help="Explicit v2 migration retaining the v1 SDL/17-TRAIL pins plus all ten DIRT frames.")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.original_root, args.output, args.authorization_reference), indent=2))
+    print(json.dumps(prepare(args.original_root, args.output, args.authorization_reference, args.with_dust), indent=2))
 
 
 if __name__ == "__main__":

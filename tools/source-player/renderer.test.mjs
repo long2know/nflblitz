@@ -33,7 +33,7 @@ test('adapter-only: actual effects receiver preserves selected originals and raw
   assert.equal(target.fx.flashAlpha[5], 0);
   assert.deepEqual([...target.fx.hudHighlight], [2]);
   assert.throws(() => SourceRenderer.prototype.effects.call(target, projection, Array(30).fill(0),
-    [17], flags, target.fx.flashAlpha, metadata(true)), /unbound original TRAIL frame/);
+    [17], flags, target.fx.flashAlpha, metadata(true)),     /unbound original TRAIL\/DIRT frame/);
   assert.throws(() => SourceRenderer.prototype.effects.call(target, projection, [], [],
     Array(14).fill(0), Array(14).fill(192 / 255), metadata(false)), /Only actual raw0x400/);
   assert.throws(() => SourceRenderer.prototype.effects.call(target, projection, [], [],
