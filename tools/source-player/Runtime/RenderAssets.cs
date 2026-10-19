@@ -46,6 +46,7 @@ public sealed class RenderAssets
                 poppedHeadParts = Register(SourceTeamGeneratedModels.BuildPoppedHead(model, data.PoppedHead));
         }
         UploadBall();
+        if (data.Fire?.HelmetGeometry != null) UploadHelmet();
     }
 
     private void Measure(OriginalPlayer model)
@@ -186,6 +187,24 @@ public sealed class RenderAssets
                 sourceTriangleOrder = "Renderer321", rawTextureCode = 0, sourceScale = 1,
                 nativeGeneratedHeaderEquivalent = false
             }));
+    }
+
+    private void UploadHelmet()
+    {
+        SourceFireGeometry geometry = data.Fire.HelmetGeometry;
+        var vertices = new double[geometry.VertexIndices.Count * 5];
+        var indices = new int[geometry.VertexIndices.Count];
+        for (int i = 0; i < indices.Length; i++)
+        {
+            int corner = i / 3 * 3 + (i % 3 == 1 ? 2 : i % 3 == 2 ? 1 : 0);
+            SourceVector3 p = geometry.Positions[geometry.VertexIndices[corner]];
+            int uv = geometry.UvIndices[corner] * 2;
+            vertices[i * 5] = p.X; vertices[i * 5 + 1] = p.Y; vertices[i * 5 + 2] = p.Z;
+            vertices[i * 5 + 3] = geometry.RawAuthoringUvs[uv];
+            vertices[i * 5 + 4] = geometry.RawAuthoringUvs[uv + 1]; indices[i] = i;
+        }
+        meshes.Add(SourceFireSpfxReader.HelmetMeshId);
+        sink.Mesh(SourceFireSpfxReader.HelmetMeshId, vertices, indices);
     }
 
     public (SourceTeamAppearance Appearance, int Id) Bind(PlayerView actor, IGameState state)

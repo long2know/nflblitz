@@ -1,3 +1,4 @@
+using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Gameplay;
 using Blitz.Runtime;
@@ -13,9 +14,11 @@ public static class KernelBinding
         options ??= PreviewOptions.FromUrl("");
         if (options.FireEnabled && data.Fire == null)
             throw new InvalidDataException("source-fire=portable requires the authenticated original SDL/17-TGA fire bundle before simulation.");
-        if (options.FireEnabled) data.Fire.RequireDust();
+        if (options.FireEnabled) { data.Fire.RequireDust(); data.Fire.RequireHelmet(); }
         SourceFireGameplayConfiguration fire = options.FireEnabled ?
-            new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(data.Fire), 0, SourceFireCull.Off) : null;
+            new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(data.Fire), 0, SourceFireCull.Off,
+                (identity, side) => SourceTeamPresentationModel.LooseHelmetDecal(data.Rosters, data.Teams,
+                    data.Configuration.Match, data.Configuration.Presentation, identity, side)) : null;
         SourceKickMeterMetrics meters = options.KickMeters == SourceKickMeterMode.PortableAuthored ?
             data.Hud.CreatePortableAuthoredKickMeterMetrics() : null;
         return SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,

@@ -129,6 +129,7 @@ namespace Blitz.Gameplay
                     throw new InvalidOperationException("player.c:maybe_pop_helmet requires actual team_head station input.");
                 if (sourcePresentation.StationHeads[actor.SourceControllerStation] != -1) return;
             }
+            ClearSourceLooseHelmet("player.c", "maybe_pop_helmet", 9188, 9189, actor.Id);
             if (actor.Id != Model.CarrierId) return;
             bool fire = Model.SourceTeamFire[(int)actor.Team] && first < 45;
             if (!fire && SourceDraw(100, "player.c:maybe_pop_helmet:9200") >= 10) return;
@@ -145,6 +146,7 @@ namespace Blitz.Gameplay
                 unresolvedContactSounds.Add(new SourceContactSoundCue(context, "snd_scall_bank",
                     new[] { "plyr_bnk_str", "P_HARD_HIT3_SND", "ANCR_VOL2", "127", "PRIORITY_LVL3" }, Model.CarrierId));
             }
+            AdmitSourceLooseHelmet(actor, fire ? 9198 : 9205);
         }
 
         private int SourceContactAnimationCode(ActorState actor, string function, int argument0)

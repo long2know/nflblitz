@@ -54,8 +54,8 @@ Migration verifies the prior approved fire identity, preserves every non-fire
 input and all existing fire pins, and writes a new output. The original TGA
 developer directory/tag20/footer is authenticated before a declared nonpixel
 adapter passes the pixel view to the existing strict decoder. No WMS/TEXUS or
-generated-header equivalence is inferred. V1 component reading is retained;
-enabled Unity/browser composition requires v2 and fails visibly with
+generated-header equivalence is inferred. V1/v2 component reading is retained;
+enabled Unity/browser composition now requires the v3 helmet extension below and fails visibly with
 `SOURCE_DUST_DATA_REQUIRED` rather than substituting generic smoke. The stable
 Unity resource key/GUIDs are unchanged; reimport the explicitly prepared bundle.
 
@@ -65,6 +65,65 @@ have no new flag and remain disabled by default. Target PRNG, native WBUFFER,
 Glide/MIPS/FMA/qsort, audio, performance, full-game and all-sixteen acceptance
 remain unqualified. `dust.browser.mjs` is a bounded private actual-build,
 public-control/GPU campaign, not an asset-free CI test or fixture image.
+
+## Original detached loose helmet (same opt-in)
+
+The existing original `HelmetPopped` decision, actor flag, phead body
+substitution, announcer and hard-hit calls are retained. With
+`source-fire=portable`, its helper now kills PID0950 then deletes OID0450
+**after mode/secret-head guards but before the noncarrier return**. A successful
+existing decision queues `loosehlm` in the same head-inserted level-zero/sleep1
+scheduler; it does not repeat either helper probability draw.
+
+Entry copies canonical cached neck8 through its paired inverse camera,
+including Y. It launches in world axes, consumes the real shared range100
+direction choice and retains original integer spin/flight/bounce fields,
+double-literal bounce stores, six-draw rebound order and per-moving-wake
+range35 spin. Resting ground/counter work continues without a TTL, fade or
+deadball retirement. Global `phi`, flags, flight counter, targets and bounce
+time survive replacements; only explicit original entry fields reset.
+Kill and object deletion remain independent: this global object has **no
+dust exit alert**, and deleting it alone does not stop its process.
+The actual new-play boundary performs the original `nfl.c:867–868` cleanup.
+
+The mesh is original `models/phelm.sdl` / `limb_phelm_obj`, **not** phead,
+medball, held-ball geometry or a sphere. Offline preparation follows the
+`models/models.mak` factor1.2 recipe without recentering. Normalized printed
+ST uses literal ratio4 /128×256 and the selected actor's captured
+`odata.pdecal[2]` team atlas, including its actual skin/uniform selection.
+The detached renderer reuses the verified free-ball rotation/shader machinery
+without ball-carrier visibility or big-ball rules. It reads **current global
+ball WHITE**, not helmet flags, with CC alpha, WRAP, LESS/write and separate
+SRC_ALPHA/ONE_MINUS_SRC_ALPHA, ONE/ZERO blending.
+
+Create new private outputs; never overwrite or relabel the v2 generation:
+
+```sh
+python3 -B tools/fire-spfx/prepare.py --original-root "$AUTHORIZED_ORIGINAL_ROOT" \
+  --output .squad/.scratch/fire-helmet-v3 --authorization-reference "$LOCAL_AUTHORIZATION" --with-helmet
+python3 -B tools/source-player/prepare_features.py --base-data "$READONLY_APPROVED_V2_DATA" \
+  --base-manifest-sha256 "$V2_PLAYER_SHA256" --fire-bundle .squad/.scratch/fire-helmet-v3 \
+  --fire-manifest-sha256 "$V3_FIRE_SHA256" --replace-fire-with-helmet \
+  --output .squad/.scratch/player-helmet-v3
+```
+
+This explicitly authenticated migration retains every prior554 listed file
+identity except the fire manifest and adds only PHELM SDL and prepared
+geometry:556 listed files, unchanged17 TRAIL/10 DIRT frames and all non-fire
+services. V1/v2 remain readable as components/default-off inputs;
+enabled composition rejects missing PHELM with `SOURCE_HELMET_DATA_REQUIRED`.
+Unity keeps its existing resource key and GUIDs and requires explicit v3
+reimport with the existing authored CC-alpha/source-matrix shader.
+
+See `../../tests/loose-helmet/README.md` for actual compiled-source/parsed-JS
+causal controls, exact pinned-C float/int comparisons and original CVTMOD
+expanded-face verification. `helmet.browser.mjs` is a separate, bounded,
+actual-build public-key/GPU campaign using genuinely paused normal-render
+PNGs, not a fixture image or CI asset fetch. Host epoch reset is explicit
+portable semantics, **not** proof of native program/BSS lifetime. Signed
+overflow and out-of-domain iasin stop rather than inventing native wrap/clamp.
+Native `helm.h`, target ABI/PRNG/FMA/qsort/WBUFFER/Glide, Unity execution,
+full-game, all16, audio and performance acceptance remain **OPEN**.
 
 ## Required source free-ball geometry/material/flight binding
 

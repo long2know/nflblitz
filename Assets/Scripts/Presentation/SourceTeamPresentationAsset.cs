@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Blitz.AssetImport;
+using Blitz.Contracts;
 using UnityEngine;
 #if UNITY_EDITOR
 using System.IO;
@@ -312,6 +313,16 @@ namespace Blitz.Presentation
         public Material NumberMaterial(SourceTeamAppearance appearance)
         {
             Load(); return RequiredMaterial(appearance.Uniform.Slots[library.ActorModels.NumberTextureSlot].Id);
+        }
+
+        public Texture LooseHelmetTexture(SourceLooseHelmetDecal decal)
+        {
+            Load();
+            foreach (SourceTeamTexture texture in data.Textures)
+                if (texture.Id == decal.TextureId && decal.IsSpecified && texture.Sha256 == decal.SourceSha256 &&
+                    texture.SourcePath == decal.SourcePath && texture.Width == decal.Width && texture.Height == decal.Height)
+                    return RequiredMaterial(texture.Id).mainTexture;
+            throw new SourceFireBoundaryException("SOURCE_HELMET_DECAL_REQUIRED: no imported texture matches actual entry pdecal[2].");
         }
 
         public Mesh NumberMesh(SourceTeamAppearance appearance)

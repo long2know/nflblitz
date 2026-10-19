@@ -15,5 +15,6 @@
     <Compile Include="FreeBallChecks.cs" />
     <Compile Include="BallTrailChecks.cs" />
     <Compile Include="DustChecks.cs" />
+    <Compile Include="HelmetChecks.cs" />
   </ItemGroup>
 </Project>

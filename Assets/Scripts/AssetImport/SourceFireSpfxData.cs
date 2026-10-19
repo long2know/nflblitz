@@ -60,6 +60,15 @@ namespace Blitz.AssetImport
         [DataMember] public SourceFireTextureRecord[] frames;
         [DataMember] public SourceFireInputRecord[] dustInputs;
         [DataMember] public SourceFireTextureRecord[] dustFrames;
+        [DataMember] public SourceFireInputRecord helmetInput;
+        [DataMember] public string helmetMeshPath;
+        [DataMember] public int helmetMeshBytes;
+        [DataMember] public string helmetMeshSha256;
+        [DataMember] public string helmetGeometryOrigin;
+        [DataMember] public string helmetUvOrigin;
+        [DataMember] public float helmetGeometryFactor;
+        [DataMember] public int helmetIntegerAspect;
+        [DataMember] public bool nativeGeneratedHelmetHeaderEquivalent;
     }
 
     public sealed class SourceFireTextureFrame
@@ -94,14 +103,16 @@ namespace Blitz.AssetImport
         public bool NativeConvertedTextureEquivalent { get { return false; } }
         public bool GeneratedSpfxHeaderEquivalent { get { return false; } }
         public SourceFireGeometry Geometry { get; }
+        public SourceFireGeometry HelmetGeometry { get; }
         public ReadOnlyCollection<SourceFireTextureFrame> Frames { get; }
         public ReadOnlyCollection<SourceFireTextureFrame> DustFrames { get; }
         public ReadOnlyCollection<SourceFireTextureFrame> Textures { get; }
         internal SourceFireSpfxBundle(string manifestSha, string authorizationReference, SourceFireGeometry geometry,
-            SourceFireTextureFrame[] frames, SourceFireTextureFrame[] dustFrames = null)
+            SourceFireTextureFrame[] frames, SourceFireTextureFrame[] dustFrames = null, SourceFireGeometry helmetGeometry = null)
         {
             ManifestSha256 = manifestSha; AuthorizationReference = authorizationReference; Geometry = geometry;
             Frames = Array.AsReadOnly(frames); DustFrames = Array.AsReadOnly(dustFrames ?? new SourceFireTextureFrame[0]);
+            HelmetGeometry = helmetGeometry;
             var all = new List<SourceFireTextureFrame>(frames); all.AddRange(DustFrames); Textures = all.AsReadOnly();
         }
         public void RequireDust()
@@ -117,12 +128,23 @@ namespace Blitz.AssetImport
             SourceFireGuard.Require(index >= 0 && index < frames.Count, "Source effect selected a missing original texture frame.");
             return frames[index];
         }
+        public void RequireHelmet()
+        {
+            SourceFireGuard.Require(HelmetGeometry != null,
+                "SOURCE_HELMET_DATA_REQUIRED: source-fire=portable loosehlm requires the authenticated v3 original PHELM SDL mesh; reprepare, no phead/ball/sphere fallback.");
+        }
     }
 
     public static class SourceFireSpfxReader
     {
         public const string Schema = "blitz-source-fire-spfx-portable/v1";
         public const string DustSchema = "blitz-source-fire-spfx-portable/v2";
+        public const string HelmetSchema = "blitz-source-fire-spfx-portable/v3";
+        public const string HelmetGeometryOrigin = "original-phelm-SDL-factor1.2-authoring-origin-not-native-helm.h";
+        public const string HelmetUvOrigin = "original-cvtmod-normalized-six-decimal-ST-ratio4-bottom-left";
+        public const string HelmetSourceSha256 = "03130e8e5dab04b4d5bd64290595b884bfb1e007440d9d228db9419f47614e5a";
+        public const string HelmetGeometrySha256 = "d8c14967916b24b3135839680f1419c0af1a6aeceea34f3aa6a10d8127ff59c9";
+        public const string HelmetMeshId = "original/loose-helmet/limb_phelm_obj";
         public const string InputOrigin = "original-authoring-TGA32-and-SDL-portable-not-WMS";
         public const string AspectOrigin = "decoded-authoring-dimensions-Glide-enum-not-observed-WMS-header";
         public const string UvOrigin = "raw-SDL-ST-normalized-Unity-bottom-left-not-generated-spfx.h";
@@ -162,7 +184,8 @@ namespace Blitz.AssetImport
             SourceFireSpfxManifest manifest;
             using (var stream = new MemoryStream(manifestBytes, false))
                 manifest = (SourceFireSpfxManifest)new DataContractJsonSerializer(typeof(SourceFireSpfxManifest)).ReadObject(stream);
-            SourceFireGuard.Require(manifest != null && (manifest.schema == Schema || manifest.schema == DustSchema) &&
+            SourceFireGuard.Require(manifest != null && (manifest.schema == Schema || manifest.schema == DustSchema ||
+                manifest.schema == HelmetSchema) &&
                 manifest.stableId == SourceFireIds.PortableAssetSet &&
                 manifest.sourceRepository == "historicalsource/nflblitz2000" && manifest.sourceCommit == SourceCommit &&
                 manifest.sourceTree == "a7e0352125d46075b7d98e87253ab89b9160a4c7" &&
@@ -194,8 +217,8 @@ namespace Blitz.AssetImport
                 SourceFireGuard.Require(GitBlob(original) == record.gitBlobSha1, "Wrong original Git blob: " + path);
                 if (i > 0) frames[i - 1] = DecodeOriginalTga(original, manifest.frames[i - 1], path, record.sha256, i);
             }
-            var dust = new SourceFireTextureFrame[manifest.schema == DustSchema ? SourceFireIds.DustFrameCount : 0];
-            SourceFireGuard.Require(manifest.schema == DustSchema
+            var dust = new SourceFireTextureFrame[manifest.schema != Schema ? SourceFireIds.DustFrameCount : 0];
+            SourceFireGuard.Require(manifest.schema != Schema
                 ? manifest.dustInputs != null && manifest.dustInputs.Length == 10 &&
                   manifest.dustFrames != null && manifest.dustFrames.Length == 10
                 : manifest.dustInputs == null && manifest.dustFrames == null,
@@ -223,7 +246,62 @@ namespace Blitz.AssetImport
             byte[] geometry = readFile(manifest.meshPath);
             SourceFireGuard.Require(geometry != null && geometry.Length == manifest.meshBytes, "Missing/truncated prepared SDL geometry.");
             CheckHash(geometry, manifest.meshSha256, "portable SDL geometry");
-            return new SourceFireSpfxBundle(expectedManifestSha256, manifest.authorizationReference, ReadGeometry(geometry), frames, dust);
+            SourceFireGeometry helmetGeometry = null;
+            if (manifest.schema == HelmetSchema)
+            {
+                SourceFireInputRecord input = manifest.helmetInput;
+                SourceFireGuard.Require(input != null && input.path == "models/phelm.sdl" &&
+                    input.payloadPath == "inputs/models/phelm.sdl.bytes" && input.bytes == 19258 &&
+                    input.gitBlobSha1 == "d086f6944207a0ff2fa906ef7fc9692dcfb289ec" && input.sha256 == HelmetSourceSha256 &&
+                    paths.Add(input.payloadPath) && manifest.helmetGeometryOrigin == HelmetGeometryOrigin &&
+                    manifest.helmetUvOrigin == HelmetUvOrigin && manifest.helmetGeometryFactor == 1.2f &&
+                    manifest.helmetIntegerAspect == 4 && !manifest.nativeGeneratedHelmetHeaderEquivalent,
+                    "SOURCE_HELMET_DATA_REQUIRED: exact PHELM authoring input, factor1.2/ratio4 and explicit non-native origin required.");
+                byte[] original = readFile(input.payloadPath);
+                SourceFireGuard.Require(original != null && original.Length == input.bytes &&
+                    GitBlob(original) == input.gitBlobSha1, "Wrong original PHELM Git blob.");
+                CheckHash(original, HelmetSourceSha256, input.path);
+                SourceFireGuard.Require(manifest.helmetMeshPath == "helmet-geometry.bytes" &&
+                    manifest.helmetMeshSha256 == HelmetGeometrySha256 &&
+                    paths.Add(manifest.helmetMeshPath), "Wrong prepared PHELM geometry identity.");
+                byte[] mesh = readFile(manifest.helmetMeshPath);
+                SourceFireGuard.Require(mesh != null && mesh.Length == manifest.helmetMeshBytes, "Missing/truncated PHELM geometry.");
+                CheckHash(mesh, manifest.helmetMeshSha256, "PHELM authoring geometry");
+                helmetGeometry = ReadHelmetGeometry(mesh);
+            }
+            else
+                SourceFireGuard.Require(manifest.helmetInput == null && manifest.helmetMeshPath == null,
+                    "Legacy fire generations cannot claim unvalidated loose-helmet resources.");
+            return new SourceFireSpfxBundle(expectedManifestSha256, manifest.authorizationReference, ReadGeometry(geometry), frames, dust, helmetGeometry);
+        }
+
+        public static SourceFireGeometry ReadHelmetGeometry(byte[] bytes)
+        {
+            SourceFireGuard.Require(bytes != null && bytes.Length == 3752, "Exact PHELM authoring geometry length required.");
+            using (var stream = new MemoryStream(bytes, false))
+            using (var reader = new BinaryReader(stream))
+            {
+                SourceFireGuard.Require(Encoding.ASCII.GetString(reader.ReadBytes(8)) == "BZHLG001" &&
+                    reader.ReadInt32() == 63 && reader.ReadInt32() == 105 && reader.ReadInt32() == 89,
+                    "Wrong original PHELM geometry format/inventory.");
+                var positions = new SourceVector3[63]; var uvs = new float[210];
+                var vertices = new int[267]; var uvIndices = new int[267];
+                for (int i = 0; i < positions.Length; i++)
+                {
+                    positions[i] = new SourceVector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                    SourceFireGuard.Finite(positions[i]);
+                }
+                for (int i = 0; i < uvs.Length; i++)
+                {
+                    uvs[i] = reader.ReadSingle(); SourceFireGuard.Finite(uvs[i]);
+                    SourceFireGuard.Require(uvs[i] >= 0f && uvs[i] <= 1f, "PHELM normalized authoring UV out of bounds.");
+                }
+                for (int i = 0; i < vertices.Length; i++)
+                { vertices[i] = reader.ReadInt32(); SourceFireGuard.Require(vertices[i] >= 0 && vertices[i] < 63, "PHELM vertex index out of range."); }
+                for (int i = 0; i < uvIndices.Length; i++)
+                { uvIndices[i] = reader.ReadInt32(); SourceFireGuard.Require(uvIndices[i] >= 0 && uvIndices[i] < 105, "PHELM UV index out of range."); }
+                return new SourceFireGeometry(positions, uvs, vertices, uvIndices);
+            }
         }
 
         public static int AspectFromDecodedDimensions(int width, int height)

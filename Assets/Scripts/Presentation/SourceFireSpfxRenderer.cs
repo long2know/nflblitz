@@ -15,16 +15,36 @@ namespace Blitz.Presentation
         private SourceFireSpfxBundle data;
         private Texture2D[] textures;
         private Material[] materials;
+        private SourceTeamPresentationAsset teams;
+        private Shader helmetShader;
+        private Mesh helmetMesh;
+        private readonly Dictionary<string, Material> helmetMaterials = new Dictionary<string, Material>();
         private readonly Dictionary<long, Mesh> meshes = new Dictionary<long, Mesh>();
         public SourceFireSpfxFrameConsumer Consumer { get { return consumer; } }
 
-        public void Initialize(SourceFireSpfxAsset asset, Camera actualSourceCamera)
+        public void Initialize(SourceFireSpfxAsset asset, Camera actualSourceCamera, SourceTeamPresentationAsset actualTeams)
         {
             SourceFireGuard.Require(asset != null && actualSourceCamera != null && commands == null,
                 "Bind the actual authenticated fire asset and camera once; no implicit default asset/camera.");
             data = asset.Load(); target = actualSourceCamera; consumer = new SourceFireSpfxFrameConsumer(data);
             SourceFireGuard.Require(asset.SourceShader.isSupported, "Exact source-fire shader unsupported on this graphics backend; no fallback material.");
             data.RequireDust();
+            data.RequireHelmet();
+            SourceFireGuard.Require(actualTeams != null, "SOURCE_HELMET_DECAL_REQUIRED: actual selected team texture resources required.");
+            teams = actualTeams; teams.Load(); helmetShader = asset.LooseHelmetShader;
+            SourceFireGeometry geometry = data.HelmetGeometry;
+            var helmetPositions = new Vector3[geometry.VertexIndices.Count];
+            var helmetUvs = new Vector2[helmetPositions.Length]; var helmetTriangles = new int[helmetPositions.Length];
+            for (int i = 0; i < helmetPositions.Length; i++)
+            {
+                int corner = i / 3 * 3 + (i % 3 == 1 ? 2 : i % 3 == 2 ? 1 : 0);
+                SourceVector3 p = geometry.Positions[geometry.VertexIndices[corner]];
+                int uv = geometry.UvIndices[corner] * 2;
+                helmetPositions[i] = new Vector3(p.X, p.Y, p.Z);
+                helmetUvs[i] = new Vector2(geometry.RawAuthoringUvs[uv], geometry.RawAuthoringUvs[uv + 1]);
+                helmetTriangles[i] = i;
+            }
+            helmetMesh = new Mesh { name = "limb_phelm_obj", vertices = helmetPositions, uv = helmetUvs, triangles = helmetTriangles };
             textures = new Texture2D[data.Textures.Count]; materials = new Material[data.Textures.Count];
             for (int i = 0; i < data.Textures.Count; i++)
             {
@@ -38,7 +58,7 @@ namespace Blitz.Presentation
             target.AddCommandBuffer(CameraEvent.AfterForwardAlpha, commands);
         }
 
-        public void ConsumeAfterSourceStep(SourceFireRenderFrame frame)
+        public void ConsumeAfterSourceStep(SourceFireRenderFrame frame, IReadOnlyList<SourceLooseHelmetDraw> looseHelmets)
         {
             SourceFireGuard.Require(consumer != null && commands != null, "Initialize the actual fire renderer before installing the Source57 host.");
             if (ReferenceEquals(frame, consumer.LastFrame)) return;
@@ -47,6 +67,31 @@ namespace Blitz.Presentation
             var alive = new HashSet<long>();
             var raster = new Vector4(512f, frame.Basis.VerticalResolution, 664f,
                 frame.Basis.VerticalResolution == 256 ? 2f / 3f : 1f);
+            SourceFireGuard.Require(looseHelmets != null && looseHelmets.Count == frame.LooseHelmets.Count,
+                "Actual detached helmet render projection required; no flag-only Unity consumer.");
+            foreach (SourceLooseHelmetDraw draw in looseHelmets)
+            {
+                if (!draw.Transform.State.Visible) continue;
+                SourceFireGuard.Require(draw.Transform.State.SourceTick == frame.SourceTick,
+                    "Loose helmet and paired render camera must share the current source dispatch.");
+                string id = draw.Helmet.Decal.TextureId;
+                Material material;
+                if (!helmetMaterials.TryGetValue(id, out material))
+                {
+                    material = new Material(helmetShader) { name = "Original detached helmet " + id,
+                        mainTexture = teams.LooseHelmetTexture(draw.Helmet.Decal) };
+                    helmetMaterials.Add(id, material);
+                }
+                float[] source = draw.Transform.CameraMatrix(frame.Basis.Camera);
+                Matrix4x4 matrix = Matrix4x4.identity;
+                for (int row = 0; row < 3; row++)
+                    for (int column = 0; column < 4; column++) matrix[row, column] = source[row * 4 + column];
+                var properties = new MaterialPropertyBlock();
+                properties.SetMatrix("_BallSourceMatrix", matrix); properties.SetVector("_SourceRaster", raster);
+                properties.SetFloat("_BallWhite", draw.Transform.White ? 1f : 0f);
+                properties.SetFloat("_BallAlpha", draw.Helmet.Alpha / 255f);
+                commands.DrawMesh(helmetMesh, Matrix4x4.identity, material, 0, 0, properties);
+            }
             foreach (SourceFireDrawPacket draw in draws)
             {
                 alive.Add(draw.ObjectSerial);
@@ -91,6 +136,9 @@ namespace Blitz.Presentation
             meshes.Clear();
             if (materials != null) foreach (Material material in materials) if (material != null) Destroy(material);
             if (textures != null) foreach (Texture2D texture in textures) if (texture != null) Destroy(texture);
+            if (helmetMesh != null) Destroy(helmetMesh);
+            foreach (Material material in helmetMaterials.Values) Destroy(material);
+            helmetMaterials.Clear();
         }
     }
 }

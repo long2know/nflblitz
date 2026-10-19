@@ -183,7 +183,14 @@ def validate_workflow(text):
     early = steps["Test the inventory failure gates"]
     for command in ("python3 tests/test-runner.py",
                     "python3 -B -m unittest discover -s tests/audio/runtime -p test_ci.py -q",
-                    "python3 -B tests/movement-callers/test_public_replay.py -q"):
+                    "python3 -B tests/movement-callers/test_public_replay.py -q",
+                    "python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls",
+                    "python3 -B tests/impact-dust/test_ci.py",
+                    "python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls",
+                    "python3 -B tests/impact-dust/js_controls.py --output .squad/.scratch/impact-dust-js-ci",
+                    "python3 -B tests/loose-helmet/test_ci.py",
+                    "python3 -B tests/loose-helmet/run.py --output .squad/.scratch/loose-helmet-ci --controls",
+                    "python3 -B tests/loose-helmet/js_controls.py --output .squad/.scratch/loose-helmet-js-ci"):
         require(shlex.split(command) in early, "early actual fixture/workflow failure guard missing: " + command)
     order = list(steps)
     require(order.index("Prepare original animation geometry roster and playbook services") <
@@ -318,6 +325,9 @@ class ContactWorkflow(unittest.TestCase):
             ("prepare_public_replay.py prepare", "prepare_public_replay.py export"),
             (PUBLIC_FIXTURE, ".squad/.scratch/private-natural-new-entry.json"),
             ("python3 -B tests/movement-callers/test_public_replay.py -q", "true"),
+            ("python3 -B tests/loose-helmet/test_ci.py", "true"),
+            ("python3 -B tests/loose-helmet/run.py --output .squad/.scratch/loose-helmet-ci --controls", "true"),
+            ("python3 -B tests/loose-helmet/js_controls.py --output .squad/.scratch/loose-helmet-js-ci", "true"),
             (B1_COMMAND, B1_COMMAND.replace(CURRENT + "/fixture.json", FIXTURE + "/fixture.json")),
             (M1_COMMAND, M1_COMMAND.replace("--c2-m1-inputs", "--c2-inputs")),
             (M1_COMMAND, M1_COMMAND.replace("--replay-commands " + PUBLIC_REPLAY, "")),

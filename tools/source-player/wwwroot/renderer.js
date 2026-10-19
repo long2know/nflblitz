@@ -242,11 +242,50 @@ export class SourceRenderer {
       'Actual Core particle selected an unbound original TRAIL/DIRT frame.');
     requireValue(flashAlpha.every((alpha, actor) => alpha === ((rawFlags[actor] & 0x400) ? 192 / 255 : 0)),
       'Only actual raw0x400 may request the original DECAL_TEXTURE_ADD_CCALPHA/0xc0000000 combiner.');
+    const helmets = SourceRenderer.prototype.helmetPackets.call(this, styles);
     this.fx = {
       projection: Float32Array.from(projection), vertices: Float32Array.from(vertices),
       textures: Array.from(textures), rawFlags: Array.from(rawFlags), flashAlpha: Array.from(flashAlpha), metadata: frame,
       hudHighlight: new Set(styles.hudHighlight), hudStyle: styles,
+      helmets, helmetAsset: styles.helmetAsset,
     };
+  }
+
+  helmetPackets(styles) {
+    const helmets = styles.looseHelmets || [], asset = styles.helmetAsset;
+    requireValue(Array.isArray(helmets) && (styles.frame.enabled || helmets.length === 0),
+      'Disabled source-fire cannot submit detached loose-helmet objects.');
+    if (!helmets.length) return [];
+    requireValue(asset?.mesh === 'original/loose-helmet/limb_phelm_obj' && this.meshes.get(asset.mesh)?.count === 267 &&
+      asset.sourceSha256 === '03130e8e5dab04b4d5bd64290595b884bfb1e007440d9d228db9419f47614e5a' &&
+      asset.geometrySha256 === 'd8c14967916b24b3135839680f1419c0af1a6aeceea34f3aa6a10d8127ff59c9' &&
+      asset.origin === 'original-phelm-SDL-factor1.2-authoring-origin-not-native-helm.h' &&
+      asset.uvOrigin === 'original-cvtmod-normalized-six-decimal-ST-ratio4-bottom-left' &&
+      asset.sourceScale === 1.2 && asset.sourceTriangleOrder === 'Renderer321' &&
+      asset.nativeGeneratedHeaderEquivalent === false,
+    'Exact original PHELM authoring mesh/origin/UV required; no phead, football or generic helmet substitute.');
+    requireValue(new Set(helmets.map(h => h.objectSerial)).size === helmets.length,
+      'A detached helmet object must be submitted exactly once.');
+    return helmets.map(h => {
+      const texture = this.textures.get(h.texture), white = Boolean(styles.frame.globalBallFlags & 1);
+      const packet = h.packet;
+      requireValue(Number.isInteger(h.objectSerial) && h.objectSerial > 0 &&
+        Number.isInteger(h.processSerial) && h.processSerial > 0 && Number.isInteger(h.actor) && h.actor >= 0 && h.actor < 14 &&
+        h.sourceTick === styles.frame.sourceTick && h.entrySourceTick <= h.sourceTick && h.cacheSourceTick <= h.entrySourceTick &&
+        h.objectId === 0x450 && h.drawOrder === 0x50000 && h.decalSlot === 2 && h.integerAspect === 4 &&
+        h.textureWidth === 128 && h.textureHeight === 256 && texture?.width === 128 && texture?.height === 256 &&
+        texture.sha256 === h.textureSha256 && h.texture.startsWith('teams/runtime/') &&
+        h.alpha === 255 && h.scale === 2 && h.pitchRate === 40 && h.white === white && h.effectiveAlpha === 255 &&
+        h.visible === !h.hidden && Number.isInteger(h.roll) && Number.isInteger(h.flightTime) &&
+        Number.isInteger(h.bounces) && Number.isInteger(h.bounceTime) &&
+        packet?.length === 20 && packet.every(Number.isFinite) && packet[0] === Number(!h.hidden) &&
+        packet[1] === h.sourceTick && packet[2] === (styles.frame.globalBallFlags & 1) && packet[3] === h.alpha &&
+        packet[7] === 0 && packet[11] === 0 && packet[15] === 0 && packet[19] === 1 &&
+        h.worldMatrix?.length === 12 && h.worldMatrix.every((v, i) => Number.isFinite(Math.fround(v)) &&
+          Math.fround(v) === Math.fround(packet[4 + (i % 4) * 4 + Math.floor(i / 4)])),
+      'Loose-helmet GPU packet must bind same-tick detached source fields, captured team pdecal2/ratio4 and current GLOBAL ball WHITE.');
+      return { metadata: h, matrix: Float32Array.from(packet.slice(4)) };
+    });
   }
 
   present(camera, joints, models, appearances, ball, hudVertices, hudColors, hudTextures, hudCounts, status) {
@@ -289,6 +328,11 @@ export class SourceRenderer {
     });
     requireValue(new Set(trails.map(t => t.objectSerial)).size === trails.length,
       'A source football-trail object must be submitted exactly once.');
+    for (const helmet of this.fx?.helmets || [])
+      requireValue(helmet.metadata.sourceTick === snapshot.sourceTick &&
+        this.fx.metadata.globalBallFlags === snapshot.ball.rawFlags &&
+        this.appearances.get(appearances[helmet.metadata.actor])?.textures[2] === helmet.metadata.texture,
+      'Actual detached helmet must retain its selected actor team decal2 and current global ball flags, not a generic material.');
     this.current = {
       camera: Float32Array.from(camera), joints: Float32Array.from(joints), models: Array.from(models),
       appearances: Array.from(appearances), ball: Array.from(ball.slice(0, 20)), ballMatrix: Float32Array.from(ball.slice(4, 20)),
@@ -406,6 +450,7 @@ export class SourceRenderer {
     }
     if (frame.ballTrails?.length)
       SourceRenderer.prototype.drawBallTrails.call(this, identityPass, poppedHeadIdentityPass, observeMaterial);
+    SourceRenderer.prototype.drawLooseHelmets.call(this, identityPass, poppedHeadIdentityPass, observeMaterial);
     gl.bindVertexArray(null);
   }
 
@@ -459,6 +504,43 @@ export class SourceRenderer {
       if (identityPass || observeMaterial)
         Object.assign(draw, SourceRenderer.prototype.ballUniformProof.call(this, texture));
       this.lastBallTrailDraws.push(draw);
+    }
+    gl.frontFace(gl.CW); gl.disable(gl.BLEND);
+  }
+
+  drawLooseHelmets(identityPass, poppedHeadIdentityPass, observeMaterial = false) {
+    this.lastHelmetDraws = [];
+    const helmets = this.fx?.helmets || [];
+    if (!helmets.length) return;
+    const gl = this.gl;
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.frontFace(gl.CCW);
+    gl.uniform1f(this.sceneUniforms.cutoff, -1);
+    gl.uniform1i(this.sceneUniforms.constantAlpha, true);
+    gl.uniform1i(this.sceneUniforms.textureTimesAlpha, true);
+    if (identityPass) gl.disable(gl.BLEND);
+    else {
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
+    }
+    for (const helmet of helmets) {
+      const h = helmet.metadata;
+      if (!h.visible) continue;
+      const white = Boolean(this.fx.metadata.globalBallFlags & 1);
+      gl.uniform1f(this.sceneUniforms.constantAlphaValue, white ? 1 : h.alpha / 255);
+      gl.uniform1f(this.sceneUniforms.playerFlashAdd, white ? 1 : 0);
+      this.draw(this.fx.helmetAsset.mesh, h.texture, helmet.matrix,
+        identityPass ? poppedHeadIdentityPass ? 0 : 202 : null);
+      const draw = { objectSerial: h.objectSerial, processSerial: h.processSerial, actor: h.actor,
+        sourceTick: h.sourceTick, entrySourceTick: h.entrySourceTick, mesh: this.fx.helmetAsset.mesh,
+        geometrySha256: this.fx.helmetAsset.geometrySha256, texture: h.texture, textureSha256: this.textures.get(h.texture).sha256,
+        matrix: Array.from(helmet.matrix), alpha: h.alpha, white, globalBallFlags: this.fx.metadata.globalBallFlags,
+        decalSlot: 2, integerAspect: 4, indices: this.meshes.get(this.fx.helmetAsset.mesh).count,
+        frontFace: 'CCW-source321', rgbCombiner: white ? 'DECAL_TEXTURE_ADD_CCALPHA/FF' : 'TEXTURE_TIMES_ALPHA',
+        alphaSource: 'CC_ALPHA', depthFunction: 'LESS', depthWrite: true, drawOrder: 0x50000 };
+      if (identityPass || observeMaterial)
+        Object.assign(draw, SourceRenderer.prototype.ballUniformProof.call(this, h.texture));
+      this.lastHelmetDraws.push(draw);
     }
     gl.frontFace(gl.CW); gl.disable(gl.BLEND);
   }
@@ -556,19 +638,28 @@ export class SourceRenderer {
       gl.viewport(0, 0, width, height);
       this.drawScene(false, false, true);
       const ballTrailMaterialDraws = this.lastBallTrailDraws;
+      const looseHelmetMaterialDraws = this.lastHelmetDraws;
       const materialPixels = new Uint8Array(width * height * 4);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, materialPixels);
       this.drawScene(true);
       const ballDraw = this.lastBallDraw;
       const ballTrailDraws = this.lastBallTrailDraws;
+      const looseHelmetDraws = this.lastHelmetDraws;
       const pixels = new Uint8Array(width * height * 4), actorPixels = Array(14).fill(0);
       let ballPixels = 0, ballTrailPixels = 0, ballTrailColoredPixels = 0, ballTrailNonWhitePixels = 0;
+      let looseHelmetPixels = 0, looseHelmetColoredPixels = 0, looseHelmetNonWhitePixels = 0;
       const ballTrailColorBounds = { min: [255, 255, 255], max: [0, 0, 0] };
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
       for (let i = 0; i < pixels.length; i += 4) {
         if (pixels[i + 1] !== 0 || pixels[i + 2] !== 0) continue;
         if (pixels[i] >= 1 && pixels[i] <= 14) actorPixels[pixels[i] - 1]++;
         if (pixels[i] === 200) ballPixels++;
+        if (pixels[i] === 202) {
+          looseHelmetPixels++;
+          if (materialPixels[i] || materialPixels[i + 1] || materialPixels[i + 2]) looseHelmetColoredPixels++;
+          if (materialPixels[i] !== 255 || materialPixels[i + 1] !== 255 || materialPixels[i + 2] !== 255)
+            looseHelmetNonWhitePixels++;
+        }
         if (pixels[i] === 201) {
           ballTrailPixels++;
           if (materialPixels[i] || materialPixels[i + 1] || materialPixels[i + 2]) ballTrailColoredPixels++;
@@ -609,6 +700,7 @@ export class SourceRenderer {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
         ballDraw, ballTrailDraws, ballTrailPixels, ballTrailMaterialDraws, ballTrailColoredPixels,
         ballTrailNonWhitePixels, ballTrailColorBounds,
+        looseHelmetDraws, looseHelmetMaterialDraws, looseHelmetPixels, looseHelmetColoredPixels, looseHelmetNonWhitePixels,
         visibleHome: actorPixels.slice(0, 7).filter(n => n > 0).length,
         visibleAway: actorPixels.slice(7).filter(n => n > 0).length,
         method: 'Separate normal-material and identity GPU passes using the SAME current original meshes/textures/poses/projection/depth. Trail color samples use the matching identity mask; neither pass is a substituted gameplay screenshot.',

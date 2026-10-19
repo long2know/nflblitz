@@ -158,6 +158,8 @@ namespace Blitz.Contracts
     public enum SourcePresentationCueKind { PlayerDownCallback, Other }
     public enum SourceSoundVmStatus { Resolved }
     public struct SourceBallTrail { }
+    public struct SourceRosterIdentity { }
+    public struct SourceLooseHelmetDecal { }
     public struct FieldVector { public FieldVector(float x, float z) { } }
     public interface IGameState
     {
@@ -195,7 +197,10 @@ namespace Blitz.Contracts
     public static class SourceFireGameplayOptions { public static bool PortableRequested(string url) { return HostProbe.Source && HostProbe.Fire; } }
     public static class SourceKickMeterOptions { public static SourceKickMeterMode FromUrl(string url) { return SourceKickMeterMode.Disabled; } }
     public sealed class SourceFireGameplayConfiguration
-    { public SourceFireGameplayConfiguration(Blitz.Runtime.SourceFireSpfxRuntime runtime, int epoch, SourceFireCull cull) { } }
+    {
+        public SourceFireGameplayConfiguration(Blitz.Runtime.SourceFireSpfxRuntime runtime, int epoch, SourceFireCull cull,
+            Func<SourceRosterIdentity, TeamId, SourceLooseHelmetDecal> readHelmetDecal = null) { }
+    }
 }
 
 namespace Blitz.AssetImport
@@ -205,6 +210,12 @@ namespace Blitz.AssetImport
     public sealed class PlayerAssetException : Exception { }
     public sealed class SourceRosterException : Exception { }
     public sealed class SourceInterfaceMovementBootstrap { public int HorizontalResolution = 512, VerticalResolution = 384; }
+    public static class SourceTeamPresentationModel
+    {
+        public static SourceLooseHelmetDecal LooseHelmetDecal(object rosters, object catalog, object match,
+            Blitz.Presentation.SourcePresentationSettings settings, SourceRosterIdentity identity, TeamId side)
+        { return new SourceLooseHelmetDecal(); }
+    }
 }
 
 namespace Blitz.Gameplay
@@ -247,7 +258,11 @@ namespace Blitz.Presentation
         internal static readonly ISourceAnimationLibrary Animations = new TestAnimations();
         public static SourcePlayerRig ResolveActorMode(SourceTeamResourceProfile profile) { return HostProbe.Source ? new SourcePlayerRig() : null; }
         public static ISourceAnimationLibrary ResolveRequiredAnimationLibrary(SourcePlayerRig prefab) { return Animations; }
+        public static SourceTeamPresentationAsset ResolveRequiredTeamPresentation(SourcePlayerRig prefab)
+        { return new SourceTeamPresentationAsset(); }
     }
+    public sealed class SourceTeamPresentationAsset
+    { public readonly object Rosters = new object(), Catalog = new object(); }
     public sealed class SourceHudAsset { public readonly HudData Data = new HudData(); }
     public sealed class HudData { public readonly object Input = new object(); }
     public sealed class SourcePresentationSettings { public int DesignatedHomeSide; }
@@ -326,6 +341,7 @@ namespace Blitz.Presentation
         }
         public float[] CameraMatrix(SourceCinematicTransform camera) { return new float[12]; }
     }
+    public sealed class SourceLooseHelmetDraw { }
     public sealed class FreeBallState { public bool Visible = true; public long SourceTick; }
     public static class SourceCameraFrameClock
     {
@@ -340,9 +356,9 @@ namespace Blitz.Presentation
     }
     public sealed class SourceFireSpfxRenderer
     {
-        public void Initialize(SourceFireSpfxAsset asset, UnityEngine.Camera camera) { }
+        public void Initialize(SourceFireSpfxAsset asset, UnityEngine.Camera camera, SourceTeamPresentationAsset teams) { }
         public void ResetSourceEpoch() { HostProbe.Record("fire.reset"); }
-        public void ConsumeAfterSourceStep(object frame) { }
+        public void ConsumeAfterSourceStep(object frame, IReadOnlyList<SourceLooseHelmetDraw> helmets) { }
     }
 }
 
@@ -355,6 +371,9 @@ namespace Blitz.Runtime
         public readonly Blitz.AssetImport.SourceInterfaceMovementBootstrap MovementBootstrap = new Blitz.AssetImport.SourceInterfaceMovementBootstrap();
         public bool NativeGamepadsEnabled;
         public ISourceAnimationLibrary Animations { get { return Blitz.Presentation.SourcePlayerProvider.Animations; } }
+        public object Configuration() { return new object(); }
+        public Blitz.Presentation.SourcePresentationSettings PresentationSettings
+        { get { return new Blitz.Presentation.SourcePresentationSettings(); } }
         public static string ResourceKeyFor(Blitz.Presentation.SourceTeamResourceProfile profile) { return "managed-services"; }
         public Blitz.Gameplay.GameSimulation CreateSimulation(Blitz.Presentation.SourcePlayerRig prefab,
             SourceGameplayCompatibility compatibility, SourceFireGameplayConfiguration fireEffects, SourceKickMeterMode kickMeters)
@@ -401,6 +420,9 @@ namespace Blitz.Runtime
     }
     public static class SourceFreeBallBinding
     {
+        public static ReadOnlyCollection<Blitz.Presentation.SourceLooseHelmetDraw> CaptureHelmets(
+            Blitz.Gameplay.GameSimulation simulation)
+        { return new List<Blitz.Presentation.SourceLooseHelmetDraw>().AsReadOnly(); }
         public static Blitz.Presentation.SourceFreeBallDraw Capture(Blitz.Gameplay.GameSimulation simulation)
         {
             HostProbe.Captures++;
