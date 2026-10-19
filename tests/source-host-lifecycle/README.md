@@ -9,7 +9,7 @@ Uses the existing .NET10 SDK compiler/reference pack, C#7.3 and warnings as
 errors. No packages, restore, Unity executable, imported resources, browser or
 service are required. Choose a new ignored output directory on each invocation.
 The existing Game source checks workflow runs this managed campaign, including
-all five compiled controls, before fetching any original game inputs.
+all six compiled controls, before fetching any original game inputs.
 
 The executable compiles the **entire current production** `BlitzRuntime.cs` and
 `SourceFreeBallRenderer.cs`, not extracted/reimplemented lifecycle methods.
@@ -42,12 +42,19 @@ restart and later-runtime-failure recovery, and explicit Legacy restart.
 Assertions inspect the original failure/banner, absence of bridge restart or
 activation/HUD/replay/consumer work after failed bootstrap, neutral input,
 exactly-once hooks, initial cues, camera rewind order and ready ball consumption.
+The current draw collaborators include the nullable trail marker, source tick and
+`CaptureTrails` collection contract. They supply one declared same-tick synthetic
+ghost alongside the main ball, so the actual renderer's trail loop and the host's
+trail capture execute at startup and after restart. Failed bootstrap and Legacy
+must never capture a trail. This fixture does not assert original gameplay or
+trail-process fidelity.
 The simulation/camera/HUD collaborators are instrumented doubles: these checks
 establish host call routing, not gameplay/RNG/replay-render fidelity.
 
-`--controls` compiles five mutations of the **actual host source** in isolated
+`--controls` compiles six mutations of the **actual host source** in isolated
 ignored output copies: bypassed readiness, prematurely completed bootstrap,
-missing completion, focus/enable bypass and missing bridge rewind. Each must
+missing completion, focus/enable bypass, missing bridge rewind and omitted trail
+capture. Each must
 compile with zero diagnostics and fail its named behavior assertion. An unrelated
 compile failure never counts as a kill. An unchanged final baseline then runs.
 Logs, response files, source/reference/assembly hashes and case/assertion counts
