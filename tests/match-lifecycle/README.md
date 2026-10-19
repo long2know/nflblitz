@@ -30,6 +30,15 @@ once in a batched frame, never replay them, then restart and deliver the next
 match through the same subscriptions. The actual period producer consumes no
 extra RNG. These cases do not claim a naturally played public full match.
 
+Before declaring a PAT boundary, that fixture executes one complete real
+60-host/57-source startup cycle to produce its actual camera/cache. Selection
+can then retain a genuine prior output while CAMBOT is suspended, rather than
+inventing a camera at source tick zero. The cycle is checked before setup and
+preserves the next skipped host wake; no camera, source tick or RNG is assigned
+to bypass a guard. The original71 cases,593 assertions and all nine controls
+remain unchanged. Rejected baselines now report their actual runtime error as
+well as the strict inventory requirement.
+
 `SourceEventType.MatchEnded` accompanies the committed `GameOver` /
 `SourceMatchPhase.MatchEnded` state. The existing emitter supplies current
 possession/play-kind context, not a winner or a synthesized final-play result.

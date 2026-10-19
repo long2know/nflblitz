@@ -95,7 +95,10 @@ def require_summary(code, summary, expected_failure=None):
             raise RuntimeError("A compiled lifecycle control must reject its exact causal assertion.")
     elif (code or summary.get("status") != "passed" or summary.get("assertions") != 593
           or len(cases) != 71 or set(cases) != required_cases()):
-        raise RuntimeError("All593 assertions across the exact71 real-M1/bridge/PAT/legacy cases are required.")
+        observed = {key: summary.get(key) for key in ("status", "assertions", "failed_assertion", "error")}
+        observed.update(exit_code=code, cases=len(cases))
+        raise RuntimeError("All593 assertions across the exact71 real-M1/bridge/PAT/legacy cases are required. "
+                           "Observed: " + json.dumps(observed, sort_keys=True))
 
 
 def main():
