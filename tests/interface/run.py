@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SUITE = Path(__file__).resolve().parent
 ARTIFACTS = SUITE / ".artifacts"
 MODEL = [
+    "Assets/Scripts/AssetImport/GeneratedPlayerData.cs",
+    "Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs",
     "Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs",
+    "Assets/Scripts/AssetImport/SourceTeamPresentationData.cs",
     "Assets/Scripts/AssetImport/SourceTeamPresentationModel.cs",
     "Assets/Scripts/AssetImport/SourceInterfaceData.cs",
     "Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs",
