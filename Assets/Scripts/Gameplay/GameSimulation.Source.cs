@@ -145,7 +145,7 @@ namespace Blitz.Gameplay
                 SourceCameraStageOrder = Model.SourcePresentationOrder++;
                 executingSourceCamera = true;
                 int heading;
-                try { heading = SourceCameraHeadingProvider(new GameSnapshot(Model), Model.SourceTick); }
+                try { heading = SourceCameraHeadingProvider(new GameSnapshot(Model, SourceCameraStageOrder), Model.SourceTick); }
                 finally { executingSourceCamera = false; }
                 SetSourceCameraHeading(heading, Model.SourceTick);
             }
@@ -201,7 +201,23 @@ namespace Blitz.Gameplay
             else if (Model.CarrierId >= 0 && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
                 SynchronizeSourceHeldBall();
             else AdvanceSourceBall();
+            CacheSourceCameraBallTarget();
             CaptureSourceFireFrame();
+        }
+
+        private void CacheSourceCameraBallTarget()
+        {
+            if ((Model.CarrierId >= 0 || Model.BallKind == SourceBallKind.FieldGoal) &&
+                (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
+                return;
+            SourceMovementCameraFrame frame = Model.SourceMovementCamera;
+            SourceVector3 target = Model.SourceBallTarget;
+            float x = target.X - frame.Position.X, y = -frame.Position.Y, z = target.Z - frame.Position.Z;
+            var m = frame.Transform;
+            Model.SourceCameraBallTarget = new SourceVector3(
+                m[0] * x + m[1] * y + m[2] * z + m[3],
+                m[4] * x + m[5] * y + m[6] * z + m[7],
+                m[8] * x + m[9] * y + m[10] * z + m[11]);
         }
 
         private void SelectSourcePlay(PlayId play, SourcePlaySelection original = default(SourcePlaySelection),
@@ -2103,7 +2119,7 @@ namespace Blitz.Gameplay
                 && Math.Abs(position.Z) <= 182.85f;
         }
 
-        private static SourceBallType SourceBallTypeFor(SourceBallKind kind)
+        internal static SourceBallType SourceBallTypeFor(SourceBallKind kind)
         {
             switch (kind)
             {

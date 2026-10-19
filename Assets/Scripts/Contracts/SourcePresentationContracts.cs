@@ -9,8 +9,10 @@ namespace Blitz.Contracts
         public TeamId DesignatedHomeSide { get; }
         public ReadOnlyCollection<int> StationHeads { get; }
         public int PupBigBall { get; }
+        public int PupPullback { get; }
 
-        public SourcePresentationSettings(TeamId designatedHomeSide, IReadOnlyList<int> stationHeads, int pupBigBall)
+        public SourcePresentationSettings(TeamId designatedHomeSide, IReadOnlyList<int> stationHeads, int pupBigBall,
+            int pupPullback = 0)
         {
             SourceContractGuard.Team(designatedHomeSide, nameof(designatedHomeSide));
             if (stationHeads == null)
@@ -28,6 +30,7 @@ namespace Blitz.Contracts
             StationHeads = Array.AsReadOnly(copy);
             // Preserve the entire source int, not just its truth value at the draw call.
             PupBigBall = pupBigBall;
+            PupPullback = pupPullback;
         }
     }
 

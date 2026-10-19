@@ -153,7 +153,7 @@ namespace Blitz.Runtime
                     playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution);
                     playCamera.ConfigureSourceStage(State, () => simulation.SourceCameraStageOrder,
                         simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode,
-                        simulation.SourceActorWorldPosition);
+                        simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback);
                     RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
                     SourcePresentationCueRaised += ConsumeSourcePresentationCue;

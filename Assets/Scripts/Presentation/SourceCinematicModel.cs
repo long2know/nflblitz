@@ -35,6 +35,27 @@ namespace Blitz.Presentation
         }
     }
 
+    public static class SourceCameraProjection
+    {
+        public const float FocalPixels = 664f;
+        public static double VerticalFocalPixels(float verticalResolution)
+        {
+            if (verticalResolution != 384f && verticalResolution != 256f)
+                throw new InvalidOperationException("Original vertical raster must be384 or256.");
+            return FocalPixels * (verticalResolution == 256f ? 2d / 3d : 1d);
+        }
+        public static float OpticalAspect(float horizontalResolution, float verticalResolution)
+        {
+            SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
+            return (float)(horizontalResolution * VerticalFocalPixels(verticalResolution) / (verticalResolution * FocalPixels));
+        }
+        public static float VerticalFieldOfView(float horizontalResolution, float verticalResolution)
+        {
+            SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
+            return (float)(2d * Math.Atan(verticalResolution / (2d * VerticalFocalPixels(verticalResolution))) * 180d / Math.PI);
+        }
+    }
+
     public sealed class SourceCinematicTransform
     {
         public SourceVector3 Position { get; }
@@ -82,6 +103,15 @@ namespace Blitz.Presentation
             Position = position; Facing = facing;
         }
 
+        private SourceCinematicTarget(SourceCameraActor rawActor)
+        {
+            SourceCinematicMath.RequireFinite(rawActor.Position);
+            Position = rawActor.Position; Facing = rawActor.Heading;
+        }
+
+        public static SourceCinematicTarget FromRawActor(SourceCameraActor rawActor)
+        { return new SourceCinematicTarget(rawActor); }
+
         public static SourceCinematicTarget FromActor(PlayerView actor)
         {
             if (!actor.Source.IsSpecified)
@@ -109,10 +139,23 @@ namespace Blitz.Presentation
         public float DistanceVelocity { get; }
         public float ThetaVelocity { get; }
         public float PhiVelocity { get; }
+        public float ThetaTarget { get; }
+        public float PhiTarget { get; }
+        public float SinTheta { get; }
+        public float CosTheta { get; }
+        public float SinPhi { get; }
+        public float CosPhi { get; }
+        public SourceVector3 Acceleration { get; }
+        public float DistanceAcceleration { get; }
+        public float ThetaAcceleration { get; }
+        public float PhiAcceleration { get; }
 
         public SourceCinematicSeed(SourceVector3 eye, SourceVector3 focus, float distance, float theta, float phi,
             SourceVector3 velocity = default(SourceVector3), float distanceVelocity = 0f,
-            float thetaVelocity = 0f, float phiVelocity = 0f)
+            float thetaVelocity = 0f, float phiVelocity = 0f, float? thetaTarget = null, float? phiTarget = null,
+            SourceVector3? cachedThetaPhi = null, float? cachedCosPhi = null,
+            SourceVector3 acceleration = default(SourceVector3), float distanceAcceleration = 0f,
+            float thetaAcceleration = 0f, float phiAcceleration = 0f)
         {
             SourceCinematicMath.RequireFinite(eye); SourceCinematicMath.RequireFinite(focus);
             SourceCinematicMath.RequireFinite(velocity);
@@ -122,6 +165,18 @@ namespace Blitz.Presentation
             if (distance <= 0f) throw new ArgumentOutOfRangeException(nameof(distance));
             Eye = eye; Focus = focus; Distance = distance; Theta = theta; Phi = phi;
             Velocity = velocity; DistanceVelocity = distanceVelocity; ThetaVelocity = thetaVelocity; PhiVelocity = phiVelocity;
+            ThetaTarget = thetaTarget ?? theta; PhiTarget = phiTarget ?? phi;
+            SinTheta = cachedThetaPhi.HasValue ? cachedThetaPhi.Value.X : (float)Math.Sin(theta);
+            CosTheta = cachedThetaPhi.HasValue ? cachedThetaPhi.Value.Y : (float)Math.Cos(theta);
+            SinPhi = cachedThetaPhi.HasValue ? cachedThetaPhi.Value.Z : (float)Math.Sin(phi);
+            CosPhi = cachedCosPhi ?? (float)Math.Cos(phi);
+            SourceCinematicMath.RequireFinite(ThetaTarget); SourceCinematicMath.RequireFinite(PhiTarget);
+            SourceCinematicMath.RequireFinite(SinTheta); SourceCinematicMath.RequireFinite(CosTheta);
+            SourceCinematicMath.RequireFinite(SinPhi); SourceCinematicMath.RequireFinite(CosPhi);
+            SourceCinematicMath.RequireFinite(acceleration); SourceCinematicMath.RequireFinite(distanceAcceleration);
+            SourceCinematicMath.RequireFinite(thetaAcceleration); SourceCinematicMath.RequireFinite(phiAcceleration);
+            Acceleration = acceleration; DistanceAcceleration = distanceAcceleration;
+            ThetaAcceleration = thetaAcceleration; PhiAcceleration = phiAcceleration;
         }
     }
 
@@ -149,13 +204,21 @@ namespace Blitz.Presentation
         private SourceVector3 eye, focus, velocity, acceleration, desired, previousDesired;
         private float distance, distanceVelocity, distanceAcceleration, theta, phi, thetaTarget, phiTarget;
         private float thetaVelocity, phiVelocity, thetaAcceleration, phiAcceleration, selectedTheta, targetAdjustment;
+        private float sinTheta, cosTheta, sinPhi, cosPhi;
+        private float pointSinTheta, pointCosTheta, pointSinPhi, pointCosPhi, pointRatio;
+        private SourceVector3 pointStart, pointMinimum;
+        private int pointIndex;
         private float splineTargetY, trackingBuffer = 2f, trackingAcceleration = .08f;
         private SourceVector3[] spline;
         private int tick;
         public bool IsActive { get; private set; }
+        internal SourceCinematicEntry Entry { get { return entry; } }
+        internal int ElapsedTicks { get { return tick; } }
         public SourceCinematicSeed State
         {
-            get { return new SourceCinematicSeed(eye, focus, distance, theta, phi, velocity, distanceVelocity, thetaVelocity, phiVelocity); }
+            get { return new SourceCinematicSeed(eye, focus, distance, theta, phi, velocity, distanceVelocity,
+                thetaVelocity, phiVelocity, thetaTarget, phiTarget, new SourceVector3(sinTheta, cosTheta, sinPhi), cosPhi,
+                acceleration, distanceAcceleration, thetaAcceleration, phiAcceleration); }
         }
 
         public SourceCinematicModel(SourceCinematicSeed seed)
@@ -165,13 +228,25 @@ namespace Blitz.Presentation
 
         public void Reset(SourceCinematicSeed seed)
         {
+            SetState(seed);
+            desired = previousDesired = default(SourceVector3); spline = null; entry = null; tick = 0; IsActive = false;
+            targetAdjustment = 0f;
+        }
+
+        internal void SetState(SourceCinematicSeed seed)
+        {
             eye = seed.Eye; focus = seed.Focus; distance = seed.Distance;
-            theta = thetaTarget = seed.Theta; phi = phiTarget = seed.Phi;
+            theta = seed.Theta; phi = seed.Phi; thetaTarget = seed.ThetaTarget; phiTarget = seed.PhiTarget;
+            sinTheta = seed.SinTheta; cosTheta = seed.CosTheta; sinPhi = seed.SinPhi; cosPhi = seed.CosPhi;
             velocity = seed.Velocity; distanceVelocity = seed.DistanceVelocity;
             thetaVelocity = seed.ThetaVelocity; phiVelocity = seed.PhiVelocity;
-            acceleration = default(SourceVector3); distanceAcceleration = thetaAcceleration = phiAcceleration = 0f;
-            desired = previousDesired = default(SourceVector3); spline = null; entry = null; tick = 0; IsActive = false;
+            acceleration = seed.Acceleration; distanceAcceleration = seed.DistanceAcceleration;
+            thetaAcceleration = seed.ThetaAcceleration; phiAcceleration = seed.PhiAcceleration;
         }
+
+        // Original mode reversion retains CSI operands, tick_cnt and pmodeobj.
+        internal void RevertToNormal()
+        { IsActive = false; targetAdjustment = 0f; }
 
         public bool Select(SourceCinematicEntry selected, float modeTargetYAdjustment = 0f)
         {
@@ -182,29 +257,55 @@ namespace Blitz.Presentation
             selectedTheta = SourceCinematicMath.Radians(selected.ThetaDegrees);
             targetAdjustment = modeTargetYAdjustment;
             tick = 0; spline = null; IsActive = true;
+            pointIndex = 0;
             return true;
         }
 
         // Exactly one executing source camera tick. The caller supplies every original target sample.
         public SourceCinematicFrame Step(SourceCinematicTarget target, bool newPlayAfterPlayOver = false)
         {
-            if (!IsActive) return new SourceCinematicFrame(State, false, false, false, tick, entry);
+            SourceCinematicFrame early;
+            int flags = PrepareStep(target, newPlayAfterPlayOver, out early);
+            return flags < 0 ? early : CompleteStep(flags);
+        }
+
+        internal int PrepareStep(SourceCinematicTarget target, bool newPlayAfterPlayOver, out SourceCinematicFrame early)
+        {
+            early = default(SourceCinematicFrame);
+            if (!IsActive)
+            { early = new SourceCinematicFrame(State, false, false, false, tick, entry); return -1; }
             if (newPlayAfterPlayOver || tick >= entry.ModeTicks)
             {
-                IsActive = false;
-                return new SourceCinematicFrame(State, false, true, entry.TravelTicks < 2, tick, entry);
+                if (entry.RawMode == 19)
+                {
+                    velocity = acceleration = default(SourceVector3);
+                    distanceVelocity = distanceAcceleration = 0f;
+                }
+                // cambot_zoom increments after ModeRevert; spline/rail/P2P return before it.
+                if (!newPlayAfterPlayOver && entry.RawMode <= 6) tick++;
+                RevertToNormal();
+                early = new SourceCinematicFrame(State, false, true, entry.TravelTicks < 2, tick, entry);
+                return -1;
             }
             int flags;
             int mode = entry.RawMode;
             if (mode <= 6) flags = Zoom(target);
             else if (mode <= 9) flags = FloatSpline(target);
-            else flags = Rail(target);
+            else if (mode <= 12) flags = Rail(target);
+            else flags = PointToPoint(target);
+            tick++;
+            return flags;
+        }
+
+        internal SourceCinematicFrame CompleteStep(int flags)
+        {
             theta = SourceCinematicMath.Wrap(theta); thetaTarget = SourceCinematicMath.Wrap(thetaTarget);
             phi = SourceCinematicMath.ClampPhi(phi); phiTarget = SourceCinematicMath.ClampPhi(phiTarget);
             if ((flags & SnapTarget) != 0)
             {
                 focus = desired; distance = entry.Distance;
                 theta = thetaTarget; phi = phiTarget;
+                UpdateTrigonometry();
                 velocity = acceleration = default(SourceVector3);
                 distanceVelocity = distanceAcceleration = thetaVelocity = phiVelocity = thetaAcceleration = phiAcceleration = 0f;
             }
@@ -225,6 +326,8 @@ namespace Blitz.Presentation
                 {
                     thetaVelocity += thetaAcceleration; phiVelocity += phiAcceleration;
                     theta += thetaVelocity; phi += phiVelocity;
+                    if (thetaVelocity != 0f) { sinTheta = (float)Math.Sin(theta); cosTheta = (float)Math.Cos(theta); }
+                    if (phiVelocity != 0f) { sinPhi = (float)Math.Sin(phi); cosPhi = (float)Math.Cos(phi); }
                 }
             }
             if ((flags & MoveEye) != 0) PlaceEye();
@@ -236,12 +339,12 @@ namespace Blitz.Presentation
                     throw new InvalidOperationException("Original special camera has a degenerate horizontal view direction.");
                 float inverse = 1f / (float)Math.Sqrt(squared);
                 x *= inverse; z *= inverse;
+                sinTheta = x; cosTheta = z;
                 z = Math.Max(-1f, Math.Min(1f, z));
                 float angle = (float)Math.Acos(z);
                 if (x < 0f) angle = SourceCinematicMath.TwoPi - angle;
                 theta = SourceCinematicMath.Wrap(angle);
             }
-            tick++;
             return new SourceCinematicFrame(State, true, false, false, tick, entry);
         }
 
@@ -250,6 +353,9 @@ namespace Blitz.Presentation
             SourceCinematicMath.RequireFinite(offset);
             eye = SourceCinematicMath.Add(eye, offset); focus = SourceCinematicMath.Add(focus, offset);
         }
+
+        internal void OverrideDesired(SourceVector3 target)
+        { desired = target; }
 
         public SourceCinematicFrame ResumeNormal(SourceCinematicSeed actualNormalTarget, bool snap)
         {
@@ -260,6 +366,7 @@ namespace Blitz.Presentation
             if (snap)
             {
                 focus = desired; distance = actualNormalTarget.Distance; theta = thetaTarget; phi = phiTarget;
+                UpdateTrigonometry();
                 velocity = acceleration = default(SourceVector3);
                 distanceVelocity = distanceAcceleration = thetaVelocity = phiVelocity = thetaAcceleration = phiAcceleration = 0f;
             }
@@ -281,6 +388,8 @@ namespace Blitz.Presentation
                 distanceVelocity += distanceAcceleration; distance += distanceVelocity;
                 thetaVelocity += thetaAcceleration; phiVelocity += phiAcceleration;
                 theta += thetaVelocity; phi += phiVelocity;
+                if (thetaVelocity != 0f) { sinTheta = (float)Math.Sin(theta); cosTheta = (float)Math.Cos(theta); }
+                if (phiVelocity != 0f) { sinPhi = (float)Math.Sin(phi); cosPhi = (float)Math.Cos(phi); }
             }
             PlaceEye();
             return new SourceCinematicFrame(State, false, false, snap, tick, entry);
@@ -388,6 +497,45 @@ namespace Blitz.Presentation
             return NewTheta;
         }
 
+        private int PointToPoint(SourceCinematicTarget target)
+        {
+            SourceVector3 point = entry.ControlPoints[pointIndex];
+            if (point.X != 0f || point.Y != 0f || point.Z != 0f)
+            {
+                if (tick == 0)
+                {
+                    selectedTheta = SourceCinematicMath.Wrap(selectedTheta + thetaTarget);
+                    float horizontal = entry.Distance * (float)Math.Cos(SourceCinematicMath.Radians(entry.PhiDegrees));
+                    SourceVector3 end = new SourceVector3(focus.X - horizontal * (float)Math.Sin(selectedTheta),
+                        focus.Y - entry.Distance * (float)Math.Sin(SourceCinematicMath.Radians(entry.PhiDegrees)),
+                        focus.Z - horizontal * (float)Math.Cos(selectedTheta));
+                    pointStart = eye; pointMinimum = focus;
+                    SourceVector3 delta = SourceCinematicMath.Subtract(end, eye);
+                    float h2 = delta.X * delta.X + delta.Z * delta.Z;
+                    float length = (float)Math.Sqrt(h2 + delta.Y * delta.Y), h = (float)Math.Sqrt(h2);
+                    if (!(length > 0f) || !(h > 0f))
+                        throw new InvalidOperationException("Original kickoff point stream has a degenerate destination.");
+                    pointSinPhi = delta.Y / length; pointCosPhi = h / length;
+                    pointSinTheta = delta.X / h; pointCosTheta = delta.Z / h;
+                    pointRatio = length / entry.ControlPoints[entry.ControlPoints.Count - 2].Z;
+                    focus = target.Position; distance = entry.Distance;
+                    acceleration = default(SourceVector3); distanceAcceleration = 0f;
+                    point = default(SourceVector3);
+                }
+                else pointIndex++;
+                trackingBuffer = .25f; trackingAcceleration = .25f;
+                float y = point.Z * pointSinPhi + point.Y * pointCosPhi;
+                float z = point.Z * pointCosPhi - point.Y * pointSinPhi;
+                float x = z * pointSinTheta + point.X * pointCosTheta;
+                z = z * pointCosTheta - point.X * pointSinTheta;
+                eye = new SourceVector3(x * pointRatio + pointStart.X, y * pointRatio + pointStart.Y,
+                    z * pointRatio + pointStart.Z);
+            }
+            desired = new SourceVector3(target.Position.X, Math.Max(target.Position.Y * .4f, pointMinimum.Y), target.Position.Z);
+            focus = new SourceVector3(focus.X, Math.Max(focus.Y, pointMinimum.Y), focus.Z);
+            return TrackPosition | MovePosition | NewTheta;
+        }
+
         private void SetSelectedTheta(SourceCinematicTarget target, bool noFacing, bool limitSwing)
         {
             selectedTheta += noFacing ? thetaTarget : target.Facing * (SourceCinematicMath.TwoPi / 1024f);
@@ -439,9 +587,14 @@ namespace Blitz.Presentation
 
         private void PlaceEye()
         {
-            float cosine = (float)Math.Cos(phi);
-            eye = new SourceVector3(focus.X - distance * cosine * (float)Math.Sin(theta),
-                focus.Y - distance * (float)Math.Sin(phi), focus.Z - distance * cosine * (float)Math.Cos(theta));
+            eye = new SourceVector3(focus.X - distance * cosPhi * sinTheta,
+                focus.Y - distance * sinPhi, focus.Z - distance * cosPhi * cosTheta);
+        }
+
+        private void UpdateTrigonometry()
+        {
+            sinTheta = (float)Math.Sin(theta); cosTheta = (float)Math.Cos(theta);
+            sinPhi = (float)Math.Sin(phi); cosPhi = (float)Math.Cos(phi);
         }
 
         private float Buffered(float delta)

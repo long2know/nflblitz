@@ -19,6 +19,7 @@
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" Link="Production/SourceC2SoundFunctions.cs" />
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Link="Production/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" Link="Production/SourceCinematicPlayback.cs" />
+    <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" Link="Production/SourceImpactShaker.cs" />
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Presentation/NormalCameraModel.cs" Link="Production/NormalCameraModel.cs" />
     <Compile Include="$(BlitzStageRoot)Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs" Link="Production/SourceTeamInterfaceChecks.cs" />

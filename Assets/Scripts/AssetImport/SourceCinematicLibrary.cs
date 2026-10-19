@@ -9,7 +9,7 @@ namespace Blitz.AssetImport
     {
         Zoom = 4, ZoomNoRange = 5, ZoomNoFacing = 6,
         Spline = 7, SplineNoFacing = 8, SplineCameraTarget = 9,
-        Rail = 10, RailNoFacing = 11, RailNoTracking = 12
+        Rail = 10, RailNoFacing = 11, RailNoTracking = 12, PointToPoint = 19
     }
 
     public sealed class SourceCinematicEntry
@@ -39,11 +39,16 @@ namespace Blitz.AssetImport
                 Finite(phiDegrees) && Math.Abs(phiDegrees) < 90f && Finite(distance) && distance >= 0f && distance <= 2000f,
                 "Invalid original camera entry/timing/angles.");
             if (!noSelection)
-                RosterGuard.Require(mode >= 4 && mode <= 12 && modeTicks > 0,
-                    "Only source zoom/float-spline/rail impact modes are supported.");
+                RosterGuard.Require((mode >= 4 && mode <= 12 || mode == 19) && modeTicks > 0,
+                    "Only source zoom/float-spline/rail or original kickoff point-stream modes are supported.");
             if (controlPoints == null) throw new ArgumentNullException(nameof(controlPoints));
-            int expected = noSelection || mode <= 6 ? 0 : mode <= 9 ? 2 : 4;
+            int expected = mode == 19 ? controlPoints.Count : noSelection || mode <= 6 ? 0 : mode <= 9 ? 2 : 4;
             RosterGuard.Require(controlPoints.Count == expected, "Original camera mode/control-point shape disagrees.");
+            if (mode == 19)
+                RosterGuard.Require(expected >= 2 && expected <= 2000 &&
+                    controlPoints[expected - 1].X == 0f && controlPoints[expected - 1].Y == 0f &&
+                    controlPoints[expected - 1].Z == 0f && controlPoints[expected - 2].Z != 0f,
+                    "Original kickoff point stream requires its bounded zero terminator and nonzero unit endpoint.");
             var copy = new SourceVector3[controlPoints.Count];
             for (int i = 0; i < copy.Length; i++)
             {

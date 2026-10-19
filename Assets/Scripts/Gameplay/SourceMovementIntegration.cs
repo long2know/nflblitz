@@ -123,11 +123,7 @@ namespace Blitz.Gameplay
         {
             get
             {
-                return Model.Phase == GamePhase.LiveBall ? SourceMovementPhase.InPlay
-                    : Model.Phase == GamePhase.DeadBall ? SourceMovementPhase.PlayOver
-                    : Model.Phase == GamePhase.GameOver ? SourceMovementPhase.GameOver
-                    : Model.Phase == GamePhase.PreSnap ? Model.SourceRules.PlayType == SourcePlayType.Kickoff
-                        ? SourceMovementPhase.PreKickoff : SourceMovementPhase.PreSnap : SourceMovementPhase.LiningUp;
+                return (SourceMovementPhase)GameSnapshot.RawMovementPhase(Model);
             }
         }
 
@@ -375,6 +371,11 @@ namespace Blitz.Gameplay
                 float ry = root.Y + actor.SourceRoot.Y - frame.Position.Y;
                 float rz = root.Z - frame.Position.Z;
                 ReadOnlyCollection<float> cam = frame.Transform;
+                float groundY = -frame.Position.Y;
+                Model.SourceCameraGroundCenters[id] = new SourceVector3(
+                    cam[0] * rx + cam[1] * groundY + cam[2] * rz + cam[3],
+                    cam[4] * rx + cam[5] * groundY + cam[6] * rz + cam[7],
+                    cam[8] * rx + cam[9] * groundY + cam[10] * rz + cam[11]);
                 float x = cam[0] * rx + cam[1] * ry + cam[2] * rz + cam[3];
                 float y = cam[4] * rx + cam[5] * ry + cam[6] * rz + cam[7];
                 float z = cam[8] * rx + cam[9] * ry + cam[10] * rz + cam[11];

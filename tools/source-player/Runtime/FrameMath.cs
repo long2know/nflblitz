@@ -28,8 +28,8 @@ public static class FrameMath
         // The same unclamped active-geom.s projection as the approved FX consumer.
         // Reflect raster X here, never the Core camera, actor, or historical cache.
         return new double[] {
-            -2 * NormalCameraModel.ReferenceFocalPixels / width, 0, 0, 0,
-            0, 2 * NormalCameraModel.ReferenceFocalPixels * (height == 256 ? 2d / 3d : 1d) / height, 0, 0,
+            -2 * SourceCameraProjection.FocalPixels / width, 0, 0, 0,
+            0, 2 * SourceCameraProjection.VerticalFocalPixels(height) / height, 0, 0,
             0, 0, (far + near) / (far - near), 1,
             0, 0, -2 * far * near / (far - near), 0
         };

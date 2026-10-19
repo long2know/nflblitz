@@ -19,6 +19,7 @@
     <Compile Include="$(SoundPackagingRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" Link="Production/SourceC2SoundFunctions.cs" />
     <Compile Include="$(SoundPackagingRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Link="Production/SourceCinematicModel.cs" />
     <Compile Include="$(SoundPackagingRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" Link="Production/SourceCinematicPlayback.cs" />
+    <Compile Include="$(SoundPackagingRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
     <Compile Include="$(SoundPackagingRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" Link="Production/SourceImpactShaker.cs" />
   </ItemGroup>
 </Project>

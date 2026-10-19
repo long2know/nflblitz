@@ -20,6 +20,8 @@ PATHS = ("Assets/**", "Dockerfile", "tools/source-player/**",
 PREPARATION_CASES = (
     "test_relative_explicit_input_roots_are_normalized_without_allowing_traversal",
     "test_real_source_artifact_mutation_is_rejected_by_name",
+    "test_camera_extension_preserves_every_inherited_pin_without_format_migration",
+    "test_camera_extension_rejects_wrong_manifest_camera_and_changed_old_asset",
 )
 SDK_COMMAND = r"""printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json"""
 PUBLIC_DOTNET = 'SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh'
@@ -34,6 +36,9 @@ COMMANDS = {
     ),
     "Test public cabinet input and renderer contracts": (
         "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs tools/source-player/ball-trails.renderer.test.mjs tools/source-player/dust.renderer.test.mjs tools/source-player/helmet.renderer.test.mjs",
+    ),
+    "Test original camera GPU pause and four-station evidence guards": (
+        "node --test tools/source-player/normal-camera.browser.test.mjs",
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
@@ -89,7 +94,7 @@ def validate_workflow(text):
     require(step_commands(text) == expected, "Run every actual asset-free command, not echo/skip/substitutes")
     require(len(re.findall(r"^\s*(?:- )?run:", text, re.M)) == len(COMMANDS), "No unguarded extra shell stages")
     require(re.findall(r"^\s*working-directory: (.+)$", text, re.M) == ["tools/source-player"],
-            "Only the two named preparation cases use the public tool directory")
+            "Only the named preparation cases use the public tool directory")
     preparation = text.split("      - name: Test public preparation failure gates\n", 1)[1].split("      - name:", 1)[0]
     require("        working-directory: tools/source-player\n" in preparation, "Use the actual preparation test module")
     require("          DOCKER_HOST: unix://${{ github.workspace }}/.source-player-ci-no-daemon.sock\n" in text,
@@ -129,6 +134,7 @@ class SourcePlayerCI(unittest.TestCase):
             (" tools/source-player/ball-trails.renderer.test.mjs", ""),
             (" tools/source-player/dust.renderer.test.mjs", ""),
             (" tools/source-player/helmet.renderer.test.mjs", ""),
+            ("node --test tools/source-player/normal-camera.browser.test.mjs", "true"),
             (PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic", "true"),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),

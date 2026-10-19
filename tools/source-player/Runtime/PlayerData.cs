@@ -22,6 +22,7 @@ public sealed class PlayerData
     public SourceTeamPresentationData Teams { get; }
     public SourceInterfaceData Hud { get; }
     public SourceCinematicLibrary Impact { get; }
+    public SourceNormalCameraData NormalCamera { get; }
     public SourceEnvironmentBundle World { get; }
     public SourceFireSpfxBundle Fire { get; }
     public SourceTeamPoppedHeadData PoppedHead { get; }
@@ -78,6 +79,9 @@ public sealed class PlayerData
         Hud = SourceInterfaceData.Read(data.EntryBytes("hud"), SourceInterfacePackagePlan.HudSha256);
         Impact = SourceCinematicLibrary.Read(data.EntryBytes("impact"), SourceTeamResourceProfile.C2M1ImpactSha256);
         SourceTeamResourceProfile.Contact281C2M1.RequireImpact(Impact);
+        DataCatalog.Require(data.HasEntry("normalCamera"),
+            "The explicit source profile requires pinned original normal/kickoff camera data; legacy EMA is not a fallback.");
+        NormalCamera = SourceNormalCameraData.Read(data.EntryBytes("normalCamera"));
         World = SourceEnvironmentReader.Read(data.EntryBytes("world"), data.EntryHash("world"),
             path => data.Read("world/" + path));
         if (data.HasEntry("fire"))

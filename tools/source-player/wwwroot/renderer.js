@@ -637,6 +637,8 @@ export class SourceRenderer {
         'Actual WebGL geometry-identity proof framebuffer failed.');
       gl.viewport(0, 0, width, height);
       this.drawScene(false, false, true);
+      const cameraUniform = Array.from(gl.getUniform(this.scene, this.sceneUniforms.viewProjection));
+      const proofViewport = Array.from(gl.getParameter(gl.VIEWPORT));
       const ballTrailMaterialDraws = this.lastBallTrailDraws;
       const looseHelmetMaterialDraws = this.lastHelmetDraws;
       const materialPixels = new Uint8Array(width * height * 4);
@@ -698,6 +700,8 @@ export class SourceRenderer {
       }
       return {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
+        cameraUniform, cameraPacket: Array.from(this.current.camera), proofViewport,
+        contentViewport: [0, 0, this.canvas.width, this.canvas.height],
         ballDraw, ballTrailDraws, ballTrailPixels, ballTrailMaterialDraws, ballTrailColoredPixels,
         ballTrailNonWhitePixels, ballTrailColorBounds,
         looseHelmetDraws, looseHelmetMaterialDraws, looseHelmetPixels, looseHelmetColoredPixels, looseHelmetNonWhitePixels,

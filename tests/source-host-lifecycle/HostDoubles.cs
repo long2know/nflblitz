@@ -218,6 +218,11 @@ namespace Blitz.AssetImport
     }
 }
 
+namespace Blitz.Contracts
+{
+    public readonly struct SourceCameraFeedback { }
+}
+
 namespace Blitz.Gameplay
 {
     public sealed class SourceMovementCameraFrame
@@ -237,6 +242,7 @@ namespace Blitz.Gameplay
         public void Restart() { State = new TestState(); PresentationCues = new SourcePresentationCueBatch(); }
         public int DrawSourceCameraRandom(int range) { return 0; }
         public object SourceActorWorldPosition(int actor) { return null; }
+        public void ApplySourceCameraFeedback(SourceCameraFeedback feedback) { }
         public void SetSourceMovementCameraFrame(SourceMovementCameraFrame frame, long tick) { }
         public SourceSoundVmBatch TakeSourceSoundVmDispatches()
         { HostProbe.Record("sound.take"); return new SourceSoundVmBatch(); }
@@ -287,7 +293,8 @@ namespace Blitz.Presentation
         public PlayCamera(UnityEngine.Transform parent, SourcePlayerRig prefab) { HostProbe.Record("camera.create"); }
         public void ConfigureSourceMovementRaster(int width, int height) { HostProbe.Record("camera.raster"); }
         public void ConfigureSourceStage(IGameState state, Func<int> order, Func<int, int> random,
-            Func<IGameState, int> mode, Func<int, object> position) { HostProbe.Record("camera.stage"); }
+            Func<IGameState, int> mode, Func<int, object> position, Action<SourceCameraFeedback> feedback)
+        { HostProbe.Record("camera.stage"); }
         public int SampleAtSourceTick(IGameState state, long tick) { return 0; }
         public SourceCinematicTransform RequireSourceCameraAtTick(long tick) { return CurrentSourceCamera; }
         public void Render(IGameState state, bool reset)

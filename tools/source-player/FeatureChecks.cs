@@ -64,9 +64,35 @@ static class FeatureChecks
         }
         var sink = new Sink();
         var host = new PlayerHost(data, sink, options: PreviewOptions.FromUrl("?source-fire=portable&source-kick-meters=portable-authored"));
+        int boundaryWakes = 0;
+        var actualCamera = host.Game.SourceCameraHeadingProvider;
+        host.Game.SourceCameraHeadingProvider = (snapshot, tick) => {
+            SourceCameraBoundary boundary = ((ISourceCameraState)snapshot).CameraBoundary;
+            Require(boundary.SourceTick == tick && boundary.ProcessOrder == host.Game.SourceCameraStageOrder &&
+                boundary.RawGameMode == host.Game.SourceCameraRawGameMode,
+                "Actual pre-actor Core callback must publish exact raw camera tick/order/mode, not a render snapshot.");
+            for (int actor = 0; actor < 14; actor++)
+            {
+                SourceVector3 root = host.Game.SourceActorWorldPosition(actor);
+                Require(root.X == boundary.Actors[actor].Position.X && root.Y == boundary.Actors[actor].Position.Y &&
+                    root.Z == boundary.Actors[actor].Position.Z,
+                    "Actual pre-actor boundary must retain every canonical source root without yard round-tripping.");
+            }
+            SourceVector3 ball = host.Game.SourceBallWorldPosition;
+            Require(ball.X == boundary.Ball.Position.X && ball.Y == boundary.Ball.Position.Y && ball.Z == boundary.Ball.Position.Z,
+                "Actual pre-actor boundary must retain the real raw ball position.");
+            int heading = actualCamera(snapshot, tick);
+            Require(ReferenceEquals(boundary, host.Camera.Playback.LastCameraBoundary) &&
+                host.Camera.Playback.UsesOriginalNormalCamera && host.Camera.LastSourceTick == tick,
+                "Both renderer and movement must consume this exact immutable boundary through the original shared producer.");
+            boundaryWakes++;
+            return heading;
+        };
         int registered = sink.TextureCount;
         for (int i = 0; i < 12; i++)
             host.Advance(1d / 60, 1024, 768, 1024, 768, 1);
+        Require(boundaryWakes == host.Game.SourceTick && boundaryWakes > 0,
+            "One actual original normal/cinematic producer must own every executing pre-player camera wake.");
         Require(host.Game.SourceFireFrame != null && host.Fire.Frame.SourceTick == host.Game.SourceTick &&
             host.Fire.FramesConsumed == host.Game.SourceTick, "Every real source wake must consume the real immutable after-step frame once.");
         var held = host.Fire.Frame;

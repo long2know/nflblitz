@@ -204,6 +204,10 @@ jobs:
         run: python3 tests/presentation/interface-packaging/run.py --b1-root . --ui-root . --team-root .
       - name: Compare original source-camera matrices and complete animation identity
         run: python3 tests/presentation/movement-stage/run.py --original-source-root .squad/.scratch/SourceData/source-kernel-original --bundle157-root .squad/.scratch/SourceData/source-kernel/movement-animation
+      - name: Compare active original normal kickoff and impact-return camera wakes
+        run: |
+          python3 -B tests/presentation/normal-camera/test_ci.py
+          python3 -B tests/presentation/normal-camera/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/raw-camera-ci --controls
       - name: Test source-camera frame and resource mutations
         run: python3 tests/presentation/movement-stage/mutations.py
       - name: Test original audio package reader without banks or Unity

@@ -72,6 +72,19 @@ namespace Blitz.Presentation
         public SourcePresentationContext LastObservedPlayerDown { get; private set; }
         public SourceCinematicTransform CurrentSourceCamera { get; private set; }
         private readonly SourceCameraFrameClock executingSourceCamera = new SourceCameraFrameClock();
+        private SourceNormalCameraModel originalNormal;
+        private readonly SourceNormalCameraData originalNormalData;
+        private int rawSequence;
+        private int fieldGoalMode;
+        private SourceVector3 fieldGoalBase, fieldGoalTarget;
+        private float fieldGoalBaseDistance;
+        public SourceNormalCameraModel OriginalNormal { get { return originalNormal; } }
+        public bool UsesOriginalNormalCamera { get { return originalNormalData != null; } }
+        public SourceCameraFeedback CameraFeedback { get; private set; }
+        public SourceCameraBoundary LastCameraBoundary { get; private set; }
+        public SourceCinematicSeed SourceState { get { return camera.State; } }
+        public int RawMode { get { return camera.IsActive && camera.Entry != null ? camera.Entry.RawMode : 0; } }
+        internal int SourceTargetKind { get { return targetActor >= 0 ? 1 : rawSequence == 1 ? 2 : rawSequence == 2 ? 3 : 0; } }
 
         public SourceCinematicTransform RequireSourceCameraAtTick(long executingSourceTick)
         {
@@ -218,8 +231,18 @@ namespace Blitz.Presentation
             CurrentSourceCamera = SourceCinematicTransform.FromState(initialCamera);
         }
 
+        public SourceCinematicPlayback(SourceCinematicLibrary library, SourceNormalCameraData normalData,
+            SourceCameraBoundary initialBoundary)
+            : this(library, SourceNormalCameraModel.Initial(initialBoundary))
+        {
+            originalNormalData = normalData ?? throw new ArgumentNullException(nameof(normalData));
+            originalNormal = new SourceNormalCameraModel();
+        }
+
         public void SetNormalState(SourceCinematicSeed actualCurrentCamera)
         {
+            if (UsesOriginalNormalCamera)
+                throw new InvalidOperationException("The raw source profile cannot accept a legacy/render normal seed.");
             if (camera.IsActive || resumingNormal)
                 throw new InvalidOperationException("An active source transient/resume cannot be replaced by a render-only normal camera seed.");
             camera.Reset(actualCurrentCamera);
@@ -272,6 +295,8 @@ namespace Blitz.Presentation
             bool newPlayAfterPlayOver, int? actualShakerRandrng3X = null, int? actualShakerRandrng3Z = null,
             SourceCinematicSeed? actualNormalState = null)
         {
+            if (UsesOriginalNormalCamera)
+                throw new InvalidOperationException("The raw source profile requires its exact immutable Core boundary, never legacy normal/return seeds.");
             if (lastCameraTick >= 0 && sourceTick <= lastCameraTick)
                 throw new InvalidOperationException("Source camera must execute at most once per source tick, not once per rendered frame.");
             if (cameraProcessSuspended)
@@ -326,6 +351,227 @@ namespace Blitz.Presentation
             return frame;
         }
 
+        public SourceCinematicFrame CameraSourceTick(SourceCameraBoundary input, float horizontalResolution,
+            float verticalResolution, Func<int, string, int> actualRandom)
+        {
+            if (!UsesOriginalNormalCamera || input == null || actualRandom == null)
+                throw new InvalidOperationException("Bind original normal data and the exact typed pre-actor camera boundary/RNG.");
+            if (cameraProcessSuspended || input.ProcessOrder < 0 || input.SourceTick <= lastCameraTick ||
+                lastCameraTick >= 0 && input.SourceTick != lastCameraTick + 1 && !allowResumedTickGap)
+                throw new InvalidOperationException("Execute CAMBOT exactly once per source wake; only actual process suspension permits a gap.");
+            SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
+            Ordered(input.SourceTick, input.ProcessOrder, -1);
+            bool wasActive = camera.IsActive;
+            if (originalNormal.BeginWake(input, camera.IsActive))
+            {
+                camera.RevertToNormal();
+                resumingNormal = false;
+            }
+            SourceCinematicEntry returningEntry = null;
+            int flags = -1;
+            bool returned = false, snapReturn = false, normalDispatch = !camera.IsActive;
+            SourceCinematicFrame frame = default(SourceCinematicFrame);
+            if (camera.IsActive)
+            {
+                flags = camera.PrepareStep(RawTarget(input), false, out frame);
+                if (flags < 0)
+                {
+                    returned = frame.ReturnedToNormal; snapReturn = frame.SnapOnReturn;
+                    returningEntry = camera.Entry;
+                    normalDispatch = true;
+                }
+            }
+            SourceNormalCameraPlan plan = default(SourceNormalCameraPlan);
+            if (normalDispatch)
+            {
+                plan = originalNormal.Prepare(camera.State, input, horizontalResolution, verticalResolution,
+                    actualRandom, snapReturn, snapReturn);
+                camera.SetState(plan.State);
+            }
+            int? fieldGoalLastCarrier = ApplyOriginalFieldGoal(input, horizontalResolution, verticalResolution, actualRandom,
+                ref normalDispatch, ref plan, ref flags, ref frame);
+            int? openingAutoHike = null;
+            if (originalNormal.WantsOpeningKickoff(input))
+            {
+                int selected = RequireDraw(actualRandom, 11, "cambot.c:3378/select-csi-kickoff");
+                SourceKickoffCameraDefinition kickoff = originalNormalData.Kickoff[selected];
+                SourceCinematicSeed s = camera.State;
+                int sign = input.LastPossession != 0 ? 1 : -1;
+                camera.Reset(SourceNormalCameraModel.Copy(s,
+                    new SourceVector3(sign * kickoff.Eye.X, kickoff.Eye.Y, sign * kickoff.Eye.Z),
+                    new SourceVector3(input.LastPossession != 0 ? -331f : 331f, 6f * (390f / 50f / 3f), 0f),
+                    s.Distance, s.Theta, s.Phi, s.Velocity, s.DistanceVelocity, s.ThetaVelocity, s.PhiVelocity,
+                    s.ThetaTarget, s.PhiTarget));
+                camera.Select(kickoff.WithDistance(originalNormal.MinimumDistance(input, false)));
+                targetActor = -1; rawSequence = 1;
+                originalNormal.StartedOpeningKickoff(); openingAutoHike = kickoff.AutoHikeTicks;
+                flags = camera.PrepareStep(RawTarget(input), false, out frame);
+                normalDispatch = false;
+            }
+            if (normalDispatch)
+            {
+                originalNormal.CommitPlan(plan);
+                camera.SetState(originalNormal.Integrate(plan));
+                frame = new SourceCinematicFrame(camera.State, false, returned, snapReturn, camera.ElapsedTicks, returningEntry);
+            }
+            else
+            {
+                if (flags < 0) throw new InvalidOperationException("A newly selected original camera did not execute its first mode tick.");
+                frame = camera.CompleteStep(flags);
+            }
+            if (shaker.NeedsSourceRandomDraws)
+            {
+                int x = RequireDraw(actualRandom, 3, "cambot.c:1009/shaker-X");
+                int z = RequireDraw(actualRandom, 3, "cambot.c:1010/shaker-Z");
+                camera.ApplyOriginalShakeOffset(shaker.Step(x, z));
+                frame = new SourceCinematicFrame(camera.State, frame.Active, frame.ReturnedToNormal,
+                    frame.SnapOnReturn, frame.ElapsedTicks, normalDispatch ? returningEntry : camera.Entry);
+            }
+            Frame = frame; lastCameraTick = input.SourceTick; allowResumedTickGap = false;
+            resumingNormal = returned && !snapReturn;
+            HasRenderFrame = true;
+            CurrentSourceCamera = SourceCinematicTransform.FromState(camera.State);
+            executingSourceCamera.Publish(input.SourceTick, CurrentSourceCamera);
+            CameraFeedback = new SourceCameraFeedback(input.SourceTick, originalNormal.TargetOffscreen, openingAutoHike,
+                fieldGoalLastCarrier);
+            LastCameraBoundary = input;
+            originalNormal.CompleteWake(input);
+            return frame;
+        }
+
+        private SourceCinematicTarget RawTarget(SourceCameraBoundary input)
+        {
+            if (targetActor >= 0)
+                return SourceCinematicTarget.FromRawActor(input.Actors[targetActor]);
+            if (rawSequence == 1)
+            {
+                if (camera.Entry != null && camera.Entry.RawMode == 19 && input.Carrier >= 0)
+                    return SourceCinematicTarget.FromRawActor(input.Actors[input.Carrier]);
+                return new SourceCinematicTarget(input.Ball.Position, 0);
+            }
+            if (rawSequence == 2) return new SourceCinematicTarget(fieldGoalTarget, 0);
+            throw new InvalidOperationException("Original transient has no actual source target identity.");
+        }
+
+        private static int RequireDraw(Func<int, string, int> random, int bound, string site)
+        {
+            int value = random(bound, site);
+            if (value < 0 || value >= bound) throw new InvalidOperationException("Source camera randrng result is outside its actual request.");
+            return value;
+        }
+
+        public void Reset(SourceCameraBoundary initialBoundary)
+        {
+            if (!UsesOriginalNormalCamera) throw new InvalidOperationException("This camera has no original normal producer.");
+            Reset(SourceNormalCameraModel.Initial(initialBoundary));
+            originalNormal = new SourceNormalCameraModel(); rawSequence = 0;
+            fieldGoalMode = 0; fieldGoalBase = fieldGoalTarget = default(SourceVector3); fieldGoalBaseDistance = 0f;
+            LastCameraBoundary = null; CameraFeedback = default(SourceCameraFeedback);
+        }
+
+        private int? ApplyOriginalFieldGoal(SourceCameraBoundary input, float horizontal, float vertical,
+            Func<int, string, int> random, ref bool normalDispatch, ref SourceNormalCameraPlan plan,
+            ref int flags, ref SourceCinematicFrame frame)
+        {
+            int? lastCarrier = null;
+            bool selected = (input.OffensePlayFlags & (4 | 16)) != 0, fieldGoal = (input.OffensePlayFlags & 4) != 0;
+            if (selected)
+            {
+                if (fieldGoalMode == 0)
+                {
+                    if (input.RawGameMode == 1 || fieldGoal && (input.RawGameFlags & 0x200) == 0)
+                    {
+                        if (input.RawGameMode == 1)
+                        {
+                            float x = (390f / 300f * 6f) *
+                                (input.OffenseSide != 0 ? 100 - input.LineOfScrimmage : input.LineOfScrimmage) - 390f;
+                            fieldGoalBase = new SourceVector3(x + (input.LastPossession != 0 ? 1f : -1f) *
+                                (2.5f * (390f / 50f)), 0f, plan.Target.Z);
+                            fieldGoalBaseDistance = plan.DistanceTarget;
+                        }
+                        if (normalDispatch) plan = plan.WithTarget(fieldGoalBase, fieldGoalBaseDistance);
+                        else camera.OverrideDesired(fieldGoalBase);
+                    }
+                    else if (fieldGoal)
+                    {
+                        float travel = Math.Abs((input.LastPossession != 0 ? -460f : 460f) - fieldGoalBase.X);
+                        if (input.Ball.Velocity.X == 0f)
+                            throw new InvalidOperationException("Original field-goal camera travel time has an undefined zero-X-velocity domain.");
+                        int time = (int)(travel / Math.Abs(input.Ball.Velocity.X) + .5f);
+                        if (time <= 0) throw new InvalidOperationException("Original field-goal spline needs a positive source travel count.");
+                        SourceCinematicEntry definition = originalNormalData.FieldGoal[
+                            RequireDraw(random, 2, "cambot.c:3001/select-csi-fg-track")];
+                        SourceCinematicSeed s = camera.State;
+                        camera.Reset(SourceNormalCameraModel.Copy(s, s.Eye,
+                            new SourceVector3(input.LastPossession != 0 ? -460f : 460f, (103.5f + 27f) * .5f, 0f),
+                            s.Distance, s.Theta, s.Phi, s.Velocity, s.DistanceVelocity, s.ThetaVelocity, s.PhiVelocity,
+                            s.ThetaTarget, s.PhiTarget));
+                        camera.Select(new SourceCinematicEntry(definition.Table, definition.Ordinal, definition.SourceLine,
+                            definition.RawMode, definition.ModeSymbol, definition.ModeTicks, time, definition.ThetaDegrees,
+                            definition.PhiDegrees, definition.Distance, definition.ControlPoints), -(103.5f + 27f) * .5f);
+                        rawSequence = 2; targetActor = -1; fieldGoalMode = 1; normalDispatch = false;
+                    }
+                }
+                if (fieldGoalMode == 1)
+                {
+                    if ((input.Ball.RawFlags & 0x200) != 0)
+                    {
+                        bool snap = camera.Entry != null && camera.Entry.TravelTicks < 2;
+                        // cambot_special re-enters ModeRevert AFTER cambot_proc's unrotation block.
+                        plan = originalNormal.Prepare(camera.State, input, horizontal, vertical, random, snap, snap, false);
+                        camera.RevertToNormal(); camera.SetState(plan.State);
+                        normalDispatch = true; fieldGoalMode = -1;
+                    }
+                    else
+                    {
+                        if ((input.Ball.RawFlags & 0x1000) == 0)
+                            fieldGoalTarget = new SourceVector3(input.Ball.Position.X - input.Ball.Origin.X + fieldGoalBase.X,
+                                input.Ball.Position.Y / .4f * .7f,
+                                input.Ball.Position.Z - input.Ball.Origin.Z + fieldGoalBase.Z);
+                        if (camera.Entry != null && camera.ElapsedTicks - camera.Entry.TravelTicks > 30)
+                        {
+                            SelectRawTable("csi_zm_endplayfg", random, "cambot.c:3031/select-csi-fg-endpan");
+                            SourceCinematicSeed s = camera.State;
+                            float y = s.Focus.Y - s.Eye.Y;
+                            float x = s.Focus.X - s.Eye.X, z = s.Focus.Z - s.Eye.Z;
+                            float horizontal2 = x * x + z * z, d = (float)Math.Sqrt(y * y + horizontal2);
+                            float sine = Math.Max(-1f, Math.Min(1f, y / d));
+                            float phi = (float)Math.Asin(sine);
+                            SourceCinematicSeed changed = new SourceCinematicSeed(s.Eye, s.Focus, d, s.Theta, phi, s.Velocity,
+                                s.DistanceVelocity, s.ThetaVelocity, s.PhiVelocity, s.ThetaTarget, s.PhiTarget,
+                                new SourceVector3(s.SinTheta, s.CosTheta, sine), (float)Math.Sqrt(horizontal2) / d,
+                                s.Acceleration, s.DistanceAcceleration, s.ThetaAcceleration, s.PhiAcceleration);
+                            SourceCinematicEntry selectedEntry = camera.Entry;
+                            camera.Reset(changed); camera.Select(selectedEntry);
+                            targetActor = input.Carrier >= 0 ? input.Carrier : input.Ball.Handler;
+                            RequireActor(targetActor);
+                            if (input.Carrier < 0) lastCarrier = targetActor;
+                            rawSequence = 0; fieldGoalMode = 2; normalDispatch = false;
+                        }
+                    }
+                }
+                if (fieldGoalMode == 2 && camera.Entry != null && camera.ElapsedTicks >= camera.Entry.TravelTicks)
+                {
+                    if (!SelectRawTable("csi_fs_endplay", random, "cambot.c:3061/select-csi-fg-endplay"))
+                        fieldGoalMode = -1;
+                    else { fieldGoalMode++; normalDispatch = false; }
+                }
+                if (fieldGoalMode > 0 && camera.ElapsedTicks == 0)
+                {
+                    flags = camera.PrepareStep(RawTarget(input), false, out frame);
+                    normalDispatch = false;
+                }
+            }
+            if (originalNormal.WasPlayOver == 1) fieldGoalMode = 0;
+            return lastCarrier;
+        }
+
+        private bool SelectRawTable(string table, Func<int, string, int> random, string site)
+        {
+            var entries = library.Tables[table];
+            return camera.Select(entries[RequireDraw(random, entries.Count, site)]);
+        }
+
         public void Reset(SourceCinematicSeed normalCamera)
         {
             camera.Reset(normalCamera); shaker.Reset();
@@ -339,7 +585,7 @@ namespace Blitz.Presentation
         private bool Select(string table, int actualOrdinal, int actor)
         {
             if (!camera.Select(library.Selected(table, actualOrdinal))) return false;
-            targetActor = actor; resumingNormal = false; return true;
+            targetActor = actor; rawSequence = 0; resumingNormal = false; return true;
         }
 
         private static void RequireActor(int actor)

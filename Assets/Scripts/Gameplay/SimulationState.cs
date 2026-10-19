@@ -264,6 +264,9 @@ namespace Blitz.Gameplay
         internal long SourceMovementCameraTick = -1;
         internal readonly SourceVector3[,] SourceCameraJoints = new SourceVector3[14, 15];
         internal long SourceCameraJointTick = -1;
+        internal readonly SourceVector3[] SourceCameraGroundCenters = new SourceVector3[14];
+        internal SourceVector3 SourceCameraBallTarget;
+        internal long SourceCameraFeedbackTick = -1;
         internal uint SourceBreathControl;
         internal Func<int, int> SourceCStandardRandom;
         internal SourceQuarterbackPlan SourceQuarterbackPlan;

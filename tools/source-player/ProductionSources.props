@@ -19,6 +19,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudViewport.cs" />

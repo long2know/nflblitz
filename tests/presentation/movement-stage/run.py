@@ -43,13 +43,13 @@ def caller_guards(source_root=ROOT):
     require(not any(token in getter for token in ("model.Update", "worldToCameraMatrix", "LookAt", "SourceUnitsPerYard", "Screen.")),
             "no render/lookAt/yard reconstruction in current source frame read")
     render = compact(method(camera, "Render"))
-    require("if(!movement157)sourceAspect=aspect;" in render,
+    require("if(!movement157&&!rawSourceCamera)sourceAspect=aspect;" in render,
             "render aspect must not change M1's original DIP camera inputs")
     require(not any(token in render for token in ("CameraSourceTick(", "SampleAtSourceTick(", "executingSourceCamera.Publish(")),
             "render never advances source camera/clock")
     require("sourceStageDriven?newNormalCameraFrame" in render, "source render retains cached normal frame, legacy model remains separate")
     initialize = compact(method(camera, "InitializeSourceStage"))
-    require("movement157&&!sourceMovementRasterConfigured" in initialize and "if(!movement157)sourceAspect=" in initialize,
+    require("(movement157||rawSourceCamera)&&!sourceMovementRasterConfigured" in initialize and "if(!movement157)sourceAspect=" in initialize,
             "M1 cannot initialize with browser/default original raster")
     raster = compact(method(camera, "ConfigureSourceMovementRaster"))
     require("sourceStageDriven" in raster and "SourceCameraFrameClock.RequireOriginalRasterAspect" in raster,
@@ -176,7 +176,7 @@ def caller_guards(source_root=ROOT):
             "actual importer packages bootstrap/runtime data and exact157 path, not a viewer")
     normal = source_root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
     require(digest(normal.read_bytes()) == "4df6d0ce1bfa11322aa0e1e640f1e12bc043468e3d1ccd905deed376d411fb88",
-            "original proven B1/graybox normal-camera implementation remains unchanged")
+            "historical B1/graybox approximation remains unchanged; raw source profile uses its separately tested original producer")
     return 29
 
 

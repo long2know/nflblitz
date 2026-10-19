@@ -4,7 +4,7 @@ using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
-    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState
+    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState, ISourceCameraState
     {
         private readonly SourceKickMeterMetrics kickMeterMetrics;
         private readonly SourceKickMeterView kickMeter;
@@ -39,8 +39,9 @@ namespace Blitz.Gameplay
         public IReadOnlyList<PlayerView> Players { get; }
         public SourceMatchView Match { get; }
         public SourcePresentationSettings Presentation { get; }
+        public SourceCameraBoundary CameraBoundary { get; }
 
-        internal GameSnapshot(SimulationState model)
+        internal GameSnapshot(SimulationState model, int cameraProcessOrder = -1)
         {
             kickMeterMetrics = model.SourceKickMeterMetrics;
             kickMeter = model.SourceKickMeter == null ? default(SourceKickMeterView) : model.SourceKickMeter.View;
@@ -87,6 +88,7 @@ namespace Blitz.Gameplay
             Players = Array.AsReadOnly(players);
             if (model.SourceMode)
             {
+                CameraBoundary = CaptureCamera(model, cameraProcessOrder);
                 var scores = new SourceQuarterScore[model.Quarter];
                 for (int q = 0; q < scores.Length; q++)
                     scores[q] = new SourceQuarterScore(q, model.SourceQuarterScores[q, 0], model.SourceQuarterScores[q, 1]);
@@ -113,6 +115,45 @@ namespace Blitz.Gameplay
                     model.SourceHandicapRepetitionBonus, model.SourceCompatibility,
                     model.SourceCompatibilityRepairCount, model.SourceCompatibilityRepairs);
             }
+        }
+
+        internal static int RawCameraGameMode(SimulationState model)
+        {
+            int mode = RawMovementPhase(model);
+            return mode == 5 && !model.SourceKickApproach ? 1 : mode;
+        }
+
+        internal static int RawMovementPhase(SimulationState model)
+        {
+            return model.Phase == GamePhase.LiveBall ? 2
+                : model.Phase == GamePhase.DeadBall ? 3 : model.Phase == GamePhase.GameOver ? 4
+                : model.Phase == GamePhase.PreSnap ? model.SourceRules.PlayType == SourcePlayType.Kickoff ? 5 : 1 : 0;
+        }
+
+        private static SourceCameraBoundary CaptureCamera(SimulationState model, int processOrder)
+        {
+            var actors = new SourceCameraActor[14];
+            for (int id = 0; id < actors.Length; id++)
+            {
+                ActorState actor = model.Players[id];
+                actors[id] = new SourceCameraActor(id, (int)actor.SourceMode, SourceActorFlags(actor), actor.Facing,
+                    SourcePlayerDriver.WorldPosition(actor), model.SourceCameraGroundCenters[id]);
+            }
+            int stations = 0;
+            foreach (SourceStationConfiguration station in model.SourceConfiguration.Stations)
+                stations |= 1 << station.StationId;
+            bool hh = model.SourceConfiguration.StationLayout == SourceStationLayout.FourStation &&
+                ((stations & 3) == 3 || (stations & 12) == 12);
+            return new SourceCameraBoundary(model.SourceTick, processOrder, RawCameraGameMode(model),
+                (int)model.SourceFlags, (int)model.SourceRules.PlayType, (int)model.SourceLastResult, model.Quarter - 1,
+                model.SourceRules.OffenseSide, model.SourceLastPossession, model.SourceRules.LineOfScrimmage,
+                model.CarrierId, hh, model.SourcePresentation != null && model.SourcePresentation.PupPullback != 0,
+                model.PreSnapTicksRemaining, model.SourceOffensePlay == null ? 0 : (int)model.SourceOffensePlay.Flags,
+                new SourceCameraBall(model.SourceBallPosition,
+                    new SourceVector3(model.SourceBallVelocity.X, model.SourceBallVerticalVelocity, model.SourceBallVelocity.Z),
+                    model.SourceBallOrigin, model.SourceBallTarget, model.SourceCameraBallTarget,
+                    (int)GameSimulation.SourceBallTypeFor(model.BallKind), unchecked((int)model.SourceBallFlags),
+                    model.PassTicksElapsed, model.ThrowerId, model.TargetPlayerId), actors);
         }
 
         internal static PlayerView SourcePlayerView(ActorState actor, long tick, bool relativeToOrigin = false)

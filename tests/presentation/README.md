@@ -4,6 +4,11 @@ These checks compile the **production** pure helpers and Contracts with C#7.3.
 They do not provide Unity stubs, copied gameplay, fake source provenance, or a
 replacement animation decoder.
 
+The explicit M1 normal/tracking/integrator, kickoff and source-stage return
+increment has its own [original-C and semantic-control suite](normal-camera/README.md).
+Its31,332 active wakes are separate evidence; the historical special15,242 ticks
+below are retained unchanged and are not new full-normal coverage.
+
 ```sh
 python3 -B tests/presentation/run.py
 ```

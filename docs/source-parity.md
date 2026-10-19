@@ -1208,10 +1208,28 @@ table is needed for this first full-quaternion pose.
 
 ### Source-derived normal camera
 
-`NormalCameraModel` ports the normal tracking math, not just an aesthetic FOV:
+The explicit M1 source profile now uses the shared **original active CAMBOT
+normal producer**, not `NormalCameraModel`. See the
+[reproducible raw-camera increment](../tests/presentation/normal-camera/README.md):
+**34,084 executing original-C wakes /100 sequences /26 compiled semantic
+controls**: the retained88/31,332 plus12/2,752 coupled lifecycle cases, separate
+from the retained special15,242 ticks. Unity and portable
+camera callers share immutable pre-actor raw Core observations, exact scalar/
+velocity integration, kickoff/P2P, GOPHER and original transient return. The
+additional camera data is required; no legacy EMA/envelope fallback is used.
+
+The lifecycle regression covers field-goal → field-goal and normal new plays
+for both possessions, with and without actual menu suspension, and interrupted
+tracking return. The original mode-only switch retains CSI operands, dispatch
+clock and target until their own source boundaries; normal integration no longer
+destroys them. Original integers, target identity, RNG and feedback are exact,
+not covered by float tolerances. Explicit new-match reset still clears the whole
+owner. These are synthetic source-backed branch fixtures, not a claim that a
+browser screenshot observed consecutive field goals.
 
 The following baseline limitations describe the older normal-camera/live-preview
-layer. The new source-stage/impact extension is qualified separately below.
+layer, which remains unchanged for explicit legacy/diagnostic compatibility.
+They do **not** describe the qualified raw source-profile producer:
 
 - [`camdefs.h`](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/include/camdefs.h#L26-L64)
   and `cambot.c:TrackObjects/SetModeAngleTrgs/cambot_normal` establish behind-offense
@@ -1242,8 +1260,12 @@ canonical source roots and ordered shared X-then-Z shaker draws. All catch-up
 events/cues are forwarded; presentation has one lifecycle owner. Source-stage
 rendering uses cached camera state and the full content viewport, not the old
 HUD-reserved rect or a second render clock. Original active special tables and
-shaker math have source/pure evidence, but full raw normal/kickoff/gopher branches,
-target scheduler/RNG, native pixels and hardware cadence remain open.
+shaker math retain their source/pure evidence. The new raw producer additionally
+compares normal/kickoff/quick/onside/GOPHER/return and its reachable field-goal
+dependency against unchanged active C. Source draw-cache scheduling is explicitly
+portable; initial-QB instructional-box and possession-message global suspension
+services, target scheduler/RNG, native pixels and hardware cadence remain
+unqualified. All sixteen completion rows remain open.
 
 ### Available but not fully integrated
 

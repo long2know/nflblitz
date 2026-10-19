@@ -18,6 +18,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs')" Link="Production/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs')" Link="Production/SourceImpactShaker.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs')" Link="Production/SourceCinematicPlayback.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicDepthRange.cs" Link="Production/SourceCinematicDepthRange.cs" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />

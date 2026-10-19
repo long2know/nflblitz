@@ -10,6 +10,44 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+## Required original normal-camera data
+
+The explicit M1 profile now uses the shared original active CAMBOT normal/
+tracking/integrator, eleven-entry kickoff/P2P and original impact-return stage.
+There is no EMA/actor-envelope fallback. The unchanged older normal model is
+legacy/diagnostic only. See
+[`tests/presentation/normal-camera`](../../tests/presentation/normal-camera/README.md)
+for31,332 executed original-C wakes,24 compiled semantic controls, raw Core
+observation/feedback and native-service qualifications.
+
+Keep the existing impact catalog and every approved original data pin:
+
+```sh
+python3 -B tools/assets/prepare_normal_camera.py \
+  --source-root "$AUTHORIZED_ORIGINAL_ROOT" \
+  --destination .squad/.scratch/camera-input/normal-camera-original.json
+python3 -B tools/source-player/prepare_camera.py \
+  --input "$READONLY_APPROVED_PLAYER_DATA" \
+  --input-manifest-sha256 "$APPROVED_PLAYER_MANIFEST_SHA256" \
+  --camera .squad/.scratch/camera-input/normal-camera-original.json \
+  --output .squad/.scratch/camera-player-data
+python3 -B tools/source-player/build.py --data .squad/.scratch/camera-player-data
+```
+
+Apply this extension after the required ball/head/fire preparation. It adds one
+camera file/entrypoint without a schema migration or rewriting historical
+receipts; approved556 becomes557 with all556 old file pins unchanged. For the
+native **API-only** integration, the explicit M1 team importer requires the same
+JSON beside `impact-presentation.json` in `-teamImpactRoot`. This does not
+establish a Unity import/player execution or original-data redistribution right.
+
+The portable metadata exposes the actual pre-actor raw camera stage and shared
+RNG request tail; GPU evidence reads the real projection uniform and full
+content viewport. `normal-camera.browser.mjs` uses only an owned CDP target and
+public four-cabinet controls/Escape/Continue, with stable paused normal-gameplay
+PNG brackets. Its browser proof is separate from synthetic original-C branch
+fixtures. Native/full-game/audio/PCM/DSP/performance and all16 rows remain open.
+
 The explicit Portable kernel policy reports `CarrierlessDefensiveSwitch` in
 `state.kernel.repairs` when a human requests a defensive switch during a
 carrierless Pass/FieldGoal/Kickoff seeking branch. The actor/stations are
@@ -671,12 +709,16 @@ hardware qualification is separate from the tested standard mapping.
   sampling, alpha/depth/blend states and original geometry are consumed. The
   prepared world has fixed original Chicago/Bears field artwork; selecting a
   different roster does not pretend to replace those field decals.
-- Existing pure `NormalCameraModel` supplies source-derived normal framing.
-  `SourceCinematicPlayback` consumes actual eligible source camera/shaker cues.
+- The explicit M1 profile uses the original active `SourceNormalCameraModel`
+  inside the existing `SourceCinematicPlayback` lifecycle owner, including
+  raw actor/ball lead endpoints, scalar/velocity integration, kickoff/P2P,
+  GOPHER, original impact return and reachable field-goal dependency.
   The executing pre-player camera publishes the same source position/transform
   and explicit original DIP resolution into `SetSourceMovementCameraFrame`.
-  WebGL uses that camera, not an inspection orbit. Normal framing is an existing
-  production adaptation, not a bit-exact native normal-camera claim.
+  WebGL and Unity call the same producer, not an inspection orbit or copied
+  browser algorithm. The old `NormalCameraModel` remains historical legacy/
+  diagnostic only. Native fast-trig/global-scheduler/initial-QB-box/possession-
+  message services and pixels are not qualified.
 - `SourceHudComposer` supplies actual original authored atlas/font/play-plane
   draw commands. The surrounding HTML status is explicitly adapter UI, not
   original HUD. Authored-TGA and portable-authored-raster origins do not prove
