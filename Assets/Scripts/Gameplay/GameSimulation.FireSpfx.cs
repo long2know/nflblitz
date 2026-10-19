@@ -43,7 +43,11 @@ namespace Blitz.Gameplay
             {
                 sourceFireSounds.Add(sound);
                 return new SourceFireSoundSubmission(false, "Original ordered FX sound metadata; not resubmitted as VM sound or DSP playback.");
-            }, () => ++sourceFireNextSerial);
+            }, () => ++sourceFireNextSerial,
+            () => new SourceFireBallRenderSample(Model.SourceTick, Model.SourceBallPosition,
+                Model.SourceBallHeading, Model.SourceBallElevation, Model.SourceBallRoll,
+                Model.SourceBallScale, unchecked((int)Model.SourceBallFlags),
+                "actual Core ball_proc render fields read at trail_ball_proc entry; no live pose reconstruction"));
         }
 
         private void InitializeSourceFire()

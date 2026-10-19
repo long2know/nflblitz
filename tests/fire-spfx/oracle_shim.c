@@ -11,6 +11,7 @@
 #define SPFX_PID 0x0f98
 #define PLAYER_PID 0x0500
 #define PFLASH_PID 0x1300
+#define BALL_PID 0x0900
 #define OID_SMKPUFF 0x510
 #define OF_NONE 0
 #define DRAWORDER_BALL 0x50000
@@ -40,6 +41,7 @@
 #define BF_FIRE_PASS 1
 #define BF_TURBO_PASS 2
 #define BF_BOUNCE 4
+#define BF_WHITE 8
 #define EFFECT_NONE 0
 #define EFFECT_FIRE 1
 #define EFFECT_PCLOUD 2
@@ -71,6 +73,7 @@ static int pcount;
 
 void plyr_fire_trail_proc(int *);
 void ball_fire_trail_proc(int *);
+static void trail_ball_proc(int *args) { (void)args; }
 void draw_spfx(void *);
 static int oracle_rng(int bound, int line) {
     int value=tape_count<0 ? 0 : tape_position<tape_count ? tape[tape_position++] : -1;

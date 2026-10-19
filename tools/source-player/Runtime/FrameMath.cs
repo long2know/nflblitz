@@ -76,6 +76,15 @@ public static class FrameMath
         return packet;
     }
 
+    public static double[] FreeBalls(SourceFreeBallDraw main, IReadOnlyList<SourceFreeBallDraw> trails)
+    {
+        var packet = new double[20 * (trails.Count + 1)];
+        FreeBall(main).CopyTo(packet, 0);
+        for (int i = 0; i < trails.Count; i++)
+            FreeBall(trails[i]).CopyTo(packet, 20 * (i + 1));
+        return packet;
+    }
+
     public static double[] Multiply(double[] left, double[] right)
     {
         var result = new double[16];

@@ -37,7 +37,9 @@ CASES = [
 JS_CASES = [
     ("scene-ignores-flight-matrix", "const matrix = frame.ballMatrix;", "const matrix = new Float32Array(identity);",
      "Actual scene must submit the C# source flight/spin matrix"),
-    ("scene-wrong-ball-winding", "gl.frontFace(gl.CCW);", "gl.frontFace(gl.CW);",
+    ("scene-wrong-ball-winding",
+     "// Actors/world keep their existing reflected import winding and CW state.\n      gl.frontFace(gl.CCW);",
+     "// Actors/world keep their existing reflected import winding and CW state.\n      gl.frontFace(gl.CW);",
      "Actual free-ball source321 winding must reach GPU culling"),
     ("scene-ignores-alternate-decal",
      "const texture = frame.ball[2] & 0x40 ? this.ball.alternateTexture : this.ball.texture;",

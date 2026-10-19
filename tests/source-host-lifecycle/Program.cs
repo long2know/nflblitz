@@ -93,7 +93,8 @@ internal static class LifecycleChecks
         Require(GUI.LastBox.Contains(failure) && GUI.LastBox.StartsWith("SOURCE MODE ERROR\n"),
             "failed-bootstrap/R/focus retains the actual OnGUI failure banner");
         Require(HostProbe.Count("field.render") == 0 && HostProbe.Count("camera.render") == 0 &&
-            HostProbe.Count("camera.render.reset") == 0 && HostProbe.Captures == 0 && HostProbe.Draws == 0,
+            HostProbe.Count("camera.render.reset") == 0 && HostProbe.Captures == 0 &&
+            HostProbe.TrailCaptures == 0 && HostProbe.Draws == 0,
             "failed-bootstrap never enters normal presentation or silently skips its required consumer");
         Require(HostProbe.Bridge.SourceAdvances == 0 && HostProbe.Bridge.Restarts == 0 &&
             HostProbe.Count("hud.clear") == 0 && HostProbe.Count("hud.source") == 0 &&
@@ -121,7 +122,8 @@ internal static class LifecycleChecks
         Require(runtime.IsSourceProfile && runtime.SourceFailure == null, "ready source bootstrap succeeds");
         Require(HostProbe.Bridge.HookCount == 8 && HostProbe.CommandBuffers == 1 && HostProbe.Hud != null,
             "ready source has every actual bridge hook, HUD and required consumer");
-        Require(HostProbe.Captures == 1 && HostProbe.Draws == 1, "ready source presents its required ball at startup");
+        Require(HostProbe.Captures == 1 && HostProbe.TrailCaptures == 1 && HostProbe.Draws == 2,
+            "ready source presents its required ball and trail at startup");
         int cues = 0, events = 0, before = 0, after = 0;
         runtime.SourcePresentationCueObserved += value => cues++;
         runtime.SourceEventRaised += value => events++;
@@ -165,7 +167,8 @@ internal static class LifecycleChecks
         Input.Clear();
         Call(runtime, "Update");
         Call(runtime, "LateUpdate");
-        Require(HostProbe.Captures == 2 && HostProbe.Draws == 2, "ready restarted source still consumes the required free ball");
+        Require(HostProbe.Captures == 2 && HostProbe.TrailCaptures == 2 && HostProbe.Draws == 4,
+            "ready restarted source still consumes the required free ball and trail");
         Require(events > 0 && before == after && before > 0 && HostProbe.Count("hud.event") > 0 &&
             HostProbe.Count("hud.source-event") > 0, "ready restarted source retains HUD and public host/game events");
         Call(runtime, "OnApplicationFocus", false);
@@ -204,7 +207,8 @@ internal static class LifecycleChecks
         Require(HostProbe.Count("hud.clear") == 1 && HostProbe.Count("field.reset") == 1 &&
             HostProbe.Count("camera.render.reset") == 2, "Legacy restart preserves HUD/history/reset camera");
         Require(HostProbe.Count("hud.source") == 0 && HostProbe.Count("camera.observe") == 0 &&
-            HostProbe.Captures == 0 && HostProbe.CommandBuffers == 0, "Legacy never enters source-only consumers/cues");
+            HostProbe.Captures == 0 && HostProbe.TrailCaptures == 0 && HostProbe.CommandBuffers == 0,
+            "Legacy never enters source-only consumers/cues");
         Call(runtime, "Update");
         Require(HostProbe.Bridge.Restarts == 1, "Legacy held R waits for release");
         Input.Clear(); Call(runtime, "Update");

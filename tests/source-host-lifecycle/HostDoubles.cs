@@ -2,6 +2,7 @@
 // These are not Unity engine implementations or native/player test evidence.
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Blitz.Contracts;
 
 internal static class HostProbe
@@ -12,13 +13,13 @@ internal static class HostProbe
     internal static Blitz.Runtime.FixedStepBridge Bridge;
     internal static Blitz.Runtime.SourceCabinetUnityInput Input;
     internal static Blitz.Presentation.PlayHud Hud;
-    internal static int Captures, Draws, CommandBuffers, Errors;
+    internal static int Captures, TrailCaptures, Draws, CommandBuffers, Errors;
     internal static void Record(string call) { Calls.Add(call); }
     internal static int Count(string call) { return Calls.FindAll(value => value == call).Count; }
     internal static void Reset(string fault, bool source)
     {
         Calls.Clear(); Fault = fault; Source = source; Fire = true; CabinetHeld = false;
-        Bridge = null; Input = null; Hud = null; Captures = Draws = CommandBuffers = Errors = 0;
+        Bridge = null; Input = null; Hud = null; Captures = TrailCaptures = Draws = CommandBuffers = Errors = 0;
         UnityEngine.Input.Clear();
         UnityEngine.Application.absoluteURL = source ? "https://managed.invalid/" : "https://managed.invalid/?actors=graybox";
     }
@@ -156,6 +157,7 @@ namespace Blitz.Contracts
     public enum SourceFireCull { Off }
     public enum SourcePresentationCueKind { PlayerDownCallback, Other }
     public enum SourceSoundVmStatus { Resolved }
+    public struct SourceBallTrail { }
     public struct FieldVector { public FieldVector(float x, float z) { } }
     public interface IGameState
     {
@@ -315,10 +317,16 @@ namespace Blitz.Presentation
     public sealed class SourceFreeBallDraw
     {
         public readonly FreeBallState State = new FreeBallState();
+        public readonly SourceBallTrail? Trail;
         public bool White, Alternate; public int Alpha = 255;
+        public SourceFreeBallDraw(long sourceTick = 0, bool trail = false)
+        {
+            State.SourceTick = sourceTick;
+            if (trail) Trail = new SourceBallTrail();
+        }
         public float[] CameraMatrix(SourceCinematicTransform camera) { return new float[12]; }
     }
-    public sealed class FreeBallState { public bool Visible = true; }
+    public sealed class FreeBallState { public bool Visible = true; public long SourceTick; }
     public static class SourceCameraFrameClock
     {
         public static void RequireOriginalRasterAspect(float width, float height)
@@ -394,7 +402,19 @@ namespace Blitz.Runtime
     public static class SourceFreeBallBinding
     {
         public static Blitz.Presentation.SourceFreeBallDraw Capture(Blitz.Gameplay.GameSimulation simulation)
-        { HostProbe.Captures++; return new Blitz.Presentation.SourceFreeBallDraw(); }
+        {
+            HostProbe.Captures++;
+            return new Blitz.Presentation.SourceFreeBallDraw(((ISourceGameState)simulation.State).SourceTick);
+        }
+        public static ReadOnlyCollection<Blitz.Presentation.SourceFreeBallDraw> CaptureTrails(
+            Blitz.Gameplay.GameSimulation simulation)
+        {
+            HostProbe.TrailCaptures++;
+            return new List<Blitz.Presentation.SourceFreeBallDraw>
+            {
+                new Blitz.Presentation.SourceFreeBallDraw(((ISourceGameState)simulation.State).SourceTick, true)
+            }.AsReadOnly();
+        }
     }
     public sealed class FixedStepBridge
     {

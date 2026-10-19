@@ -57,7 +57,7 @@ jobs:
           SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-restore --nologo
           SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic
       - name: Test public cabinet input and renderer contracts
-        run: node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs
+        run: node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs tools/source-player/ball-trails.renderer.test.mjs
       - name: Test public preparation failure gates
         working-directory: tools/source-player
         run: python3 -B -m unittest prepare_test.PreparationChecks.test_relative_explicit_input_roots_are_normalized_without_allowing_traversal prepare_test.PreparationChecks.test_real_source_artifact_mutation_is_rejected_by_name

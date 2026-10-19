@@ -120,7 +120,10 @@ that rendering boundary separately.
    camera tick. A cache older than the preceding dispatch requires explicit
    retention/suspension evidence. Never re-pose `SourceWorldJoint`, substitute
    an identity camera, or pair old joints with the new camera. `ReadBallWorld`
-   supplies the live source-world ball point at the child's first wake.
+   supplies the live source-world ball point for fire puffs at their first wake.
+   The separate `ReadBallRender` callback supplies actual XYZ/fwd/fwd2/phi/
+   scale/flags at non-fire `trail_ball_proc` entry; missing orientation fails
+   closed, never falling back to the fire point or a live re-pose.
 8. Raw flag reads/writes must access the actual shared actor bits immediately;
    no flash reference counts or kill cleanup. Sound submission preserves each
    call (including duplicate192 calls), bank, volume, pan, priority expression,
@@ -141,7 +144,7 @@ that rendering boundary separately.
 | `_mode_qb` tail / reached carrier `_mode_wpn` fire site | `MaybePlayerFire` with native vx/vz, station, dragging/flip flags, lower reacting bit, actual mode/team side |
 | Successful offensive `standard_catch`, after its mode/control updates | `SuccessfulOffensiveCatch`; not an `OnFire` rising-edge adapter |
 | Original second-loss branch's SPFX point, after Core's actual state changes | `DefensiveSecondLossFireSite`; actual selected bank and player3-or10's known hit partner (`-1` known NULL, nullable unknown) |
-| `ball_proc` free/phantom post-physics, **post-increment** flight-time point | `BallFreeOrPhantomStep` using named ball-kind mapping; return nonfire selection to the ball owner |
+| `ball_proc` free/phantom post-physics, **post-increment** flight-time point | `BallFreeOrPhantomStep` using named mapping; queue BALL_PID football ghosts for PCLOUD/BTRAIL, retain separate even-flight fire triplet; return Blink selection to the ball owner |
 | Quick/kickoff or audible reset | Delete puff objects, then kill SPFX, in original order |
 | `clobber_playsel` | Kill SPFX, then delete puff objects |
 | Interactive selection entry after no-selection early return | Kill PFLASH, suspend `(0,0x8000)`, resume SPFX, hide existing objects |
@@ -165,10 +168,14 @@ Side0/side1/all read/write sets and flags are compared with the pinned original
 `lineup_players` loop/address/flag-mask window on declared0x440 inputs under C
 bounds/undefined sanitizers. This is a safe component probe, not a match replay.
 
-The helper's nonfire ball return does not implement Core's other trail process
-or `BF_WHITE` blinking write. Core retains those original branches. Global
-hide/kill operations must also reach the owners of non-FX objects/processes;
-this runtime neither invents nor owns them.
+The separately typed non-fire football objects are now exposed through
+`SourceFireRenderFrame.BallTrails`, not `Particles`; their original five-stage
+lifetime shares this scheduler and the existing source selection/hide/suspend/
+resume controls. The actual free-ball Unity/browser consumers reuse genuine
+medball2/HEDSHU2 with local ALT, global draw gates and CC_ALPHA RGB/blend behavior.
+See [the focused trail suite](../ball-trails/README.md). Core retains the existing
+`BF_WHITE` blinking write. The runtime still does not own the main ball, players
+or unrelated effects, and does not invent native pointer cleanup.
 
 `PLAYER_PID` ball children are distinct from `SPFX_PID`; process kill is not
 object deletion. Objects of equal priority retain actual arrival order. Hide

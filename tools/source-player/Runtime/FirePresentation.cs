@@ -12,6 +12,7 @@ public sealed class FirePresentation
     private readonly IRenderSink sink;
     private readonly Dictionary<string, long> recordCounts = new(StringComparer.Ordinal);
     private readonly Queue<object> records = new();
+    private SourceFireBallEffect ballEffect;
     public bool Enabled { get; }
     public long Epoch { get; }
     public long FramesConsumed { get; private set; }
@@ -37,6 +38,7 @@ public sealed class FirePresentation
     {
         DataCatalog.Require(game.SourceFireEnabled == Enabled, "The actual Core fire opt-in and renderer must agree.");
         if (!Enabled || game.SourceFireFrame == null) return;
+        ballEffect = game.SourceBallEffectSelection;
         var frame = game.SourceFireFrame;
         if (ReferenceEquals(Frame, frame)) return;
         DataCatalog.Require(frame.SourceTick == game.SourceTick, "Consume only the actual after-source immutable fire frame.");
@@ -96,6 +98,8 @@ public sealed class FirePresentation
     public object Describe() => new {
         enabled = Enabled, epoch = Epoch, sourceTick = Frame?.SourceTick ?? -1,
         framesConsumed = FramesConsumed, particles = Frame?.Particles.Count ?? 0,
+        ballTrails = Frame?.BallTrails.Count ?? 0,
+        selectedBallEffect = ballEffect.ToString(),
         draws = Draws.Count, hidden = Frame?.Particles.Count(p => p.Hidden) ?? 0,
         pcount = Frame?.OriginalPcount, assetManifestSha256 = bundle?.ManifestSha256,
         inputOrigin = bundle?.InputOrigin, projection = Frame?.Basis.ProjectionOrigin,

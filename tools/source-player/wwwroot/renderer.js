@@ -33,13 +33,14 @@ in vec2 texcoord;
 uniform sampler2D atlas;
 uniform float cutoff;
 uniform bool constantAlpha;
+uniform float constantAlphaValue;
 uniform bool textureTimesAlpha;
 uniform float playerFlashAdd;
 uniform vec4 identityOutput;
 out vec4 pixel;
 void main() {
   vec4 color=texture(atlas,texcoord);
-  if(constantAlpha) color.a=1.0;
+  if(constantAlpha) color.a=constantAlphaValue;
   if(color.a<=cutoff) discard;
   if(textureTimesAlpha) color.rgb*=color.a;
   color.rgb=clamp(color.rgb+playerFlashAdd,0.0,1.0);
@@ -98,7 +99,7 @@ export class SourceRenderer {
     this.hud = program(gl, hudVertex, hudFragment);
     this.fire = program(gl, fireVertex, fireFragment);
     this.sceneUniforms = Object.fromEntries(['viewProjection', 'model', 'atlas', 'cutoff', 'constantAlpha',
-      'textureTimesAlpha', 'identityOutput', 'playerFlashAdd'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
+      'constantAlphaValue', 'textureTimesAlpha', 'identityOutput', 'playerFlashAdd'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
     this.hudUniforms = Object.fromEntries(['contentSize', 'atlas', 'highlightAdd'].map(name => [name, gl.getUniformLocation(this.hud, name)]));
     this.fireUniforms = Object.fromEntries(['sourceProjection', 'atlas', 'proofMask']
       .map(name => [name, gl.getUniformLocation(this.fire, name)]));
@@ -253,7 +254,8 @@ export class SourceRenderer {
     const snapshot = JSON.parse(status);
     requireValue(camera.length === 16 && joints.length === 14 * 15 * 16 && models.length === 14 &&
       appearances.length === 14 && this.world.length > 0 && this.ball, 'Incomplete actual kernel/render frame.');
-    requireValue(ball.length === 20 && ball.every(Number.isFinite) && (ball[0] === 0 || ball[0] === 1) &&
+    const trails = snapshot.ballTrails || [];
+    requireValue(ball.length === 20 * (trails.length + 1) && ball.every(Number.isFinite) && (ball[0] === 0 || ball[0] === 1) &&
       ball[1] === snapshot.sourceTick && ball[1] === snapshot.ball.sourceTick &&
       ball[2] === snapshot.ball.rawFlags && ball[3] === 255 &&
       ball[7] === 0 && ball[11] === 0 && ball[15] === 0 && ball[19] === 1 &&
@@ -262,9 +264,35 @@ export class SourceRenderer {
       snapshot.ball.worldMatrix.every((v, i) => Number.isFinite(Math.fround(v)) &&
         Math.fround(v) === Math.fround(ball[4 + (i % 4) * 4 + Math.floor(i / 4)])),
     'Free-ball GPU packet must bind the actual same-source-tick immutable rotation/scale/pivot matrix.');
+    const ballTrails = trails.map((trail, index) => {
+      const packet = Array.from(ball.slice(20 * (index + 1), 20 * (index + 2)));
+      const expectedVisible = !trail.hidden && (snapshot.ball.carrier === -1 || Boolean(snapshot.ball.rawFlags & 0x800));
+      requireValue(trail.sourceTick === snapshot.sourceTick && trail.entry?.sourceTick <= trail.sourceTick &&
+        Number.isInteger(trail.objectSerial) && trail.objectSerial > 0 &&
+        Number.isInteger(trail.processSerial) && trail.processSerial > 0 &&
+        trail.objectId === 0x400 && trail.drawOrder === 0x50000 && trail.localFlags === 0x40 &&
+        Number.isInteger(trail.stage) && trail.stage >= 0 && trail.stage < 5 &&
+        trail.alpha === 215 - 15 * trail.stage && trail.scale === [2.25, 2.15, 2.05, 1.95, 1.85][trail.stage] &&
+        trail.rawFlags === (0x40 | (snapshot.ball.rawFlags & 1)) &&
+        trail.effectiveAlpha === (snapshot.ball.rawFlags & 1 ? 255 : trail.alpha) &&
+        trail.pupBigBall === snapshot.ball.pupBigBall && trail.visible === expectedVisible &&
+        trail.heading === trail.entry.heading && trail.elevation === trail.entry.elevation && trail.roll === trail.entry.roll &&
+        trail.position.length === 3 && trail.position.every((v, i) => v === trail.entry.position[i]) &&
+        packet[0] === Number(expectedVisible) && packet[1] === trail.sourceTick &&
+        packet[2] === trail.rawFlags && packet[3] === trail.alpha &&
+        packet[7] === 0 && packet[11] === 0 && packet[15] === 0 && packet[19] === 1 &&
+        trail.worldMatrix?.length === 12 &&
+        trail.worldMatrix.every((v, i) => Number.isFinite(Math.fround(v)) &&
+          Math.fround(v) === Math.fround(packet[4 + (i % 4) * 4 + Math.floor(i / 4)])),
+      'Football-trail GPU packet must retain its original entry copy, five stages, local ALT and current global draw gates.');
+      return { metadata: trail, ball: packet, matrix: Float32Array.from(packet.slice(4)) };
+    });
+    requireValue(new Set(trails.map(t => t.objectSerial)).size === trails.length,
+      'A source football-trail object must be submitted exactly once.');
     this.current = {
       camera: Float32Array.from(camera), joints: Float32Array.from(joints), models: Array.from(models),
-      appearances: Array.from(appearances), ball: Array.from(ball), ballMatrix: Float32Array.from(ball.slice(4)),
+      appearances: Array.from(appearances), ball: Array.from(ball.slice(0, 20)), ballMatrix: Float32Array.from(ball.slice(4, 20)),
+      ballTrails,
       hudVertices: Array.from(hudVertices),
       hudColors: Array.from(hudColors), hudTextures: Array.from(hudTextures), hudCounts: Array.from(hudCounts),
     };
@@ -298,13 +326,14 @@ export class SourceRenderer {
     this.drawCalls++;
   }
 
-  drawScene(identityPass, poppedHeadIdentityPass = false) {
+  drawScene(identityPass, poppedHeadIdentityPass = false, observeMaterial = false) {
     const gl = this.gl, frame = this.current;
     gl.useProgram(this.scene);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
     // Raster X now uses the approved source geom.s negation, not a camera/cache reflection.
     gl.frontFace(gl.CW);
     gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
+    gl.uniform1f(this.sceneUniforms.constantAlphaValue, 1);
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(this.sceneUniforms.atlas, 0);
     gl.uniformMatrix4fv(this.sceneUniforms.viewProjection, false, frame.camera);
     gl.clearColor(0, 0, 0, 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -348,6 +377,7 @@ export class SourceRenderer {
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
     this.lastBallDraw = null;
+    this.lastBallTrailDraws = [];
     if (frame.ball[0]) {
       requireValue(frame.ballMatrix?.length === 16, 'Actual free-ball matrix is disconnected from the scene draw.');
       const matrix = frame.ballMatrix;
@@ -359,6 +389,7 @@ export class SourceRenderer {
       gl.uniform1i(this.sceneUniforms.constantAlpha, true);
       gl.uniform1i(this.sceneUniforms.textureTimesAlpha, true);
       gl.uniform1f(this.sceneUniforms.playerFlashAdd, frame.ball[2] & 1 ? 1 : 0);
+      gl.uniform1f(this.sceneUniforms.constantAlphaValue, frame.ball[2] & 1 ? 1 : frame.ball[3] / 255);
       if (identityPass) gl.disable(gl.BLEND);
       else {
         gl.enable(gl.BLEND);
@@ -369,9 +400,67 @@ export class SourceRenderer {
         textureSha256: this.textures.get(texture).sha256, matrix: Array.from(matrix),
         alpha: frame.ball[3], white: Boolean(frame.ball[2] & 1), frontFace: 'CCW-source321',
         indices: this.meshes.get(this.ball.mesh).count, metadata: this.ball.metadata };
+      if (identityPass || observeMaterial)
+        Object.assign(this.lastBallDraw, SourceRenderer.prototype.ballUniformProof.call(this, texture));
       gl.frontFace(gl.CW); gl.disable(gl.BLEND);
     }
+    if (frame.ballTrails?.length)
+      SourceRenderer.prototype.drawBallTrails.call(this, identityPass, poppedHeadIdentityPass, observeMaterial);
     gl.bindVertexArray(null);
+  }
+
+  ballUniformProof(texture) {
+    const gl = this.gl, uniforms = this.sceneUniforms;
+    return {
+      gpuModel: Array.from(gl.getUniform(this.scene, uniforms.model)),
+      gpuViewProjection: Array.from(gl.getUniform(this.scene, uniforms.viewProjection)),
+      gpuConstantAlpha: gl.getUniform(this.scene, uniforms.constantAlpha),
+      gpuConstantAlphaValue: gl.getUniform(this.scene, uniforms.constantAlphaValue),
+      gpuTextureTimesAlpha: gl.getUniform(this.scene, uniforms.textureTimesAlpha),
+      gpuWhiteAdd: gl.getUniform(this.scene, uniforms.playerFlashAdd),
+      gpuOriginalTextureBound: gl.getParameter(gl.TEXTURE_BINDING_2D) === this.textures.get(texture).texture,
+      gpuDepthTest: gl.isEnabled(gl.DEPTH_TEST),
+      gpuDepthWrite: gl.getParameter(gl.DEPTH_WRITEMASK),
+      gpuDepthFunction: gl.getParameter(gl.DEPTH_FUNC) === gl.LESS ? 'LESS' : gl.getParameter(gl.DEPTH_FUNC),
+      gpuCullEnabled: gl.isEnabled(gl.CULL_FACE),
+      gpuCullFace: gl.getParameter(gl.CULL_FACE_MODE) === gl.BACK ? 'BACK' : gl.getParameter(gl.CULL_FACE_MODE),
+      gpuFrontFace: gl.getParameter(gl.FRONT_FACE) === gl.CCW ? 'CCW' : gl.getParameter(gl.FRONT_FACE),
+      gpuBlendEnabled: gl.isEnabled(gl.BLEND),
+      gpuSourceAlphaBlend: gl.getParameter(gl.BLEND_SRC_RGB) === gl.SRC_ALPHA &&
+        gl.getParameter(gl.BLEND_DST_RGB) === gl.ONE_MINUS_SRC_ALPHA &&
+        gl.getParameter(gl.BLEND_SRC_ALPHA) === gl.ONE && gl.getParameter(gl.BLEND_DST_ALPHA) === gl.ZERO,
+    };
+  }
+
+  drawBallTrails(identityPass, poppedHeadIdentityPass, observeMaterial = false) {
+    const gl = this.gl;
+    gl.frontFace(gl.CCW);
+    gl.uniform1f(this.sceneUniforms.cutoff, -1);
+    gl.uniform1i(this.sceneUniforms.constantAlpha, true);
+    gl.uniform1i(this.sceneUniforms.textureTimesAlpha, true);
+    if (identityPass) gl.disable(gl.BLEND);
+    else {
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
+    }
+    for (const trail of this.current.ballTrails) {
+      if (!trail.ball[0]) continue;
+      const texture = this.ball.alternateTexture, white = Boolean(trail.ball[2] & 1);
+      gl.uniform1f(this.sceneUniforms.constantAlphaValue, white ? 1 : trail.ball[3] / 255);
+      gl.uniform1f(this.sceneUniforms.playerFlashAdd, white ? 1 : 0);
+      this.draw(this.ball.mesh, texture, trail.matrix, identityPass ? poppedHeadIdentityPass ? 0 : 201 : null);
+      const draw = { objectSerial: trail.metadata.objectSerial, processSerial: trail.metadata.processSerial,
+        sourceTick: trail.ball[1], entrySourceTick: trail.metadata.entry.sourceTick, stage: trail.metadata.stage,
+        mesh: this.ball.mesh, texture, textureSha256: this.textures.get(texture).sha256,
+        matrix: Array.from(trail.matrix), alpha: trail.ball[3], effectiveAlpha: white ? 255 : trail.ball[3],
+        white, frontFace: 'CCW-source321', indices: this.meshes.get(this.ball.mesh).count,
+        rgbCombiner: white ? 'DECAL_TEXTURE_ADD_CCALPHA/FF' : 'TEXTURE_TIMES_ALPHA',
+        alphaSource: 'CC_ALPHA', depthFunction: 'LESS', depthWrite: true, drawOrder: 0x50000 };
+      if (identityPass || observeMaterial)
+        Object.assign(draw, SourceRenderer.prototype.ballUniformProof.call(this, texture));
+      this.lastBallTrailDraws.push(draw);
+    }
+    gl.frontFace(gl.CW); gl.disable(gl.BLEND);
   }
 
   drawEffects(proofMask) {
@@ -464,20 +553,31 @@ export class SourceRenderer {
       requireValue(gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE,
         'Actual WebGL geometry-identity proof framebuffer failed.');
       gl.viewport(0, 0, width, height);
+      this.drawScene(false, false, true);
+      const ballTrailMaterialDraws = this.lastBallTrailDraws;
+      const materialPixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, materialPixels);
       this.drawScene(true);
-      const ballDraw = this.lastBallDraw ? { ...this.lastBallDraw,
-        gpuModel: Array.from(gl.getUniform(this.scene, this.sceneUniforms.model)),
-        gpuViewProjection: Array.from(gl.getUniform(this.scene, this.sceneUniforms.viewProjection)),
-        gpuOriginalTextureBound: gl.getParameter(gl.TEXTURE_BINDING_2D) ===
-          this.textures.get(this.lastBallDraw.texture).texture,
-      } : null;
+      const ballDraw = this.lastBallDraw;
+      const ballTrailDraws = this.lastBallTrailDraws;
       const pixels = new Uint8Array(width * height * 4), actorPixels = Array(14).fill(0);
-      let ballPixels = 0;
+      let ballPixels = 0, ballTrailPixels = 0, ballTrailColoredPixels = 0, ballTrailNonWhitePixels = 0;
+      const ballTrailColorBounds = { min: [255, 255, 255], max: [0, 0, 0] };
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
       for (let i = 0; i < pixels.length; i += 4) {
         if (pixels[i + 1] !== 0 || pixels[i + 2] !== 0) continue;
         if (pixels[i] >= 1 && pixels[i] <= 14) actorPixels[pixels[i] - 1]++;
         if (pixels[i] === 200) ballPixels++;
+        if (pixels[i] === 201) {
+          ballTrailPixels++;
+          if (materialPixels[i] || materialPixels[i + 1] || materialPixels[i + 2]) ballTrailColoredPixels++;
+          if (materialPixels[i] !== 255 || materialPixels[i + 1] !== 255 || materialPixels[i + 2] !== 255)
+            ballTrailNonWhitePixels++;
+          for (let channel = 0; channel < 3; channel++) {
+            ballTrailColorBounds.min[channel] = Math.min(ballTrailColorBounds.min[channel], materialPixels[i + channel]);
+            ballTrailColorBounds.max[channel] = Math.max(ballTrailColorBounds.max[channel], materialPixels[i + channel]);
+          }
+        }
       }
       this.assertHealthy('actual original geometry GPU identity pass');
       const poppedHeadPixels = Array(14).fill(0);
@@ -499,10 +599,11 @@ export class SourceRenderer {
       }
       return {
         sourceTick: this.status.sourceTick, width, height, actorPixels, ballPixels, ballOrigin: this.ball.origin,
-        ballDraw,
+        ballDraw, ballTrailDraws, ballTrailPixels, ballTrailMaterialDraws, ballTrailColoredPixels,
+        ballTrailNonWhitePixels, ballTrailColorBounds,
         visibleHome: actorPixels.slice(0, 7).filter(n => n > 0).length,
         visibleAway: actorPixels.slice(7).filter(n => n > 0).length,
-        method: 'Separate GPU identity framebuffer using the SAME actual original meshes, alpha textures, source poses, MatInput/projection and depth; not a substituted game screenshot.',
+        method: 'Separate normal-material and identity GPU passes using the SAME current original meshes/textures/poses/projection/depth. Trail color samples use the matching identity mask; neither pass is a substituted gameplay screenshot.',
         device: this.device, meshUploads: this.meshUploads, worldDraws: this.world.length,
         appearances: this.current.appearances.map(id => this.appearances.get(id)),
         textureCount: this.textures.size, frameCount: this.frameCount,

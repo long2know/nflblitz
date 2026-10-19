@@ -48,6 +48,9 @@ def controls(source):
         ("restart-does-not-rewind-bridge",
          replace_once(source, "bridge.Restart();", ";"),
          "ready source public R restarts"),
+        ("ball-trail-capture-omitted",
+         replace_once(source, "SourceFreeBallBinding.CaptureTrails(simulation)", "null"),
+         "ready source presents its required ball and trail at startup"),
     ]
 
 

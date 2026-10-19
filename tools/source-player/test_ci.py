@@ -33,7 +33,7 @@ COMMANDS = {
         PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic",
     ),
     "Test public cabinet input and renderer contracts": (
-        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs",
+        "node --test tools/source-player/input.test.mjs tools/source-player/renderer.test.mjs tools/source-player/popped-head.renderer.test.mjs tools/source-player/free-ball.renderer.test.mjs tools/source-player/ball-trails.renderer.test.mjs",
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
@@ -126,6 +126,7 @@ class SourcePlayerCI(unittest.TestCase):
             (" tools/source-player/renderer.test.mjs", ""),
             (" tools/source-player/popped-head.renderer.test.mjs", ""),
             (" tools/source-player/free-ball.renderer.test.mjs", ""),
+            (" tools/source-player/ball-trails.renderer.test.mjs", ""),
             (PUBLIC_DOTNET + " run --project tools/source-player/SourcePlayer.Checks.csproj --configuration Release --no-build -- --free-ball-synthetic", "true"),
             (COMMANDS["Test public preparation failure gates"][0],
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),

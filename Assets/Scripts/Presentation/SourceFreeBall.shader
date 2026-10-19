@@ -38,7 +38,8 @@ Shader "Blitz/SourceFreeBallPortable"
             float4 frag(Varying i) : SV_Target
             {
                 float3 color = tex2D(_MainTex, i.uv).rgb;
-                return float4(_BallWhite > 0 ? float3(1, 1, 1) : color * _BallAlpha, _BallAlpha);
+                float alpha = _BallWhite > 0 ? 1 : _BallAlpha;
+                return float4(_BallWhite > 0 ? float3(1, 1, 1) : color * alpha, alpha);
             }
             ENDCG
         }
