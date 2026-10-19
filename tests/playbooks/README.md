@@ -31,9 +31,10 @@ and matrix updates, not relaxed gates.
 
 ## What is proved
 
-The runner snapshots all nine current actual Contracts sources (including
+The runner snapshots all ten current actual Contracts sources (including
 the existing actor/ball presentation and contact contracts plus
-`SourceFireSpfxContracts.cs` and `SourceKickMeterContracts.cs`), the pure
+`SourceFireSpfxContracts.cs`, `SourceKickMeterContracts.cs` and
+`SourceCameraContracts.cs`), the pure
 SourceClock/MatchRules/MatchFlow dependencies, and the final three P1 helpers.
 It compiles them as **C# 7.3 / netstandard2.1, warnings-as-errors**, then executes
 a net10.0 comparison harness. A test-only friend-assembly attribute exposes the
@@ -41,9 +42,9 @@ internal fixture constructors and synthetic timer-state inputs; no production
 logic or visibility is edited. Hot full-kernel/M1/presentation files are excluded.
 Live production/producer inventory and hashes must remain unchanged throughout.
 The model includes `Contracts/**/*.cs`; its dependency inventory guard requires
-the complete named nine-file source set, without compiling presentation or the kernel.
+the complete named ten-file source set, without compiling presentation or the kernel.
 Missing, extra or same-count renamed Contracts fail before compilation with the
-offending missing/unexpected filenames. All nine actual files remain in the
+offending missing/unexpected filenames. All ten actual files remain in the
 snapshot/hash inventory and the model's recursive Contracts compile include;
 no DTO substitute, omitted file or stale assembly is used.
 
