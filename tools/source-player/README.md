@@ -19,6 +19,15 @@ default or claim defined original memory behavior. The real M1 caller,
 defined original C comparisons and compiled controls are documented in
 `../../tests/movement-callers/README.md`.
 
+The source period producer also emits one typed `MatchEnded` event when the
+match genuinely reaches its terminal boundary. The existing real bridge
+delivers it to `state.eventCounts.MatchEnded` and `state.events`; a final
+public restart clears those old-match observations. The payload's `value=0`
+and possession context are not a winner indication; read final scores from
+the snapshot. This does not add native game-over records/cabinet screens.
+See `../../tests/match-lifecycle/README.md` for real producer/bridge/PAT and
+Legacy-preservation checks.
+
 ## Required source free-ball geometry/material/flight binding
 
 The former recentered `hand001b` material6 extraction was a **held-ball**
