@@ -330,11 +330,24 @@ internal static class HelmetChecks
             BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[0]));
         next.Model.SourceTick = cleanup.Tick; next.Model.Quarter = 1; next.Model.SourceClock = SourceClock.Create();
         next.Model.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Normal);
+        Invoke(next, "InitializeSourceProcesses");
+        while (next.Model.SourceProcesses.SourceTick < cleanup.Tick)
+        {
+            next.Model.SourceProcesses.BeginTick(next.Model.SourceProcesses.SourceTick + 1);
+            Check(next.Model.SourceProcesses.Visit(GameSimulation.GameProcess),
+                "new-play helper requires the real admitted game_proc continuation");
+            if (next.Model.SourceProcesses.SourceTick < cleanup.Tick) next.Model.SourceProcesses.Complete();
+        }
+        Invoke(next, "BeginSourceProcess", "game_proc", -1, 0);
         Invoke(next, "ContinueSource");
+        next.Model.SourceProcesses.Complete();
         Check(cleanup.Runtime.Processes.Count == 0 && cleanup.Frame().LooseHelmets.Count == 0 &&
             cleanup.Runtime.CurrentRecords.Any(r => r.Site.SourcePath == "nfl.c" && r.Site.SourceLine == 867 && r.Kind == "KillProcess") &&
             cleanup.Runtime.CurrentRecords.Any(r => r.Site.SourcePath == "nfl.c" && r.Site.SourceLine == 868 && r.Kind == "DeleteObjectGroup"),
             "actual new-play continuation must kill then delete helmet at nfl867/868 before selection");
+        Check(!next.Model.SourceProcesses.Require(GameSimulation.GameProcess).Suspended &&
+            next.Model.SourceProcesses.Require(2).Suspended,
+            "new-play selection suspends actors without suspending its real game_proc caller");
     }
     private static void Rendering()
     {

@@ -39,6 +39,11 @@ global-field boundaries. Assertions cover:
   captured team decal2/literal ratio4, CC alpha, LESS/write/WRAP and no
   ball-carrier/big-ball gate.
 
+The synthetic new-play helper fixture initializes the actual production process
+table, visits consecutive source dispatches and admits its real `game_proc`
+caller before cleanup/selection. It retains the original helmet kill/delete
+assertion and checks that selection suspends actors, not its caller.
+
 The JS controls parse and execute the **actual** production receiver and draw
 methods. They protect the real PHELM upload identity, matrix delivery, team
 atlas, ratio, held-ball-independent draw, raw roll/no TTL, global WHITE,
