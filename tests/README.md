@@ -153,6 +153,21 @@ before walking them, rather than rescanning other workers' live build trees.
 `python3 -B tests/ci/test_mutation_workers.py -q` checks the two-worker bound,
 ordered complete results, unique case identities and failure propagation.
 Workers finish before a runner may remove its trees or return a failure.
+
+Stage7 keeps the worker guards and core inventory guards first and serial.
+Its fixed command bindings are passed as a literal here-document to
+`tests/ci/run_inventory_suites.py`; they are data validated against the exact
+original argv list, not optional shell commands or skipped duplicate executions.
+With no worker environment or value1, all fourteen remaining suites run in the
+original order. Only the existing explicit value2 overlaps the unchanged
+37-test public-replay suite with one serial chain containing every other suite.
+Replay uses its own UUID fixtures and reads shared recordings only; the other
+chain keeps all managed builds, fixed output roots and Git/source guards serial.
+Every child gets worker1 and its own temporary/log/receipt directory. Recursive
+scheduling, changed bindings, missing/corrupt output, skips and child failures
+are errors; both chains drain before failure returns. No old suite/assertion,
+compiler server, original-data campaign or CI budget is changed. The workflow
+guard reverses only this declared grouping before recovering its inherited hash.
 The inherited workflow hash gate normalizes only the two exact worker additions;
 it still protects every pre-existing command, filter and the exact budget.
 Scoped timing measurements are not completed hosted CI or

@@ -89,6 +89,7 @@ jobs:
         run: |
           python3 -B tests/ci/test_mutation_workers.py -q
           python3 tests/test-runner.py
+          python3 -B tests/ci/run_inventory_suites.py --output .squad/.scratch/inventory-suites-ci <<'STAGE7_SUITES'
           python3 -B tests/kick-meter/test_runner.py -q
           python3 -B tests/fire-kick-integration/test_runner.py -q
           python3 -B -m unittest discover -s tests/fire-producers -p 'test_*.py' -q
@@ -103,6 +104,7 @@ jobs:
           python3 -B tests/loose-helmet/test_ci.py
           python3 -B tests/loose-helmet/run.py --output .squad/.scratch/loose-helmet-ci --controls
           python3 -B tests/loose-helmet/js_controls.py --output .squad/.scratch/loose-helmet-js-ci
+          STAGE7_SUITES
       - name: Test detached source match and input contracts
         run: |
           python3 tests/contracts/test_runner.py

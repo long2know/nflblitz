@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Mandatory additive CI, immutable source authority and nonoptional regression/control guards."""
 import argparse
+import ast
 import copy
 from contextlib import redirect_stderr
 import hashlib
@@ -59,6 +60,26 @@ GENERATION_DELTA = (
     (f"--replay-commands .squad/.scratch/SourceData/{POSSESSION_CASE}.jsonl",
      f"--replay-commands .squad/.scratch/SourceData/{TIMER_CASE}.jsonl"),
 )
+INVENTORY_COMMANDS = (
+    "python3 -B tests/kick-meter/test_runner.py -q",
+    "python3 -B tests/fire-kick-integration/test_runner.py -q",
+    "python3 -B -m unittest discover -s tests/fire-producers -p 'test_*.py' -q",
+    "python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q",
+    "python3 -B tests/movement-callers/test_public_replay.py -q",
+    "python3 -B tests/movement-callers/test_replay_generations.py -q",
+    "python3 -B tests/movement-callers/test_export_portable_public.py -q",
+    "python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls",
+    "python3 -B tests/impact-dust/test_ci.py",
+    "python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls",
+    "python3 -B tests/impact-dust/js_controls.py --output .squad/.scratch/impact-dust-js-ci",
+    "python3 -B tests/loose-helmet/test_ci.py",
+    "python3 -B tests/loose-helmet/run.py --output .squad/.scratch/loose-helmet-ci --controls",
+    "python3 -B tests/loose-helmet/js_controls.py --output .squad/.scratch/loose-helmet-js-ci",
+)
+INVENTORY_ORIGINAL = "".join("          " + command + "\n" for command in INVENTORY_COMMANDS)
+INVENTORY_START = ("          python3 -B tests/ci/run_inventory_suites.py "
+    "--output .squad/.scratch/inventory-suites-ci <<'STAGE7_SUITES'\n")
+INVENTORY_GROUPED = INVENTORY_START + INVENTORY_ORIGINAL + "          STAGE7_SUITES\n"
 
 
 def load(name, path):
@@ -74,7 +95,17 @@ run = load("selection_countdown_runner_guards", HERE / "run.py")
 def validate_workflow(text):
     if text.count(TIMER_STEP) != 1:
         raise AssertionError("Required actual source countdown/cabinet C, production and compiled controls stage changed.")
-    inherited = text
+    if text.count(INVENTORY_GROUPED) != 1:
+        raise AssertionError("Exact required Stage7 bindings/runner grouping changed or became optional.")
+    tree = ast.parse((ROOT / "tests/ci/run_inventory_suites.py").read_text())
+    definitions = {node.targets[0].id: ast.literal_eval(node.value) for node in tree.body
+                   if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and
+                   node.targets[0].id in ("COMMANDS", "BINDINGS_SHA256", "PUBLIC_REPLAY")}
+    if (definitions.get("COMMANDS") != INVENTORY_COMMANDS or definitions.get("PUBLIC_REPLAY") != 4 or
+            definitions.get("BINDINGS_SHA256") !=
+            hashlib.sha256(("\n".join(INVENTORY_COMMANDS) + "\n").encode()).hexdigest()):
+        raise AssertionError("Fixed Stage7 runner must bind every original argv once; only replay may use the second chain.")
+    inherited = text.replace(INVENTORY_GROUPED, INVENTORY_ORIGINAL, 1)
     for old, new in GENERATION_DELTA:
         if inherited.count(new) != 1:
             raise AssertionError("Required exact source-timer recording, both generation boundaries and exporter guards changed.")
@@ -97,6 +128,22 @@ class SelectionCI(unittest.TestCase):
         validate_workflow((ROOT / ".github/workflows/game-build.yml").read_text())
         possession = (ROOT / "tests/presentation/possession-services/test_ci.py").read_text()
         self.assertIn("selection_ci.validate_workflow(text)", possession)
+
+    def test_only_exact_reversible_inventory_grouping_is_allowed(self):
+        text = (ROOT / ".github/workflows/game-build.yml").read_text()
+        for old, new in (
+            (INVENTORY_GROUPED, INVENTORY_ORIGINAL),
+            (INVENTORY_START, INVENTORY_START.replace("--output .squad/.scratch/inventory-suites-ci ", "")),
+            (INVENTORY_START, INVENTORY_START.replace("python3 -B", "echo python3 -B")),
+            (INVENTORY_START, INVENTORY_START.replace(" <<", " || true <<")),
+            (INVENTORY_START, INVENTORY_START.replace("python3 -B", "BLITZ_CI_MUTATION_WORKERS=3 python3 -B")),
+            ("          STAGE7_SUITES\n", ""),
+            (INVENTORY_COMMANDS[4], INVENTORY_COMMANDS[4] + " --workers 2"),
+            (INVENTORY_COMMANDS[4], "true"),
+            (INVENTORY_COMMANDS[4], INVENTORY_COMMANDS[5]),
+        ):
+            with self.subTest(change=old), self.assertRaises(AssertionError):
+                validate_workflow(text.replace(old, new, 1))
 
     def test_deletion_substitution_optional_execution_budget_or_replay_changes_are_red(self):
         text = (ROOT / ".github/workflows/game-build.yml").read_text()
