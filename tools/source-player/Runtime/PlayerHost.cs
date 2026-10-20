@@ -64,6 +64,17 @@ public sealed class PlayerHost
         input = new SourceCabinetInputBuffer(data.Configuration.Match);
         selection = new SourceCabinetPlaySelection(data.Hud);
         Game.SourceStationInputTransform = selection.ApplyAtSourceTick;
+        selection.EventRaised += value => {
+            if (!value.IsRandomSelection) return;
+            if (value.SoundCall.HasValue) { SoundSelections++; UnqualifiedSoundCalls++; }
+            Enqueue(events, new {
+                kind = "cabinet-random-selection", sourceTick = value.SourceTick, station = value.StationId,
+                team = value.Side.ToString(), stage = value.Kind.ToString(), page = value.PageIndex,
+                slot = value.SlotIndex, flipped = value.OffenseFlipped, bank = value.SoundBank,
+                playlist = value.SoundCall, volume = value.SoundVolume, pan = value.SoundPan,
+                priority = value.SoundPriority, pcmOrDspPlayback = false
+            }, 128);
+        };
         hud = new SourceHudComposer(data.Hud);
         HudProcess = new OriginalHudProcess(data.Hud, Game);
         hudClock.Advance(Game.SourceTick, HudProcess.CommittedHud.ClockWarning);

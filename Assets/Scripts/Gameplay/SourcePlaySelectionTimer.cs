@@ -107,6 +107,16 @@ namespace Blitz.Gameplay
 
     public sealed partial class GameSimulation
     {
+        private sealed class RandomSelection
+        {
+            internal int Counter = 1, SleepRemaining = 1, Pages, Flips;
+            internal bool ExtraSleepPending = true;
+        }
+
+        private readonly RandomSelection[] sourceRandomSelections = new RandomSelection[2];
+        private long sourceRandomSelectionFinishTick;
+        private bool HasSourceRandomSelection
+        { get { return sourceRandomSelections[0] != null || sourceRandomSelections[1] != null; } }
         private SourcePlaySelectionTimer sourceSelectionTimer;
         private bool sourceSelectionFinishPending;
         private bool sourceSelectionCpuPatPending;
@@ -163,7 +173,90 @@ namespace Blitz.Gameplay
         {
             if (sourceSelectionTimer != null) sourceSelectionTimer.Stop();
             sourceSelectionTimer = null; sourceSelectionFinishPending = false; sourceSelectionCpuPatPending = false;
+            ResetSourceRandomSelections();
             CaptureSourceSelectionTimer();
+        }
+
+        private void ResetSourceRandomSelections()
+        {
+            Array.Clear(sourceRandomSelections, 0, sourceRandomSelections.Length);
+            Array.Clear(Model.SourceRandomSelections, 0, Model.SourceRandomSelections.Length);
+            sourceRandomSelectionFinishTick = -1;
+        }
+
+        private void StartSourceRandomSelection(TeamId side, int station)
+        {
+            int first = -1, second = -1;
+            foreach (SourceStationConfiguration configured in sourceConfiguration.Stations)
+                if (configured.Team == side)
+                {
+                    if (first < 0) first = configured.StationId;
+                    else second = configured.StationId;
+                }
+            int captain = second < 0 || Model.SourceCaptain == SourceCaptainSlot.First ? first : second;
+            int index = (int)side;
+            if (Model.SourceProcesses.Caller != GameProcess || station != captain ||
+                Model.Phase != GamePhase.PlaySelect || Model.SourcePlaySelectionReady[index] ||
+                sourceRandomSelections[index] != null)
+                throw new InvalidOperationException("Random selection must start once in the actual offensive/defensive captain's menu consumer.");
+            sourceRandomSelections[index] = new RandomSelection();
+            Model.SourceRandomSelections[index] = new SourceRandomSelectionView(Model.SourceTick, false, 0,
+                SourceRandomSelectionAction.None);
+        }
+
+        private void AdvanceSourceRandomSelections()
+        {
+            if (Model.Phase != GamePhase.PlaySelect) return;
+            if (Model.SourceProcesses.Caller != GameProcess)
+                throw new InvalidOperationException("Random selection draws require the actual admitted game_proc menu consumer.");
+            // playsel.c qcreates side0 then side1; equal-level children are inserted at the head.
+            for (int side = 1; side >= 0; side--)
+            {
+                RandomSelection controller = sourceRandomSelections[side];
+                if (controller == null || Model.SourcePlaySelectionReady[side]) continue;
+                Model.SourceRandomSelections[side] = new SourceRandomSelectionView(Model.SourceTick, false, 0,
+                    SourceRandomSelectionAction.None);
+                if (--controller.SleepRemaining != 0) continue;
+                // The sleep1 continuation tests select_random BEFORE entering the separate sleep2.
+                if (controller.ExtraSleepPending)
+                {
+                    controller.ExtraSleepPending = false; controller.SleepRemaining = 2;
+                    continue;
+                }
+                if (SourceSelectionTimedOut && sourceSelectionTimer.ForceTick < Model.SourceTick)
+                {
+                    Model.SourceRandomSelections[side] = new SourceRandomSelectionView(Model.SourceTick, true, 0,
+                        SourceRandomSelectionAction.None);
+                    continue;
+                }
+                controller.Counter++;
+                int direction = SourceDraw(4, "playsel.c:play_select_cntrl:1763/side" + side);
+                int joy = direction == 0 ? 1 : direction == 1 ? 8 : direction == 2 ? 4 : 2;
+                controller.Counter++;
+                bool offense = side == (int)Model.Possession;
+                int button = SourceDraw(2, "playsel.c:play_select_cntrl:" + (offense ? "1898" : "1916") + "/side" + side);
+                SourceRandomSelectionAction action = SourceRandomSelectionAction.None;
+                if (offense && button == 1)
+                {
+                    if (controller.Flips < 4) { controller.Flips++; action = SourceRandomSelectionAction.Flip; }
+                }
+                else if ((offense && button == 0 || !offense && button == 1) && controller.Pages < 6)
+                {
+                    controller.Pages++; action = SourceRandomSelectionAction.ChangePage;
+                }
+                // The final iteration still consumes BOTH draws before overriding the button with ChoosePlay.
+                if (controller.Counter > 30) action = SourceRandomSelectionAction.Choose;
+                Model.SourceRandomSelections[side] = new SourceRandomSelectionView(Model.SourceTick, true, joy, action);
+                controller.SleepRemaining = 1; controller.ExtraSleepPending = true;
+            }
+        }
+
+        private void ObserveSourceRandomSelectionCaller()
+        {
+            if (!HasSourceRandomSelection || !SourceSelectionTimedOut || sourceSelectionFinishPending) return;
+            sourceSelectionFinishPending = true;
+            // play_select observes force after the controllers, then yields one final sleep1.
+            sourceRandomSelectionFinishTick = Model.SourceTick + 1;
         }
 
         private bool SourceSelectionTimedOut

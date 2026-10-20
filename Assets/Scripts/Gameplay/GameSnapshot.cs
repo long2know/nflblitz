@@ -123,7 +123,8 @@ namespace Blitz.Gameplay
                     SourceTeamGameplay(model, TeamId.Home), SourceTeamGameplay(model, TeamId.Away),
                     model.SourceForwardCatcher, model.SourceDronesLose, model.SourceDronesWinning,
                     model.SourceHandicapRepetitionBonus, model.SourceCompatibility,
-                    model.SourceCompatibilityRepairCount, model.SourceCompatibilityRepairs, model.SourceSelectionTimer);
+                    model.SourceCompatibilityRepairCount, model.SourceCompatibilityRepairs, model.SourceSelectionTimer,
+                    model.SourceRandomSelections[0], model.SourceRandomSelections[1]);
             }
         }
 

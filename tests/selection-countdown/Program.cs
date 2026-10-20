@@ -9,7 +9,7 @@ using Blitz.Gameplay;
 using Blitz.Presentation;
 using Blitz.Runtime;
 
-internal static class SelectionCountdownChecks
+internal static partial class SelectionCountdownChecks
 {
     private static int assertions;
     private static readonly List<string> cases = new List<string>();
@@ -19,6 +19,84 @@ internal static class SelectionCountdownChecks
     private static SourceNormalCameraData normal;
     private static SourcePossessionSoundData speech;
     private static SourceFireSpfxBundle fire;
+    private static bool scopeAdmitted, scopePassed;
+    private static string[] requestedExecutionCases = new string[0];
+    private static readonly List<string> startedExecutionCases = new List<string>();
+    private static readonly List<string> completedExecutionCases = new List<string>();
+    private static readonly string[] timerCaseNames = {
+        "quarter0-full", "later-quarter-full", "instruction-threshold-8", "instruction-threshold-9",
+        "instruction-threshold-10", "instruction-only-before-number-sleep", "instruction-at-zero",
+        "real-suspended-timer-only", "real-suspended-timer-and-child", "caller-teardown-at-1",
+        "caller-teardown-at-2", "caller-teardown-at-20", "caller-teardown-at-58", "caller-teardown-at-515",
+        "caller-teardown-at-595", "caller-teardown-at-596", "caller-teardown-at-597"
+    };
+    private static readonly string[] callerCaseNames = {
+        "actual-timeout-zero-grace-resumption", "actual-timeout-zero-grace-resumption-FX",
+        "actual-early-side-and-highlight", "actual-early-exit-reset-new-menu",
+        "actual-instruction-input-not-tutorial-ui", "actual-timeout-then-CPU-order",
+        "actual-no-human-instant-caller-order", "actual-active-menu-restart",
+        "actual-timeout-dependency-failure", "actual-missing-timeout-consumer", "actual-timer-output-fail-closed"
+    };
+    private static readonly Dictionary<string, string> controlScopes = new Dictionary<string, string> {
+        { "host60-clock", "timer-traces" },
+        { "zero-grace24", "timer-traces" },
+        { "first-quarter8", "timer-traces" },
+        { "later-quarter6", "timer-traces" },
+        { "caller-quarter-off-by-one", "actual-timeout-zero-grace-resumption" },
+        { "instruction-strictly-greater9", "timer-traces" },
+        { "ignored-instruction-hold", "timer-traces" },
+        { "initial-two-tick-delay", "timer-traces" },
+        { "flasher-sleep6", "timer-traces" },
+        { "suspended-timer-still-runs", "timer-traces" },
+        { "premature-current-wake-choice", "actual-timeout-zero-grace-resumption" },
+        { "force-page0-not-highlight", "actual-early-side-and-highlight" },
+        { "force-overwrites-selected", "actual-early-side-and-highlight" },
+        { "Core-overwrites-selected", "actual-early-side-and-highlight" },
+        { "duplicate-forced-choice", "actual-timeout-zero-grace-resumption" },
+        { "caller-does-not-finish", "actual-timeout-zero-grace-resumption" },
+        { "exit-leaves-timer-alive", "actual-timeout-zero-grace-resumption" },
+        { "muted-timer-beep", "actual-timeout-zero-grace-resumption" },
+        { "wrong-sound-volume", "timer-traces" },
+        { "sound-failure-swallowed", "actual-timer-output-fail-closed" },
+        { "HUD-static-white-bast10", "actual-timeout-zero-grace-resumption" },
+        { "random-start-omitted", "random-offense-raw0" },
+        { "random-start-slot4", "random-offense-raw0" },
+        { "random-wrong-captain", "random-both-four-captain1" },
+        { "random-direction-bound3", "random-offense-raw0" },
+        { "random-extra-start-draw", "random-offense-raw0" },
+        { "random-final-button-draw-omitted", "random-offense-raw0" },
+        { "random-extra-sleep1", "random-offense-raw0" },
+        { "random-flip-cap3", "random-offense-raw1" },
+        { "random-page-cap5", "random-offense-raw0" },
+        { "random-one-iteration-short", "random-offense-raw0" },
+        { "random-defense-zero-pages", "random-defense-raw1" },
+        { "random-shared-side-order", "random-both-two-station" },
+        { "random-physical-direction", "random-offense-raw0" },
+        { "random-visual-only-flip", "random-from-page3-preflipped" },
+        { "random-muted-selection", "random-offense-raw0" },
+        { "random-premature-parent", "random-timeout-start577" },
+        { "random-force-parent-omitted", "random-timeout-start577" },
+        { "random-input-scan-as-consumer", "random-suspended-real-consumer" },
+        { "random-draw-from-skipped-consumer", "random-suspended-real-consumer" },
+        { "random-restart-retains-continuation", "random-restart" },
+        { "random-output-failure-swallowed", "random-output-failure" }
+    };
+
+    private static void BeginCase(string name)
+    {
+        if (startedExecutionCases.Count >= requestedExecutionCases.Length ||
+            requestedExecutionCases[startedExecutionCases.Count] != name)
+            throw new InvalidOperationException("Wrong/substituted executed case for the admitted control scope.");
+        startedExecutionCases.Add(name);
+    }
+
+    private static void EndCase(string name)
+    {
+        if (startedExecutionCases.Count != completedExecutionCases.Count + 1 ||
+            startedExecutionCases[startedExecutionCases.Count - 1] != name)
+            throw new InvalidOperationException("Missing/substituted executed case completion.");
+        completedExecutionCases.Add(name);
+    }
     private static void Check(bool value, string name)
     { assertions++; if (!value) throw new InvalidOperationException(name); }
 
@@ -40,9 +118,10 @@ internal static class SelectionCountdownChecks
         private long observed;
 
         internal Cabinet(bool cpuAway = false, Func<SourcePlaySelection, bool, SourceCommand> selectionCommand = null,
-            bool fireEnabled = false, bool cpuBoth = false)
+            bool fireEnabled = false, bool cpuBoth = false, SourceMatchConfiguration configurationOverride = null,
+            Func<int, ISourceRandom> randomFactory = null)
         {
-            configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            configuration = configurationOverride ?? new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
                 SourceStationLayout.TwoStation,
                 new SourceTeamSelection(4, Enumerable.Range(0, 7).ToArray()),
                 new SourceTeamSelection(8, Enumerable.Range(0, 7).ToArray()),
@@ -53,7 +132,7 @@ internal static class SelectionCountdownChecks
                 cpuBoth ? TeamId.Home : TeamId.Away, SourceCaptainSlot.First);
             Game = inputs.Create(configuration: configuration,
                 presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0),
-                compatibility: SourceGameplayCompatibility.Portable, camera: false,
+                compatibility: SourceGameplayCompatibility.Portable, camera: false, randomFactory: randomFactory,
                 fireEffects: fireEnabled ? new SourceFireGameplayConfiguration(new SourceFireSpfxRuntime(fire), 0, SourceFireCull.Off) : null);
             Game.BindSourcePossessionSoundData(speech);
             Game.SourceSelectionTimerSoundRaised += Sounds.Add;
@@ -127,12 +206,30 @@ internal static class SelectionCountdownChecks
             }
         }
 
+        internal void AdvanceSamples(long target, Func<int, SourceCabinetSample> sample)
+        {
+            while (Game.SourceTick < target)
+            {
+                Input.Capture(configuration.Stations.Select(s => sample(s.StationId)).ToArray());
+                Bridge.AdvanceSource(FixedStepBridge.StepSeconds, Input.NextHostFrame);
+            }
+        }
+
         internal long OpenMenu()
         {
             for (int i = 0; i < 10000 && (Game.State.Phase != GamePhase.DeadBall || Game.C2State.ResultPending); i++)
                 Advance(Game.SourceTick + 1);
             Check(Game.State.Phase == GamePhase.DeadBall, "normal public kickoff reaches a real play result");
-            Advance(Game.SourceTick + 1, command: new SourceCommand(SourceAction.Continue));
+            if (configuration.Stations.Count == 0 || configuration.Stations.Any(s => s.StationId == 0))
+                Advance(Game.SourceTick + 1, command: new SourceCommand(SourceAction.Continue));
+            else
+            {
+                long target = Game.SourceTick + 1;
+                Input.Capture(configuration.Stations.Select((s, i) => new SourceCabinetSample(s.StationId,
+                    quantizer.SevenLevel(0, 0), SourceButtons.None,
+                    i == 0 ? new SourceCommand(SourceAction.Continue) : default(SourceCommand))).ToArray());
+                while (Game.SourceTick < target) Bridge.AdvanceSource(FixedStepBridge.StepSeconds, Input.NextHostFrame);
+            }
             Check(Game.State.Phase == (configuration.Stations.Count == 0 ? GamePhase.PreSnap : GamePhase.PlaySelect),
                 "public Continue enters actual source selection, including the instant no-human bypass");
             return Game.SourceTick;
@@ -145,6 +242,7 @@ internal static class SelectionCountdownChecks
             cabinet.Trace, cabinet.Sounds, cabinet.Events,
             selections = cabinet.Selections.Select(e => new { e.SourceTick, e.Team, e.Selection }).ToArray() }));
         cases.Add(name);
+        EndCase(name);
     }
 
     private static bool TimerChildren(Cabinet cabinet)
@@ -155,6 +253,7 @@ internal static class SelectionCountdownChecks
 
     private static void Timeout(Cabinet cabinet, string output, string suffix = "")
     {
+        BeginCase("actual-timeout-zero-grace-resumption" + suffix);
         long entry = cabinet.OpenMenu(), start = entry + 1, force = start + 10 * 57 + 25;
         Check(cabinet.Match.SelectionCountdown == 9 && !cabinet.Timer.Visible && cabinet.Timer.ForceTick == -1,
             "first-quarter actual menu starts at source argument9 with an unexecuted born process");
@@ -211,6 +310,7 @@ internal static class SelectionCountdownChecks
 
     private static void EarlyAndHighlight(string output)
     {
+        BeginCase("actual-early-side-and-highlight");
         var cabinet = new Cabinet();
         long entry = cabinet.OpenMenu();
         cabinet.Advance(entry + 21);
@@ -246,6 +346,7 @@ internal static class SelectionCountdownChecks
 
     private static void EarlyReset(string output)
     {
+        BeginCase("actual-early-exit-reset-new-menu");
         var cabinet = new Cabinet();
         long entry = cabinet.OpenMenu();
         cabinet.Advance(entry + 21);
@@ -269,6 +370,7 @@ internal static class SelectionCountdownChecks
 
     private static void Hold(string output)
     {
+        BeginCase("actual-instruction-input-not-tutorial-ui");
         var cabinet = new Cabinet();
         int instruction = 9;
         cabinet.Game.SourcePlaySelectionInstructionValue = () => instruction;
@@ -295,6 +397,7 @@ internal static class SelectionCountdownChecks
 
     private static void CpuAndActiveReset(string output)
     {
+        BeginCase("actual-timeout-then-CPU-order");
         var cabinet = new Cabinet(cpuAway: true);
         long entry = cabinet.OpenMenu();
         cabinet.Advance(entry + 596);
@@ -309,6 +412,7 @@ internal static class SelectionCountdownChecks
             cabinet.Game.State.Phase == GamePhase.PreSnap && cabinet.Timer == null,
             "source CPU choice runs once after the human force, then tears down and resumes play");
         Save(cabinet, output, "actual-timeout-then-CPU-order");
+        BeginCase("actual-no-human-instant-caller-order");
         cabinet = new Cabinet(cpuBoth: true);
         entry = cabinet.OpenMenu();
         Check(cabinet.Game.State.Phase == GamePhase.PreSnap && cabinet.Selections.Count == 2 &&
@@ -316,6 +420,7 @@ internal static class SelectionCountdownChecks
             cabinet.Timer == null && !TimerChildren(cabinet) && cabinet.Sounds.Count == 0,
             "no-human source bypass chooses CPU offense then defense immediately, without creating a timer");
         Save(cabinet, output, "actual-no-human-instant-caller-order");
+        BeginCase("actual-active-menu-restart");
         cabinet = new Cabinet();
         entry = cabinet.OpenMenu();
         cabinet.Advance(entry + 30);
@@ -331,26 +436,35 @@ internal static class SelectionCountdownChecks
         Save(cabinet, output, "actual-active-menu-restart");
     }
 
-    private static void Failures(string output)
+    private static void Failures(string output, bool onlyOutput = false)
     {
-        var cabinet = new Cabinet(selectionCommand: (play, flip) => {
-            throw new SourceInterfaceException("actual selection dependency unavailable");
-        });
-        long entry = cabinet.OpenMenu();
-        bool failed = false;
-        try { cabinet.Advance(entry + 597); }
-        catch (SourceInterfaceException error) { failed = error.Message.Contains("actual selection dependency unavailable"); }
-        Check(failed && !cabinet.Selector.Selected(TeamId.Home),
-            "forced unavailable selection dependency fails explicitly instead of inventing a play/RNG policy");
-        Save(cabinet, output, "actual-timeout-dependency-failure");
-        cabinet = new Cabinet();
-        entry = cabinet.OpenMenu();
-        cabinet.Game.SourceStationInputTransform = null;
-        failed = false;
-        try { cabinet.Advance(entry + 596); }
-        catch (InvalidOperationException error) { failed = error.Message.Contains("actual cabinet selector"); }
-        Check(failed, "missing actual timeout selector propagates a standard failure, never configured or CPU fallback");
-        Save(cabinet, output, "actual-missing-timeout-consumer");
+        Cabinet cabinet;
+        long entry;
+        bool failed;
+        if (!onlyOutput)
+        {
+            BeginCase("actual-timeout-dependency-failure");
+            cabinet = new Cabinet(selectionCommand: (play, flip) => {
+                throw new SourceInterfaceException("actual selection dependency unavailable");
+            });
+            entry = cabinet.OpenMenu();
+            failed = false;
+            try { cabinet.Advance(entry + 597); }
+            catch (SourceInterfaceException error) { failed = error.Message.Contains("actual selection dependency unavailable"); }
+            Check(failed && !cabinet.Selector.Selected(TeamId.Home),
+                "forced unavailable selection dependency fails explicitly instead of inventing a play/RNG policy");
+            Save(cabinet, output, "actual-timeout-dependency-failure");
+            BeginCase("actual-missing-timeout-consumer");
+            cabinet = new Cabinet();
+            entry = cabinet.OpenMenu();
+            cabinet.Game.SourceStationInputTransform = null;
+            failed = false;
+            try { cabinet.Advance(entry + 596); }
+            catch (InvalidOperationException error) { failed = error.Message.Contains("actual cabinet selector"); }
+            Check(failed, "missing actual timeout selector propagates a standard failure, never configured or CPU fallback");
+            Save(cabinet, output, "actual-missing-timeout-consumer");
+        }
+        BeginCase("actual-timer-output-fail-closed");
         cabinet = new Cabinet();
         entry = cabinet.OpenMenu();
         cabinet.Game.SourceSelectionTimerSoundRaised += call => { throw new InvalidOperationException("timer output failed"); };
@@ -371,6 +485,7 @@ internal static class SelectionCountdownChecks
             foreach (JsonElement item in document.RootElement.EnumerateArray())
             {
                 string name = item.GetProperty("name").GetString();
+                BeginCase(name);
                 var host = new SourcePortableProcessHost();
                 long serial = 0;
                 int initial = SourceMatchFlow.PlaySelectionCountdownStart(item.GetProperty("initial").GetInt32() == 9 ? 0 : 1);
@@ -405,6 +520,7 @@ internal static class SelectionCountdownChecks
                 }
                 File.WriteAllText(Path.Combine(output, name + ".managed.json"), JsonSerializer.Serialize(rows));
                 cases.Add(name);
+                EndCase(name);
             }
     }
 
@@ -413,24 +529,46 @@ internal static class SelectionCountdownChecks
         Cabinet cabinet = null;
         try
         {
-            TimerSequences(args[8], args[7]);
-            inputs = FullKernelInputs.Load(args[0], soundFunctionsPath: args[1], c2M1InputsPath: args[2]);
-            impact = SourceCinematicLibrary.Read(File.ReadAllBytes(args[3]), SourceTeamResourceProfile.C2M1ImpactSha256);
-            normal = SourceNormalCameraData.Read(File.ReadAllBytes(args[4]));
-            speech = SourcePossessionSoundData.Read(File.ReadAllBytes(args[5]));
-            hud = SourceInterfaceData.Read(File.ReadAllBytes(args[6]), SourceInterfacePackagePlan.HudSha256);
-            fire = SourceFireSpfxReader.Read(File.ReadAllBytes(Path.Combine(args[9], "manifest.json")),
-                "90a134af37fe6d43f13977f7903315ee0d9a7f37f700669b365f45dd7c941d56",
-                path => File.ReadAllBytes(Path.Combine(args[9], path)));
-            cabinet = new Cabinet();
-            Timeout(cabinet, args[7]);
-            Timeout(new Cabinet(fireEnabled: true), args[7], "-FX");
-            EarlyAndHighlight(args[7]);
-            EarlyReset(args[7]);
-            Hold(args[7]);
-            CpuAndActiveReset(args[7]);
-            Failures(args[7]);
-            Console.WriteLine(JsonSerializer.Serialize(new { status = "passed", assertions, cases }));
+            if (args.Length != 13)
+                throw new InvalidOperationException("An explicit complete timer/random execution scope and control binding are required.");
+            string group = args[11];
+            string[] selectedCases = ValidateSelectionScope(group, args[12], args[8], args[10]);
+            scopeAdmitted = true;
+            if (group == "all" || group == "timer-traces") TimerSequences(args[8], args[7]);
+            if (group != "timer-traces")
+            {
+                inputs = FullKernelInputs.Load(args[0], soundFunctionsPath: args[1], c2M1InputsPath: args[2]);
+                impact = SourceCinematicLibrary.Read(File.ReadAllBytes(args[3]), SourceTeamResourceProfile.C2M1ImpactSha256);
+                normal = SourceNormalCameraData.Read(File.ReadAllBytes(args[4]));
+                speech = SourcePossessionSoundData.Read(File.ReadAllBytes(args[5]));
+                hud = SourceInterfaceData.Read(File.ReadAllBytes(args[6]), SourceInterfacePackagePlan.HudSha256);
+                fire = SourceFireSpfxReader.Read(File.ReadAllBytes(Path.Combine(args[9], "manifest.json")),
+                    "90a134af37fe6d43f13977f7903315ee0d9a7f37f700669b365f45dd7c941d56",
+                    path => File.ReadAllBytes(Path.Combine(args[9], path)));
+                if (group == "all") RandomGestureReproduction(args[7]);
+                if (group == "all" || randomLifecycleNames.Contains(group)) RandomLifecycle(args[7], selectedCases);
+                if (group == "all" || (group.StartsWith("random-", StringComparison.Ordinal) && !randomLifecycleNames.Contains(group)))
+                    RandomCases(args[10], args[7], selectedCases);
+                if (group == "all" || group == "actual-timeout-zero-grace-resumption")
+                {
+                    cabinet = new Cabinet();
+                    Timeout(cabinet, args[7]);
+                }
+                if (group == "all")
+                    Timeout(new Cabinet(fireEnabled: true), args[7], "-FX");
+                if (group == "all" || group == "actual-early-side-and-highlight")
+                    EarlyAndHighlight(args[7]);
+                if (group == "all")
+                {
+                    EarlyReset(args[7]);
+                    Hold(args[7]);
+                    CpuAndActiveReset(args[7]);
+                }
+                if (group == "all" || group == "actual-timer-output-fail-closed")
+                    Failures(args[7], group != "all");
+            }
+            scopePassed = true;
+            Console.WriteLine(JsonSerializer.Serialize(new { status = "passed", scope = group, assertions, cases, randomCases, randomLifecycleCases }));
             return 0;
         }
         catch (Exception error)
@@ -442,6 +580,13 @@ internal static class SelectionCountdownChecks
         {
             if (cabinet != null) File.WriteAllText(Path.Combine(args[7], "actual-cabinet.json"),
                 JsonSerializer.Serialize(cabinet.Trace));
+            if (args.Length > 7 && Directory.Exists(args[7]))
+                File.WriteAllText(Path.Combine(args[7], "execution-scope.json"), JsonSerializer.Serialize(new {
+                    schema = "selection-execution-scope/v2", status = scopePassed ? "passed" : "failed",
+                    admitted = scopeAdmitted, control = args.Length > 12 ? args[12] : null,
+                    scope = args.Length > 11 ? args[11] : null, requestedCases = requestedExecutionCases,
+                    startedCases = startedExecutionCases, completedCases = completedExecutionCases, assertions
+                }));
         }
     }
 }

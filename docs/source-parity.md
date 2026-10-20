@@ -328,6 +328,57 @@ and coordinator-run actual required Game/source-player CI remain outstanding.
 All sixteen full/native rows, Unity/Editor, target PRNG/scheduler/ABI, PCM/DSP,
 whole-game and performance acceptance remain **OPEN**.
 
+## Cabinet RANDOM_SELECT — bounded portable increment, October 20, 2026
+
+The actual cabinet C branch now starts the authenticated active controller rather
+than throwing or choosing an instant host-random play. Two separate left pushes
+at slot0 arm the source sound; a fresh C press while left starts at slot5 without
+changing page. The real Core `game_proc` menu consumer owns the shared ordered
+direction/action draws, separate sleep1/sleep2 continuations, four-flip/six-page
+caps and final fifteenth-iteration choice. The final pair is consumed before
+selection. Runtime applies the resulting menu operations and actual source
+page/slot/play/flip; input scans and rendering never draw. No callback RNG,
+synthetic B edge or fabricated `play_select_cntrl` process is introduced.
+
+Both-side draw order follows the original qcreate head insertion. Timeout handling
+also follows the parent, not a conventional “always finish random choice” rule:
+after its final sleep1, the original caller can reach ordered `cpu_pick_play`
+while a random controller is still in sleep2. Already selected sides are retained.
+Source consumer suspension freezes the continuation, not the independently
+running timer. Unavailable mapping/output fails explicitly and requires restart;
+there is no resource-success substitute or retry draw stream.
+
+The [focused suite](../tests/selection-countdown/README.md#cabinet-random_select)
+adds33 unchanged original-C controller/caller cases, four actual lifecycle/failure
+cases and21 compiled causal controls while retaining all17 timer traces/
+10,417 dispatches,11 original caller checks and21 timer controls. Original page
+tables/setup, `off_captain`, choices, CPU caller and qcreate wrapper execute only
+from authenticated ignored inputs. Authored ucontext/text/graphics bindings are
+not native scheduler/ABI/video/DSP proof. Sound operands and per-wake order are
+covered, not native sound instruction interleaving.
+
+A separately compiled authenticated main40/current comparison uses the same
+authored untriggered seed1 inputs for1,200 host/1,140 source steps and four manual
+selections. All31,459,271 host/player/process/HUD bytes,1,313 menu-event bytes and
+253,837 RNG-trace bytes covering491 unfiltered calls are byte-identical. This
+is bounded compatibility evidence, not a replacement full M1 or replay campaign.
+All three public JSONL/gzip/recipe generations, controller, seed and vector stay
+unchanged. The strict generation helper retains the timer recording's origin
+pin and separately binds current78-file production manifest
+`a876fa4b6c286043d9791624904852b6ad7cbfef98f0eaf4d186feb4ac3f20fd`;
+the four inherited generation probes, full current M1, controls and exact40-minute/
+minimum30 budget remain required.
+
+The actual prepared PlayerHost/Core/cabinet/bridge/HUD headless gesture verifies
+thirty Core draws, real selected-page/slot reflection and source sound metadata.
+Five real Unity C#7.3/netstandard2.1 API profiles compile without executing Unity.
+Browser evidence, independent Quality review and required hosted CI remain
+integration gates, not results claimed here. The existing portable menu admits
+no custom inventory/playbook/always-QB/receiver powerups; original custom-page
+inventory/conversion is still unavailable and not guessed. Tutorial UI, target
+PRNG/scheduler, native Unity, audio/DSP, performance and all16 whole/native rows
+remain **OPEN**.
+
 ## Combined opt-in fire and portable-authored kick runtime — October 18, 2026
 
 The independently approved H and PK implementations are integrated on the

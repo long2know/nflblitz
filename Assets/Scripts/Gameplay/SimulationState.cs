@@ -230,6 +230,7 @@ namespace Blitz.Gameplay
         internal int SourcePendingTackleVictim = -1;
         internal int SourcePendingTackleAttacker = -1;
         internal long SourceRandomDraws;
+        internal readonly SourceRandomSelectionView[] SourceRandomSelections = new SourceRandomSelectionView[2];
         internal string SourceRandomProcess = "game_proc";
         internal int SourceRandomActor = -1;
         internal int SourceRandomProcessOrder;

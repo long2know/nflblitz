@@ -19,7 +19,7 @@ namespace Blitz.Contracts
     {
         None, SelectPlay, Snap, Pass, Tackle, SwitchPlayer, Continue, SelectPat,
         SelectKickoff, Kick, Punt, Lateral, Audible, Spin, Juke, Hurdle, Dive,
-        Jump, Swat, Catch, StiffArm
+        Jump, Swat, Catch, StiffArm, StartRandomPlaySelection
     }
 
     public readonly struct SourcePlaySelection
@@ -74,7 +74,7 @@ namespace Blitz.Contracts
             int targetPlayerId = -1, SourcePatOption patChoice = SourcePatOption.Unselected,
             SourceKickoffType? kickoffChoice = null, int audibleSlot = -1, bool? offenseFlipped = null)
         {
-            SourceContractGuard.Range((int)action, 0, 20, nameof(action));
+            SourceContractGuard.Range((int)action, 0, 21, nameof(action));
             SourceContractGuard.Player(targetPlayerId, nameof(targetPlayerId));
             SourceContractGuard.Range((int)patChoice, 0, 2, nameof(patChoice));
             if (kickoffChoice.HasValue)

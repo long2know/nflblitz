@@ -24,6 +24,7 @@ static class Checks
             byte[] Read(string path) => File.ReadAllBytes(Path.Combine(root, path));
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
+            if (args.Contains("--random-selection-only")) { VerifyRandomSelection(data); return 0; }
             if (args.Contains("--loose-helmet-only")) { HelmetAdapterChecks.Run(data); return 0; }
             if (args.Contains("--dust-only")) { DustAdapterChecks.Run(data); return 0; }
             if (args.Contains("--ball-trails-only")) { BallTrailChecks.Run(data); return 0; }
@@ -204,6 +205,67 @@ static class Checks
             }
         }
         Check(false, "The ordinary original kickoff never exercised its real C2 result/HUD commit boundary.");
+    }
+
+    private static void VerifyRandomSelection(PlayerData data)
+    {
+        var sink = new RecordingSink();
+        var host = new PlayerHost(data, sink);
+        var selections = new List<SourceGameEvent>();
+        host.Bridge.SourceEventRaised += value => { if (value.Type == SourceEventType.PlaySelected) selections.Add(value); };
+        var axes = new double[8];
+        var buttons = new int[4];
+        int station = data.Configuration.Match.Stations[0].StationId;
+        void Step()
+        {
+            host.Capture(axes, buttons);
+            host.Advance(FixedStepBridge.StepSeconds, 1024, 768, 1024, 768, 1);
+        }
+        for (int i = 0; i < 10000 && (host.Game.State.Phase != GamePhase.DeadBall || host.Game.C2State.ResultPending); i++) Step();
+        Check(host.Game.State.Phase == GamePhase.DeadBall, "Actual PlayerHost public kickoff must reach its real result.");
+        host.Continue(station);
+        for (int i = 0; i < 10 && host.Game.State.Phase == GamePhase.DeadBall; i++) Step();
+        Check(host.Game.State.Phase == GamePhase.PlaySelect, "Actual PlayerHost Continue must enter its real cabinet menu.");
+        var match = ((ISourceMatchState)host.Game.State).Match;
+        TeamId side = data.Configuration.Match.Stations[0].Team;
+        station = SourceCabinetStations.Captain(match, side);
+        long entry = host.Game.SourceTick;
+        void To(long target, double x = 0, int held = 0)
+        {
+            axes[station * 2] = x; buttons[station] = held;
+            while (host.Game.SourceTick < target) Step();
+        }
+        To(entry + 21); To(entry + 22, -1); To(entry + 23); To(entry + 24, -1, 4);
+        To(entry + 69);
+        SourceGameEvent choice = selections.Single(e => e.Team == side);
+        Check(choice.SourceTick == entry + 69 && choice.Selection.IsSpecified &&
+            choice.Selection.PageIndex >= 0 && choice.Selection.SlotIndex >= 0,
+            "Actual PlayerHost gesture must commit the real source page/slot/play on its fifteenth paced iteration.");
+        var random = (Blitz.Gameplay.SourceInjectedRandom)host.Game.SourceRandomService;
+        Check(random.Trace.Count(d => d.Site.SourceIdentity.StartsWith("playsel.c:play_select_cntrl:", StringComparison.Ordinal)) == 30,
+            "Actual PlayerHost gesture must use precisely thirty shared Core draws, never render/input RNG.");
+        JsonElement menu = sink.State.GetProperty("menu").GetProperty(side == TeamId.Home ? "home" : "away");
+        Check(menu.GetProperty("selected").GetBoolean() && menu.GetProperty("page").GetInt32() == choice.Selection.PageIndex &&
+            menu.GetProperty("cursor").GetInt32() == choice.Selection.SlotIndex,
+            "Actual PlayerHost/HUD selection reflection retains the chosen source page and slot.");
+        JsonElement[] sounds = sink.State.GetProperty("events").EnumerateArray().Where(e =>
+            e.TryGetProperty("kind", out var kind) && kind.GetString() == "cabinet-random-selection" &&
+            e.GetProperty("playlist").ValueKind == JsonValueKind.Number).ToArray();
+        Check(sounds.Length > 0 && sounds.All(e => e.GetProperty("bank").GetString() == "cursors" &&
+            e.GetProperty("volume").GetInt32() == 235 && e.GetProperty("pan").GetInt32() == 127 &&
+            !e.GetProperty("pcmOrDspPlayback").GetBoolean()) &&
+            sounds.Any(e => e.GetProperty("stage").GetString() == "Selected"),
+            "Actual PlayerHost forwards random menu source sound operands and final selection, without DSP claims.");
+        int before = random.Trace.Count;
+        for (int i = 0; i < 10; i++) host.Advance(0, 1024, 768, 1024, 768, 1);
+        Check(random.Trace.Count == before && host.Game.SourceTick == entry + 69,
+            "Actual PlayerHost redraws do not admit or replay random menu draws.");
+        host.Restart();
+        Check(host.Game.SourceTick == 0 && !((ISourceMatchState)host.Game.State).Match.HomeRandomSelection.IsSpecified,
+            "Actual PlayerHost restart clears the real random menu epoch.");
+        Console.WriteLine(JsonSerializer.Serialize(new { status = "passed", assertions, randomDraws = 30,
+            sourceTick = choice.SourceTick, page = choice.Selection.PageIndex, slot = choice.Selection.SlotIndex,
+            boundary = "Real prepared PlayerHost/Core/cabinet/bridge/HUD, managed recording sink; not browser/Unity/DSP/native proof." }));
     }
 
     private static void RejectMissingAndChanged(byte[] manifest, Func<string, byte[]> read, string modelPath)

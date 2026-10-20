@@ -5,7 +5,7 @@ using Blitz.Contracts;
 
 namespace Blitz.Runtime
 {
-    public enum SourceCabinetMenuEventKind { Moved, Edge, PageChanged, Flipped, Hidden, Selected, ForcedSelected }
+    public enum SourceCabinetMenuEventKind { Moved, Edge, PageChanged, Flipped, Hidden, Selected, ForcedSelected, RandomArmed, RandomStarted }
 
     public readonly struct SourceCabinetMenuEvent
     {
@@ -13,11 +13,23 @@ namespace Blitz.Runtime
         public int StationId { get; }
         public TeamId Side { get; }
         public SourceCabinetMenuEventKind Kind { get; }
-        public string SoundBank { get { return SoundCall.HasValue || SoundSymbol != null ? "CURSORS" : null; } }
+        public bool IsRandomSelection { get; }
+        public int PageIndex { get; }
+        public int SlotIndex { get; }
+        public bool OffenseFlipped { get; }
+        public string SoundBank { get { return SoundCall.HasValue || SoundSymbol != null ? IsRandomSelection ? "cursors" : "CURSORS" : null; } }
         public string SoundSymbol { get; }
         public int? SoundCall { get; }
-        internal SourceCabinetMenuEvent(long tick, int station, TeamId side, SourceCabinetMenuEventKind kind, string symbol, int? call)
-        { SourceTick = tick; StationId = station; Side = side; Kind = kind; SoundSymbol = symbol; SoundCall = call; }
+        public int? SoundVolume { get { return SoundCall.HasValue ? (int?)235 : null; } }
+        public int? SoundPan { get { return SoundCall.HasValue ? (int?)127 : null; } }
+        public int? SoundPriority { get { return SoundCall.HasValue ? (int?)(Kind == SourceCabinetMenuEventKind.Edge ? 15 :
+            Kind == SourceCabinetMenuEventKind.PageChanged ? 5 : 10) : null; } }
+        internal SourceCabinetMenuEvent(long tick, int station, TeamId side, SourceCabinetMenuEventKind kind,
+            string symbol, int? call, bool random, int page, int slot, bool flipped)
+        {
+            SourceTick = tick; StationId = station; Side = side; Kind = kind; SoundSymbol = symbol; SoundCall = call;
+            IsRandomSelection = random; PageIndex = page; SlotIndex = slot; OffenseFlipped = flipped;
+        }
     }
 
     public sealed class SourceCabinetPlaySelection
@@ -31,6 +43,8 @@ namespace Blitz.Runtime
         private readonly int[] left = new int[2];
         private readonly bool[] hidden = new bool[2];
         private readonly bool[] selected = new bool[2];
+        private readonly bool[] randomArmed = new bool[2];
+        private readonly bool[] randomStarted = new bool[2];
         private int menuSleepRemaining;
         private long lastSourceTick = -1;
         private bool inMenu;
@@ -70,7 +84,23 @@ namespace Blitz.Runtime
             }
             else if (menuSleepRemaining > 0) menuSleepRemaining--;
             var output = new SourceStationInput[frame.Stations.Count];
-            for (int i = 0; i < output.Length; i++)
+            var order = new int[output.Length];
+            bool randomOrder = match.HomeRandomSelection.IsSpecified || match.AwayRandomSelection.IsSpecified;
+            for (int i = 0; i < order.Length; i++)
+            {
+                order[i] = i;
+                SourceStationInput candidate = frame.Stations[i];
+                TeamId candidateSide = SourceCabinetStations.Team(match, candidate.StationId);
+                int index = (int)candidateSide;
+                int stick = (3 - candidate.StickZ) * 7 + 3 - candidate.StickX;
+                if (menuSleepRemaining == 0 && SourceCabinetStations.Captain(match, candidateSide) == candidate.StationId &&
+                    cursor[index] == 0 && previousJoy[index] != 4 && left[index] == 1 && data.Input.Digital8[stick] == 4)
+                    randomOrder = true;
+            }
+            if (randomOrder)
+                Array.Sort(order, (a, b) => ((int)SourceCabinetStations.Team(match, frame.Stations[b].StationId))
+                    .CompareTo((int)SourceCabinetStations.Team(match, frame.Stations[a].StationId)));
+            foreach (int i in order)
             {
                 SourceStationInput input = frame.Stations[i];
                 TeamId side = SourceCabinetStations.Team(match, input.StationId);
@@ -78,8 +108,11 @@ namespace Blitz.Runtime
                 bool chosen = match.SelectionTimer != null && match.SelectionTimer.Selected(side);
                 bool forced = match.SelectionTimer != null && match.SelectionTimer.ForceSelection &&
                     match.SelectionTimer.ForceTick < sourceTick;
+                SourceRandomSelectionView random = match.RandomSelection(side);
                 if (menuSleepRemaining == 0 && SourceCabinetStations.Captain(match, side) == input.StationId &&
-                    !selected[(int)side] && !chosen && (forced || !command.IsSpecified ||
+                    !selected[(int)side] && !chosen &&
+                    (!random.IsSpecified || random.ControllerAwake) &&
+                    (forced || random.IsSpecified || !command.IsSpecified ||
                         command.Action == SourceAction.None && !command.OffenseFlipped.HasValue))
                 {
                     SourceCommand picked = forced ? ChooseCurrent(state, sourceTick, side, input.StationId, true)
@@ -94,7 +127,10 @@ namespace Blitz.Runtime
                 output[i] = new SourceStationInput(input.StationId, input.StickX, input.StickZ, input.Held,
                     input.Pressed, input.Released, command);
             }
-            return new SourceInputFrame(output);
+            if (!randomOrder) return new SourceInputFrame(output);
+            var ordered = new SourceStationInput[output.Length];
+            for (int i = 0; i < order.Length; i++) ordered[i] = output[order[i]];
+            return new SourceInputFrame(ordered);
         }
 
         private static bool MenuConsumerAwake(IGameState state, long sourceTick)
@@ -123,9 +159,18 @@ namespace Blitz.Runtime
             SourceMatchView match = source.Match;
             int stick = (3 - input.StickZ) * 7 + 3 - input.StickX;
             int joy = data.Input.Digital8[stick];
-            if (joy != previousJoy[index])
+            SourceRandomSelectionView random = match.RandomSelection(side);
+            if (random.IsSpecified && (!random.ControllerAwake || random.SourceTick != tick || !randomStarted[index]))
+                throw new SourceInterfaceException("Random menu operations require this captain's current admitted Core controller wake.");
+            if (joy != previousJoy[index] || random.IsSpecified)
             {
+                bool armedNow = false;
                 previousJoy[index] = joy;
+                if (random.IsSpecified)
+                {
+                    joy = random.Direction;
+                    if (joy == 1) up[index] = 0;
+                }
                 int old = cursor[index];
                 switch (joy)
                 {
@@ -142,7 +187,12 @@ namespace Blitz.Runtime
                         break;
                     case 4:
                         if (cursor[index] % 3 != 0) cursor[index]--;
-                        else if (cursor[index] == 0) left[index]++;
+                        else if (cursor[index] == 0 && ++left[index] == 2 && !randomArmed[index] && !randomStarted[index])
+                        {
+                            randomArmed[index] = true;
+                            armedNow = true;
+                            Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.RandomArmed, "HIDE_CURSOR_SND", 60);
+                        }
                         break;
                     case 8:
                         if (cursor[index] % 3 != 2) { up[index] = 0; cursor[index]++; }
@@ -153,25 +203,39 @@ namespace Blitz.Runtime
                     LastInteractedSide = side;
                     Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.Moved, null, side == TeamId.Home ? 63 : 64);
                 }
-                else if (joy != 0 && hidden[index])
+                else if (!armedNow && joy != 0 && (random.IsSpecified ? hidden[(int)match.Possession.Offense] : hidden[index]))
                     Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.Edge, null, side == TeamId.Home ? 67 : 68);
             }
             bool offense = side == match.Possession.Offense;
+            if (random.IsSpecified)
+            {
+                switch (random.Action)
+                {
+                    case SourceRandomSelectionAction.ChangePage:
+                        ChangePage(tick, side, input.StationId, offense);
+                        break;
+                    case SourceRandomSelectionAction.Flip:
+                        return Flip(tick, side, input.StationId);
+                    case SourceRandomSelectionAction.Choose:
+                        return ChooseCurrent(state, tick, side, input.StationId, false);
+                }
+                return default(SourceCommand);
+            }
             switch (input.Pressed)
             {
                 case SourceButtons.C:
-                    if (left[index] >= 2 && cursor[index] == 0 && joy == 4)
-                        throw new SourceInterfaceException("Original RANDOM_SELECT needs play_select_cntrl source-process RNG draws; no render/host random selection is substituted.");
-                    page[index] = (page[index] + 1) % (offense ? 4 : 2);
-                    LastInteractedSide = side;
-                    Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.PageChanged, "SWITCH_SND", 23);
+                    if (randomArmed[index] && !randomStarted[index] && cursor[index] == 0 && joy == 4)
+                    {
+                        randomStarted[index] = true; cursor[index] = 5; LastInteractedSide = side;
+                        Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.RandomStarted, null, null);
+                        return new SourceCommand(SourceAction.StartRandomPlaySelection);
+                    }
+                    ChangePage(tick, side, input.StationId, offense);
                     break;
                 case SourceButtons.A:
                     if (offense)
                     {
-                        Flipped = !Flipped; LastInteractedSide = side;
-                        Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.Flipped, "SWITCH2_SND", 19);
-                        return new SourceCommand(SourceAction.None, offenseFlipped: Flipped);
+                        return Flip(tick, side, input.StationId);
                     }
                     break;
                 case SourceButtons.B:
@@ -179,6 +243,21 @@ namespace Blitz.Runtime
                 // The shipping #if 1 switch has NO combined-button menu action, including on defense.
             }
             return default(SourceCommand);
+        }
+
+        private void ChangePage(long tick, TeamId side, int station, bool offense)
+        {
+            int index = (int)side;
+            page[index] = (page[index] + 1) % (offense ? 4 : 2);
+            LastInteractedSide = side;
+            Emit(tick, station, side, SourceCabinetMenuEventKind.PageChanged, "SWITCH_SND", 23);
+        }
+
+        private SourceCommand Flip(long tick, TeamId side, int station)
+        {
+            Flipped = !Flipped; LastInteractedSide = side;
+            Emit(tick, station, side, SourceCabinetMenuEventKind.Flipped, "SWITCH2_SND", 19);
+            return new SourceCommand(SourceAction.None, offenseFlipped: Flipped);
         }
 
         private SourceCommand ChooseCurrent(IGameState state, long tick, TeamId side, int station, bool forced)
@@ -202,7 +281,8 @@ namespace Blitz.Runtime
                     throw new SourceInterfaceException("Original play selector did not return the actual source choice.");
             }
             selected[index] = true; LastInteractedSide = side;
-            Emit(tick, station, side, forced ? SourceCabinetMenuEventKind.ForcedSelected : SourceCabinetMenuEventKind.Selected, null, null);
+            Emit(tick, station, side, forced ? SourceCabinetMenuEventKind.ForcedSelected : SourceCabinetMenuEventKind.Selected,
+                null, randomStarted[index] ? (int?)(side == TeamId.Home ? 63 : 64) : null);
             return result;
         }
 
@@ -248,6 +328,7 @@ namespace Blitz.Runtime
         {
             Array.Clear(cursor, 0, 2); Array.Clear(page, 0, 2); Array.Clear(up, 0, 2); Array.Clear(left, 0, 2);
             Array.Clear(hidden, 0, 2); Array.Clear(selected, 0, 2); previousJoy[0] = previousJoy[1] = -1;
+            Array.Clear(randomArmed, 0, 2); Array.Clear(randomStarted, 0, 2);
             Flipped = false; menuSleepRemaining = 0;
         }
 
@@ -260,7 +341,9 @@ namespace Blitz.Runtime
         private void Emit(long tick, int station, TeamId side, SourceCabinetMenuEventKind kind, string symbol, int? call)
         {
             Action<SourceCabinetMenuEvent> handler = EventRaised;
-            if (handler != null) handler(new SourceCabinetMenuEvent(tick, station, side, kind, symbol, call));
+            if (handler != null) handler(new SourceCabinetMenuEvent(tick, station, side, kind, symbol, call,
+                randomStarted[(int)side] || kind == SourceCabinetMenuEventKind.RandomArmed,
+                page[(int)side], cursor[(int)side], Flipped));
         }
     }
 }
