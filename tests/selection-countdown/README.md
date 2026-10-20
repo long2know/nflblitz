@@ -24,6 +24,11 @@ selected-side protection, early completion, new/active-menu restart,
 instruction predicate input, human/CPU order and explicit failures.
 The portable menu does not produce the native tutorial UI.
 
+The inherited kick-meter, combined fire/kick and match-lifecycle runner guards
+require the complete 78-file pure production closure, including
+`SourcePlaySelectionTimer.cs`. The combined fire/kick closure still adds its
+seven existing consumer files, for 85 total; no prior source or control is removed.
+
 All twenty-one semantic mutations compile in isolated source/output trees.
 Compiler errors, missing original material and wrong assertions cannot count
 as kills. The inherited bounded mutation worker supports one or two workers;

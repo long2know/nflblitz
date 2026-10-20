@@ -29,8 +29,9 @@ class KickRunnerContracts(unittest.TestCase):
 
     def test_real_compile_closure_includes_existing_cabinet_and_HUD_consumers(self):
         paths = {str(p.relative_to(RUNNER.ROOT)) for p in RUNNER.production_paths()}
-        self.assertEqual(len(paths), 77)
+        self.assertEqual(len(paths), 78)
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.Possession.cs", paths)
+        self.assertIn("Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs", paths)
         self.assertIn("Assets/Scripts/Contracts/SourceKickMeterContracts.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/SourceKickMeterProcess.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs", paths)
