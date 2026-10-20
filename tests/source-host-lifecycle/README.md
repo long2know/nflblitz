@@ -9,7 +9,7 @@ Uses the existing .NET10 SDK compiler/reference pack, C#7.3 and warnings as
 errors. No packages, restore, Unity executable, imported resources, browser or
 service are required. Choose a new ignored output directory on each invocation.
 The existing Game source checks workflow runs this managed campaign, including
-all six compiled controls, before fetching any original game inputs.
+all eight compiled controls, before fetching any original game inputs.
 
 The executable compiles the **entire current production** `BlitzRuntime.cs` and
 `SourceFreeBallRenderer.cs`, not extracted/reimplemented lifecycle methods.
@@ -17,6 +17,11 @@ Managed collaborators supply input edges, resource lookup, call recording, and
 fault injection at required asset `Load` and primary/alternate `CreateMaterial`.
 The actual renderer initializer and host bootstrap/catch/failed-Update/public-R/
 restart/focus/pause/enable/banner paths execute against those collaborators.
+The actual `SourceSelectionTimerSound` declaration is compiled verbatim from
+the current production contracts, with its complete source and extracted-type
+hashes recorded. The simulation double raises that real payload through the
+entire production host's event subscription; no gameplay timer or audio device
+is simulated by this event-routing check.
 This is managed production-boundary execution, **not a Unity Awake/player test,
 native engine execution, actual asset/material validation or shader execution**.
 Actual Unity API compatibility is a separate reference-only compilation:
@@ -36,9 +41,10 @@ unready or failed bridge. A fully initialized source host can still restart
 normally or recover from a later runtime failure; explicit `actors=graybox`
 Legacy diagnostic restart remains separate.
 
-Nine named cases cover missing resources, throwing required data, primary and
+Eleven named cases cover missing resources, throwing required data, primary and
 alternate material initialization, later HUD/first-camera failures, ready source
-restart and later-runtime-failure recovery, and explicit Legacy restart.
+restart and later-runtime-failure recovery, explicit Legacy restart, exactly-once
+timer-sound forwarding across restart and unchanged listener-failure propagation.
 Assertions inspect the original failure/banner, absence of bridge restart or
 activation/HUD/replay/consumer work after failed bootstrap, neutral input,
 exactly-once hooks, initial cues, camera rewind order and ready ball consumption.
@@ -51,10 +57,10 @@ trail-process fidelity.
 The simulation/camera/HUD collaborators are instrumented doubles: these checks
 establish host call routing, not gameplay/RNG/replay-render fidelity.
 
-`--controls` compiles six mutations of the **actual host source** in isolated
+`--controls` compiles eight mutations of the **actual host source** in isolated
 ignored output copies: bypassed readiness, prematurely completed bootstrap,
 missing completion, focus/enable bypass, missing bridge rewind and omitted trail
-capture. Each must
+capture, omitted timer-sound delivery and swallowed timer-listener failure. Each must
 compile with zero diagnostics and fail its named behavior assertion. An unrelated
 compile failure never counts as a kill. An unchanged final baseline then runs.
 Logs, response files, source/reference/assembly hashes and case/assertion counts
@@ -65,3 +71,7 @@ For an explicit read-only rejected snapshot, `--source-root /path/to/snapshot`
 executes its two production files with the current tests and records their root
 and hashes. The rejected host is expected to compile cleanly, then fail the
 named retained-failure assertions; a failed compile is not a reproduction.
+Timer-event lookup is reflective so a historical host without that newer API
+still compiles; its missing event fails the new named cases rather than being
+silently skipped. The timer payload authority remains the current test checkout,
+separately recorded from the explicitly selected historical host source root.

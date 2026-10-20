@@ -71,11 +71,22 @@ namespace Blitz.Gameplay
             {
                 case GamePhase.PlaySelect:
                     SourceFireSelectionEntry();
+                    if (sourceSelectionCpuPatPending)
+                    {
+                        sourceSelectionCpuPatPending = false;
+                        ApplySourcePat(DecideSourcePat(SourcePatChoice.Unselected));
+                        if (Model.Phase != GamePhase.PlaySelect) break;
+                    }
+                    if (SourceSelectionTimedOut && SourceStationInputTransform == null)
+                        throw new InvalidOperationException("Source selection timeout requires the actual cabinet selector; no configured/CPU play substitutes for a human highlight.");
                     if (action == SourceAction.SelectPat && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
                         ApplySourcePat(DecideSourcePat((SourcePatChoice)command.Source.PatChoice));
                     if (action == SourceAction.SelectPlay)
                         SelectSourcePlay(command.Play, command.Source.Play);
                     ApplySourceStationMenuCommands(command);
+                    if (Model.Phase == GamePhase.PlaySelect && sourceSelectionFinishPending)
+                        CompleteSourceTimedSelection();
+                    CaptureSourceSelectionTimer();
                     break;
                 case GamePhase.PreSnap:
                     if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
@@ -125,9 +136,11 @@ namespace Blitz.Gameplay
         {
             RequireSourceSoundVmBinding();
             sourcePossessionSpeech.Clear();
+            sourceSelectionSounds.Clear();
             Model.SourceProcesses.BeginTick(Model.SourceTick);
             Model.SourceDispatchOrdinal = 0;
             Model.SourcePresentationOrder = 0;
+            StepSourceSelectionTimer();
             if (SourceFireEnabled) command = DispatchSourceFireLevelZero(command);
             else
             {
@@ -262,6 +275,7 @@ namespace Blitz.Gameplay
             TeamId selectingSide = requestingTeam ?? (original.IsSpecified
                 ? original.Playbook == SourcePlaybookKind.Offense ? Model.Possession : GameplayRules.Opponent(Model.Possession)
                 : sourceConfiguration.Stations.Count == 0 ? TeamId.Home : sourceConfiguration.Stations[0].Team);
+            if (SourceSelectionTimedOut && Model.SourcePlaySelectionReady[(int)selectingSide]) return;
             bool selectingOffense = selectingSide == Model.Possession;
             if (!original.IsSpecified && (selectingOffense ? play != PlayId.Run && play != PlayId.QuickPass
                 : play != PlayId.Cover && play != PlayId.Blitz))
@@ -288,6 +302,18 @@ namespace Blitz.Gameplay
                 selectingOffense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense);
             SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);
             StoreSourceSelection(selectingSide, selected);
+            if (SourceSelectionTimedOut)
+            {
+                bool pendingHuman = false;
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (!Model.SourcePlaySelectionReady[(int)station.Team]) pendingHuman = true;
+                if (!pendingHuman)
+                {
+                    sourceSelectionFinishPending = true;
+                    sourceSelectionFinishSide = selectingSide;
+                }
+                return;
+            }
             TeamId other = GameplayRules.Opponent(selectingSide);
             if (!SourceContactDriver.IsHumanTeam(Model, other))
                 StoreSourceSelection(other, ChooseSourceCpuPlay(other, chosen));
@@ -299,6 +325,27 @@ namespace Blitz.Gameplay
             }
             if (!Model.SourcePlaySelectionReady[0] || !Model.SourcePlaySelectionReady[1])
                 return;
+            FinishSourcePlaySelection(selectingSide);
+        }
+
+        private void CompleteSourceTimedSelection()
+        {
+            // playsel.c lets the forced controllers finish before CPU side0, then side1.
+            for (int side = 0; side < 2; side++)
+                if (!Model.SourcePlaySelectionReady[side])
+                {
+                    TeamId other = GameplayRules.Opponent((TeamId)side);
+                    SourcePlaySelection opponent = other == TeamId.Home ? Model.SourceHomePlay : Model.SourceAwayPlay;
+                    if (!Model.SourcePlaySelectionReady[(int)other] && sourceConfiguration.Stations.Count != 0)
+                        throw new InvalidOperationException("Timed selection has no actual human opponent choice for cpu_pick_play.");
+                    StoreSourceSelection((TeamId)side, ChooseSourceCpuPlay((TeamId)side,
+                        Model.SourcePlaySelectionReady[(int)other] ? sourcePlaybook.GetPlay(opponent.PlaySymbol) : null));
+                }
+            FinishSourcePlaySelection(sourceSelectionFinishSide);
+        }
+
+        private void FinishSourcePlaySelection(TeamId selectingSide)
+        {
             SourceFireSelectionExit();
             Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
                 ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);
@@ -1074,10 +1121,20 @@ namespace Blitz.Gameplay
                 ? SourceMatchPhase.PatSelection : SourceMatchPhase.PlaySelection;
             Model.PreSnapTicksRemaining = 0;
             BeginSourcePlay();
-            Model.SourceSelectionCountdown = SourceMatchFlow.PlaySelectionCountdownStart(Model.Quarter - 1);
-            if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
-                && !SourceContactDriver.IsHumanTeam(Model, Model.Possession))
-                ApplySourcePat(DecideSourcePat(SourcePatChoice.Unselected));
+            if (sourceConfiguration.Stations.Count == 0)
+            {
+                // playsel.c's no-human NO PLAY SELECT branch returns before creating a timer.
+                TeamId offense = Model.Possession;
+                StoreSourceSelection(offense, ChooseSourceCpuPlay(offense, null));
+                SourcePlaySelection chosen = offense == TeamId.Home ? Model.SourceHomePlay : Model.SourceAwayPlay;
+                StoreSourceSelection(GameplayRules.Opponent(offense),
+                    ChooseSourceCpuPlay(GameplayRules.Opponent(offense), sourcePlaybook.GetPlay(chosen.PlaySymbol)));
+                FinishSourcePlaySelection(offense);
+                return;
+            }
+            StartSourceSelectionTimer();
+            sourceSelectionCpuPatPending = Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
+                && !SourceContactDriver.IsHumanTeam(Model, Model.Possession);
         }
 
         private bool AdvanceSourcePeriod()
@@ -1164,6 +1221,7 @@ namespace Blitz.Gameplay
             if (pat.Disposition != SourcePatDisposition.FreeKickComplete
                 && pat.Disposition != SourcePatDisposition.SkipUnnecessary)
                 return false;
+            SourceFireSelectionExit();
             AddSourcePoints(pat.Side0Points, pat.Side1Points);
             if (pat.Disposition == SourcePatDisposition.FreeKickComplete)
             {
@@ -1305,9 +1363,9 @@ namespace Blitz.Gameplay
         private SourcePlaySelection ChooseSourceCpuPlay(TeamId side, SourcePlayDefinition opponent)
         {
             int?[] draws = new int?[3];
-            SourceOpponentPlay opponentKind = (opponent.Flags & SourcePlayFlags.Punt) != 0 ? SourceOpponentPlay.Punt
-                : (opponent.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourceOpponentPlay.FieldGoal
-                : (opponent.Flags & SourcePlayFlags.Custom) != 0 ? SourceOpponentPlay.Custom : SourceOpponentPlay.Other;
+            SourceOpponentPlay opponentKind = opponent != null && (opponent.Flags & SourcePlayFlags.Punt) != 0 ? SourceOpponentPlay.Punt
+                : opponent != null && (opponent.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourceOpponentPlay.FieldGoal
+                : opponent != null && (opponent.Flags & SourcePlayFlags.Custom) != 0 ? SourceOpponentPlay.Custom : SourceOpponentPlay.Other;
             SourceCpuPlayDecision decision;
             for (;;)
             {

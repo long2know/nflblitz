@@ -19,6 +19,8 @@ CASE = "portable-cabinet-wide-pass-clearance-12000"
 CONTROLLER = "tests/movement-callers/PortablePublicPolicy.cs"
 AUTHOR_EXPORTER = "tests/movement-callers/export_portable_public.py"
 AUTHOR_EXPORTER_SHA256 = "c876727da203e794859761ec7d2d92b235cf478648315fa84bf8c6a5e5e79476"
+TIMER_PRODUCER_SHA256 = "5a83f4bbc99f1da96f44d3ce2507083c1a43beb85842919dd50ba942373ade85"
+TIMER_HARNESS_SHA256 = "ea910e3039fc8f39b4958c83a535eb5e81c2f3ec29dbfbf15757ece675206b91"
 CONFIGURATION = ("OriginalRelease57Hz,60Hz ordinaryhost bridge; TwoStation, team0/team1 roster0..6; "
                  "station0Home; first possessionAway; captainFirst; presentationHome/head-1x4/pup0; "
                  "neutral SourceMovementSettings; actual real281 fullgeometry/pivots and oldSAFN beforewake; seed1")
@@ -139,7 +141,8 @@ def manifest(value):
     return sha(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
 
 
-def validate_policy(raw, receipt, producer_source=None):
+def validate_policy(raw, receipt, producer_source=None, case=CASE):
+    public.require(case in (CASE, public.SOURCE_TIMER_CASE), "exact named exporter generation required")
     public.require(sha(raw) == digest(receipt["policySha256"], "receipt.policySha256"),
                    "policy bytes differ from retained receipt.policySha256")
     policy = public.decode(raw)
@@ -190,6 +193,16 @@ def validate_policy(raw, receipt, producer_source=None):
     public.require(manifest(compiled) == digest(policy["pureCompile67ManifestSha256"], "source67ManifestSha256")
                    and all(policy["frozenCodeSha256"].get(p) == pin for p, pin in compiled.items()),
                    "pure compilation sources differ from retained policy")
+    if case == public.SOURCE_TIMER_CASE:
+        public.require(type(policy["actualPureCompileSourceCount"]) is int
+                       and len(compiled) == policy["actualPureCompileSourceCount"] == 78
+                       and manifest(compiled) == public.SOURCE_TIMER_EXPECTED_RECIPE["source_manifest_sha256"]
+                       and manifest(policy["harnessSha256"]) == TIMER_HARNESS_SHA256
+                       and policy["frozenCodeSha256"] == {**compiled, **policy["harnessSha256"]}
+                       and policy.get("controllerByteIdenticalToMain38") is True
+                       and policy.get("noNewPolicySeedOrRngVector") is True
+                       and controller_sha == public.SOURCE_TIMER_EXPECTED_RECIPE["controller_sha256"],
+                       "exact timer78 source and unchanged twelve-file controller/harness authority required")
     inputs = policy["validated1122InputSha256"]
     public.require(type(inputs) is dict and len(inputs) == 1122
                    and manifest(inputs) == digest(policy["validated1122InputManifestSha256"],
@@ -197,6 +210,8 @@ def validate_policy(raw, receipt, producer_source=None):
                    "runtime input manifest differs from retained policy")
     origin = Path(text(policy["worktree"], "policy.worktree"))
     public.require(origin.is_absolute() and ".." not in origin.parts, "policy worktree must be an absolute retained root")
+    if case == public.SOURCE_TIMER_CASE:
+        public.require(origin == ROOT, "timer authoring authority must bind the actual current worktree")
     for path, pin in inputs.items():
         public.require(type(path) is str, "retained input path must be text")
         path = Path(path)
@@ -226,24 +241,57 @@ def validate_policy(raw, receipt, producer_source=None):
     public.require(Path(producer_source).name == "export_portable_public.py"
                    and not Path(producer_source).is_symlink(), "original producer must be retained regular source")
     producer_sha = sha(Path(producer_source).read_bytes())
-    public.require(producer_sha == AUTHOR_EXPORTER_SHA256,
+    expected_producer = TIMER_PRODUCER_SHA256 if case == public.SOURCE_TIMER_CASE else AUTHOR_EXPORTER_SHA256
+    public.require(producer_sha == expected_producer,
                    "retained original producer source evidence differs")
     return policy, producer_sha
+
+
+def timer_authority(policy, receipt, policy_path):
+    public.exact_metadata({name: receipt.get(name) for name in (
+        "schema", "maximumInitialWindows", "initialExecutions", "attemptedHosts",
+        "fullM1OrCIOrNativeOrWholeGameQualified")}, {
+            "schema": "portable-public-policy-first-window/v1", "maximumInitialWindows": 1,
+            "initialExecutions": 1, "attemptedHosts": 12000,
+            "fullM1OrCIOrNativeOrWholeGameQualified": False,
+        }, "timer-authority")
+    public.require(policy.get("maxHosts") == 12000 and type(policy["maxHosts"]) is int
+                   and type(policy.get("maximumInitialWindows")) is int and policy["maximumInitialWindows"] == 1
+                   and policy.get("recordingGeneration") ==
+                   "source-selection-countdown/v3; first and only normal public authoring window",
+                   "one explicit source-timer generation/window authority required")
+    marker = policy_path.parent / "only-public-window-started.json"
+    public.require(marker.is_file() and not marker.is_symlink(), "actual create-new authoring marker required")
+    public.exact_metadata(public.decode(marker.read_bytes()), {
+        "policySha": receipt["policySha256"], "maximumInitialWindows": 1, "maxHosts": 12000,
+    }, "timer-marker")
+    for case in (public.POSITIVE_CASE, public.SOURCE_CURRENT_CASE):
+        public.load_fixture(public.RECORDINGS[case]["fixture"], case)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("capture", "receipt", "poses", "policy", "output"):
-        parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--producer-source", type=Path,
+        parser.add_argument("--" + name, type=Path, required=True, action="append")
+    parser.add_argument("--case", choices=(CASE, public.SOURCE_TIMER_CASE), action="append")
+    parser.add_argument("--producer-source", type=Path, action="append",
                         help="Retained original author exporter source; defaults to the frozen policy worktree")
     args = parser.parse_args(argv)
+    for name, values in vars(args).items():
+        if values is not None:
+            if len(values) != 1:
+                parser.error("duplicate --" + name.replace("_", "-"))
+            setattr(args, name, values[0])
+    case = args.case or CASE
     output = public.output_path(args.output)
     public.require(not output.exists() and output.is_relative_to(ROOT / ".squad/.scratch"),
                    "export needs a NEW ignored local output; never overwrite a33 or prior proof")
     receipt = public.decode(args.receipt.read_bytes())
     policy_raw = args.policy.read_bytes()
-    policy, producer_sha = validate_policy(policy_raw, receipt, args.producer_source)
+    policy, producer_sha = (validate_policy(policy_raw, receipt, args.producer_source)
+        if case == CASE else validate_policy(policy_raw, receipt, args.producer_source, case))
+    if case == public.SOURCE_TIMER_CASE:
+        timer_authority(policy, receipt, args.policy)
     capture = args.capture.read_bytes()
     poses = public.decode(args.poses.read_bytes())
     require_candidate(receipt, poses)
@@ -254,6 +302,25 @@ def main(argv=None):
         stream.write(projected)
     packed = buffer.getvalue()
     public.require(gzip.decompress(packed) == projected, "gzip must roundtrip exact projected inputs")
+    if case == public.SOURCE_TIMER_CASE:
+        public.audit_public(projected, case)
+        identity = public.RECORDINGS[case]
+        public.require(sha(packed) == identity["fixture_sha256"] and len(packed) == identity["fixture_bytes"],
+                       "exact source-timer deterministic public gzip required")
+        recipe_bytes = (json.dumps(public.SOURCE_TIMER_EXPECTED_RECIPE, indent=2) + "\n").encode("ascii")
+        public.require(sha(recipe_bytes) == public.SOURCE_TIMER_RECIPE_SHA256,
+                       "exact source-timer minimal public recipe required")
+        output.mkdir(parents=True)
+        for suffix, raw in ((".jsonl", projected), (".jsonl.gz", packed), (".recipe.json", recipe_bytes)):
+            public.write_new_or_verify(output / (case + suffix), raw)
+        print(json.dumps({
+            "schema": "portable-public-input-export-result/v1", "status": "exported-not-full-qualified",
+            "case": case, "jsonl_sha256": sha(projected), "gzip_sha256": sha(packed),
+            "recipe_sha256": sha(recipe_bytes), "capture_sha256": sha(capture),
+            "producer_source_sha256": producer_sha, "policy_sha256": sha(policy_raw),
+            "validator_source_sha256": sha(Path(__file__).read_bytes()), "gameplayExecutions": 0,
+        }))
+        return 0
     jsonl = output / (CASE + ".jsonl")
     archive = output / (CASE + ".jsonl.gz")
     recipe = {

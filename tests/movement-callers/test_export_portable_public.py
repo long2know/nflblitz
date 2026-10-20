@@ -1,4 +1,5 @@
 import copy
+import io
 import json
 from pathlib import Path
 import re
@@ -8,6 +9,7 @@ from unittest import mock
 import uuid
 
 import export_portable_public as export
+import canonical
 
 
 def captured_row():
@@ -265,6 +267,111 @@ class ExporterRevisionGuards(unittest.TestCase):
         self.assertIn('\"producerSourceSha256\": producer_sha', Path(export.__file__).read_text())
         self.assertIn('\"validator_source_sha256\": sha(Path(__file__).read_bytes())',
                       Path(export.__file__).read_text())
+
+
+class TimerExportGuards(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.public_data = export.public.load_fixture(export.public.SOURCE_TIMER_FIXTURE,
+                                                    export.public.SOURCE_TIMER_CASE)
+        cls.rows = export.public.audit_public(cls.public_data, export.public.SOURCE_TIMER_CASE)
+
+    def setUp(self):
+        self.work = export.ROOT / ".squad/.scratch" / ("timer-export-unit-" + uuid.uuid4().hex)
+        self.work.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.work)
+
+    def authority(self):
+        policy = {"maxHosts": 12000, "maximumInitialWindows": 1,
+                  "recordingGeneration": "source-selection-countdown/v3; first and only normal public authoring window"}
+        receipt = {"schema": "portable-public-policy-first-window/v1", "maximumInitialWindows": 1,
+                   "initialExecutions": 1, "attemptedHosts": 12000,
+                   "fullM1OrCIOrNativeOrWholeGameQualified": False, "policySha256": "1" * 64}
+        marker = {"policySha": receipt["policySha256"], "maximumInitialWindows": 1, "maxHosts": 12000}
+        (self.work / "only-public-window-started.json").write_text(json.dumps(marker))
+        return policy, receipt, marker
+
+    def test_actual_new_fixture_roundtrips_only_constructor_metadata_without_any_command_rewrite(self):
+        captured = copy.deepcopy(self.rows)
+        for row in captured:
+            for station in row["command"]["StationInputs"]["Stations"]:
+                station["IsSpecified"] = True
+        raw = export.public.encode(captured)
+        self.assertEqual(export.project_capture(raw), self.public_data)
+        self.assertTrue(all(station["IsSpecified"] for row in captured
+                            for station in row["command"]["StationInputs"]["Stations"]))
+        with self.assertRaisesRegex(ValueError, "all12000"):
+            export.project_capture(export.public.encode(captured[:-1]))
+        captured[0]["command"]["StationInputs"]["Stations"][0]["privateState"] = {}
+        with self.assertRaisesRegex(ValueError, "field set differs"):
+            export.project_capture(export.public.encode(captured))
+
+    def test_real_timer_authority_requires_one_actual_create_new_window_and_no_qualification_claim(self):
+        policy, receipt, marker = self.authority()
+        export.timer_authority(policy, receipt, self.work / "policy.json")
+        for field, value in (("schema", "fake"), ("maximumInitialWindows", 2), ("initialExecutions", 0),
+                             ("attemptedHosts", 11999), ("fullM1OrCIOrNativeOrWholeGameQualified", True),
+                             ("initialExecutions", True)):
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                export.timer_authority(policy, dict(receipt, **{field: value}), self.work / "policy.json")
+        for field, value in (("maxHosts", 11999), ("maximumInitialWindows", True),
+                             ("recordingGeneration", "possession-process-suspension/v2")):
+            with self.subTest(policy=field), self.assertRaises(ValueError):
+                export.timer_authority(dict(policy, **{field: value}), receipt, self.work / "policy.json")
+        path = self.work / "only-public-window-started.json"
+        for field, value in (("policySha", "0" * 64), ("maxHosts", 0),
+                             ("maximumInitialWindows", 2), ("suppressedFault", True)):
+            path.write_text(json.dumps(dict(marker, **{field: value})))
+            with self.subTest(marker=field), self.assertRaises(ValueError):
+                export.timer_authority(policy, receipt, self.work / "policy.json")
+        path.unlink()
+        with self.assertRaisesRegex(ValueError, "actual create-new"):
+            export.timer_authority(policy, receipt, self.work / "policy.json")
+
+    def test_timer_export_keeps_static_source_controller_and_harness_identity_not_any_matching_manifest(self):
+        for change, diagnostic in (
+            (lambda p: p.update(actualPureCompileSourceCount=77), "exact timer78"),
+            (lambda p: p.update(actualPureCompileSourceCount=78.0), "exact timer78"),
+            (lambda p: p.update(pureCompile67ManifestSha256=
+                export.public.SOURCE_CURRENT_EXPECTED_RECIPE["source_manifest_sha256"]), "pure compilation"),
+            (lambda p: p["harnessSha256"].update({"tests/movement-callers/Controlled.cs": "0" * 64}), "exact timer78"),
+            (lambda p: p["frozenCodeSha256"].update({"extra-authority.cs": "0" * 64}), "exact timer78"),
+            (lambda p: p.update(controllerByteIdenticalToMain38=False), "exact timer78"),
+            (lambda p: p.update(noNewPolicySeedOrRngVector=False), "exact timer78"),
+        ):
+            policy, receipt = ExporterRevisionGuards.metadata(self)
+            production = {p.relative_to(export.ROOT).as_posix(): export.sha(p.read_bytes())
+                          for p in export.production_paths(export.ROOT)}
+            policy["harnessSha256"] = {name: export.sha((export.ROOT / name).read_bytes()) for name in canonical.HARNESS}
+            policy.update(frozenCodeSha256={**production, **policy["harnessSha256"]},
+                          pureCompile67ManifestSha256=export.manifest(production), actualPureCompileSourceCount=78,
+                          controllerByteIdenticalToMain38=True, noNewPolicySeedOrRngVector=True)
+            change(policy)
+            raw = json.dumps(policy).encode()
+            receipt["policySha256"] = export.sha(raw)
+            with self.subTest(diagnostic=diagnostic), self.assertRaisesRegex(ValueError, diagnostic):
+                export.validate_policy(raw, receipt, case=export.public.SOURCE_TIMER_CASE)
+        self.assertEqual(export.TIMER_HARNESS_SHA256,
+                         "ea910e3039fc8f39b4958c83a535eb5e81c2f3ec29dbfbf15757ece675206b91")
+        self.assertEqual(export.TIMER_PRODUCER_SHA256,
+                         "5a83f4bbc99f1da96f44d3ce2507083c1a43beb85842919dd50ba942373ade85")
+        self.assertNotEqual(export.TIMER_PRODUCER_SHA256, export.AUTHOR_EXPORTER_SHA256)
+
+    def test_actual_timer_export_cli_rejects_duplicate_generation_and_all_authority_operands_before_read(self):
+        args = ["--case", export.public.SOURCE_TIMER_CASE]
+        for name in ("capture", "receipt", "poses", "policy", "output", "producer-source"):
+            args += ["--" + name, str(self.work / name)]
+        for name, value in (("case", export.public.SOURCE_TIMER_CASE), ("case", "unknown"),
+                            *((name, str(self.work / name)) for name in
+                              ("capture", "receipt", "poses", "policy", "output", "producer-source"))):
+            with self.subTest(flag=name), mock.patch.object(Path, "read_bytes",
+                    side_effect=AssertionError("duplicate CLI must reject before any input read")), \
+                    mock.patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit) as failure:
+                export.main(args + ["--" + name, value])
+            self.assertEqual(failure.exception.code, 2)
+            self.assertFalse((self.work / "output").exists())
 
 
 if __name__ == "__main__":

@@ -239,8 +239,14 @@ namespace Blitz.Gameplay
         public readonly object SourceCameraProcesses = new object();
         public readonly List<SourceContactSoundCue> UnresolvedContactSoundCalls = new List<SourceContactSoundCue>();
         public SourcePresentationCueBatch PresentationCues { get; private set; }
+        public event Action<SourceSelectionTimerSound> SourceSelectionTimerSoundRaised;
         public GameSimulation(int seed) { Restart(); }
         public void Restart() { State = new TestState(); PresentationCues = new SourcePresentationCueBatch(); }
+        public void RaiseSelectionTimerSound(SourceSelectionTimerSound call)
+        {
+            Action<SourceSelectionTimerSound> handler = SourceSelectionTimerSoundRaised;
+            if (handler != null) handler(call);
+        }
         public int DrawSourceCameraRandom(int range) { return 0; }
         public object SourceActorWorldPosition(int actor) { return null; }
         public void ApplySourceCameraFeedback(SourceCameraFeedback feedback) { }

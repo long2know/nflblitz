@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 HOST = "Assets/Scripts/Runtime/BlitzRuntime.cs"
 RENDERER = "Assets/Scripts/Presentation/SourceFreeBallRenderer.cs"
+SOUND_CONTRACT = "Assets/Scripts/Contracts/SourceMatchContracts.cs"
 
 
 def digest(raw):
@@ -29,7 +30,16 @@ def replace_once(source, before, after):
     return source.replace(before, after, 1)
 
 
+def selection_sound_contract(source):
+    declarations = re.findall(
+        r"(?ms)^    public readonly struct SourceSelectionTimerSound\r?\n    \{.*?^    \}", source)
+    require(len(declarations) == 1, "Exactly one actual source timer sound contract is required.")
+    return ("namespace Blitz.Contracts\n{\n" + declarations[0] + "\n}\n").encode("utf-8")
+
+
 def controls(source):
+    timer_forwarding = ("Action<SourceSelectionTimerSound> handler = SourceSelectionTimerSoundRaised;\n"
+                        "                        if (handler != null) handler(call);")
     return [
         ("incomplete-restart-allowed",
          replace_once(source, "if (bridge == null || !initializationComplete)", "if (bridge == null)"),
@@ -51,6 +61,13 @@ def controls(source):
         ("ball-trail-capture-omitted",
          replace_once(source, "SourceFreeBallBinding.CaptureTrails(simulation)", "null"),
          "ready source presents its required ball and trail at startup"),
+        ("timer-sound-forwarding-omitted",
+         replace_once(source, timer_forwarding, timer_forwarding.replace("handler(call);", "{ }")),
+         "ready source forwards timer sound exactly once with the actual payload"),
+        ("timer-sound-failure-swallowed",
+         replace_once(source, timer_forwarding, timer_forwarding.replace(
+             "handler(call);", "{ try { handler(call); } catch (InvalidOperationException) { } }")),
+         "ready source timer sound listener failure propagates unchanged"),
     ]
 
 
@@ -81,6 +98,14 @@ def main():
         "simulation_or_RNG_parity_claimed": False, "runs": [],
     }
     try:
+        contract_input = (ROOT / SOUND_CONTRACT).read_bytes()
+        sound_contract = selection_sound_contract(contract_input.decode("utf-8"))
+        report["source_timer_sound_contract"] = {
+            "authority_root": str(ROOT), "source": SOUND_CONTRACT,
+            "source_sha256": digest(contract_input), "compiled_declaration_sha256": digest(sound_contract),
+            "actual_contract_compiled_verbatim": True,
+            "gameplay_timer_or_sound_hardware_executed": False,
+        }
         sdk = subprocess.run(["dotnet", "--list-sdks"], cwd=ROOT, env=env, capture_output=True, text=True, check=True)
         versions = re.findall(r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", sdk.stdout, re.M)
         require(versions, "An existing SDK/Roslyn compiler is required; no installation is attempted.")
@@ -99,6 +124,7 @@ def main():
             directory = output / label
             directory.mkdir()
             sources = dict(inputs, **tests)
+            sources["SourceSelectionTimerSound.Contract.cs"] = sound_contract
             sources[HOST] = host.encode("utf-8")
             copied = []
             for name, raw in sources.items():
@@ -156,6 +182,8 @@ def main():
                 "Production sources changed during execution; no valid source binding.")
         require(all((HERE / name).read_bytes() == raw for name, raw in tests.items()),
                 "Test sources changed during execution; rerun on the final test bytes.")
+        require((ROOT / SOUND_CONTRACT).read_bytes() == contract_input,
+                "Actual source timer sound contract changed during execution.")
         report["production_and_test_sources_unchanged"] = True
         report["status"] = "passed"
         return 0

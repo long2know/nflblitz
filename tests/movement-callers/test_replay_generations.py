@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import uuid
@@ -23,6 +24,8 @@ class RecordingGenerationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.old_data = replay.load_fixture(replay.POSITIVE_FIXTURE, replay.POSITIVE_CASE)
         cls.row = replay.decode(cls.old_data.splitlines()[5845])
+        cls.possession_data = replay.load_fixture(replay.SOURCE_CURRENT_FIXTURE, replay.SOURCE_CURRENT_CASE)
+        cls.possession_row = replay.decode(cls.possession_data.splitlines()[2835])
         cls.live, cls.identity = generations.current_snapshot()
 
     def setUp(self):
@@ -61,12 +64,16 @@ class RecordingGenerationTests(unittest.TestCase):
         fault = {"host": 5845, "before": 5552, "SourceTick": 5553, "command": command,
                  "error": generations.SIDE_ERROR + "\n   at Blitz.Gameplay.GameSimulation.SelectSourcePlay("
                           "\n   at Blitz.Gameplay.GameSimulation.ApplySourceStationMenuCommands(",
-                 "actual": {"State": {"Possession": 0}}}
+                 "actual": {"host": 5845, "rawCursor": 10142, "SourceTick": 5553,
+                            "SourceRandomProcess": "game_proc", "SourceRandomActor": -1,
+                            "SourceRandomProcessOrder": 0, "SourceRandomCallIndex": 0, "SourceFlags": 0,
+                            "State": {"Tick": 5845, "PlayNumber": 17, "Phase": 0,
+                                      "Possession": 0, "ControlledPlayerId": 3}}}
         receipt.update(completedHosts=5846, SourceTick=5553, rawCursor=10142, rSkipFrames=0, positive=None, failure=fault)
         return summary, receipt
 
     def test_actual_current_source_and_unchanged_harness_are_pinned_not_injected(self):
-        self.assertEqual((self.identity["source_count"], self.identity["harness_count"]), (77, 12))
+        self.assertEqual((self.identity["source_count"], self.identity["harness_count"]), (78, 12))
         self.assertEqual(self.identity["source_manifest_sha256"], generations.CURRENT_SOURCE_SHA256)
         self.assertEqual(self.identity["harness_manifest_sha256"], generations.HARNESS_SHA256)
         for name in ("Assets/Scripts/Gameplay/GameSimulation.Source.cs", "tests/movement-callers/Canonical.cs",
@@ -74,11 +81,27 @@ class RecordingGenerationTests(unittest.TestCase):
             changed = dict(self.live)
             changed[name] += b"\n"
             with self.subTest(changed=name), self.assertRaisesRegex(ValueError, "payload"):
-                generations.validate_snapshot(changed, 77, generations.CURRENT_SOURCE_SHA256)
+                generations.validate_snapshot(changed, 78, generations.CURRENT_SOURCE_SHA256)
         changed = dict(self.live)
         del changed["Assets/Scripts/Gameplay/GameSimulation.Source.cs"]
         with self.assertRaisesRegex(ValueError, "source payload"):
-            generations.validate_snapshot(changed, 77, generations.CURRENT_SOURCE_SHA256)
+            generations.validate_snapshot(changed, 78, generations.CURRENT_SOURCE_SHA256)
+        with self.assertRaisesRegex(ValueError, "source payload"):
+            generations.validate_snapshot(self.live, 77, generations.PREVIOUS_SOURCE_SHA256)
+
+    def test_both_archived_sources_are_exact_git_authenticated_named_generations(self):
+        for ref, previous, count, digest in (
+            (generations.BASELINE_REF, False, 76, generations.BASELINE_SOURCE_SHA256),
+            (generations.PREVIOUS_REF, True, 77, generations.PREVIOUS_SOURCE_SHA256),
+        ):
+            files, identity = generations.historical_snapshot(ref, previous)
+            with self.subTest(ref=ref):
+                self.assertEqual(identity["source_count"], count)
+                self.assertEqual(identity["source_manifest_sha256"], digest)
+                self.assertEqual(identity["commit"], ref)
+                self.assertEqual(identity["harness_manifest_sha256"], generations.HARNESS_SHA256)
+                self.assertEqual(files["tests/movement-callers/PortablePublicPolicy.cs"],
+                                 self.live["tests/movement-callers/PortablePublicPolicy.cs"])
 
     def test_wrong_commit_or_tree_rejected_before_archive_or_build(self):
         for ref, tree in (("HEAD", generations.BASELINE_TREE), (generations.BASELINE_REF, "0" * 40)):
@@ -92,6 +115,11 @@ class RecordingGenerationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "commit/tree"):
                 generations.historical_snapshot(generations.BASELINE_REF)
             self.assertEqual(git.call_count, 2)
+        for ref, tree in ((generations.BASELINE_REF, generations.PREVIOUS_TREE),
+                          (generations.PREVIOUS_REF, generations.BASELINE_TREE),
+                          ("HEAD", generations.PREVIOUS_TREE)):
+            with self.subTest(previous=ref), self.assertRaisesRegex(ValueError, "commit/tree"):
+                generations.validate_ref(ref, tree, previous=True)
 
     def test_missing_commit_fetch_is_only_the_exact_pin_never_branch_tip_or_checkout(self):
         missing = subprocess.CalledProcessError(1, ["git", "cat-file"])
@@ -163,10 +191,10 @@ class RecordingGenerationTests(unittest.TestCase):
         with self.assertRaises((ValueError, RuntimeError)):
             generations.historical_positive(2, summary, receipt)
 
-    def test_current_rejection_is_only_the_exact_stale_side_fault_never_positive(self):
+    def test_pinned_main39_rejection_is_only_the_exact_stale_side_fault_never_positive(self):
         summary, receipt = self.stale()
-        self.assertEqual(generations.current_stale(2, summary, receipt, receipt["failure"], self.row),
-                         "rejected-current-stale-playbook-side")
+        self.assertEqual(generations.main39_stale(2, summary, receipt, receipt["failure"], self.row),
+                         "rejected-pinned-main39-old-stale-playbook-side")
         for field, value in (
             ("completedHosts", 0), ("completedHosts", 12000), ("SourceTick", 5552),
             ("rawCursor", 0), ("rSkipFrames", 26), ("positive", self.receipt()["positive"]),
@@ -175,14 +203,14 @@ class RecordingGenerationTests(unittest.TestCase):
             changed = copy.deepcopy(receipt)
             changed[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
-                generations.current_stale(2, summary, changed, changed["failure"], self.row)
+                generations.main39_stale(2, summary, changed, changed["failure"], self.row)
         for field, value in (("status", "passed"), ("error", "System.InvalidOperationException: generic"),
                              ("assertions", 0), ("public_R_SKIP_gate_qualified", True),
                              ("complete_publication_qualification", True), ("mode", "m1-complete")):
             with self.subTest(summary=field), self.assertRaises(ValueError):
-                generations.current_stale(2, dict(summary, **{field: value}), receipt, receipt["failure"], self.row)
+                generations.main39_stale(2, dict(summary, **{field: value}), receipt, receipt["failure"], self.row)
         with self.assertRaises(ValueError):
-            generations.current_stale(0, summary, receipt, receipt["failure"], self.row)
+            generations.main39_stale(0, summary, receipt, receipt["failure"], self.row)
 
     def test_actual_first_fault_command_counts_and_source_validator_are_not_optional(self):
         summary, receipt = self.stale()
@@ -192,27 +220,121 @@ class RecordingGenerationTests(unittest.TestCase):
             changed = copy.deepcopy(receipt)
             changed["failure"][field] = value
             with self.subTest(fault=field, value=value), self.assertRaises(ValueError):
-                generations.current_stale(2, summary, changed, changed["failure"], self.row)
+                generations.main39_stale(2, summary, changed, changed["failure"], self.row)
         for station, possession in ((1, 0), (0, 1)):
             changed = copy.deepcopy(receipt)
             changed["failure"]["command"]["StationInputs"]["Stations"][0]["StationId"] = station
             changed["failure"]["actual"]["State"]["Possession"] = possession
             with self.subTest(station=station, possession=possession), self.assertRaises(ValueError):
-                generations.current_stale(2, summary, changed, changed["failure"], self.row)
+                generations.main39_stale(2, summary, changed, changed["failure"], self.row)
         with self.assertRaisesRegex(ValueError, "first kernel fault"):
-            generations.current_stale(2, summary, receipt, {}, self.row)
+            generations.main39_stale(2, summary, receipt, {}, self.row)
+
+    def candidate_stale(self):
+        summary, receipt = self.stale()
+        command = copy.deepcopy(self.possession_row["command"])
+        command["StationInputs"]["Stations"][0]["IsSpecified"] = True
+        fault = receipt["failure"]
+        fault.update(host=2835, before=2693, SourceTick=2694, command=command)
+        fault["actual"].update(host=2835, rawCursor=5792, SourceTick=2694, SourceRandomProcessOrder=1)
+        fault["actual"]["State"].update(Tick=2835, PlayNumber=8, Possession=1)
+        receipt.update(completedHosts=2836, SourceTick=2694, rawCursor=5792,
+                       replayFileSha256=generations.POSSESSION_PUBLIC_SHA256)
+        return summary, receipt
+
+    def test_actual_current_stale_is_exactly2694_not_the_main39_stale5553(self):
+        summary, receipt = self.candidate_stale()
+        self.assertEqual(generations.current_stale(2, summary, receipt, receipt["failure"], self.possession_row),
+                         "rejected-current-possession-stale-playbook-side")
+        for field, value in (("completedHosts", 5846), ("SourceTick", 5553), ("rawCursor", 10142),
+                             ("rSkipFrames", 1), ("replayFileSha256", generations.OLD_PUBLIC_SHA256),
+                             ("positive", self.receipt()["positive"])):
+            changed = copy.deepcopy(receipt)
+            changed[field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                generations.current_stale(2, summary, changed, changed["failure"], self.possession_row)
+        for code in (0, 1, -9):
+            with self.subTest(code=code), self.assertRaises(ValueError):
+                generations.current_stale(code, summary, receipt, receipt["failure"], self.possession_row)
+        for classify, row in ((generations.main39_stale, self.row),
+                              (generations.current_stale, self.row)):
+            with self.assertRaises(ValueError):
+                classify(2, summary, receipt, receipt["failure"], row)
+        old_summary, old_receipt = self.stale()
+        with self.assertRaises(ValueError):
+            generations.current_stale(2, old_summary, old_receipt, old_receipt["failure"], self.possession_row)
+
+    def test_current_and_main39_stale_phase_process_side_and_actual_fault_are_required(self):
+        for factory, classify, row in ((self.stale, generations.main39_stale, self.row),
+                                       (self.candidate_stale, generations.current_stale, self.possession_row)):
+            summary, receipt = factory()
+            for field, value in (("Phase", 1), ("Tick", 0), ("PlayNumber", 0),
+                                 ("Possession", 2), ("ControlledPlayerId", -1)):
+                changed = copy.deepcopy(receipt)
+                changed["failure"]["actual"]["State"][field] = value
+                with self.subTest(classifier=classify.__name__, field=field), self.assertRaises(ValueError):
+                    classify(2, summary, changed, changed["failure"], row)
+            for field, value in (("SourceRandomProcess", "generic"), ("SourceRandomProcessOrder", 99),
+                                 ("SourceRandomActor", 0), ("SourceRandomCallIndex", 1),
+                                 ("SourceFlags", 1), ("rawCursor", 0), ("host", 0), ("SourceTick", 0)):
+                changed = copy.deepcopy(receipt)
+                changed["failure"]["actual"][field] = value
+                with self.subTest(classifier=classify.__name__, field=field), self.assertRaises(ValueError):
+                    classify(2, summary, changed, changed["failure"], row)
+            with self.assertRaises(ValueError):
+                classify(2, summary, receipt, {}, row)
+            with self.assertRaises(ValueError):
+                classify(2, dict(summary, error="System.Exception: generic"), receipt, receipt["failure"], row)
+            with self.assertRaises(ValueError):
+                classify(2, dict(summary, error=None), receipt, receipt["failure"], row)
+            for field in ("actual", "State"):
+                changed = copy.deepcopy(receipt)
+                if field == "actual":
+                    changed["failure"]["actual"] = None
+                else:
+                    changed["failure"]["actual"]["State"] = None
+                with self.subTest(missing_context=field), self.assertRaises(ValueError):
+                    classify(2, summary, changed, changed["failure"], row)
+
+    def test_pinned_main39_positive_is_neither_historical_nor_current_full_qualification(self):
+        summary, receipt = self.summary(), self.receipt()
+        receipt.update(rawCursor=22504, rSkipFrames=164, replayFileSha256=generations.POSSESSION_PUBLIC_SHA256,
+                       positive={"actor": 12, "InstanceId": 201, "firstTick": 6738, "secondTick": 6824,
+                                 "firstOrdinal": 0, "secondOrdinal": 16})
+        self.assertEqual(generations.main39_positive(0, summary, receipt), "positive-pinned-main39-possession-only")
+        for field, value in (("completedHosts", 0), ("SourceTick", 11399), ("rawCursor", 23771),
+                             ("rSkipFrames", 26), ("positive", self.receipt()["positive"]),
+                             ("replayFileSha256", generations.OLD_PUBLIC_SHA256),
+                             ("failure", {"error": "generic"})):
+            changed = copy.deepcopy(receipt)
+            changed[field] = value
+            with self.subTest(field=field), self.assertRaises((ValueError, RuntimeError)):
+                generations.main39_positive(0, summary, changed)
+        with self.assertRaises((ValueError, RuntimeError)):
+            generations.historical_positive(0, summary, receipt)
+        with self.assertRaises((ValueError, RuntimeError)):
+            generations.main39_positive(2, summary, receipt)
 
     def test_actual_cli_rejects_unknown_duplicate_or_shortcut_modes_before_output(self):
         command = [sys.executable, "-B", str(Path(generations.__file__)),
                    "--baseline-ref", generations.BASELINE_REF,
+                   "--previous-ref", generations.PREVIOUS_REF,
                    "--fixture-manifest", str(self.work / "fixture.json"),
                    "--sound-functions", str(self.work / "sound.safn"),
                    "--c2-m1-inputs", str(self.work / "m1"),
-                   "--replay-commands", str(self.work / "old.jsonl"), "--output", str(self.work / "output")]
+                   "--replay-commands", str(self.work / "old.jsonl"),
+                   "--possession-replay-commands", str(self.work / "possession.jsonl"),
+                   "--output", str(self.work / "output")]
         for change, diagnostic in (
             (["--baseline-ref", generations.BASELINE_REF], "duplicate --baseline-ref"),
             (["--output", str(self.work / "another")], "duplicate --output"),
             (["--baseline-ref", "HEAD"], "invalid choice"),
+            (["--previous-ref", "HEAD"], "invalid choice"),
+            (["--previous-ref", generations.PREVIOUS_REF], "duplicate --previous-ref"),
+            (["--possession-replay-commands", str(self.work / "another.jsonl")],
+             "duplicate --possession-replay-commands"),
+            *((["--" + name, str(self.work / "duplicate")], "duplicate --" + name)
+              for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "replay-commands")),
             (["--single-public-attempt"], "unrecognized arguments"),
             (["--no-mutations"], "unrecognized arguments"),
             (["--source-compatibility", "strict"], "unrecognized arguments"),
@@ -222,6 +344,60 @@ class RecordingGenerationTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2)
                 self.assertIn(diagnostic, result.stderr)
                 self.assertFalse((self.work / "output").exists())
+        for option in ("--baseline-ref", "--previous-ref", "--possession-replay-commands"):
+            changed = list(command)
+            index = changed.index(option)
+            del changed[index:index + 2]
+            result = subprocess.run(changed, capture_output=True, text=True)
+            with self.subTest(missing=option):
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("required", result.stderr)
+                self.assertFalse((self.work / "output").exists())
+
+    def test_wrong_generation_input_selection_is_not_reinterpreted_or_regenerated(self):
+        old, possession = self.work / "old.jsonl", self.work / "possession.jsonl"
+        old.write_bytes(self.old_data)
+        possession.write_bytes(self.possession_data)
+        self.assertEqual(generations.old_commands(possession, replay.SOURCE_CURRENT_CASE)[2835], self.possession_row)
+        for path, case in ((old, replay.SOURCE_CURRENT_CASE), (possession, replay.POSITIVE_CASE),
+                           (possession, replay.SOURCE_TIMER_CASE)):
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                generations.old_commands(path, case)
+
+    def test_actual_execution_rejects_noop_build_crash_and_missing_replay_artifact(self):
+        args = SimpleNamespace(output=self.work, fixture_manifest=self.work / "fixture.json",
+                               sound_functions=self.work / "sound.safn", c2_m1_inputs=self.work / "m1",
+                               replay_commands=self.work / "old.jsonl",
+                               possession_replay_commands=self.work / "possession.jsonl")
+        builds = "0 Warning(s)\n0 Error(s)\n"
+        for label, returns, error in (
+            ("compile-failure", [subprocess.CompletedProcess([], 1, "bad compile", "")], "zero-diagnostic"),
+            ("empty-replay", [subprocess.CompletedProcess([], 0, builds, ""),
+                              subprocess.CompletedProcess([], 0, "", "")], "one actual"),
+            ("no-artifact", [subprocess.CompletedProcess([], 0, builds, ""),
+                             subprocess.CompletedProcess([], 0, json.dumps(self.summary()) + "\n", "")], None),
+        ):
+            args.output = self.work / label
+            args.output.mkdir()
+            with patch.object(generations.subprocess, "run", side_effect=returns), self.subTest(label=label):
+                with self.assertRaises((ValueError, OSError)) as failure:
+                    generations.execute("current", self.live, args, [self.row] * 5846,
+                                        [self.possession_row] * 2836)
+                if error:
+                    self.assertIn(error, str(failure.exception))
+
+    def test_source_ref_substitution_cannot_execute_or_create_a_named_current_probe(self):
+        args = SimpleNamespace(output=self.work)
+        previous, _ = generations.historical_snapshot(generations.PREVIOUS_REF, previous=True)
+        with patch.object(generations.subprocess, "run") as run:
+            with self.assertRaisesRegex(ValueError, "source payload"):
+                generations.execute("current", previous, args, [], [])
+            with self.assertRaisesRegex(ValueError, "source payload"):
+                generations.execute("main39", self.live, args, [], [])
+            with self.assertRaisesRegex(ValueError, "exact named"):
+                generations.execute("HEAD", self.live, args, [], [])
+            run.assert_not_called()
+        self.assertEqual(list(self.work.iterdir()), [])
 
     def test_zero_duplicate_or_wrong_summary_never_becomes_generation_acceptance(self):
         for stdout in ("", "not a summary\n", '{"schema":"wrong"}\n{"schema":"wrong"}\n'):

@@ -97,6 +97,13 @@ namespace Blitz.Presentation
                     Menu(state, TeamId.Home, new SourceHudRect(layout.Menu.X, layout.Menu.Y, width, layout.Menu.Height), selection);
                     Menu(state, TeamId.Away, new SourceHudRect(layout.Menu.X + width, layout.Menu.Y, width, layout.Menu.Height), selection);
                 }
+                if (hud.SelectionTimer != null && hud.SelectionTimer.Visible)
+                {
+                    double timerScale = Math.Min(layout.Menu.Width / (layout.Portrait ? 252 : 504), layout.Menu.Height / 350);
+                    double timerX = layout.Portrait ? layout.Menu.Right - 16 * timerScale : layout.Menu.X + layout.Menu.Width / 2;
+                    Text("selection/countdown", "bast18", hud.SelectionTimer.Number.ToString(),
+                        timerX, layout.Menu.Y + 38 * timerScale, timerScale, hud.SelectionTimer.Color);
+                }
             }
             else if (hud.PossessionMessage == null && hud.ResultGraphic != null && hud.Match.Phase != SourceMatchPhase.LiveBall)
             {
@@ -297,9 +304,6 @@ namespace Blitz.Presentation
                 new SourceHudRect(x, y, sourceWidth * scale, 26 * scale), scale, Yellow);
             Text("selection/" + side + "/page", "bast10", "PAGE " + (selection.Page(side) + 1),
                 x + 126 * scale, y + 38 * scale, scale, Yellow);
-            if (match.SelectionCountdown >= 0)
-                Text("selection/" + side + "/countdown", "bast10", match.SelectionCountdown.ToString(),
-                    x + 236 * scale, y + 38 * scale, scale, White);
             for (int slot = 0; slot < 9; slot++)
             {
                 double left = x + slot % 3 * 83 * scale, top = y + (52 + slot / 3 * 96) * scale;

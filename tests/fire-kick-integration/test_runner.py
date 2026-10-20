@@ -26,10 +26,11 @@ class CombinedRunnerContracts(unittest.TestCase):
 
     def test_actual_compile_inventory_contains_both_features_and_existing_consumers(self):
         paths = {p.relative_to(RUNNER.ROOT).as_posix() for p in RUNNER.production_paths()}
-        self.assertEqual(len(paths), 77)
+        self.assertEqual(len(paths), 78)
         for name in (
             "Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs",
             "Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
+            "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs",
             "Assets/Scripts/Contracts/SourceFireSpfxContracts.cs",
             "Assets/Scripts/AssetImport/SourceFireSpfxData.cs",
             "Assets/Scripts/AssetImport/SourceTeamPoppedHeadData.cs",
@@ -42,7 +43,7 @@ class CombinedRunnerContracts(unittest.TestCase):
             self.assertIn(name, paths)
         for name in RUNNER.EXTRA:
             self.assertTrue((RUNNER.ROOT / name).is_file(), name)
-        self.assertEqual(len(paths | set(RUNNER.EXTRA)), 84)
+        self.assertEqual(len(paths | set(RUNNER.EXTRA)), 85)
 
 
 if __name__ == "__main__":

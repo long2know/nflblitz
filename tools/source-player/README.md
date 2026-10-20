@@ -10,6 +10,22 @@ This preview does **not** satisfy native Unity build, full-game replica,
 bit-exact arcade or complete M1 qualification. The existing Unity project,
 Docker/hosting configuration, root page and default server are unchanged.
 
+## Public recording generations and build evidence
+
+The current required replay is explicitly named
+`portable-cabinet-wide-pass-clearance-selection-countdown-12000`
+(`source-selection-countdown/v3`), not the older possession or main38 input.
+The unchanged approved C# cabinet authoring controller lives in
+`tests/movement-callers/PortablePublicPolicy.cs`; its strict saved-capture
+export and input-only preparation are documented in
+[`tests/movement-callers`](../../tests/movement-callers/README.md#current-source-timer-generation--october-20-2026).
+Preparation runs no simulation and imports no original data. Older input bytes
+and their source-specific positive/stale classifications remain immutable.
+This tooling/fixture revision changes no production or browser-build member,
+so it does not require or claim a new browser build/capture campaign.
+Full current Portable M1 qualification is separate from a browser, Unity,
+native, target-PRNG, audio/DSP or whole-game acceptance claim.
+
 ## Required original normal-camera data
 
 The explicit M1 profile now uses the shared original active CAMBOT normal/

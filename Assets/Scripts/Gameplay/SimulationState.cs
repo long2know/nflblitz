@@ -308,6 +308,7 @@ namespace Blitz.Gameplay
         internal SourcePatOption SourcePatChoice = SourcePatOption.Unselected;
         internal SourcePatStatus SourcePatStatus = SourcePatStatus.NotExtraPoint;
         internal int SourceSelectionCountdown = -1;
+        internal SourceSelectionTimerView SourceSelectionTimer;
         internal float SourceHumanTurbo = 100f;
         internal int SourceDisallowPassTicks;
         internal bool SourceBallFrozen

@@ -196,8 +196,12 @@ rows. Strict defaults and the NoEligible disclosure below remain unchanged.
 
 ## Source-current possession recording — bounded CI versioning
 
+This section records the published **main39** context. The current source-timer
+generation is separate below; neither its old positive nor its stale5553 fault
+is relabelled as a current-timer result.
+
 The source-correct possession process lifecycle intentionally invalidates the
-earlier state-conditioned `830e7bad...` recording on current source. Authenticated
+earlier state-conditioned `830e7bad...` recording on main39 source. Authenticated
 `player.c:5948` creates whistle PID0 and `playsel.c:854` suspends id0/mask`0x8000`.
 The first semantic divergence from main38 is host1713/source1628 in PlaySelect:
 the old process runs a whistle/shared draw that should be suspended, leaving
@@ -239,9 +243,9 @@ The [required commands and generation helper](../tests/movement-callers/README.m
 retain explicit preparation of the earlier recording. The helper compiles
 exact main38 commit `cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02`/tree
 `a1c2e38a83e34933b0da4b0cd002ae14255d9a3d` from selected Git archive bytes and
-the immutable current source/harness separately. The **same old input** must
+the immutable main39 source/harness separately. The **same old input** must
 pass12000/11400/26 R_SKIP on main38 and be rejected specifically as stale-side
-input on current code, not via a generic exception. These are historical-only
+input on main39 code, not via a generic exception. These are historical-only
 positive/current-stale classifications, not a new current-positive result.
 Required full M1 consumes a distinct explicit source-current cache path and
 retains every threshold, compiled control and final baseline. Real audio and
@@ -250,12 +254,79 @@ preparations, historical checks and full gate against removal/no-ops/unsupported
 modes. All other workflow bytes normalize back to the existing inherited
 workflow hash; exact40-minute/minimum30 budget and campaigns are unchanged.
 
-This is ordinary versioning for a source-proven intentional change, **not**
-a claim that a new explicit user approval was captured or permission to weaken
-tests. Production/controller/browser bytes are unchanged by this delta; there
-is no new browser run or screenshot qualification. Exact-head hosted CI and the
-parent's single focused Quality gate remain pending. All16, native, Unity,
+This historical wiring is ordinary versioning for a source-proven intentional
+change, **not** permission to weaken tests. Its recorded main39 hosted positives
+remain historical; they do not approve the later timer generation.
+Production/controller/browser bytes were unchanged by that wiring; it did not
+add a browser run or screenshot qualification. Current timer review and hosted
+requirements are described below. All16, native, Unity,
 full-game, audio/DSP, hardware and performance remain OPEN.
+
+## Source-timer recording generation — October 20, 2026
+
+Quality's bounded countdown behavior review approved the frozen timer code but
+rejected publication because required current-positive M1/generation tooling
+was not qualified. The independent tooling revision changes no approved
+Gameplay/Contracts/Runtime/Presentation source, controller, timer oracle/test,
+browser asset or old recording byte.
+
+The first actual gameplay divergence is source1404/host1477: original
+`playsel.c:1239` sleep1 precedes the CPU PAT decision at1248. The same
+`GoForTwo` draw/order2448/raw3/value3 now occurs on actual `game_proc` wake1405
+instead of the Continue/menu-entry wake1404. The changed restart/animation/RNG
+timeline makes main39 input `33a1686f...` stale at host2835/source2694:
+station0 submits Offense `play_hail_mary` with Away offense. Its exact side
+validator failure, exit2,2836 completed hosts/raw5792 and zero R_SKIP remain a
+required rejection, not a generic crash or evidence of bad source timing.
+
+One new normal12000-host/11400-source authoring window used the same
+byte-identical `e123e5db...` C# controller and approved policy, seed1,
+configuration/camera/clocks/public input interface and unfiltered global vector.
+No alternate seed/window, private-state injection, input reinterpretation,
+command filtering or old-frame relabelling was used. The exporter authenticates
+the78-source manifest
+`edba06404a8ee526d42c0877a6d8043f377dace84c9f76ed57c988a9dc20fa2b`
+and unchanged twelve-file harness. Only station constructor `IsSpecified=true`
+is removed before the existing strict closed public export.
+
+The separately named
+`portable-cabinet-wide-pass-clearance-selection-countdown-12000` contains
+8,534,544 public JSONL bytes/SHA-256
+`35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331`.
+Its65,991-byte deterministic gzip is
+`c3b2c6afdcb3255e856e496f4b19891bb0d17d174a4f4023ad49ce6e763e5f53`;
+the1,174-byte minimal public recipe is
+`a1b817e6842ef49be096fb2e34c2977203c6c8280413479021c5ac5acaf7918b`.
+No source/art/geometry/poses, numeric oracle goldens or private evidence is
+published. Every earlier recording/gzip/recipe remains byte-identical.
+
+Fresh unchanged full current M1 passes17 clean builds, three positive
+12000/11400 runs, all3 cache and8 caller compiled named causal controls,
+controlled baseline/final and actual original-C post-VM664 inputs/5312
+assertions. Each positive has23,968 raw draws and42 R_SKIP frames, with
+actor12/instance310 at source9980 ordinal0 and source10021 ordinal41 containing
+two distinct real fifteen-joint local poses. Passive-observer/final state,
+RNG and poses match the uninstrumented bytes. These are actual new counts,
+not a claim that old main39 raw22504/R_SKIP164 was retained.
+
+Required generation tooling independently pins main38 commit/tree and76-source
+payload, main39 commit `e539258b6b6160f0dcdc072a05c4887e6946423e`/tree
+`12705a5ef6d0b93e96324381a8d1f474c9944d7a` and77-source payload, and the
+actual current78-source payload. Four fresh named probes preserve main38+
+`830e7bad...` positive, main39+`830e7bad...` stale5553, main39+`33a1686f...`
+positive and current+`33a1686f...` stale2694. Wrong source/ref/count/phase/
+process/command, missing fault artifacts, generic crashes and suppressed exits
+cannot satisfy those stale checks. Neither historical positive substitutes
+for the required full **current** positive.
+
+The [commands and current-generation boundary](../tests/movement-callers/README.md#current-source-timer-generation--october-20-2026)
+retain every inherited campaign/source pin/control, exact40-minute/minimum30
+budget and bounded two-worker isolation. Only the declared generation delta
+and four timer lines normalize away to exact main39 workflow bytes. Local full
+positive/timing evidence is not hosted CI acceptance; focused Quality rereview
+and coordinator-run actual required Game/source-player CI remain outstanding.
+All sixteen full/native rows, Unity/Editor, target PRNG/scheduler/ABI, PCM/DSP,
+whole-game and performance acceptance remain **OPEN**.
 
 ## Combined opt-in fire and portable-authored kick runtime — October 18, 2026
 
@@ -1035,7 +1106,10 @@ oracle coverage are recorded above; neither evidence set closes a full matrix ro
 - **Selection clock is not the snap clock.**
   [`playsel.c` L1045–1053](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/playsel.c#L1045-L1053)
   starts a different countdown with initial values nine/five by quarter.
-  That helper's full timing was not traced; the slice has no selection timeout.
+  The bounded source profile now executes the authenticated helper continuation:
+  each nonzero number sleeps57 admitted source wakes, zero sleeps82, and the
+  original instruction predicate can hold a displayed number. This is not a
+  rendered-frame or wall-clock timer; see the selection-countdown boundary below.
 - **TD is not universally seven points.** Source enters an extra-point state
   ([`nfl.c` L1769–1776](https://github.com/historicalsource/nflblitz2000/blob/89f840d58d152a2a9f230cb8d0cdffbd554c8ded/nfl.c#L1769-L1776)).
   Free-point selection and contextual misses appear in
@@ -1109,7 +1183,7 @@ does not close a row.
 | B1 throw/receiver/catch/control — L/D/V, V/P | `player.c:_mode_qb/pick_receiver/qb_release_ball/set_ball_vels/standard_catch/wpn_change_player/db_change_player`; `plyrseq.c` throw callbacks; `include/GAME.H:CONTROL_TIME` | Intent vs actual release tick; normal/turbo throws, receiver selection and exact human-control versus possession-credit/TD ordering (**CONTROL_TIME=18** ticks; not an assumed controller-transfer delay). Active catch proximity is **<14 source units** to pelvis or **<5** to a wrist, not the nearby commented 12. Reject self-catch at flight time **<=10**, other offensive receiver **<=15**, fumble/bobble **<=30**; test each boundary and actual catch/deflect/interception outcome. |
 | B2 loose ball/possession — L/D/V, V/P | `player.c:ball_proc/fumble_ball/lateral_ball/standard_catch`; `include/ani3d.h:GRAVITY`; `detect.c:fumble_or_bobble`; `result.c:_norm_oobball/_norm_car_oez` | Pass, bobble, fumble, lateral, interception, recovery by either team, return, out-of-bounds and end-zone exceptions. Gravity is **−0.08 source units/tick²**, with the source half-step position update. Recovery in own end zone without leaving gives touchback only under the source possession/recovery flags; leaving then returning can give safety. Forward fumble OOB cannot improve the spot past the fumble point. Preserve source RNG consumption/probability tables. |
 | R1 downs/spotting — L, V/P; partial | `nfl.c` L1422–1443, L1626–1730; `result.c:result_functions/_norm_*` | Four downs, **30** yards, goal-to-go, incompletion/turnover both directions. Verify the actual source-space rounding expression (integer cast **before** `*10/78`, integer division) and `1..99` clamp, including negative and near-zero positions. That helper now has original-C comparisons; full caller/down/result-switch parity remains pending. Legacy yard-space ceil/floor is not exact. |
-| T1 clocks/snap — L, V/P | `main.c:graphics_init/get_tsec`; `nfl.c:game_clock_proc/time_table` L2868–2993, fractional discard L1387–1388; `ADJUST.C` L21; `player.c:_mode_qbps`; `playsel.c:timedown_play_select` caller L1045–1053 | Reference gameplay profile **57 ticks/s**; max auto-hike **5*tsec = 285**. Packed start **0x00020000**, first active clock iteration **0x00013b18**. Rates **[30,25,20,18,16]**, default index **2**, bad adjustment fallback **3**. At packed `0x00001f00`, quarter index 1/3 yields `0x00001e22`; quarter index 0/default yields `0x00001e14`; play-time increment reaching 18 uses low byte `0x30` unless late-half branch wins. Stop clock, discard low byte at play end, separate selection timer **9** first quarter / **5** later; trace its helper, not seconds guessed from the labels. |
+| T1 clocks/snap — L, V/P; selection continuation bounded portable | `main.c:graphics_init/get_tsec`; `nfl.c:game_clock_proc/time_table` L2868–2993, fractional discard L1387–1388; `ADJUST.C` L21; `player.c:_mode_qbps`; `playsel.c` caller L1045–1053; `lib/select/select.c:timedown_play_select` L6524–6567 | Reference gameplay profile **57 ticks/s**; max auto-hike **5*tsec = 285**. Packed start **0x00020000**, first active clock iteration **0x00013b18**. Rates **[30,25,20,18,16]**, default index **2**, bad adjustment fallback **3**. At packed `0x00001f00`, quarter index 1/3 yields `0x00001e22`; quarter index 0/default yields `0x00001e14`; play-time increment reaching18 uses low byte `0x30` unless late-half branch wins. Stop clock and discard low byte at play end. Separate selection timer **9** first quarter / **5** later now advances and expires on the actual portable process host, including zero's **tsec+25** grace and actual cabinet current-highlight forcing. Native/global scheduler and full T1 acceptance remain open. |
 | T2 periods/halftime/overtime — L/V, V/P | `nfl.c:eoq_handling/start_new_quarter/game_over`, L1982–2101, L2448–2463; `include/GAME.H` L218–238 | Finish the live play and any required conversion after clock expiry. At halftime the other initial-possession team receives a kickoff. Tied regulation enters OT; maximum **three** overtimes, tied third OT may end the game. Test conversion skip only under L875–883's time/quarter/lead conditions, tied/untied final and OT kickoff alternation; do not import conventional NFL sudden-death rules. |
 | S1 scoring/PAT/2pt — L/D/V, V/P; TD/safety partial | `nfl.c` L1732–1818, L875–903; `playsel.c:play_select` L1241–1255, L1342–1368, L1489–1502; `result.c:_pat_*` | TD **6**, safety **2**, conversion **2**, FG **3**, PAT safety **1** to opponent. Free PAT adds **1** unless source miss branch: human lead >14, quarter index >2, draw <2/100; CPU lead >8, index >1, draw <3/100. Include failed conversion, defensive possession and period-ending exceptions, not automatic seven. |
 | S2 kick/punt/restarts — L/D/V, V/P | `nfl.c` kickoff branch L905–1173, result branches L1811–1891; `player.c:punt_ball/kick_ball/set_punt_ball_vels/set_field_goal_ball_vels/ball_proc`; `result.c:_norm_deadball/_norm_oobball/_kick_*` | Opening/post-score/halftime/OT kickoffs, quick kick, onside, punt/fake, FG/fake/block/miss/return, touchback and safety restart. Quick-kick setup **40**, touchback **20**, untouched kickoff OOB receiving LOS **40**. Verify actual dispatch: empty `_fg_*`/`_punt_*` result handlers are not invented kick logic; normal-play ball type classifies those outcomes. No universal own-20 restart. |
@@ -1391,6 +1465,69 @@ independent rereview remains required before publication.
 The original C service host uses declared portable slots/`ucontext` and
 logical preloaded resource ownership, not native MIPS/global scheduler proof.
 Native/game/audio/performance acceptance and all sixteen rows remain **OPEN**.
+
+### Play-selection countdown — bounded source-wake continuation
+
+The earlier static9/5 display was a real missing continuation, not an expired
+auto-hike timer. A current-Core regression reaches play selection through an
+ordinary kickoff result and public cabinet Continue, then proves the number
+must advance. No phase/counter/tick/RNG or camera/cache injection establishes
+that regression.
+
+The actual shared process host now owns `TIMER_PID`601 and its `MESSAGE_PID`
+text-flasher child. `lib/select/select.c:6524-6567` displays its initial argument
+on its first admitted wake, submits the exact `cursors` / `CLOCK_LOW_SND`36 /
+`VOLUME4`235 / pan127 / `PRIORITY_LVL3`5 operands, then waits `tsec` per nonzero
+number and `tsec+25` at zero. There is **no initial two-second sleep**.
+`Game.c:684-761` supplies the child's sleep7 / white / sleep7 / original-red
+sequence; the HUD consumes its immutable state as one global countdown string
+using the existing `bast18` bitmap font, not one timer per human panel.
+Source masks, birth, sleep and once-per-dispatch rules still apply.
+The57Hz profile supplies `tsec`; `Game.c`'s initial100 is not substituted for
+the runtime value derived by `mthread.c`.
+
+`show_plysel_idiot_box >= 9` remains an input predicate, sampled before each
+number's duration sleep. The portable menu has **no native tutorial UI or
+tutorial producer**; its unbound input is0. Tests exercise8/9/10, later-number
+and zero holds without claiming tutorial execution. No tutorial/random-menu
+feature, custom-play decompression or invented custom RNG policy is added.
+If an unavailable choice dependency is reached, ordinary explicit failure
+propagates rather than selecting a configured, CPU or random human play.
+
+At expiry, string deletion and flasher teardown precede force1. The next
+admitted actual menu consumer uses its **current page/slot/play and offensive
+flip**, not a fake B edge or a replayed transient. Already chosen sides are
+preserved by both selector and Core. The caller allows the forced controllers
+to finish before CPU side0/side1 completion and gameplay/camera resumption.
+The source no-human bypass instead chooses offense then defense immediately,
+without creating a timer. CPU free-PAT decisions follow controller
+initialization; free-PAT, early manual completion, new menu and actual restart
+paths tear down timer/flasher state. Existing ordered cabinet observation and
+the admitted sleep20 contract are unchanged.
+
+`tests/selection-countdown` executes unchanged authenticated original helper,
+flasher, suspend/resume and selected caller bodies at test time: **17 traces /
+10,417 dispatches**, plus **11 original caller/wait/choice/PAT/custom/no-human
+checks**. The real Core/cabinet/bridge/HUD campaign includes FX enabled/disabled,
+hold, selected-side protection, current-highlight forcing, zero/grace,
+CPU order, early exit, active-menu restart and output/dependency failures.
+**21 compiled causal controls** must compile cleanly and fail their intended
+behavioral assertion. Original C, generated numeric comparisons, prepared
+assets, browser bundles and private evidence remain out of Git.
+
+CI adds one required stage after the existing authenticated source/HUD/FX/
+camera preparation. The explicit source-timer recording delta additionally
+selects the new current input and both historical/current generation boundaries;
+all inherited commands/controls/source pins and the exact40-minute limit remain
+required. Reversing only that declared generation delta plus the four timer
+stage lines restores the exact main39 workflow bytes.
+Local timings are incremental measurements, **not full hosted-CI acceptance**.
+The browser exercise is the real portable C# WASM/WebGL World presentation
+with public keyboard input, not a native Unity player or Editor run.
+Native font raster/placement, original global scheduling/ABI, tutorial,
+custom/native dependencies, audible PCM/DSP and performance acceptance remain
+unqualified. This closes the bounded portable selection-countdown gap only;
+**all sixteen full/native acceptance rows remain OPEN**.
 
 ### Available but not fully integrated
 

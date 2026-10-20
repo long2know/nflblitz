@@ -161,10 +161,11 @@ are unchanged. The eight declared M1 caller controls remain independently execut
 
 ## Tracked exact public replay input
 
-### Explicit named Portable recording
+### Published main38 Portable recording
 
-The required workflow now selects
+The main38 workflow selected
 `portable-cabinet-wide-pass-clearance-12000`, not the old canonical recording.
+It now has an explicit historical role, not the current-positive role.
 Its unchanged66,078-byte gzip contains only12,000 contiguous public host/
 command rows, including already-supported public stations. It expands to the
 exact8,534,249-byte JSONL qualified on frozen published `a4c0798` and the
@@ -761,17 +762,24 @@ python3 -B tests/movement-callers/prepare_public_replay.py prepare \
   --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
 python3 -B tests/movement-callers/check_replay_generations.py \
   --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 \
+  --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e \
   --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
   --sound-functions "$UNCHANGED_OLD6_SAFN" \
   --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
   --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl \
+  --possession-replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl \
   --output .squad/.scratch/public-replay-generation-checks
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-selection-countdown-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl
 python3 -B tests/movement-callers/run.py \
   --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
   --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
   --sound-functions "$UNCHANGED_OLD6_SAFN" \
   --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
-  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl \
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl \
   --output .squad/.scratch/m1-successor-full-qualification \
   --source-compatibility portable
 ```
@@ -795,13 +803,14 @@ not counted as three additional fresh rejections.
 
 ## Immutable public recordings and source-correct possession suspension
 
-These are three separate input generations, not renamed or overwritten fixtures:
+These are four separate input generations, not renamed or overwritten fixtures:
 
 | Recording | Public JSONL identity | Required role |
 | --- | --- | --- |
 | `canonical-public-12000` | `a33b1765...` | Preserved historical, unqualified R_SKIP-negative input; still the preparer's default. |
-| `portable-cabinet-wide-pass-clearance-12000` | `830e7bad...` | Historical main38 positive and specifically stale on current source, checked explicitly in required CI. |
-| `portable-cabinet-wide-pass-clearance-possession-12000` | `33a1686f...` | Separately named source-current recording consumed by the unchanged full Portable M1 gate. |
+| `portable-cabinet-wide-pass-clearance-12000` | `830e7bad...` | Historical main38 positive and specifically stale at source5553 on pinned main39. |
+| `portable-cabinet-wide-pass-clearance-possession-12000` | `33a1686f...` | Pinned main39 positive; specifically stale at source2694 on current timer source. |
+| `portable-cabinet-wide-pass-clearance-selection-countdown-12000` | `35366e32...` | Current source-timer input to the unchanged full Portable M1 gate. |
 
 Authenticated `player.c:5948` creates the whistle with **PID0**;
 `playsel.c:854` suspends id0/mask`0x8000`. With that source-correct process
@@ -836,28 +845,92 @@ newly captured explicit user approval or a waiver of any test.
 unchanged twelve-file project/harness closure at exact main38 commit
 `cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02`, tree
 `a1c2e38a83e34933b0da4b0cd002ae14255d9a3d`. A missing commit is fetched by that
-exact id, never a branch tip; no checkout or live source edit occurs. Independent
-bounded subprocesses compile that archive and the pinned current snapshot with
-disjoint outputs. The same old input must complete12000 hosts/11400 source
-ticks/26 R_SKIP frames on main38 and fail specifically the submitting-side
-validator at host5845/source5553 on current source. Wrong source/payload/hash,
-zero/wrong counts, generic faults and success-shaped stale acceptance fail.
-The classifications are **historical-positive-only** and **current-stale**,
-never current-positive or full/native qualification.
+exact id, never a branch tip; no checkout or live source edit occurs. It also
+authenticates exact main39 commit `e539258b6b6160f0dcdc072a05c4887e6946423e`,
+tree `12705a5ef6d0b93e96324381a8d1f474c9944d7a`. Its76/77-source manifest pins
+remain separate from the current78-source pin. Two workers compile fresh,
+disjoint source/build trees; the two main39 replays reuse only that immutable
+main39 executable and have separate replay outputs.
 
-The separate sealed source-current full qualification already passed the
+Four mandatory, explicitly named probes retain main38+`830e7bad...` positive,
+main39+`830e7bad...` stale5553, main39+`33a1686f...` positive, and actual
+current+`33a1686f...` stale2694. Stale acceptance requires exit2, the exact
+submitting-side fault/command, host/source/raw counts, PlaySelect phase,
+possession and game-process context, plus its matching first-fault artifact.
+Wrong identities/counts, missing artifacts, generic crashes and success-shaped
+stale results reject. Neither historical positive is current full qualification.
+
+The separate sealed **main39-only** source-current full qualification passed the
 unchanged gate: three positive12000/11400 runs, raw cursor22504,164 R_SKIP
 frames, actor12/instance201 at source6738 ordinal0→source6824 ordinal16,
 byte-identical uninstrumented/observer/final state/RNG/pose output, all3
 canonical-cache and8 caller compiled causal controls, and664 original-C rows/
-5312 exact comparisons. CI wiring reuses those identical public bytes; it is
-not a newly executed full requalification. Required CI still executes the
-complete current gate, both preparations and the historical checks with the
-exact40-minute job budget (minimum30). Audio and independent possession/
+5312 exact comparisons. The main39 CI wiring reused those identical public
+bytes; that wiring was not a newly executed full requalification. At main39,
+required CI selected that complete gate, both preparations and the historical
+checks with the exact40-minute job budget (minimum30). Audio and independent possession/
 normal-camera workflow guards reject removal, no-ops, unsupported shortcuts,
 skips or failure suppression while retaining all inherited campaigns.
 
-Exact-head remote CI and the parent's focused Quality gate remain pending.
+That earlier qualification is not relabelled as timer-generation acceptance.
 All16 rows, native/Unity/full-game/audio/DSP/hardware/performance and a new
 real-browser qualification remain OPEN; this test/fixture/CI delta changes no
 production or browser bytes.
+
+## Current source-timer generation — October 20, 2026
+
+The source-correct `playsel.c:1239` sleep1 precedes CPU `go_for_two:1248`.
+The same CPU-PAT draw moves from menu-entry source1404 to actual `game_proc`
+wake1405. Its later restart/animation/RNG trajectory makes the old main39
+recording stale: at host2835/source2694 station0 submits Offense
+`play_hail_mary` while Away has possession. The validator correctly exits2;
+that failed evidence remains preserved. Restoring incorrect wake timing,
+reinterpreting sides or filtering old commands is not a repair.
+
+The new named recording was authored in one normal12000-host/11400-source
+window with the byte-identical controller, policy/version, seed1,
+configuration/camera/clocks and unfiltered global raw vector above. The
+create-new marker enforces one initial window. There is no hidden warmup,
+state injection, seed search, command dropping or old-frame relabelling.
+The strict exporter removes **only** constructor-derived station
+`IsSpecified=true`, then applies the existing public whitelist/canonical
+encoding. It authenticates the exact78-source/twelve-harness authority,
+actual retained policy/input bytes, first-window receipt, actual two-pose
+witness and retained main39 exporter source. It executes no gameplay:
+
+```sh
+python3 -B tests/movement-callers/export_portable_public.py \
+  --case portable-cabinet-wide-pass-clearance-selection-countdown-12000 \
+  --capture "$SAVED_FIRST_WINDOW_COMMANDS" --receipt "$SAVED_FIRST_WINDOW_RECEIPT" \
+  --poses "$SAVED_REAL_POSES" --policy "$SAVED_FIRST_WINDOW_POLICY" \
+  --producer-source "$EXACT_MAIN39_EXPORTER_SOURCE" --output "$NEW_IGNORED_EXPORT"
+```
+
+Only the65,991-byte gzip and1,174-byte minimal public recipe are publishable:
+
+| Timer-generation identity | SHA-256 |
+| --- | --- |
+| 8,534,544-byte public JSONL | `35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331` |
+| Deterministic public gzip | `c3b2c6afdcb3255e856e496f4b19891bb0d17d174a4f4023ad49ce6e763e5f53` |
+| Minimal public recipe | `a1b817e6842ef49be096fb2e34c2977203c6c8280413479021c5ac5acaf7918b` |
+| Exact78-source manifest | `edba06404a8ee526d42c0877a6d8043f377dace84c9f76ed57c988a9dc20fa2b` |
+
+Fresh unchanged full Portable M1 qualification passed all17 zero-diagnostic
+builds, all3 cache and8 caller compiled named causal failures, controlled
+baseline/final, and664 actual post-VM inputs/5312 original-C comparisons.
+All three positive12000/11400 runs consume23,968 raw draws and retain42
+R_SKIP frames. Actor12/instance310 spans source9980 ordinal0 through
+source10021 ordinal41 with different actual fifteen-joint local poses.
+The uninstrumented/passive-observer/final state, raw and pose streams are
+byte-identical. The first authoring witness was source9980→9981, ordinals0→1;
+the replay's retained last qualifying pair is not falsely called that first pair.
+
+Required CI prepares all three named Portable recordings, runs all four
+generation probes and the full current positive, plus the exporter/preparer/
+classifier mutation units. Reversing only the explicit recording-generation
+delta and four timer-stage lines restores exact main39 workflow bytes.
+Every inherited campaign/control/source pin, two-worker bound and exact40-minute
+budget/minimum30 guard remains required. Local timing projections and these
+component receipts are **not hosted acceptance**: focused Quality rereview and
+the coordinator's actual complete required CI remain pending. No native, Unity,
+whole-game, target-PRNG, DSP, browser-rebuild or sixteen-row completion is claimed.

@@ -79,6 +79,7 @@ namespace Blitz.Presentation
         public string ResultGraphic { get; }
         public string StateText { get; }
         public int SelectionCountdown { get; }
+        public SourceSelectionTimerView SelectionTimer { get; }
         public SourceKickMeterMetrics KickMeterMetrics { get; }
         public SourceKickMeterView KickMeter { get; }
         public SourcePossessionMessageView PossessionMessage { get; }
@@ -121,6 +122,7 @@ namespace Blitz.Presentation
             ClockActive = source.ClockActive;
             ClockWarning = (source.PackedGameTime & 0x00ffff00u) <= 0x00001f00u && (quarter == 1 || quarter >= 3);
             SelectionCountdown = Match.SelectionCountdown;
+            SelectionTimer = Match.SelectionTimer;
             ResultGraphic = ResultImage(Match.Result);
             StateText = Describe(Match);
         }

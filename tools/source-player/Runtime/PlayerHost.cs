@@ -108,6 +108,15 @@ public sealed class PlayerHost
 
     private void ObserveSound()
     {
+        foreach (SourceSelectionTimerSound call in Game.TakeSourceSelectionTimerSounds())
+        {
+            SoundSelections++;
+            UnqualifiedSoundCalls++;
+            Enqueue(events, new { kind = "timedown_play_select", sourceTick = call.SourceTick,
+                serial = call.ProcessSerial, number = call.Number, bank = call.Bank,
+                playlist = call.PlaylistId, volume = call.Volume, pan = call.Pan,
+                priority = call.PriorityWord, pcmOrDspPlayback = call.PcmOrDspPlayback }, 64);
+        }
         foreach (SourcePossessionSpeech speech in Game.SourcePossessionSpeechSubmissions)
         {
             SoundSelections++;
@@ -312,6 +321,7 @@ public sealed class PlayerHost
             sourceWakes = SourceWakes, frames = Frames, phase = state.Phase.ToString(),
             matchPhase = match.Phase.ToString(), playKind = match.PlayKind.ToString(),
             playNumber = state.PlayNumber, possession = state.Possession.ToString(),
+            selectedPlays = new { home = match.HomePlay, away = match.AwayPlay, match.OffenseFlipped },
             lastOutcome = state.LastOutcome.ToString(),
             teams = new { home = match.HomeGameplay, away = match.AwayGameplay },
             clock = HudProcess.CommittedHud.Clock, packedClock = ((ISourceMatchState)state).PackedGameTime,
@@ -454,7 +464,9 @@ public sealed class PlayerHost
                 return new { index = i, name = slot.Name, symbol = slot.PlaySymbol };
             }).ToArray()
         };
-        return new { home = Side(TeamId.Home), away = Side(TeamId.Away) };
+        SourceMatchView match = ((ISourceMatchState)state).Match;
+        return new { home = Side(TeamId.Home), away = Side(TeamId.Away),
+            countdown = match.SelectionCountdown, timer = match.SelectionTimer };
     }
 
     private static string PoseDigest(SourceEvaluatedPose pose)

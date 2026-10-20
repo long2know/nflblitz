@@ -526,5 +526,131 @@ class SourceCurrentRecordingTests(unittest.TestCase):
         self.assertEqual(preserved.read_bytes(), b"older proof remains untouched")
 
 
+class SourceTimerRecordingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.case = replay.SOURCE_TIMER_CASE
+        cls.data = replay.load_fixture(replay.SOURCE_TIMER_FIXTURE, cls.case)
+        cls.rows = replay.audit_public(cls.data, cls.case)
+
+    def setUp(self):
+        self.work = ARTIFACT_ROOT / ("source-timer-input-unit-" + uuid.uuid4().hex)
+        self.work.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.work)
+
+    def command(self):
+        return [sys.executable, "-B", str(Path(replay.__file__)), "prepare", "--case", self.case,
+                "--fixture", str(replay.SOURCE_TIMER_FIXTURE), "--recipe", str(replay.SOURCE_TIMER_RECIPE),
+                "--output", str(self.work / "commands.jsonl")]
+
+    def test_explicit_timer_identity_is_additive_and_binds_the_exact78_source_payload(self):
+        self.assertEqual((len(self.data), replay.sha(self.data)), (
+            8534544, "35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331"))
+        self.assertEqual((replay.SOURCE_TIMER_FIXTURE.stat().st_size,
+                          replay.sha(replay.SOURCE_TIMER_FIXTURE.read_bytes())), (
+            65991, "c3b2c6afdcb3255e856e496f4b19891bb0d17d174a4f4023ad49ce6e763e5f53"))
+        self.assertEqual(replay.decode(replay.SOURCE_TIMER_RECIPE.read_bytes()), replay.SOURCE_TIMER_EXPECTED_RECIPE)
+        self.assertEqual(replay.SOURCE_TIMER_RECIPE.stat().st_size, 1174)
+        self.assertEqual(replay.sha(replay.SOURCE_TIMER_RECIPE.read_bytes()), replay.SOURCE_TIMER_RECIPE_SHA256)
+        self.assertEqual(replay.SOURCE_TIMER_EXPECTED_RECIPE["source_manifest_sha256"],
+                         "edba06404a8ee526d42c0877a6d8043f377dace84c9f76ed57c988a9dc20fa2b")
+        for case in (replay.POSITIVE_CASE, replay.SOURCE_CURRENT_CASE):
+            identity = replay.RECORDINGS[case]
+            self.assertEqual(replay.sha(replay.load_fixture(identity["fixture"], case)), identity["public_sha256"])
+            self.assertNotEqual(identity["public_sha256"], replay.sha(self.data))
+
+    def test_actual_required_prepare_emits_all_exact_public_commands_without_execution(self):
+        result = subprocess.run(self.command(), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = replay.decode(result.stdout)
+        self.assertEqual((report["case"], report["hosts"], report["public_sha256"]),
+                         (self.case, 12000, replay.sha(self.data)))
+        self.assertFalse(report["simulation_executed"])
+        self.assertFalse(report["historical_unqualified"])
+        self.assertEqual(report["recipe_sha256"], replay.SOURCE_TIMER_RECIPE_SHA256)
+        self.assertEqual((self.work / "commands.jsonl").read_bytes(), self.data)
+
+    def test_real_timer_rows_reject_every_private_boundary_and_removed_or_relabelled_hosts(self):
+        for index in range(9):
+            row = copy.deepcopy(self.rows[0])
+            command = row["command"]
+            station = command["StationInputs"]["Stations"][0]
+            objects = (row, command, command["Move"], command["Source"], command["Source"]["Play"],
+                       command["StationInputs"], station, station["Command"], station["Command"]["Play"])
+            objects[index]["privateState"] = {"RNG": [], "poses": []}
+            with self.subTest(boundary=index), self.assertRaisesRegex(ValueError, "privateState"):
+                replay.public_row(row, 0)
+        for rows in (self.rows[:-1], self.rows + [self.rows[-1]]):
+            with self.assertRaisesRegex(ValueError, "exact12000"):
+                replay.audit_public(replay.encode(rows), self.case)
+        row = copy.deepcopy(self.rows[0])
+        row["host"] = 1
+        with self.assertRaisesRegex(ValueError, "contiguous host"):
+            replay.public_row(row, 0)
+        changed = self.data.replace(b'"X":0', b'"X":1', 1)
+        with self.assertRaisesRegex(ValueError, "command identity SHA256"):
+            replay.audit_public(changed, self.case)
+
+    def test_timer_recipe_rejects_source_policy_seed_privacy_and_old_generation_substitution(self):
+        for field, value in (
+            ("recording_generation", "possession-process-suspension/v2"),
+            ("source_manifest_sha256", replay.SOURCE_CURRENT_EXPECTED_RECIPE["source_manifest_sha256"]),
+            ("controller_sha256", "0" * 64), ("policy", "replacement/v1"), ("seed", 2),
+            ("commands_only", False), ("native_equivalent", True), ("privateState", {"RNG": []}),
+        ):
+            recipe = copy.deepcopy(replay.SOURCE_TIMER_EXPECTED_RECIPE)
+            recipe[field] = value
+            path = self.work / "changed.recipe.json"
+            path.write_text(json.dumps(recipe, indent=2) + "\n")
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, field):
+                replay.load_recipe(path, self.case)
+        with self.assertRaises(ValueError):
+            replay.load_fixture(replay.SOURCE_CURRENT_FIXTURE, self.case)
+        with self.assertRaises(ValueError):
+            replay.load_recipe(replay.SOURCE_CURRENT_RECIPE, self.case)
+        packed = bytearray(replay.SOURCE_TIMER_FIXTURE.read_bytes())
+        packed[4] ^= 1
+        path = self.work / "changed.gz"
+        path.write_bytes(packed)
+        with self.assertRaisesRegex(ValueError, "container SHA256"):
+            replay.load_fixture(path, self.case)
+
+    def test_actual_timer_cli_rejects_every_duplicate_operand_and_unknown_generation_before_write(self):
+        for flag, value in (("--case", self.case), ("--case", "unknown"),
+                            ("--fixture", str(replay.SOURCE_TIMER_FIXTURE)),
+                            ("--recipe", str(replay.SOURCE_TIMER_RECIPE)),
+                            ("--output", str(self.work / "other.jsonl"))):
+            result = subprocess.run(self.command() + [flag, value], capture_output=True, text=True)
+            with self.subTest(flag=flag, value=value):
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("invalid choice" if value == "unknown" else "duplicate " + flag, result.stderr)
+                self.assertFalse((self.work / "commands.jsonl").exists())
+                self.assertFalse((self.work / "other.jsonl").exists())
+        implicit = self.command()
+        del implicit[4:6]
+        result = subprocess.run(implicit, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.work / "commands.jsonl").exists())
+
+    def test_timer_output_guards_reject_symlinks_traversal_and_overwrite(self):
+        link = self.work / "fixture.gz"
+        link.symlink_to(replay.SOURCE_TIMER_FIXTURE)
+        with self.assertRaisesRegex(ValueError, "fixture symlinks"):
+            replay.load_fixture(link, self.case)
+        link = self.work / "recipe.json"
+        link.symlink_to(replay.SOURCE_TIMER_RECIPE)
+        with self.assertRaisesRegex(ValueError, "recipe symlinks"):
+            replay.load_recipe(link, self.case)
+        with self.assertRaisesRegex(ValueError, "own ignored output"):
+            replay.output_path(self.work / "../escape.jsonl")
+        preserved = self.work / "preserved.jsonl"
+        preserved.write_bytes(b"immutable earlier evidence")
+        with self.assertRaisesRegex(ValueError, "never overwrite"):
+            replay.write_new_or_verify(preserved, self.data)
+        self.assertEqual(preserved.read_bytes(), b"immutable earlier evidence")
+
+
 if __name__ == "__main__":
     unittest.main()

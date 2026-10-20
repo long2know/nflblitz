@@ -4,6 +4,7 @@ import argparse
 from contextlib import redirect_stderr
 import hashlib
 import io
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -70,12 +71,19 @@ CURRENT_M1_COMMAND = OLD_M1_COMMAND.replace(OLD_PUBLIC_REPLAY, CURRENT_PUBLIC_RE
 CURRENT_M1_STEP = ("      - name: Compare original movement callers and post-animation physics\n"
                    "        # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.\n"
                    "        run: " + CURRENT_M1_COMMAND + "\n")
+TIMER_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+TIMER_M1_COMMAND = CURRENT_M1_COMMAND.replace(CURRENT_PUBLIC_CASE, TIMER_PUBLIC_CASE)
+TIMER_M1_STEP = CURRENT_M1_STEP.replace(CURRENT_M1_COMMAND, TIMER_M1_COMMAND)
+REVISION_GENERATION_COMMAND = (GENERATION_COMMAND +
+    " --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e "
+    f"--possession-replay-commands {CURRENT_PUBLIC_REPLAY}")
+REVISION_GENERATION_STEP = GENERATION_STEP.replace(GENERATION_COMMAND, REVISION_GENERATION_COMMAND)
 GENERATION_MUTATIONS = (
-    (CURRENT_REPLAY_STEP, ""), (GENERATION_STEP, ""), (CURRENT_M1_STEP, ""),
+    (CURRENT_REPLAY_STEP, ""), (REVISION_GENERATION_STEP, ""), (TIMER_M1_STEP, ""),
     (OLD_REPLAY_COMMAND, "true"), (CURRENT_REPLAY_COMMAND, "echo " + CURRENT_REPLAY_COMMAND),
     (GENERATION_COMMAND, "true"), (GENERATION_UNIT_LINE, ""),
-    (CURRENT_M1_COMMAND, CURRENT_M1_COMMAND + " --single-public-attempt"),
-    (CURRENT_M1_COMMAND, CURRENT_M1_COMMAND.replace(CURRENT_PUBLIC_REPLAY, OLD_PUBLIC_REPLAY)),
+    (TIMER_M1_COMMAND, TIMER_M1_COMMAND + " --single-public-attempt"),
+    (TIMER_M1_COMMAND, TIMER_M1_COMMAND.replace(TIMER_PUBLIC_CASE, OLD_PUBLIC_CASE)),
     (GENERATION_COMMAND, GENERATION_COMMAND.replace("cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02", "HEAD")),
     (GENERATION_COMMAND, GENERATION_COMMAND.replace(OLD_PUBLIC_REPLAY, CURRENT_PUBLIC_REPLAY)),
     (GENERATION_COMMAND, GENERATION_COMMAND + " --no-mutations"),
@@ -83,6 +91,11 @@ GENERATION_MUTATIONS = (
 
 
 def validate_workflow(text):
+    spec = importlib.util.spec_from_file_location("selection_ci",
+        ROOT / "tests/selection-countdown/test_ci.py")
+    selection_ci = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(selection_ci)
+    text = selection_ci.validate_workflow(text)
     for block in (FETCH_STEP, COMPARE_STEP):
         if text.count(block) != 1:
             raise AssertionError("Required actual possession CI stage missing/changed; no optional/echo/substitute selection.")

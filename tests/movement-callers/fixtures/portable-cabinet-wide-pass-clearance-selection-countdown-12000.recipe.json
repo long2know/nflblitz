@@ -1,0 +1,31 @@
+{
+  "schema": "source-public-replay-recording/v1",
+  "case": "portable-cabinet-wide-pass-clearance-selection-countdown-12000",
+  "epoch": "OriginalRelease57Hz",
+  "input_profile": "contact272",
+  "c2_profile": "contact281-c2-m1",
+  "source_compatibility": "portable",
+  "seed": 1,
+  "ai_opponents": {
+    "home": 5,
+    "away": 11
+  },
+  "provider_profile": "source-sound-smoke/raw-vector-v1",
+  "hosts": 12000,
+  "commands_only": true,
+  "native_equivalent": false,
+  "jsonl": {
+    "file": "portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl",
+    "bytes": 8534544,
+    "sha256": "35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331"
+  },
+  "gzip": {
+    "file": "portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl.gz",
+    "bytes": 65991,
+    "sha256": "c3b2c6afdcb3255e856e496f4b19891bb0d17d174a4f4023ad49ce6e763e5f53"
+  },
+  "recording_generation": "source-selection-countdown/v3",
+  "policy": "approved-portable-public-policy/v1",
+  "controller_sha256": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+  "source_manifest_sha256": "edba06404a8ee526d42c0877a6d8043f377dace84c9f76ed57c988a9dc20fa2b"
+}

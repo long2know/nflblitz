@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Blitz.Contracts;
 using Blitz.Runtime;
 using UnityEngine;
 
@@ -197,6 +198,43 @@ internal static class LifecycleChecks
         Call(runtime, "OnDestroy");
     }
 
+    private static void ReadySourceTimerSoundForwarding()
+    {
+        BlitzRuntime runtime = Start();
+        EventInfo timerEvent = typeof(BlitzRuntime).GetEvent("SourceSelectionTimerSoundRaised");
+        Require(timerEvent != null, "ready source exposes its timer sound event");
+        int calls = 0;
+        SourceSelectionTimerSound received = default(SourceSelectionTimerSound);
+        Action<SourceSelectionTimerSound> listener = value => { calls++; received = value; };
+        timerEvent.AddEventHandler(runtime, listener);
+        var first = new SourceSelectionTimerSound(57, 96, 8);
+        runtime.SourceSimulation.RaiseSelectionTimerSound(first);
+        Require(calls == 1 && received.Equals(first),
+            "ready source forwards timer sound exactly once with the actual payload");
+        Call(runtime, "RestartMatch");
+        var second = new SourceSelectionTimerSound(1, 32, 9);
+        runtime.SourceSimulation.RaiseSelectionTimerSound(second);
+        Require(calls == 2 && received.Equals(second),
+            "ready source restart retains one timer sound forwarder without replay or duplication");
+        Call(runtime, "OnDestroy");
+    }
+
+    private static void ReadySourceTimerSoundFailure()
+    {
+        BlitzRuntime runtime = Start();
+        EventInfo timerEvent = typeof(BlitzRuntime).GetEvent("SourceSelectionTimerSoundRaised");
+        Require(timerEvent != null, "ready source exposes its timer sound failure boundary");
+        var expected = new InvalidOperationException("managed timer sound listener failure");
+        Action<SourceSelectionTimerSound> listener = value => { throw expected; };
+        timerEvent.AddEventHandler(runtime, listener);
+        Exception observed = null;
+        try { runtime.SourceSimulation.RaiseSelectionTimerSound(new SourceSelectionTimerSound(57, 96, 8)); }
+        catch (InvalidOperationException error) { observed = error; }
+        Require(ReferenceEquals(observed, expected),
+            "ready source timer sound listener failure propagates unchanged");
+        Call(runtime, "OnDestroy");
+    }
+
     private static void LegacyRestart()
     {
         BlitzRuntime runtime = Start(source: false);
@@ -235,7 +273,9 @@ internal static class LifecycleChecks
         Run("ready-source-public-R-neutral-events-cameras", ReadySourceRestart);
         Run("ready-source-runtime-failure-recovery", ReadySourceRuntimeFailure);
         Run("explicit-Legacy-public-R", LegacyRestart);
-        Console.WriteLine("RESULT cases=9 assertions=" + assertions + " failures=" + failures);
+        Run("ready-source-timer-sound-forwarding", ReadySourceTimerSoundForwarding);
+        Run("ready-source-timer-sound-listener-failure", ReadySourceTimerSoundFailure);
+        Console.WriteLine("RESULT cases=11 assertions=" + assertions + " failures=" + failures);
         return failures == 0 ? 0 : 1;
     }
 }

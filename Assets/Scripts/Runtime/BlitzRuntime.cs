@@ -58,6 +58,7 @@ namespace Blitz.Runtime
         public event Action<SourcePresentationCue> SourcePresentationCueRaised;
         public event Action<SourcePresentationCue> SourcePresentationCueObserved;
         public event Action<SourceSoundVmDispatch> SourceSoundVmDispatchRaised;
+        public event Action<SourceSelectionTimerSound> SourceSelectionTimerSoundRaised;
         public event Action<IGameState> BeforeHostStep;
         public event Action<IGameState> AfterHostStep;
 
@@ -129,6 +130,11 @@ namespace Blitz.Runtime
                     soundTransport = new SourceSoundVmTransport();
                     SourceSelection = new SourceCabinetPlaySelection(sourceServices.Hud.Data);
                     simulation.SourceStationInputTransform = SourceSelection.ApplyAtSourceTick;
+                    simulation.SourceSelectionTimerSoundRaised += call =>
+                    {
+                        Action<SourceSelectionTimerSound> handler = SourceSelectionTimerSoundRaised;
+                        if (handler != null) handler(call);
+                    };
                     sourceInput = new SourceCabinetUnityInput(((ISourceMatchState)simulation.State).Match.Configuration,
                         sourceServices.Hud.Data.Input, sourceServices.NativeGamepadsEnabled);
                 }

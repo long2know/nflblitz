@@ -27,6 +27,10 @@ SOURCE_CURRENT_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 SOURCE_CURRENT_FIXTURE = FIXTURE.with_name(SOURCE_CURRENT_CASE + ".jsonl.gz")
 SOURCE_CURRENT_RECIPE = FIXTURE.with_name(SOURCE_CURRENT_CASE + ".recipe.json")
 SOURCE_CURRENT_RECIPE_SHA256 = "21c71120c7dfe9e674f7223eb8618e08816e69379f52a7be186e2b1dd81d74ad"
+SOURCE_TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+SOURCE_TIMER_FIXTURE = FIXTURE.with_name(SOURCE_TIMER_CASE + ".jsonl.gz")
+SOURCE_TIMER_RECIPE = FIXTURE.with_name(SOURCE_TIMER_CASE + ".recipe.json")
+SOURCE_TIMER_RECIPE_SHA256 = "a1b817e6842ef49be096fb2e34c2977203c6c8280413479021c5ac5acaf7918b"
 RECORDINGS = {
     HISTORICAL_CASE: {
         "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
@@ -45,6 +49,13 @@ RECORDINGS = {
         "public_bytes": 8534524,
         "fixture_sha256": "a450facedfbda9300a83f9514815e7450bd8cae42f63c7f53961c74cdde2c668",
         "fixture_bytes": 65968,
+    },
+    SOURCE_TIMER_CASE: {
+        "fixture": SOURCE_TIMER_FIXTURE,
+        "public_sha256": "35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331",
+        "public_bytes": 8534544,
+        "fixture_sha256": "c3b2c6afdcb3255e856e496f4b19891bb0d17d174a4f4023ad49ce6e763e5f53",
+        "fixture_bytes": 65991,
     },
 }
 EXPECTED_RECIPE = {
@@ -72,9 +83,21 @@ SOURCE_CURRENT_EXPECTED_RECIPE = {
              "bytes": RECORDINGS[SOURCE_CURRENT_CASE]["fixture_bytes"],
              "sha256": RECORDINGS[SOURCE_CURRENT_CASE]["fixture_sha256"]},
 }
+SOURCE_TIMER_EXPECTED_RECIPE = {
+    **SOURCE_CURRENT_EXPECTED_RECIPE, "case": SOURCE_TIMER_CASE,
+    "recording_generation": "source-selection-countdown/v3",
+    "source_manifest_sha256": "edba06404a8ee526d42c0877a6d8043f377dace84c9f76ed57c988a9dc20fa2b",
+    "jsonl": {"file": SOURCE_TIMER_CASE + ".jsonl",
+              "bytes": RECORDINGS[SOURCE_TIMER_CASE]["public_bytes"],
+              "sha256": RECORDINGS[SOURCE_TIMER_CASE]["public_sha256"]},
+    "gzip": {"file": SOURCE_TIMER_FIXTURE.name,
+             "bytes": RECORDINGS[SOURCE_TIMER_CASE]["fixture_bytes"],
+             "sha256": RECORDINGS[SOURCE_TIMER_CASE]["fixture_sha256"]},
+}
 RECIPES = {
     POSITIVE_CASE: (POSITIVE_RECIPE, EXPECTED_RECIPE, RECIPE_SHA256),
     SOURCE_CURRENT_CASE: (SOURCE_CURRENT_RECIPE, SOURCE_CURRENT_EXPECTED_RECIPE, SOURCE_CURRENT_RECIPE_SHA256),
+    SOURCE_TIMER_CASE: (SOURCE_TIMER_RECIPE, SOURCE_TIMER_EXPECTED_RECIPE, SOURCE_TIMER_RECIPE_SHA256),
 }
 COMMAND_FIELDS = {"Move", "Turbo", "Action", "Play", "TargetPlayerId", "Source", "StationInputs"}
 SOURCE_FIELDS = {"IsSpecified", "Action", "Play", "TargetPlayerId", "PatChoice",
@@ -285,16 +308,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_subparsers(dest="mode", required=True)
     author = modes.add_parser("export", help="Author-only exact projection; never run the simulation")
-    author.add_argument("--source", type=Path, required=True)
-    author.add_argument("--output", type=Path, default=FIXTURE)
+    author.add_argument("--source", type=Path, required=True, action="append")
+    author.add_argument("--output", type=Path, action="append")
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
         command.add_argument("--case", choices=RECORDINGS, action="append")
-        command.add_argument("--fixture", type=Path)
-        command.add_argument("--recipe", type=Path)
+        command.add_argument("--fixture", type=Path, action="append")
+        command.add_argument("--recipe", type=Path, action="append")
         if mode == "prepare":
-            command.add_argument("--output", type=Path, required=True)
+            command.add_argument("--output", type=Path, required=True, action="append")
     args = parser.parse_args()
+    for name in ("source", "fixture", "recipe", "output"):
+        values = getattr(args, name, None)
+        if values is not None:
+            if len(values) != 1:
+                parser.error("duplicate --" + name)
+            setattr(args, name, values[0])
+    if args.mode == "export" and args.output is None:
+        args.output = FIXTURE
     cases = getattr(args, "case", None) or [HISTORICAL_CASE]
     if len(cases) != 1:
         parser.error("duplicate --case argument")

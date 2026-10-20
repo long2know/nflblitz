@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Required historical-positive/current-stale checks, never current full M1 qualification."""
+"""Four exact source/recording boundaries, never a substitute for current full M1."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 
 import canonical
 import prepare_public_replay as replay
@@ -22,9 +23,13 @@ ROOT = replay.ROOT
 BASELINE_REF = "cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02"
 BASELINE_TREE = "a1c2e38a83e34933b0da4b0cd002ae14255d9a3d"
 BASELINE_SOURCE_SHA256 = "4b09019b9cbd9e79dc8d1c25b2018b0ab141c3beaa693cd54559f01324cba4a6"
-CURRENT_SOURCE_SHA256 = replay.SOURCE_CURRENT_EXPECTED_RECIPE["source_manifest_sha256"]
+PREVIOUS_REF = "e539258b6b6160f0dcdc072a05c4887e6946423e"
+PREVIOUS_TREE = "12705a5ef6d0b93e96324381a8d1f474c9944d7a"
+PREVIOUS_SOURCE_SHA256 = replay.SOURCE_CURRENT_EXPECTED_RECIPE["source_manifest_sha256"]
+CURRENT_SOURCE_SHA256 = replay.SOURCE_TIMER_EXPECTED_RECIPE["source_manifest_sha256"]
 HARNESS_SHA256 = "ea910e3039fc8f39b4958c83a535eb5e81c2f3ec29dbfbf15757ece675206b91"
 OLD_PUBLIC_SHA256 = replay.RECORDINGS[replay.POSITIVE_CASE]["public_sha256"]
+POSSESSION_PUBLIC_SHA256 = replay.RECORDINGS[replay.SOURCE_CURRENT_CASE]["public_sha256"]
 FIXTURE_SHA256 = "bc4e0fefc0f86ced01c733cf208abb8471b77ad35815c4d31c685e0de1538d75"
 SIDE_ERROR = "System.ArgumentException: The selected original playbook does not belong to the submitting source side."
 SOURCE_EXTRAS = (
@@ -45,8 +50,9 @@ def manifest(files):
     return replay.sha(json.dumps(hashes(files), sort_keys=True, separators=(",", ":")).encode())
 
 
-def validate_ref(ref, tree):
-    require(ref == BASELINE_REF and tree == BASELINE_TREE, "exact historical commit/tree required")
+def validate_ref(ref, tree, previous=False):
+    expected = (PREVIOUS_REF, PREVIOUS_TREE) if previous else (BASELINE_REF, BASELINE_TREE)
+    require((ref, tree) == expected, "exact historical commit/tree required")
 
 
 def git(*args):
@@ -88,13 +94,15 @@ def archive_payload(raw, blobs):
     return files
 
 
-def historical_snapshot(ref):
-    require(ref == BASELINE_REF, "exact historical commit/tree required")
+def historical_snapshot(ref, previous=False):
+    expected_ref = PREVIOUS_REF if previous else BASELINE_REF
+    require(ref == expected_ref, "exact historical commit/tree required")
     try:
         git("cat-file", "-e", ref + "^{commit}")
     except subprocess.CalledProcessError:
-        git("fetch", "--no-tags", "--depth=1", "origin", BASELINE_REF)
-    validate_ref(ref, git("rev-parse", ref + "^{tree}").decode().strip())
+        git("fetch", "--no-tags", "--depth=1", "origin", expected_ref)
+    tree = git("rev-parse", ref + "^{tree}").decode().strip()
+    validate_ref(ref, tree, previous)
     selected = ("Assets/Scripts/Contracts", "Assets/Scripts/Gameplay", "Assets/Scripts/AssetImport",
                 *SOURCE_EXTRAS, *canonical.HARNESS)
     blobs = {}
@@ -108,30 +116,33 @@ def historical_snapshot(ref):
         if source or name in SOURCE_EXTRAS or name in canonical.HARNESS:
             require(kind == "blob" and mode in ("100644", "100755"), "historical source must be regular Git blobs")
             blobs[name] = blob
-    require(len(blobs) == 88 and set(canonical.HARNESS).issubset(blobs),
+    count, digest = (77, PREVIOUS_SOURCE_SHA256) if previous else (76, BASELINE_SOURCE_SHA256)
+    require(len(blobs) == count + 12 and set(canonical.HARNESS).issubset(blobs),
             "exact historical source/harness archive selection required")
     raw = git("archive", "--format=tar", ref, "--", *sorted(blobs))
     files = archive_payload(raw, blobs)
-    identity = validate_snapshot(files, 76, BASELINE_SOURCE_SHA256)
-    identity.update(commit=ref, tree=BASELINE_TREE, selected_git_archive_sha256=replay.sha(raw))
+    identity = validate_snapshot(files, count, digest)
+    identity.update(commit=ref, tree=tree, selected_git_archive_sha256=replay.sha(raw))
     return files, identity
 
 
 def current_snapshot():
     files = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     files.update({name: (ROOT / name).read_bytes() for name in canonical.HARNESS})
-    return files, validate_snapshot(files, 77, CURRENT_SOURCE_SHA256)
+    return files, validate_snapshot(files, 78, CURRENT_SOURCE_SHA256)
 
 
-def old_commands(path):
+def old_commands(path, case=replay.POSITIVE_CASE):
+    require(case in (replay.POSITIVE_CASE, replay.SOURCE_CURRENT_CASE), "exact boundary recording generation required")
     path = replay.output_path(path)
     require(path.suffix == ".jsonl" and not path.is_symlink(), "explicit old public JSONL required")
-    require(path.stat().st_size == replay.RECORDINGS[replay.POSITIVE_CASE]["public_bytes"],
+    require(path.stat().st_size == replay.RECORDINGS[case]["public_bytes"],
             "exact old public input byte count required")
-    return replay.audit_public(path.read_bytes(), replay.POSITIVE_CASE)
+    return replay.audit_public(path.read_bytes(), case)
 
 
-def common_result(summary, receipt):
+def common_result(summary, receipt, case=replay.POSITIVE_CASE):
+    require(type(summary) is dict and type(receipt) is dict, "actual summary and replay receipt objects required")
     replay.exact_metadata({key: summary.get(key) for key in (
         "schema", "gameplay_compatibility", "real_input_fixture_sha256",
         "actual_animation_library_manifest", "whole_M1_or_full_gameplay_qualified", "native_or_browser_qualified")}, {
@@ -148,7 +159,7 @@ def common_result(summary, receipt):
             "schema": "source-C2-M1-real-factory-public-replay/v1", "observed": False, "historical": False,
             "gameplayCompatibility": "Portable", "profile": "original-teams-contact281-c2-m1",
             "sourceData": C2_M1_DATA_SHA, "factory": "REAL SourceC2Composition.CreateM1Simulation",
-            "replayFileSha256": OLD_PUBLIC_SHA256,
+            "replayFileSha256": replay.RECORDINGS[case]["public_sha256"],
             "originalPublicVectorRetainedWithoutStateConditionedRegeneration": True,
             "sourceAudioDSPOrTargetRngOrFullGameAccepted": False,
         }, "receipt")
@@ -168,41 +179,81 @@ def historical_positive(code, summary, receipt):
     return "positive-historical-main38-only"
 
 
-def current_stale(code, summary, receipt, fault, row):
-    common_result(summary, receipt)
+def main39_positive(code, summary, receipt):
+    common_result(summary, receipt, replay.SOURCE_CURRENT_CASE)
+    require(summary.get("mode") == "m1-complete", "main39 positive must execute m1-complete")
+    require(canonical.require_m1_replay(code, summary, receipt, "portable") == "positive",
+            "main39 full public positive required")
+    replay.exact_metadata({key: receipt.get(key) for key in (
+        "completedHosts", "SourceTick", "rawCursor", "rSkipFrames", "positive", "failure")}, {
+            "completedHosts": 12000, "SourceTick": 11400, "rawCursor": 22504, "rSkipFrames": 164,
+            "positive": {"actor": 12, "InstanceId": 201, "firstTick": 6738, "secondTick": 6824,
+                         "firstOrdinal": 0, "secondOrdinal": 16}, "failure": None,
+        }, "main39-positive")
+    return "positive-pinned-main39-possession-only"
+
+
+def stale_result(code, summary, receipt, fault, row, *, current):
+    case = replay.SOURCE_CURRENT_CASE if current else replay.POSITIVE_CASE
+    host, source_tick, raw = (2835, 2694, 5792) if current else (5845, 5553, 10142)
+    common_result(summary, receipt, case)
     require(code == 2 and summary.get("status") == "error" and
             summary.get("public_R_SKIP_gate_qualified") is not True and
             summary.get("complete_publication_qualification") is not True,
             "current stale recording must fail, never success-shaped acceptance")
-    require(summary.get("error", "").splitlines()[0:1] == [SIDE_ERROR],
+    require(type(summary.get("error")) is str and summary["error"].splitlines()[0:1] == [SIDE_ERROR],
             "current stale recording must reject specifically playbook-side validation")
     require("mode" not in summary and "Program.M1CompleteReplay(" in summary["error"],
             "actual replay error summary required, not a successful-mode or generic catch")
     replay.exact_metadata({key: receipt.get(key) for key in (
         "completedHosts", "SourceTick", "rawCursor", "rSkipFrames", "positive")}, {
-            "completedHosts": 5846, "SourceTick": 5553, "rawCursor": 10142, "rSkipFrames": 0, "positive": None,
+            "completedHosts": host + 1, "SourceTick": source_tick, "rawCursor": raw,
+            "rSkipFrames": 0, "positive": None,
         }, "current-stale")
     failure = receipt.get("failure")
     require(type(failure) is dict and fault == failure, "actual first kernel fault must match replay failure")
     replay.exact_metadata({key: failure.get(key) for key in ("host", "before", "SourceTick")},
-                          {"host": 5845, "before": 5552, "SourceTick": 5553}, "stale-fault")
+                          {"host": host, "before": source_tick - 1, "SourceTick": source_tick}, "stale-fault")
     error = failure.get("error", "")
-    require(error.splitlines()[0:1] == [SIDE_ERROR] and
+    require(type(error) is str and error.splitlines()[0:1] == [SIDE_ERROR] and
             "GameSimulation.SelectSourcePlay(" in error and "GameSimulation.ApplySourceStationMenuCommands(" in error,
             "actual first fault must be the source-side validator, not a generic exception")
     command = json.loads(json.dumps(failure["command"]))
     for station in command["StationInputs"]["Stations"]:
         require(station.pop("IsSpecified", None) is True, "actual station constructor must be specified")
-    replay.public_row({"host": 5845, "command": command}, 5845)
-    require(row["host"] == 5845 and command == row["command"], "same immutable old command required at stale boundary")
+    replay.public_row({"host": host, "command": command}, host)
+    require(row["host"] == host and command == row["command"], "same immutable old command required at stale boundary")
     stations = command["StationInputs"]["Stations"]
     require(len(stations) == 1 and stations[0]["StationId"] == 0 and
             stations[0]["Command"]["Action"] == 1 and
-            stations[0]["Command"]["Play"]["PlaySymbol"] == "play_suicide_blitz" and
-            stations[0]["Command"]["Play"]["Playbook"] == 1 and
-            failure["actual"]["State"]["Possession"] == 0,
-            "stale DEFENSE command must belong to station0 while Home is offense")
-    return "rejected-current-stale-playbook-side"
+            stations[0]["Command"]["Play"]["PlaySymbol"] == ("play_hail_mary" if current else "play_suicide_blitz") and
+            stations[0]["Command"]["Play"]["Playbook"] == (0 if current else 1),
+            "exact original station0 stale playbook-side command required")
+    actual = failure["actual"]
+    require(type(actual) is dict and type(actual.get("State")) is dict,
+            "actual stale PlaySelect/process context objects required")
+    replay.exact_metadata({key: actual.get(key) for key in (
+        "host", "rawCursor", "SourceTick", "SourceRandomProcess", "SourceRandomActor",
+        "SourceRandomProcessOrder", "SourceRandomCallIndex", "SourceFlags")}, {
+            "host": host, "rawCursor": raw, "SourceTick": source_tick,
+            "SourceRandomProcess": "game_proc", "SourceRandomActor": -1,
+            "SourceRandomProcessOrder": 1 if current else 0, "SourceRandomCallIndex": 0, "SourceFlags": 0,
+        }, "stale-process-context")
+    replay.exact_metadata({key: actual["State"].get(key) for key in (
+        "Tick", "PlayNumber", "Phase", "Possession", "ControlledPlayerId")}, {
+            "Tick": host, "PlayNumber": 8 if current else 17, "Phase": 0,
+            "Possession": 1 if current else 0, "ControlledPlayerId": 3,
+        }, "stale-playselect-context")
+    return ("rejected-current-possession-stale-playbook-side" if current
+            else "rejected-pinned-main39-old-stale-playbook-side")
+
+
+def main39_stale(code, summary, receipt, fault, row):
+    return stale_result(code, summary, receipt, fault, row, current=False)
+
+
+def current_stale(code, summary, receipt, fault, row):
+    return stale_result(code, summary, receipt, fault, row, current=True)
 
 
 def summary_line(stdout):
@@ -211,7 +262,14 @@ def summary_line(stdout):
     return rows[0]
 
 
-def execute(label, files, args, stale_row):
+def execute(label, files, args, old_rows, possession_rows):
+    expected = {
+        "historical": (76, BASELINE_SOURCE_SHA256),
+        "main39": (77, PREVIOUS_SOURCE_SHA256),
+        "current": (78, CURRENT_SOURCE_SHA256),
+    }
+    require(label in expected, "exact named source generation execution required")
+    validate_snapshot(files, *expected[label])
     root = args.output / label
     root.mkdir()
     source, build, work = root / "source", root / "build", root / "work"
@@ -243,32 +301,55 @@ def execute(label, files, args, stale_row):
     text = compiled.stdout + compiled.stderr
     require(compiled.returncode == 0 and "0 Warning(s)" in text and "0 Error(s)" in text,
             "generation probe requires zero-diagnostic compilation: " + label)
-    destination = root / "replay"
-    process = run(["dotnet", str(build / "bin/Release/net10.0/MovementCallerChecks.dll"),
-                   str(args.fixture_manifest), str(destination), "m1-complete", str(args.sound_functions),
-                   str(args.c2_m1_inputs), str(args.replay_commands), "--source-compatibility", "portable"],
-                  "replay.log", 900)
-    summary = summary_line(process.stdout)
-    receipt = replay.decode((destination / "m1-replay-result.json").read_text())
     if label == "historical":
-        classification = historical_positive(process.returncode, summary, receipt)
+        probes = (("main38-old-positive", args.replay_commands, historical_positive, None),)
+    elif label == "main39":
+        probes = (
+            ("main39-old-stale", args.replay_commands, main39_stale, old_rows[5845]),
+            ("main39-possession-positive", args.possession_replay_commands, main39_positive, None),
+        )
     else:
-        fault = replay.decode((destination / "first-m1-kernel-fault.json").read_text())
-        classification = current_stale(process.returncode, summary, receipt, fault, stale_row)
-    require({name: (source / name).read_bytes() for name in files} == files, "isolated source/harness changed during probe")
-    shutil.rmtree(source)
-    return {"classification": classification, "exit_code": process.returncode, "commands": commands,
-            "compile_zero_diagnostics": True, "receipt_sha256": replay.sha((destination / "m1-replay-result.json").read_bytes()),
+        require(label == "current", "exact named source generation execution required")
+        probes = (("current-possession-stale", args.possession_replay_commands, current_stale, possession_rows[2835]),)
+    results = {}
+    for name, path, classify, stale_row in probes:
+        started = time.monotonic()
+        destination = root / name
+        process = run(["dotnet", str(build / "bin/Release/net10.0/MovementCallerChecks.dll"),
+                       str(args.fixture_manifest), str(destination), "m1-complete", str(args.sound_functions),
+                       str(args.c2_m1_inputs), str(path), "--source-compatibility", "portable"],
+                      name + ".log", 900)
+        summary = summary_line(process.stdout)
+        receipt = replay.decode((destination / "m1-replay-result.json").read_text())
+        if stale_row is None:
+            classification = classify(process.returncode, summary, receipt)
+        else:
+            fault = replay.decode((destination / "first-m1-kernel-fault.json").read_text())
+            classification = classify(process.returncode, summary, receipt, fault, stale_row)
+        draws = replay.decode((destination / "m1-all-raw-draws.json").read_text())
+        require(type(draws) is list and len(draws) == receipt["rawCursor"] and
+                all(draw.get("Order") == i for i, draw in enumerate(draws)), "complete ordered actual raw trace required")
+        results[name] = {
+            "classification": classification, "source_generation": label, "exit_code": process.returncode,
+            "seconds": round(time.monotonic() - started, 3), "compile_zero_diagnostics": True,
+            "receipt_sha256": replay.sha((destination / "m1-replay-result.json").read_bytes()),
+            "raw_trace_sha256": replay.sha((destination / "m1-all-raw-draws.json").read_bytes()),
             "summary": {key: value for key, value in summary.items() if key != "actual_factory_replay"},
             "receipt_metadata": {key: receipt[key] for key in (
-                "completedHosts", "SourceTick", "rawCursor", "rSkipFrames", "positive", "replayFileSha256")}}
+                "completedHosts", "SourceTick", "rawCursor", "rSkipFrames", "positive", "replayFileSha256")},
+        }
+    require({name: (source / name).read_bytes() for name in files} == files, "isolated source/harness changed during probe")
+    shutil.rmtree(source)
+    return {"probes": results, "commands": commands, "compile_zero_diagnostics": True}
 
 
 def argument_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "replay-commands", "output"):
+    for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "replay-commands",
+                 "possession-replay-commands", "output"):
         parser.add_argument("--" + name, type=Path, required=True, action="append")
     parser.add_argument("--baseline-ref", required=True, action="append", choices=(BASELINE_REF,))
+    parser.add_argument("--previous-ref", required=True, action="append", choices=(PREVIOUS_REF,))
     return parser
 
 
@@ -279,34 +360,53 @@ def main(argv=None):
         if len(values) != 1:
             parser.error("duplicate --" + name.replace("_", "-") + " argument")
         setattr(args, name, values[0].absolute() if isinstance(values[0], Path) else values[0])
-    result = {"schema": "source-public-replay-generations/v1", "status": "failed",
+    started = time.monotonic()
+    result = {"schema": "source-public-replay-generations/v2", "status": "failed",
               "current_full_M1_qualification": False, "native_or_whole_game_qualified": False}
     try:
         args.output = replay.output_path(args.output)
         require(not args.output.exists(), "use a fresh ignored generation-check output; never overwrite")
         rows = old_commands(args.replay_commands)
+        possession_rows = old_commands(args.possession_replay_commands, replay.SOURCE_CURRENT_CASE)
         fixture_profile(args.fixture_manifest, "contact272")
         inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
         inputs.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
         require(len(inputs) == 1122, "exact834 plus288 original input closure required")
         current, current_identity = current_snapshot()
         historical, historical_identity = historical_snapshot(args.baseline_ref)
+        previous, previous_identity = historical_snapshot(args.previous_ref, previous=True)
         args.output.mkdir(parents=True)
-        result.update(sources={"historical": historical_identity, "current": current_identity},
-                      inputs_sha256=inputs, old_public_sha256=OLD_PUBLIC_SHA256, probes={})
+        result.update(sources={"historical": historical_identity, "main39": previous_identity, "current": current_identity},
+                      inputs_sha256=inputs, old_public_sha256=OLD_PUBLIC_SHA256,
+                      possession_public_sha256=POSSESSION_PUBLIC_SHA256, probes={}, commands={})
         with ThreadPoolExecutor(max_workers=2) as workers:
-            pending = {label: workers.submit(execute, label, files, args, rows[5845])
-                       for label, files in (("historical", historical), ("current", current))}
+            pending = {label: workers.submit(execute, label, files, args, rows, possession_rows)
+                       for label, files in (("historical", historical), ("main39", previous), ("current", current))}
+            errors = []
             for label, future in pending.items():
-                result["probes"][label] = future.result()
+                try:
+                    executed = future.result()
+                    result["probes"].update(executed["probes"])
+                    result["commands"][label] = executed["commands"]
+                except (ValueError, KeyError, TypeError, AttributeError, OSError,
+                        RuntimeError, subprocess.SubprocessError) as error:
+                    errors.append(label + ": " + str(error))
+            require(not errors, "generation probe failed: " + "; ".join(errors))
+        require(set(result["probes"]) == {
+            "main38-old-positive", "main39-old-stale", "main39-possession-positive", "current-possession-stale",
+        }, "all four exact named source/recording boundaries required")
         after = fixture_hashes(args.fixture_manifest, args.sound_functions)
         after.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
         require(inputs == after and current_snapshot()[0] == current and
-                old_commands(args.replay_commands) == rows, "source/harness/input generation changed during probes")
+                old_commands(args.replay_commands) == rows and
+                old_commands(args.possession_replay_commands, replay.SOURCE_CURRENT_CASE) == possession_rows,
+                "source/harness/input generation changed during probes")
         result.update(status="passed-recording-generation-checks", source_harness_inputs_unchanged=True)
-    except (ValueError, KeyError, OSError, RuntimeError, subprocess.SubprocessError, tarfile.TarError) as error:
+    except (ValueError, KeyError, TypeError, AttributeError, OSError, RuntimeError,
+            subprocess.SubprocessError, tarfile.TarError) as error:
         result["error"] = str(error)
         print("Public recording generation checks failed: " + str(error), file=sys.stderr)
+    result["seconds"] = round(time.monotonic() - started, 3)
     if args.output.exists() and "sources" in result:
         replay.write_new_or_verify(args.output / "result.json", (json.dumps(result, indent=2) + "\n").encode())
     print(json.dumps({key: result[key] for key in (
