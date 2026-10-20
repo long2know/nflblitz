@@ -195,6 +195,7 @@ namespace Blitz.Gameplay
 
         private void SourceFireSelectionExit()
         {
+            StopSourceSelectionTimer();
             if (sourceProcessSelectionActive)
             {
                 Model.SourceProcesses.ResumeAll();

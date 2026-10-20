@@ -16,7 +16,7 @@ RESOURCES = ".squad/.scratch/SourceData/contact-profile"
 EXTRA9 = ".squad/.scratch/SourceData/c2-extra9"
 OLD9 = ".squad/.scratch/SourceData/c2-old9"
 M1 = ".squad/.scratch/SourceData/c2-m1"
-PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
+PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
 PUBLIC_FIXTURE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.jsonl.gz"
 PUBLIC_RECIPE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.recipe.json"
 PUBLIC_REPLAY = f".squad/.scratch/SourceData/{PUBLIC_CASE}.jsonl"
@@ -25,6 +25,8 @@ PREVIOUS_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-12000"
 PREVIOUS_PUBLIC_FIXTURE = f"tests/movement-callers/fixtures/{PREVIOUS_PUBLIC_CASE}.jsonl.gz"
 PREVIOUS_PUBLIC_RECIPE = f"tests/movement-callers/fixtures/{PREVIOUS_PUBLIC_CASE}.recipe.json"
 PREVIOUS_PUBLIC_REPLAY = f".squad/.scratch/SourceData/{PREVIOUS_PUBLIC_CASE}.jsonl"
+POSSESSION_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
+POSSESSION_PUBLIC_REPLAY = f".squad/.scratch/SourceData/{POSSESSION_PUBLIC_CASE}.jsonl"
 FETCH_COMMAND = ("python3 tests/parity/fetch_inputs.py --profile contact272 --download "
                  "--cache tests/source-oracles/.artifacts/original --output " + ORIGINAL)
 PREPARE_COMMANDS = (
@@ -44,12 +46,17 @@ REPLAY_COMMAND = (f"python3 -B tests/movement-callers/prepare_public_replay.py p
 PREVIOUS_REPLAY_COMMAND = (f"python3 -B tests/movement-callers/prepare_public_replay.py prepare "
                            f"--case {PREVIOUS_PUBLIC_CASE} --fixture {PREVIOUS_PUBLIC_FIXTURE} "
                            f"--recipe {PREVIOUS_PUBLIC_RECIPE} --output {PREVIOUS_PUBLIC_REPLAY}")
+POSSESSION_REPLAY_COMMAND = (f"python3 -B tests/movement-callers/prepare_public_replay.py prepare "
+    f"--case {POSSESSION_PUBLIC_CASE} --fixture tests/movement-callers/fixtures/{POSSESSION_PUBLIC_CASE}.jsonl.gz "
+    f"--recipe tests/movement-callers/fixtures/{POSSESSION_PUBLIC_CASE}.recipe.json --output {POSSESSION_PUBLIC_REPLAY}")
 HISTORY_COMMAND = ("python3 -B tests/movement-callers/check_replay_generations.py "
                    "--baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 "
                    f"--fixture-manifest {CURRENT}/fixture.json "
                    f"--sound-functions {CURRENT}/audio-functions/sound-functions.safn "
                    f"--c2-m1-inputs {M1} --replay-commands {PREVIOUS_PUBLIC_REPLAY} "
-                   "--output .squad/.scratch/public-replay-generation-ci")
+                   "--output .squad/.scratch/public-replay-generation-ci "
+                   "--previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e "
+                   f"--possession-replay-commands {POSSESSION_PUBLIC_REPLAY}")
 B1_COMMAND = (f"python3 tests/ball/run.py --source-root {ORIGINAL} --input-profile contact272 "
               f"--fixture-manifest {CURRENT}/fixture.json --sound-functions {CURRENT}/audio-functions/sound-functions.safn")
 M1_COMMAND = (f"python3 tests/movement-callers/run.py --source-root {ORIGINAL} --input-profile contact272 "
@@ -76,6 +83,7 @@ BASELINE_STEPS = (
     "Prepare strict current Contact272 and explicit C2 M1 inputs",
     "Prepare exact public replay input without simulation",
     "Prepare source-current public replay input without simulation",
+    "Prepare source-timer public replay input without simulation",
     "Check historical and stale public replay generations",
     "Test real-input fixture and ball-runner failure gates",
     "Compare source gameplay and host adapter",
@@ -187,7 +195,8 @@ def validate_workflow(text):
         f"python3 tests/parity/prepare_inputs.py --source-root {ORIGINAL} --output {FIXTURE}",))
     exact("Prepare strict current Contact272 and explicit C2 M1 inputs", PREPARE_COMMANDS)
     exact("Prepare exact public replay input without simulation", (PREVIOUS_REPLAY_COMMAND,))
-    exact("Prepare source-current public replay input without simulation", (REPLAY_COMMAND,))
+    exact("Prepare source-current public replay input without simulation", (POSSESSION_REPLAY_COMMAND,))
+    exact("Prepare source-timer public replay input without simulation", (REPLAY_COMMAND,))
     exact("Check historical and stale public replay generations", (HISTORY_COMMAND,))
     exact("Compare original ball and ordered source callers", (B1_COMMAND,))
     exact("Compare original movement callers and post-animation physics", (M1_COMMAND,))
@@ -202,6 +211,7 @@ def validate_workflow(text):
                     "python3 -B -m unittest discover -s tests/audio/runtime -p test_ci.py -q",
                     "python3 -B tests/movement-callers/test_public_replay.py -q",
                     "python3 -B tests/movement-callers/test_replay_generations.py -q",
+                    "python3 -B tests/movement-callers/test_export_portable_public.py -q",
                     "python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls",
                     "python3 -B tests/impact-dust/test_ci.py",
                     "python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls",
@@ -219,9 +229,10 @@ def validate_workflow(text):
     require(order.index("Prepare strict current Contact272 and explicit C2 M1 inputs") <
             order.index("Prepare exact public replay input without simulation") <
             order.index("Prepare source-current public replay input without simulation") <
+            order.index("Prepare source-timer public replay input without simulation") <
             order.index("Check historical and stale public replay generations") <
             order.index("Compare original movement callers and post-animation physics"),
-            "both exact preparations and historical/stale checks must precede REQUIRED source-current full M1")
+            "all three exact preparations and historical/current stale checks must precede REQUIRED current full M1")
     require("natural-new-entry.json" not in text and "prepare_public_replay.py export" not in text,
             "clean CI must never require the ignored mixed source artifact or regenerate inputs")
     for name, commands in CONTACT_STEPS.items():
@@ -363,7 +374,7 @@ class ContactWorkflow(unittest.TestCase):
                 self.assertIn(old, original)
                 with self.assertRaises(AssertionError):
                     validate_workflow(original.replace(old, new, 1))
-        prepare = "      - name: Prepare source-current public replay input without simulation\n        run: " + REPLAY_COMMAND + "\n"
+        prepare = "      - name: Prepare source-timer public replay input without simulation\n        run: " + REPLAY_COMMAND + "\n"
         self.assertIn(prepare, original)
         with self.assertRaises(AssertionError):
             validate_workflow(original.replace(prepare, "") + prepare)
@@ -394,7 +405,7 @@ class ContactWorkflow(unittest.TestCase):
 
     def test_required_gate_selects_named_recording_not_relabelled_historical_or_native(self):
         original = WORKFLOW.read_text()
-        command, = step_commands(original)["Prepare source-current public replay input without simulation"]
+        command, = step_commands(original)["Prepare source-timer public replay input without simulation"]
         self.assertEqual(command, shlex.split(REPLAY_COMMAND))
         self.assertEqual(command.count("--case"), 1)
         self.assertEqual(command[command.index("--case") + 1], PUBLIC_CASE)
@@ -405,6 +416,8 @@ class ContactWorkflow(unittest.TestCase):
         spec.loader.exec_module(producer)
         producer.load_recipe(ROOT / PUBLIC_RECIPE, PUBLIC_CASE)
         self.assertEqual(producer.RECORDINGS[PUBLIC_CASE]["public_sha256"],
+                         "35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331")
+        self.assertEqual(producer.RECORDINGS[POSSESSION_PUBLIC_CASE]["public_sha256"],
                          "33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e")
         self.assertEqual(producer.RECORDINGS[PREVIOUS_PUBLIC_CASE]["public_sha256"],
                          "830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e")
@@ -436,7 +449,8 @@ class ContactWorkflow(unittest.TestCase):
         original = WORKFLOW.read_text()
         for name, command in (
             ("Prepare exact public replay input without simulation", PREVIOUS_REPLAY_COMMAND),
-            ("Prepare source-current public replay input without simulation", REPLAY_COMMAND),
+            ("Prepare source-current public replay input without simulation", POSSESSION_REPLAY_COMMAND),
+            ("Prepare source-timer public replay input without simulation", REPLAY_COMMAND),
             ("Check historical and stale public replay generations", HISTORY_COMMAND),
             ("Compare original movement callers and post-animation physics", M1_COMMAND),
         ):
@@ -450,7 +464,9 @@ class ContactWorkflow(unittest.TestCase):
                     validate_workflow(changed)
         for changed in (
             HISTORY_COMMAND.replace("cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02", "HEAD"),
+            HISTORY_COMMAND.replace("e539258b6b6160f0dcdc072a05c4887e6946423e", "HEAD"),
             HISTORY_COMMAND.replace(PREVIOUS_PUBLIC_REPLAY, PUBLIC_REPLAY),
+            HISTORY_COMMAND.replace(POSSESSION_PUBLIC_REPLAY, PUBLIC_REPLAY),
             HISTORY_COMMAND.replace(CURRENT + "/fixture.json", FIXTURE + "/fixture.json"),
             HISTORY_COMMAND + " || true",
             HISTORY_COMMAND + " --no-mutations",
@@ -459,6 +475,7 @@ class ContactWorkflow(unittest.TestCase):
             with self.subTest(history=changed), self.assertRaises(AssertionError):
                 validate_workflow(original.replace(HISTORY_COMMAND, changed, 1))
         for guard in ("python3 -B tests/movement-callers/test_replay_generations.py -q",
+                      "python3 -B tests/movement-callers/test_export_portable_public.py -q",
                       "python3 -B tests/movement-callers/test_public_replay.py -q"):
             with self.subTest(guard=guard), self.assertRaises(AssertionError):
                 validate_workflow(original.replace(guard, "true", 1))

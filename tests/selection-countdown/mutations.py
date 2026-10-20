@@ -1,0 +1,68 @@
+"""Compiled causal changes to the production timer, caller, selector, sound and HUD."""
+TIMER = "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs"
+CORE = "Assets/Scripts/Gameplay/GameSimulation.Source.cs"
+SELECTOR = "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs"
+HUD = "Assets/Scripts/Presentation/SourceHudComposer.cs"
+
+
+def mutations():
+    return [
+        ("host60-clock", TIMER, "host.Sleep(SourceTiming.DefaultTicksPerSecond +", "host.Sleep(60 +",
+         "original-C timer trace"),
+        ("zero-grace24", TIMER, "(Number == 0 ? 25 : 0)", "(Number == 0 ? 24 : 0)", "original-C timer trace"),
+        ("first-quarter8", "Assets/Scripts/Gameplay/SourceMatchFlow.cs",
+         "return quarterIndex == 0 ? 9 : 5;", "return quarterIndex == 0 ? 8 : 5;", "original-C timer trace"),
+        ("later-quarter6", "Assets/Scripts/Gameplay/SourceMatchFlow.cs",
+         "return quarterIndex == 0 ? 9 : 5;", "return quarterIndex == 0 ? 9 : 6;", "original-C timer trace"),
+        ("caller-quarter-off-by-one", TIMER,
+         "SourceMatchFlow.PlaySelectionCountdownStart(Model.Quarter - 1)",
+         "SourceMatchFlow.PlaySelectionCountdownStart(Model.Quarter)",
+         "first-quarter actual menu starts at source argument9"),
+        ("instruction-strictly-greater9", TIMER, "if (instructionValue() >= 9)", "if (instructionValue() > 9)",
+         "original-C timer trace"),
+        ("ignored-instruction-hold", TIMER, "if (instructionValue() >= 9)", "if (instructionValue() == int.MaxValue)",
+         "original-C timer trace"),
+        ("initial-two-tick-delay", TIMER, 'host.Create(Serial, TimerId, "timedown_play_select", 0);',
+         'host.Create(Serial, TimerId, "timedown_play_select", 0, 2);', "original-C timer trace"),
+        ("flasher-sleep6", TIMER, "host.Sleep(7);", "host.Sleep(6);", "original-C timer trace"),
+        ("suspended-timer-still-runs", "Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
+         "if (n.Identity.BirthTick >= SourceTick || (short)n.Sleep <= 0) return false;",
+         "if (n.Identity.BirthTick >= SourceTick || n.Sleep == 0) return false;", "original-C timer trace"),
+        ("premature-current-wake-choice", SELECTOR, "match.SelectionTimer.ForceTick < sourceTick",
+         "match.SelectionTimer.ForceTick <= sourceTick",
+         "expiry deletes number and flasher before force1"),
+        ("force-page0-not-highlight", SELECTOR,
+         "Slot(state, side, page[index], cursor[index]);",
+         "Slot(state, side, forced ? 0 : page[index], cursor[index]);",
+         "timeout selects the actual highlighted play/page/slot/flip"),
+        ("force-overwrites-selected", SELECTOR, "!selected[(int)side] && !chosen &&",
+         "(forced && match.SelectionTimer.ForceTick + 1 == sourceTick || !selected[(int)side]) && "
+         "(forced && match.SelectionTimer.ForceTick + 1 == sourceTick || !chosen) &&",
+         "timeout selects the actual highlighted play/page/slot/flip"),
+        ("Core-overwrites-selected", CORE,
+         "if (SourceSelectionTimedOut && Model.SourcePlaySelectionReady[(int)selectingSide]) return;",
+         "if (SourceSelectionTimedOut && Model.SourceTick < 0) return;",
+         "timeout selects the actual highlighted play/page/slot/flip"),
+        ("duplicate-forced-choice", CORE, "StoreSourceSelection(selectingSide, selected);",
+         "StoreSourceSelection(selectingSide, selected);\n"
+         "            if (SourceSelectionTimedOut) StoreSourceSelection(selectingSide, selected);",
+         "next admitted actual consumer forces CURRENT highlights once"),
+        ("caller-does-not-finish", CORE,
+         "if (Model.Phase == GamePhase.PlaySelect && sourceSelectionFinishPending)\n                        CompleteSourceTimedSelection();",
+         "if (Model.Phase == GamePhase.PlaySelect && sourceSelectionFinishPending && Model.SourceTick < 0)\n                        CompleteSourceTimedSelection();",
+         "next admitted actual consumer forces CURRENT highlights once"),
+        ("exit-leaves-timer-alive", "Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs",
+         "            StopSourceSelectionTimer();", "            CaptureSourceSelectionTimer();",
+         "caller finish continuation tears down timer"),
+        ("muted-timer-beep", TIMER, "sound(new SourceSelectionTimerSound(host.SourceTick, Serial, Number));",
+         "if (Number == int.MaxValue) sound(new SourceSelectionTimerSound(host.SourceTick, Serial, Number));",
+         "timer immediately displays red9 and submits one source sound"),
+        ("wrong-sound-volume", "Assets/Scripts/Contracts/SourceMatchContracts.cs",
+         "return 235;", "return 234;", "production timer submits exact authenticated sound operands"),
+        ("sound-failure-swallowed", TIMER, "catch { sourceSoundVmFailed = true; throw; }",
+         "catch { sourceSoundVmFailed = true; }", "actual timer sound consumer failure propagates"),
+        ("HUD-static-white-bast10", HUD,
+         'Text("selection/countdown", "bast18", hud.SelectionTimer.Number.ToString(),',
+         'Text("selection/countdown", "bast10", hud.SelectionTimer.Number.ToString(),',
+         "real composed countdown uses one global source BAST18 glyph"),
+    ]

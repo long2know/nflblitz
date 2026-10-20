@@ -4,6 +4,44 @@ using System.Collections.ObjectModel;
 
 namespace Blitz.Contracts
 {
+    public sealed class SourceSelectionTimerView
+    {
+        public long ProcessSerial { get; }
+        public int Number { get; }
+        public bool Visible { get; }
+        public uint Color { get; }
+        public bool ForceSelection { get; }
+        public long ForceTick { get; }
+        public bool HomeSelected { get; }
+        public bool AwaySelected { get; }
+
+        public SourceSelectionTimerView(long serial, int number, bool visible, uint color,
+            bool forceSelection, long forceTick, bool homeSelected, bool awaySelected)
+        {
+            ProcessSerial = serial; Number = number; Visible = visible; Color = color;
+            ForceSelection = forceSelection; ForceTick = forceTick;
+            HomeSelected = homeSelected; AwaySelected = awaySelected;
+        }
+
+        public bool Selected(TeamId side) { return side == TeamId.Home ? HomeSelected : AwaySelected; }
+    }
+
+    public readonly struct SourceSelectionTimerSound
+    {
+        public long SourceTick { get; }
+        public long ProcessSerial { get; }
+        public int Number { get; }
+        public string Bank { get { return "cursors"; } }
+        public int PlaylistId { get { return 36; } }
+        public uint Volume { get { return 235; } }
+        public uint Pan { get { return 127; } }
+        public uint PriorityWord { get { return 5; } }
+        public bool PcmOrDspPlayback { get { return false; } }
+
+        public SourceSelectionTimerSound(long tick, long serial, int number)
+        { SourceTick = tick; ProcessSerial = serial; Number = number; }
+    }
+
     public enum SourceGameplayCompatibility { StrictSource = 0, Portable = 1 }
     public enum SourceCompatibilityRepairKind
     {
@@ -255,6 +293,7 @@ namespace Blitz.Contracts
         public SourcePlaySelection HomePlay { get; }
         public SourcePlaySelection AwayPlay { get; }
         public int SelectionCountdown { get; }
+        public SourceSelectionTimerView SelectionTimer { get; }
         public SourcePatOption PatChoice { get; }
         public SourcePatStatus PatStatus { get; }
         public SourceKickoffType? Kickoff { get; }
@@ -287,7 +326,8 @@ namespace Blitz.Contracts
             int forwardCatcherPlayerId = -1, bool dronesLose = false, bool dronesWinning = false,
             int handicapRepetitionBonus = 0,
             SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
-            long compatibilityRepairCount = 0, IReadOnlyList<SourceCompatibilityRepair> compatibilityRepairs = null)
+            long compatibilityRepairCount = 0, IReadOnlyList<SourceCompatibilityRepair> compatibilityRepairs = null,
+            SourceSelectionTimerView selectionTimer = null)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -366,6 +406,7 @@ namespace Blitz.Contracts
             HomePlay = homePlay;
             AwayPlay = awayPlay;
             SelectionCountdown = selectionCountdown;
+            SelectionTimer = selectionTimer;
             PatChoice = patChoice;
             PatStatus = patStatus;
             Kickoff = kickoff;

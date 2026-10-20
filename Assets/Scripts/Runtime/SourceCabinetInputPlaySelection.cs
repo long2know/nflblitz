@@ -5,7 +5,7 @@ using Blitz.Contracts;
 
 namespace Blitz.Runtime
 {
-    public enum SourceCabinetMenuEventKind { Moved, Edge, PageChanged, Flipped, Hidden, Selected }
+    public enum SourceCabinetMenuEventKind { Moved, Edge, PageChanged, Flipped, Hidden, Selected, ForcedSelected }
 
     public readonly struct SourceCabinetMenuEvent
     {
@@ -75,14 +75,18 @@ namespace Blitz.Runtime
                 SourceStationInput input = frame.Stations[i];
                 TeamId side = SourceCabinetStations.Team(match, input.StationId);
                 SourceCommand command = input.Command;
+                bool chosen = match.SelectionTimer != null && match.SelectionTimer.Selected(side);
+                bool forced = match.SelectionTimer != null && match.SelectionTimer.ForceSelection &&
+                    match.SelectionTimer.ForceTick < sourceTick;
                 if (menuSleepRemaining == 0 && SourceCabinetStations.Captain(match, side) == input.StationId &&
-                    !selected[(int)side] && (!command.IsSpecified ||
+                    !selected[(int)side] && !chosen && (forced || !command.IsSpecified ||
                         command.Action == SourceAction.None && !command.OffenseFlipped.HasValue))
                 {
-                    SourceCommand picked = Process(state, sourceTick, side, input);
+                    SourceCommand picked = forced ? ChooseCurrent(state, sourceTick, side, input.StationId, true)
+                        : Process(state, sourceTick, side, input);
                     if (picked.IsSpecified)
                     {
-                        if (command.IsSpecified && command.Action != SourceAction.None)
+                        if (!forced && command.IsSpecified && command.Action != SourceAction.None)
                             throw new SourceInterfaceException("Two ordered source menu commands cannot be merged into one station sample.");
                         command = picked;
                     }
@@ -171,25 +175,35 @@ namespace Blitz.Runtime
                     }
                     break;
                 case SourceButtons.B:
-                    SourcePlaybookKind kind = offense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense;
-                    SourceInterfacePlaySlot slot = Slot(state, side, page[index], cursor[index]);
-                    SourceCommand result;
-                    if (offense && match.PlayKind == SourcePlayKind.ExtraPoint && page[index] == 0 && cursor[index] == 0)
-                        result = new SourceCommand(SourceAction.SelectPat, patChoice: SourcePatOption.FreeKick);
-                    else
-                    {
-                        if (slot.PlaySymbol == null)
-                            throw new SourceInterfaceException("Original selected play requires unavailable custom-play data; no legacy play substitute is permitted.");
-                        result = select(new SourcePlaySelection(slot.PlaySymbol, kind, cursor[index], page[index]), offense && Flipped);
-                        if (!result.IsSpecified || result.Action != SourceAction.SelectPlay)
-                            throw new SourceInterfaceException("Original play selector did not return the actual source choice.");
-                    }
-                    selected[index] = true; LastInteractedSide = side;
-                    Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.Selected, null, null);
-                    return result;
+                    return ChooseCurrent(state, tick, side, input.StationId, false);
                 // The shipping #if 1 switch has NO combined-button menu action, including on defense.
             }
             return default(SourceCommand);
+        }
+
+        private SourceCommand ChooseCurrent(IGameState state, long tick, TeamId side, int station, bool forced)
+        {
+            SourceMatchView match = ((ISourceMatchState)state).Match;
+            int index = (int)side;
+            bool offense = side == match.Possession.Offense;
+            SourceInterfacePlaySlot slot = Slot(state, side, page[index], cursor[index]);
+            SourceCommand result;
+            if (offense && match.PlayKind == SourcePlayKind.ExtraPoint && page[index] == 0 && cursor[index] == 0)
+                result = new SourceCommand(SourceAction.SelectPat, patChoice: SourcePatOption.FreeKick);
+            else
+            {
+                if (slot.PlaySymbol == null)
+                    throw new SourceInterfaceException(forced
+                        ? "Forced custom selection requires actual custom-play inventory/decompression and play_select_cntrl RNG fallback; no CPU/configured/random substitute is permitted."
+                        : "Original selected play requires unavailable custom-play data; no legacy play substitute is permitted.");
+                SourcePlaybookKind kind = offense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense;
+                result = select(new SourcePlaySelection(slot.PlaySymbol, kind, cursor[index], page[index]), offense && Flipped);
+                if (!result.IsSpecified || result.Action != SourceAction.SelectPlay)
+                    throw new SourceInterfaceException("Original play selector did not return the actual source choice.");
+            }
+            selected[index] = true; LastInteractedSide = side;
+            Emit(tick, station, side, forced ? SourceCabinetMenuEventKind.ForcedSelected : SourceCabinetMenuEventKind.Selected, null, null);
+            return result;
         }
 
         public SourceInterfacePlaySlot Slot(IGameState state, TeamId side, int requestedPage, int requestedSlot)

@@ -205,6 +205,9 @@ namespace Blitz.Gameplay
             Model.SourcePossessionMessages = Array.AsReadOnly(new SourcePossessionMessageView[0]);
             sourceFireNextSerial = 32; sourceMessages.Clear(); sourcePossessionSpeech.Clear();
             sourceProcessSelectionActive = false;
+            sourceSelectionTimer = null; sourceSelectionFinishPending = false; sourceSelectionCpuPatPending = false;
+            sourceSelectionSounds.Clear();
+            CaptureSourceSelectionTimer();
             var host = Model.SourceProcesses;
             host.Create(GameProcess, 0x0010, "game_proc", 0);
             for (int id = 0; id < 14; id++) host.Create(2 + id, 0x0500, "player_proc", 0x300 + id);
