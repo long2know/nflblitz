@@ -39,6 +39,12 @@ API-only compilation and importer wiring/removal guards are not an executed
 Editor import, a native player build or native pixel/scheduler qualification.
 Original operands and imported resources remain ignored; never commit them.
 
+The required `tests/interface/movement_bootstrap.py` clean-checkout gate carries
+the importer and importer-check C# text into its isolated release shadow as
+guard-only dependencies. They remain excluded from Runtime compilation. The
+shadow runs the permanent importer guards without authoring state, original
+assets or a Unity executable; missing guard inputs fail explicitly.
+
 ## Current synchronous sound-VM candidate
 
 The sound-runtime candidate extends the published movement157 layer without

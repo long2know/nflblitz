@@ -67,6 +67,15 @@ def validate_publishable_projects(root):
         require(ET.fromstring(path.read_bytes()).tag == "Project", "Invalid publishable interface project: " + name)
 
 
+def clean_checkout_guard_sources(root):
+    sources = {}
+    for name in (IMPORTER, IMPORT_CHECKS):
+        path = root / name
+        require(path.is_file(), "Clean checkout guard source is missing: " + name)
+        sources[name] = path.read_bytes()
+    return sources
+
+
 def expected_owned_sources(root):
     require(root.is_dir() and (root / "Assets/Scripts").is_dir(), "Missing/wrong explicit source root: " + str(root))
     expected = {}
@@ -613,6 +622,14 @@ class CallerGuards(unittest.TestCase):
         expected = expected_owned_sources(SOURCE_ROOT)
         self.assertEqual(len(expected), 17)
         assert_compile_inventory(dict(expected), expected)
+        runtime, _, _, _ = release_sources(SOURCE_ROOT)
+        guards = clean_checkout_guard_sources(SOURCE_ROOT)
+        self.assertEqual(set(guards), {IMPORTER, IMPORT_CHECKS})
+        for name, data in guards.items():
+            self.assertNotIn(name, runtime)
+            self.assertEqual(data, (SOURCE_ROOT / name).read_bytes())
+        with self.assertRaisesRegex(AssertionError, "guard source is missing"):
+            clean_checkout_guard_sources(ARTIFACTS / "nonexistent-guard-root")
 
     def test_explicit_snapshot_roots_fail_closed(self):
         self.assertFalse(validate_snapshot_options(None, None, None, None))
@@ -828,10 +845,16 @@ def compile_actual(editor_data, args):
 
 def verify_clean_checkout(args):
     (sources, _, _, _), mode, overlays = select_sources(args)
+    guard_sources = clean_checkout_guard_sources(SOURCE_ROOT)
+    shadow_sources = dict(sources)
+    for name, data in guard_sources.items():
+        require(name not in shadow_sources or shadow_sources[name] == data,
+                "Clean checkout guard source conflicts with selected source: " + name)
+        shadow_sources[name] = data
     work = ARTIFACTS / ("clean-checkout-" + uuid.uuid4().hex)
     work.mkdir(parents=True)
     try:
-        for relative, data in sources.items():
+        for relative, data in shadow_sources.items():
             target = work / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
@@ -850,6 +873,7 @@ def verify_clean_checkout(args):
         require(report["status"] == "passed" and not (work / ".squad").exists(),
                 "Clean default may not depend on protected snapshots or original assets.")
         evidence = {"status": "passed", "source_mode": mode, "source_scripts": len(sources),
+                    "guard_only_source_sha256": {name: digest(data) for name, data in guard_sources.items()},
                     "dependency_overlays": overlays, "default_command": "python3 -B tests/interface/stage_followup.py",
                     "child_guard_tests": report["guard_tests"], "authoring_runtime_state_present": False,
                     "original_art_required": False, "Unity_required_for_default": False, "git_commands_used": False}
