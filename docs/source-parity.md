@@ -181,8 +181,9 @@ Only closed public commands/stations are shipped; model/RNG/pose/sound
 observations and original payloads stay ignored. The minimal public recipe
 binds the case/epoch/profiles/explicit Portable mode, seed1/default5/11 and
 unchanged provider facts, not private policy code/proofs. The
-[preparation and required command](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate)
-explicitly select this named recording; no commands are generated at preparation.
+[original published preparation](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate)
+selected this named recording; no commands are generated at preparation. The
+source-current generation below now gives it an explicit historical role.
 
 The old `a33b1765...` recording remains byte-identical, historical and
 unqualified. Hosted run39102061602's old-input UNMET is not relabelled.
@@ -192,6 +193,69 @@ not relabelled as a success.
 This managed Portable M1 result is **not** original/native/target-PRNG behavior,
 Unity/DSP/game-build/browser acceptance, whole-game parity or closure of all16
 rows. Strict defaults and the NoEligible disclosure below remain unchanged.
+
+## Source-current possession recording — bounded CI versioning
+
+The source-correct possession process lifecycle intentionally invalidates the
+earlier state-conditioned `830e7bad...` recording on current source. Authenticated
+`player.c:5948` creates whistle PID0 and `playsel.c:854` suspends id0/mask`0x8000`.
+The first semantic divergence from main38 is host1713/source1628 in PlaySelect:
+the old process runs a whistle/shared draw that should be suspended, leaving
+raw cursor2674 rather than2673. Later, at host5845/source5553, that same old
+recording submits DEFENSE `play_suicide_blitz` from station0 while Home is now
+offense. The unchanged source-side validator correctly throws. Neither the old
+command nor the validator, RNG stream, process suspension or wake order is
+altered to make it pass.
+
+The separately named
+`portable-cabinet-wide-pass-clearance-possession-12000` recording uses the
+byte-identical main38 `PortablePublicPolicy.cs`
+(`e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d`),
+the same `approved-portable-public-policy/v1`, seed1, unfiltered shared provider
+at all sites, configuration/handicap policy/clocks and12000-host cap. Its
+generation is `possession-process-suspension/v2`, bound to the77-file pure
+source manifest
+`dce8791c9f2b49f5952898ef9a5d8812d6bbaf71b483c0c5681964ce4d1f6993`.
+The once-authored, strictly exported public JSONL is8,534,524 bytes/SHA-256
+`33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e`;
+the tracked65,968-byte gzip is
+`a450facedfbda9300a83f9514815e7450bd8cae42f63c7f53961c74cdde2c668`.
+Only closed decoded public commands and minimal bound metadata are tracked.
+Original inputs, state/RNG/poses, detailed policy/proofs and build outputs stay
+ignored. The canonical `a33b1765...`, earlier `830e7bad...`/`802bb995...` and
+its `1f82c109...` recipe remain byte-identical.
+
+Before this wiring, the sealed source-current **unchanged full gate** passed:
+three12000-host/11400-source positives, raw cursor22504,164 R_SKIP frames,
+actor12/instance201 at source6738 ordinal0→source6824 ordinal16,
+byte-identical uninstrumented/observer/final state/RNG/poses, all3 canonical-cache
+and8 caller compiled causal controls, and664 original-C rows/5312 exact
+comparisons. The sealed full result SHA-256 is
+`6443ff94ac07d149d13614f0114d035fdb3c115945f4174f76764dc559955ae1`.
+Input-only preparation proves the new public bytes equal that qualified input;
+this CI/docs change does **not** claim a fresh full requalification.
+
+The [required commands and generation helper](../tests/movement-callers/README.md#immutable-public-recordings-and-source-correct-possession-suspension)
+retain explicit preparation of the earlier recording. The helper compiles
+exact main38 commit `cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02`/tree
+`a1c2e38a83e34933b0da4b0cd002ae14255d9a3d` from selected Git archive bytes and
+the immutable current source/harness separately. The **same old input** must
+pass12000/11400/26 R_SKIP on main38 and be rejected specifically as stale-side
+input on current code, not via a generic exception. These are historical-only
+positive/current-stale classifications, not a new current-positive result.
+Required full M1 consumes a distinct explicit source-current cache path and
+retains every threshold, compiled control and final baseline. Real audio and
+independent possession/normal-camera workflow validators protect both
+preparations, historical checks and full gate against removal/no-ops/unsupported
+modes. All other workflow bytes normalize back to the existing inherited
+workflow hash; exact40-minute/minimum30 budget and campaigns are unchanged.
+
+This is ordinary versioning for a source-proven intentional change, **not**
+a claim that a new explicit user approval was captured or permission to weaken
+tests. Production/controller/browser bytes are unchanged by this delta; there
+is no new browser run or screenshot qualification. Exact-head hosted CI and the
+parent's single focused Quality gate remain pending. All16, native, Unity,
+full-game, audio/DSP, hardware and performance remain OPEN.
 
 ## Combined opt-in fire and portable-authored kick runtime — October 18, 2026
 
@@ -681,9 +745,9 @@ reviewed12,000 historical commands. Its public JSONL identity remains
 Only the original recorded `host`/public `command` projection was exported;
 no current-state policy, RNG/seed data, game observations or original payload
 is in that fixture. Its old hosted failure is not acceptance. The
-[required full-M1 invocation](../tests/README.md#local-data-only-full-m1-prerequisite-and-hard-gate)
-now explicitly selects the separately qualified named Portable recording above,
-not a silent overwrite or promotion of `a33b1765...`.
+[required full-M1 invocation](../tests/movement-callers/README.md#explicit-c2-m1-successor-full-public-input-gate)
+selects the separately qualified named Portable recording and its source-current
+successor described above, not a silent overwrite or promotion of `a33b1765...`.
 The full gate still rejects source exceptions and unmet R_SKIP, retains all
 three canonical-cache/eight caller controls/final baseline, and has no
 skip/allow-failure. Actual updated CI and PR21 merge remain pending; the defined-

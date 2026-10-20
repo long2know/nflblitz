@@ -31,13 +31,56 @@ FETCH_STEP = """      - name: Fetch authenticated active possession service inpu
 COMPARE_STEP = """      - name: Compare active original possession messages and process services
         run: |
           """ + PREPARE_COMMAND + "\n          " + GUARD_COMMAND + "\n          " + RUN_COMMAND + "\n"
+OLD_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-12000"
+CURRENT_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
+OLD_PUBLIC_REPLAY = ".squad/.scratch/SourceData/" + OLD_PUBLIC_CASE + ".jsonl"
+CURRENT_PUBLIC_REPLAY = ".squad/.scratch/SourceData/" + CURRENT_PUBLIC_CASE + ".jsonl"
+OLD_REPLAY_COMMAND = ("python3 -B tests/movement-callers/prepare_public_replay.py prepare "
+                      f"--case {OLD_PUBLIC_CASE} --fixture tests/movement-callers/fixtures/{OLD_PUBLIC_CASE}.jsonl.gz "
+                      f"--recipe tests/movement-callers/fixtures/{OLD_PUBLIC_CASE}.recipe.json --output {OLD_PUBLIC_REPLAY}")
+CURRENT_REPLAY_COMMAND = OLD_REPLAY_COMMAND.replace(OLD_PUBLIC_CASE, CURRENT_PUBLIC_CASE)
+CURRENT_REPLAY_STEP = ("      - name: Prepare source-current public replay input without simulation\n"
+                       "        run: " + CURRENT_REPLAY_COMMAND + "\n")
+GENERATION_COMMAND = ("python3 -B tests/movement-callers/check_replay_generations.py "
+                      "--baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 "
+                      "--fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json "
+                      "--sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn "
+                      "--c2-m1-inputs .squad/.scratch/SourceData/c2-m1 "
+                      f"--replay-commands {OLD_PUBLIC_REPLAY} --output .squad/.scratch/public-replay-generation-ci")
+GENERATION_STEP = ("      - name: Check historical and stale public replay generations\n"
+                   "        run: " + GENERATION_COMMAND + "\n")
+GENERATION_UNIT_LINE = "          python3 -B tests/movement-callers/test_replay_generations.py -q\n"
+OLD_M1_COMMAND = ("python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original "
+                  "--input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json "
+                  "--sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn "
+                  f"--c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands {OLD_PUBLIC_REPLAY} "
+                  "--output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable")
+CURRENT_M1_COMMAND = OLD_M1_COMMAND.replace(OLD_PUBLIC_REPLAY, CURRENT_PUBLIC_REPLAY)
+CURRENT_M1_STEP = ("      - name: Compare original movement callers and post-animation physics\n"
+                   "        # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.\n"
+                   "        run: " + CURRENT_M1_COMMAND + "\n")
+GENERATION_MUTATIONS = (
+    (CURRENT_REPLAY_STEP, ""), (GENERATION_STEP, ""), (CURRENT_M1_STEP, ""),
+    (OLD_REPLAY_COMMAND, "true"), (CURRENT_REPLAY_COMMAND, "echo " + CURRENT_REPLAY_COMMAND),
+    (GENERATION_COMMAND, "true"), (GENERATION_UNIT_LINE, ""),
+    (CURRENT_M1_COMMAND, CURRENT_M1_COMMAND + " --single-public-attempt"),
+    (CURRENT_M1_COMMAND, CURRENT_M1_COMMAND.replace(CURRENT_PUBLIC_REPLAY, OLD_PUBLIC_REPLAY)),
+    (GENERATION_COMMAND, GENERATION_COMMAND.replace("cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02", "HEAD")),
+    (GENERATION_COMMAND, GENERATION_COMMAND.replace(OLD_PUBLIC_REPLAY, CURRENT_PUBLIC_REPLAY)),
+    (GENERATION_COMMAND, GENERATION_COMMAND + " --no-mutations"),
+)
 
 
 def validate_workflow(text):
     for block in (FETCH_STEP, COMPARE_STEP):
         if text.count(block) != 1:
             raise AssertionError("Required actual possession CI stage missing/changed; no optional/echo/substitute selection.")
+    for block in (CURRENT_REPLAY_STEP, GENERATION_STEP, GENERATION_UNIT_LINE, CURRENT_M1_COMMAND):
+        if text.count(block) != 1:
+            raise AssertionError("Required exact source-current full gate AND historical recording generation checks missing/changed.")
     inherited = text.replace(FETCH_STEP, "", 1).replace(COMPARE_STEP, "", 1)
+    inherited = inherited.replace(CURRENT_REPLAY_STEP, "", 1).replace(GENERATION_STEP, "", 1)
+    inherited = inherited.replace(GENERATION_UNIT_LINE, "", 1).replace(CURRENT_M1_COMMAND, OLD_M1_COMMAND, 1)
     if hashlib.sha256(inherited.encode()).hexdigest() != BASE_WORKFLOW_SHA256:
         raise AssertionError("Retain EVERY inherited campaign/setup/filter and exact40-minute Game budget/minimum30.")
     if re.search(r"^\s*(if|continue-on-error):", text, re.M):
@@ -46,6 +89,9 @@ def validate_workflow(text):
         raise AssertionError("Do not change the existing exact40-minute job budget.")
     if text.index(FETCH_STEP) < text.index("--output .squad/.scratch/raw-camera-ci --controls"):
         raise AssertionError("Original normal-camera/kernel/M1 prerequisites must execute first.")
+    if not (text.index(OLD_REPLAY_COMMAND) < text.index(CURRENT_REPLAY_STEP) <
+            text.index(GENERATION_STEP) < text.index(CURRENT_M1_COMMAND)):
+        raise AssertionError("Both immutable recordings and historical/stale generation checks precede the full current gate.")
     normal_guard = (ROOT / "tests/presentation/normal-camera/test_ci.py").read_text()
     if "possession_ci.validate_workflow(" not in normal_guard:
         raise AssertionError("The independently inherited normal-camera guard must select possession workflow/removal validation.")
@@ -70,7 +116,7 @@ class PossessionCI(unittest.TestCase):
             ("      - name: Compare active original possession messages", "      - if: false\n        name: Compare active original possession messages"),
             ("python3 tests/source-oracles/run.py", "echo python3 tests/source-oracles/run.py"),
             ("python3 tests/movement-callers/run.py", "echo python3 tests/movement-callers/run.py"),
-        ]
+        ] + list(GENERATION_MUTATIONS)
         for old, new in mutations:
             with self.subTest(mutation=old):
                 self.assertEqual(original.count(old), 1)
@@ -166,7 +212,7 @@ def main():
     report = dict(schema="possession-service-ci-guards/v1", status="passed" if results.wasSuccessful() else "failed",
                   tests=results.testsRun, skipped=len(results.skipped), failures=len(results.failures), errors=len(results.errors),
                   actualMissingInputControls=76, actualAuthorityMissingAndChangedControls=26,
-                  workflowRemovalSelectionControls=13, cases=40, managedCases=50, compiledControls=21,
+                  workflowRemovalSelectionControls=13 + len(GENERATION_MUTATIONS), cases=40, managedCases=50, compiledControls=21,
                   inheritedCompiledControls=17, addedLifecycleControls=4)
     (PossessionCI.output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))

@@ -23,6 +23,10 @@ POSITIVE_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSITIVE_FIXTURE = FIXTURE.with_name(POSITIVE_CASE + ".jsonl.gz")
 POSITIVE_RECIPE = FIXTURE.with_name(POSITIVE_CASE + ".recipe.json")
 RECIPE_SHA256 = "1f82c109e2988215b1258590e135cd62bd7c38116901cfaaf29e76ee00ed4bbb"
+SOURCE_CURRENT_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
+SOURCE_CURRENT_FIXTURE = FIXTURE.with_name(SOURCE_CURRENT_CASE + ".jsonl.gz")
+SOURCE_CURRENT_RECIPE = FIXTURE.with_name(SOURCE_CURRENT_CASE + ".recipe.json")
+SOURCE_CURRENT_RECIPE_SHA256 = "21c71120c7dfe9e674f7223eb8618e08816e69379f52a7be186e2b1dd81d74ad"
 RECORDINGS = {
     HISTORICAL_CASE: {
         "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
@@ -34,6 +38,13 @@ RECORDINGS = {
         "public_bytes": 8534249,
         "fixture_sha256": "802bb9958e14cb3a053988057ac6e4dfd03d203a761c0a9cc3c0495f9d523aa9",
         "fixture_bytes": 66078,
+    },
+    SOURCE_CURRENT_CASE: {
+        "fixture": SOURCE_CURRENT_FIXTURE,
+        "public_sha256": "33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e",
+        "public_bytes": 8534524,
+        "fixture_sha256": "a450facedfbda9300a83f9514815e7450bd8cae42f63c7f53961c74cdde2c668",
+        "fixture_bytes": 65968,
     },
 }
 EXPECTED_RECIPE = {
@@ -47,6 +58,23 @@ EXPECTED_RECIPE = {
               "sha256": RECORDINGS[POSITIVE_CASE]["public_sha256"]},
     "gzip": {"file": POSITIVE_FIXTURE.name, "bytes": RECORDINGS[POSITIVE_CASE]["fixture_bytes"],
              "sha256": RECORDINGS[POSITIVE_CASE]["fixture_sha256"]},
+}
+SOURCE_CURRENT_EXPECTED_RECIPE = {
+    **EXPECTED_RECIPE, "case": SOURCE_CURRENT_CASE,
+    "recording_generation": "possession-process-suspension/v2",
+    "policy": "approved-portable-public-policy/v1",
+    "controller_sha256": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+    "source_manifest_sha256": "dce8791c9f2b49f5952898ef9a5d8812d6bbaf71b483c0c5681964ce4d1f6993",
+    "jsonl": {"file": SOURCE_CURRENT_CASE + ".jsonl",
+              "bytes": RECORDINGS[SOURCE_CURRENT_CASE]["public_bytes"],
+              "sha256": RECORDINGS[SOURCE_CURRENT_CASE]["public_sha256"]},
+    "gzip": {"file": SOURCE_CURRENT_FIXTURE.name,
+             "bytes": RECORDINGS[SOURCE_CURRENT_CASE]["fixture_bytes"],
+             "sha256": RECORDINGS[SOURCE_CURRENT_CASE]["fixture_sha256"]},
+}
+RECIPES = {
+    POSITIVE_CASE: (POSITIVE_RECIPE, EXPECTED_RECIPE, RECIPE_SHA256),
+    SOURCE_CURRENT_CASE: (SOURCE_CURRENT_RECIPE, SOURCE_CURRENT_EXPECTED_RECIPE, SOURCE_CURRENT_RECIPE_SHA256),
 }
 COMMAND_FIELDS = {"Move", "Turbo", "Action", "Play", "TargetPlayerId", "Source", "StationInputs"}
 SOURCE_FIELDS = {"IsSpecified", "Action", "Play", "TargetPlayerId", "PatChoice",
@@ -164,13 +192,15 @@ def exact_metadata(value, expected, where):
                 where + " differs from registered recording")
 
 
-def load_recipe(path):
+def load_recipe(path, case=POSITIVE_CASE):
+    require(case in RECIPES, "recording has no portable recipe")
+    _, expected, digest = RECIPES[case]
     path = Path(path)
     require(not path.is_symlink(), "recipe symlinks are forbidden")
     require(path.stat().st_size <= 8192, "public recipe exceeds bounded metadata size")
     raw = path.read_bytes()
-    exact_metadata(decode(raw.decode("ascii")), EXPECTED_RECIPE, "recipe")
-    require(sha(raw) == RECIPE_SHA256, "immutable public recipe SHA256 differs")
+    exact_metadata(decode(raw.decode("ascii")), expected, "recipe")
+    require(sha(raw) == digest, "immutable public recipe SHA256 differs")
 
 
 def audit_public(data, case=HISTORICAL_CASE):
@@ -197,8 +227,8 @@ def compress(data):
 
 def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
     identity = recording(case)
-    if case == POSITIVE_CASE:
-        load_recipe(POSITIVE_RECIPE if recipe is None else recipe)
+    if case in RECIPES:
+        load_recipe(RECIPES[case][0] if recipe is None else recipe, case)
     else:
         require(recipe is None, "historical unqualified recording has no portable recipe")
     path = Path(path)
@@ -279,7 +309,7 @@ def main():
         print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
                           "fixture_sha256": identity["fixture_sha256"],
-                          "recipe_sha256": RECIPE_SHA256 if case == POSITIVE_CASE else None,
+                          "recipe_sha256": RECIPES[case][2] if case in RECIPES else None,
                           "historical_unqualified": case == HISTORICAL_CASE,
                           "simulation_executed": False}))
         return 0

@@ -754,12 +754,24 @@ python3 -B tests/movement-callers/prepare_public_replay.py prepare \
   --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz \
   --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json \
   --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-possession-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
+python3 -B tests/movement-callers/check_replay_generations.py \
+  --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 \
+  --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
+  --sound-functions "$UNCHANGED_OLD6_SAFN" \
+  --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl \
+  --output .squad/.scratch/public-replay-generation-checks
 python3 -B tests/movement-callers/run.py \
   --source-root "$PINNED_ORIGINAL_ROOT" --input-profile contact272 \
   --fixture-manifest "$STRICT_CONTACT272_FIXTURE" \
   --sound-functions "$UNCHANGED_OLD6_SAFN" \
   --c2-m1-inputs "$EXPLICIT_SUCCESSOR288_ROOT" \
-  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl \
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl \
   --output .squad/.scratch/m1-successor-full-qualification \
   --source-compatibility portable
 ```
@@ -780,3 +792,72 @@ the old36948 acceptance. Any unrelated source fault stops the replay without an
 extra wake, queue reset, seed search, substituted state or next policy.
 The separate historical C1 cache controls are not part of M1 dispatch and are
 not counted as three additional fresh rejections.
+
+## Immutable public recordings and source-correct possession suspension
+
+These are three separate input generations, not renamed or overwritten fixtures:
+
+| Recording | Public JSONL identity | Required role |
+| --- | --- | --- |
+| `canonical-public-12000` | `a33b1765...` | Preserved historical, unqualified R_SKIP-negative input; still the preparer's default. |
+| `portable-cabinet-wide-pass-clearance-12000` | `830e7bad...` | Historical main38 positive and specifically stale on current source, checked explicitly in required CI. |
+| `portable-cabinet-wide-pass-clearance-possession-12000` | `33a1686f...` | Separately named source-current recording consumed by the unchanged full Portable M1 gate. |
+
+Authenticated `player.c:5948` creates the whistle with **PID0**;
+`playsel.c:854` suspends id0/mask`0x8000`. With that source-correct process
+suspension, the first semantic divergence from main38 is host1713/source1628
+in PlaySelect: main38 runs a whistle/shared draw that should be suspended
+(raw cursor2674 versus2673). This is not permission to fake the old whistle,
+filter RNG, add a rescue wake, relax side validation or drop a recorded command.
+At host5845/source5553 the old recording submits DEFENSE
+`play_suicide_blitz` from station0 while Home is now offense. The existing
+source-side validator correctly rejects it. A state-conditioned recording
+authored against the earlier trajectory is not universally valid public input.
+
+The source-current recording was authored once with the **same**
+`PortablePublicPolicy.cs` SHA-256
+`e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d`,
+policy `approved-portable-public-policy/v1`, seed1, repeated unfiltered shared
+provider at every site, configuration, handicap policy, clocks and12000-host
+cap. Its minimal recipe binds generation `possession-process-suspension/v2`
+and the77-file pure-source manifest
+`dce8791c9f2b49f5952898ef9a5d8812d6bbaf71b483c0c5681964ce4d1f6993`.
+Only decoded public commands are shipped:8,534,524 JSONL bytes, SHA-256
+`33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e`;
+the exact65,968-byte gzip is
+`a450facedfbda9300a83f9514815e7450bd8cae42f63c7f53961c74cdde2c668`.
+The old canonical gzip, Portable gzip and old minimal recipe remain
+byte-identical. Preparation runs the same closed public validators and exact
+pins, not a controller, exporter or simulation, and never overwrites different
+output. This documents intentional source-correct recording versioning, not a
+newly captured explicit user approval or a waiver of any test.
+
+`check_replay_generations.py` archives only the selected pure source and the
+unchanged twelve-file project/harness closure at exact main38 commit
+`cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02`, tree
+`a1c2e38a83e34933b0da4b0cd002ae14255d9a3d`. A missing commit is fetched by that
+exact id, never a branch tip; no checkout or live source edit occurs. Independent
+bounded subprocesses compile that archive and the pinned current snapshot with
+disjoint outputs. The same old input must complete12000 hosts/11400 source
+ticks/26 R_SKIP frames on main38 and fail specifically the submitting-side
+validator at host5845/source5553 on current source. Wrong source/payload/hash,
+zero/wrong counts, generic faults and success-shaped stale acceptance fail.
+The classifications are **historical-positive-only** and **current-stale**,
+never current-positive or full/native qualification.
+
+The separate sealed source-current full qualification already passed the
+unchanged gate: three positive12000/11400 runs, raw cursor22504,164 R_SKIP
+frames, actor12/instance201 at source6738 ordinal0→source6824 ordinal16,
+byte-identical uninstrumented/observer/final state/RNG/pose output, all3
+canonical-cache and8 caller compiled causal controls, and664 original-C rows/
+5312 exact comparisons. CI wiring reuses those identical public bytes; it is
+not a newly executed full requalification. Required CI still executes the
+complete current gate, both preparations and the historical checks with the
+exact40-minute job budget (minimum30). Audio and independent possession/
+normal-camera workflow guards reject removal, no-ops, unsupported shortcuts,
+skips or failure suppression while retaining all inherited campaigns.
+
+Exact-head remote CI and the parent's focused Quality gate remain pending.
+All16 rows, native/Unity/full-game/audio/DSP/hardware/performance and a new
+real-browser qualification remain OPEN; this test/fixture/CI delta changes no
+production or browser bytes.

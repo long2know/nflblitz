@@ -10,6 +10,8 @@ import uuid
 
 import prepare_public_replay as replay
 
+ARTIFACT_ROOT = replay.ROOT / "tests/movement-callers/.artifacts"
+
 
 class PublicReplayTests(unittest.TestCase):
     @classmethod
@@ -18,7 +20,7 @@ class PublicReplayTests(unittest.TestCase):
         cls.rows = replay.audit_public(cls.data)
 
     def setUp(self):
-        self.work = replay.ROOT / "tests/movement-callers/.artifacts" / ("public-input-unit-" + uuid.uuid4().hex)
+        self.work = ARTIFACT_ROOT / ("public-input-unit-" + uuid.uuid4().hex)
         self.work.mkdir(parents=True)
 
     def tearDown(self):
@@ -151,7 +153,7 @@ class PortableRecordingTests(unittest.TestCase):
         cls.rows = replay.audit_public(cls.data, cls.case)
 
     def setUp(self):
-        self.work = replay.ROOT / "tests/movement-callers/.artifacts" / ("portable-input-unit-" + uuid.uuid4().hex)
+        self.work = ARTIFACT_ROOT / ("portable-input-unit-" + uuid.uuid4().hex)
         self.work.mkdir(parents=True)
 
     def tearDown(self):
@@ -383,6 +385,145 @@ class PortableRecordingTests(unittest.TestCase):
         self.assertIn("own ignored output", result.stderr)
         self.assertFalse((self.work / "uncreated").exists())
         self.assertFalse((self.work / "escape.jsonl").exists())
+
+
+class SourceCurrentRecordingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.case = replay.SOURCE_CURRENT_CASE
+        cls.data = replay.load_fixture(replay.SOURCE_CURRENT_FIXTURE, cls.case)
+        cls.rows = replay.audit_public(cls.data, cls.case)
+
+    def setUp(self):
+        self.work = ARTIFACT_ROOT / ("source-current-input-unit-" + uuid.uuid4().hex)
+        self.work.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.work)
+
+    def prepare(self, fixture=None, recipe=None, cases=None, output=None):
+        command = [sys.executable, "-B", str(Path(replay.__file__)), "prepare"]
+        for case in [self.case] if cases is None else cases:
+            command += ["--case", case]
+        command += ["--fixture", str(fixture or replay.SOURCE_CURRENT_FIXTURE),
+                    "--recipe", str(recipe or replay.SOURCE_CURRENT_RECIPE),
+                    "--output", str(output or self.work / "commands.jsonl")]
+        return subprocess.run(command, capture_output=True, text=True)
+
+    def rejected(self, diagnostic, **kwargs):
+        result = self.prepare(**kwargs)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(diagnostic, result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse((self.work / "commands.jsonl").exists())
+
+    def test_new_generation_exact_bytes_and_minimal_recipe_do_not_relabel_prior_cases(self):
+        self.assertEqual((len(self.data), replay.sha(self.data)), (
+            8534524, "33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e"))
+        self.assertEqual((replay.SOURCE_CURRENT_FIXTURE.stat().st_size,
+                          replay.sha(replay.SOURCE_CURRENT_FIXTURE.read_bytes())), (
+            65968, "a450facedfbda9300a83f9514815e7450bd8cae42f63c7f53961c74cdde2c668"))
+        self.assertEqual(replay.decode(replay.SOURCE_CURRENT_RECIPE.read_text()),
+                         replay.SOURCE_CURRENT_EXPECTED_RECIPE)
+        self.assertEqual(replay.sha(replay.SOURCE_CURRENT_RECIPE.read_bytes()),
+                         replay.SOURCE_CURRENT_RECIPE_SHA256)
+        for case, fixture, digest in (
+            (replay.HISTORICAL_CASE, replay.FIXTURE, replay.PUBLIC_SHA256),
+            (replay.POSITIVE_CASE, replay.POSITIVE_FIXTURE,
+             "830e7badd16a1712553bbb9ffc96c98000e1b5422d3dbbcaa55714fd5142eb3e"),
+        ):
+            self.assertEqual(replay.sha(replay.load_fixture(fixture, case)), digest)
+        self.assertEqual(replay.sha(replay.POSITIVE_RECIPE.read_bytes()), replay.RECIPE_SHA256)
+
+    def test_actual_cli_prepares_exact_reader_bytes_without_another_controller_window(self):
+        for _ in range(2):
+            result = self.prepare()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["case"], self.case)
+            self.assertEqual(report["public_sha256"], replay.sha(self.data))
+            self.assertEqual(report["recipe_sha256"], replay.SOURCE_CURRENT_RECIPE_SHA256)
+            self.assertEqual(report["hosts"], 12000)
+            self.assertFalse(report["historical_unqualified"])
+            self.assertFalse(report["simulation_executed"])
+            self.assertEqual((self.work / "commands.jsonl").read_bytes(), self.data)
+
+    def test_all_nested_public_boundaries_still_reject_private_serialized_fields(self):
+        for index in range(9):
+            row = copy.deepcopy(self.rows[0])
+            command = row["command"]
+            station = command["StationInputs"]["Stations"][0]
+            objects = (row, command, command["Move"], command["Source"], command["Source"]["Play"],
+                       command["StationInputs"], station, station["Command"], station["Command"]["Play"])
+            objects[index]["privateObservation"] = {"state": {}, "RNG": [], "pose": []}
+            rows = [row, *self.rows[1:]]
+            fixture = self.work / "private.jsonl.gz"
+            fixture.write_bytes(replay.compress(replay.encode(rows)))
+            with self.subTest(boundary=index), self.assertRaisesRegex(ValueError, "privateObservation"):
+                replay.load_fixture(fixture, self.case)
+
+    def test_actual_cli_preserves_constructor_guards_not_just_digests(self):
+        for field, value, diagnostic in (
+            ("StickX", 4, "must be-3..3"), ("Held", 8, "ABC mask0..7"),
+            ("Action", 21, "Action must be0..20 when specified"),
+        ):
+            rows = copy.deepcopy(self.rows)
+            station = rows[0]["command"]["StationInputs"]["Stations"][0]
+            (station["Command"] if field == "Action" else station)[field] = value
+            if field == "Action":
+                station["Command"]["IsSpecified"] = True
+            fixture = self.work / "constructor.jsonl.gz"
+            fixture.write_bytes(replay.compress(replay.encode(rows)))
+            with self.subTest(field=field):
+                self.rejected(diagnostic, fixture=fixture)
+
+    def test_generation_policy_controller_source_and_privacy_metadata_are_bound(self):
+        for field, value in (
+            ("recording_generation", "historical/v1"), ("policy", "new-policy/v2"),
+            ("controller_sha256", "0" * 64), ("source_manifest_sha256", "0" * 64),
+            ("seed", 2), ("native_equivalent", True), ("commands_only", False),
+            ("privateProof", {"raw": [], "absolutePath": "/private/proof"}),
+        ):
+            metadata = copy.deepcopy(replay.SOURCE_CURRENT_EXPECTED_RECIPE)
+            metadata[field] = value
+            recipe = self.work / "wrong.recipe.json"
+            recipe.write_text(json.dumps(metadata, indent=2) + "\n")
+            with self.subTest(field=field):
+                self.rejected(field, recipe=recipe)
+        recipe.write_bytes(replay.SOURCE_CURRENT_RECIPE.read_bytes() + b"\n")
+        self.rejected("recipe SHA256", recipe=recipe)
+        recipe.write_bytes(replay.SOURCE_CURRENT_RECIPE.read_bytes().replace(
+            b'"seed": 1', b'"seed": 1, "seed": 1', 1))
+        self.rejected("duplicate JSON field", recipe=recipe)
+
+    def test_new_identity_cannot_be_implicit_or_substitute_the_old_fixture_or_recipe(self):
+        self.rejected("historical unqualified", cases=[])
+        self.rejected("command identity SHA256", fixture=replay.POSITIVE_FIXTURE)
+        self.rejected("recording_generation", recipe=replay.POSITIVE_RECIPE)
+        self.rejected("recording_generation", cases=[replay.POSITIVE_CASE])
+        self.rejected("duplicate --case", cases=[self.case, self.case])
+        self.rejected("duplicate --case", cases=[replay.POSITIVE_CASE, self.case])
+        self.rejected("invalid choice", cases=["unknown"])
+
+    def test_new_case_symlink_traversal_missing_and_no_overwrite_guards(self):
+        fixture_link = self.work / "fixture-link.gz"
+        fixture_link.symlink_to(replay.SOURCE_CURRENT_FIXTURE)
+        self.rejected("fixture symlinks", fixture=fixture_link)
+        recipe_link = self.work / "recipe-link.json"
+        recipe_link.symlink_to(replay.SOURCE_CURRENT_RECIPE)
+        self.rejected("recipe symlinks", recipe=recipe_link)
+        self.rejected("Public replay preparation failed", fixture=self.work / "absent.gz")
+        self.rejected("own ignored output", output=self.work / "absent/../escape.jsonl")
+        self.assertFalse((self.work / "absent").exists())
+        parent_link = self.work / "linked-output"
+        parent_link.symlink_to(self.work, target_is_directory=True)
+        self.rejected("output symlinks", output=parent_link / "elsewhere.jsonl")
+        preserved = self.work / "preserved.jsonl"
+        preserved.write_bytes(b"older proof remains untouched")
+        result = self.prepare(output=preserved)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("never overwrite", result.stderr)
+        self.assertEqual(preserved.read_bytes(), b"older proof remains untouched")
 
 
 if __name__ == "__main__":

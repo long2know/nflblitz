@@ -92,6 +92,7 @@ jobs:
           python3 -B -m unittest discover -s tests/fire-producers -p 'test_*.py' -q
           python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
           python3 -B tests/movement-callers/test_public_replay.py -q
+          python3 -B tests/movement-callers/test_replay_generations.py -q
           python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls
           python3 -B tests/impact-dust/test_ci.py
           python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls
@@ -159,6 +160,10 @@ jobs:
           python3 -B tools/animation/prepare_c2_impact.py --base-catalog .squad/.scratch/SourceData/contact-profile/impact272/impact-presentation.json --callback-data .squad/.scratch/SourceData/c2-m1/c2-callback-data.json --plyrseq .squad/.scratch/SourceData/source-kernel-original/plyrseq.c --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs --profile contact281-c2-m1 --destination .squad/.scratch/SourceData/contact-profile/impact-m1
       - name: Prepare exact public replay input without simulation
         run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+      - name: Prepare source-current public replay input without simulation
+        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-possession-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
+      - name: Check historical and stale public replay generations
+        run: python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/public-replay-generation-ci
       - name: Test real-input fixture and ball-runner failure gates
         run: |
           python3 tests/parity/test_inputs.py
@@ -180,7 +185,7 @@ jobs:
         run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls
       - name: Compare original movement callers and post-animation physics
         # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
-        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
