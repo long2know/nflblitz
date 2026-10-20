@@ -20,6 +20,7 @@ EXTRA_PINS = {
 
 
 def verified_authority(root):
+    root = Path(root).absolute()
     raw = timer.verified_authority(root)
     for name, pin in EXTRA_PINS.items():
         path = Path(root) / name

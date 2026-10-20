@@ -450,6 +450,29 @@ class SelectionCI(unittest.TestCase):
             path.unlink()
             path.write_bytes(data)
 
+    def test_random_authority_normalizes_relative_cli_root_without_allowing_aliases(self):
+        raw = run.random_oracle.verified_authority(self.authority)
+        copied = self.output / "relative-random-authority"
+        copied.mkdir()
+        for name, data in raw.items():
+            path = copied / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        previous = Path.cwd()
+        try:
+            os.chdir(ROOT)
+            relative = copied.relative_to(ROOT)
+            self.assertEqual(run.random_oracle.verified_authority(relative), raw)
+            self.assertEqual(run.random_oracle.verified_authority(copied), raw)
+            alias = self.output / "relative-random-authority-alias"
+            alias.symlink_to(copied, target_is_directory=True)
+            for root in (alias, alias.relative_to(ROOT), copied / ".." / copied.name):
+                with self.subTest(root=str(root)), self.assertRaisesRegex(
+                        ValueError, "Regular explicit original source authority"):
+                    run.random_oracle.verified_authority(root)
+        finally:
+            os.chdir(previous)
+
     def test_default_compatibility_cannot_be_empty_filtered_regenerated_or_unpinned(self):
         summary = dict(hosts=1200, SourceTick=1140, rawCalls=491, selections=4, defaultSeed=1, rawVectorFiltered=False)
         receipt = dict(status="passed", base=run.compatibility.BASE, tree=run.compatibility.TREE,

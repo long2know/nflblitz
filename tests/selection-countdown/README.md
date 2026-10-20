@@ -5,6 +5,10 @@ its existing pinned kernel/M1, impact, normal camera, speech, HUD and FX inputs
 and the authenticated `possession-service-original` directory. No new original
 download or generated payload belongs in Git.
 
+Canonical relative authority paths and their absolute equivalents are normalized
+before the same strict root, file, symlink and Git-blob checks. Symlink aliases and
+parent-traversal aliases remain rejected; no source-acquisition input is added.
+
 `oracle.py` verifies thirteen fixed Git blobs before extracting unchanged
 `timedown_play_select`, `flash_text_proc`, source suspension/resumption and
 selected caller/choice bodies. The authored C bindings retain logical
