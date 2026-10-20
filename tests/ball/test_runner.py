@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Guard the bounded ball assertion/mutation inventory, not gameplay itself."""
 import importlib.util
+import hashlib
+import os
 from pathlib import Path
+import shutil
 import sys
 import unittest
+import uuid
 
 
 SUITE = Path(__file__).resolve().parent
@@ -17,6 +21,35 @@ class BallRunnerGuards(unittest.TestCase):
     def summary(self):
         return dict(RUNNER.EXPECTED, schema="actual-source-ball-checks/v1",
                     status="passed", full_gameplay_parity_claimed=False)
+
+    def test_only_fresh_pinned_original_C_tables_can_enter_independent_mutant_roots(self):
+        parent = Path(os.environ.get("BLITZ_CI_TEST_OUTPUT", RUNNER.ROOT / ".squad/.scratch/ball-oracle-tests"))
+        self.assertTrue(parent.resolve().is_relative_to(RUNNER.ROOT))
+        work = parent / uuid.uuid4().hex
+        work.mkdir(parents=True)
+        self.addCleanup(shutil.rmtree, work)
+        table = work / "oracle-cases.tsv"
+        table.write_bytes(b"fresh test oracle table\n")
+        (work / "old-managed-proof.json").write_text('{"status":"passed"}\n')
+        pins = {table.name: hashlib.sha256(table.read_bytes()).hexdigest()}
+        captured = RUNNER.original_c_table_snapshot(work, pins)
+        self.assertEqual(captured, {Path(table.name): table.read_bytes()})
+        self.assertNotIn(Path("old-managed-proof.json"), captured, "old managed evidence must never be copied as fresh")
+        first = RUNNER.isolated_oracle_root(work, "first-run", "same-mutant", captured)
+        (first / "old-managed-proof.json").write_text('{"status":"passed"}\n')
+        second = RUNNER.isolated_oracle_root(work, "second-run", "same-mutant", captured)
+        self.assertNotEqual(first, second, "repeated author runs must not share prior mutant diagnostics")
+        self.assertEqual((second / table.name).read_bytes(), table.read_bytes())
+        self.assertFalse((second / "old-managed-proof.json").exists())
+        (first / table.name).write_bytes(b"mutated private output\n")
+        self.assertEqual((second / table.name).read_bytes(), captured[Path(table.name)])
+        with self.assertRaises(FileExistsError):
+            RUNNER.isolated_oracle_root(work, "second-run", "same-mutant", captured)
+        table.write_bytes(b"changed test oracle table\n")
+        with self.assertRaisesRegex(RuntimeError, "freshly executed oracle"):
+            RUNNER.original_c_table_snapshot(work, pins)
+        with self.assertRaisesRegex(RuntimeError, "freshly executed oracle"):
+            RUNNER.original_c_table_snapshot(work, {})
 
     def test_exact_complete_assertion_inventory_is_required(self):
         RUNNER.require_baseline(0, self.summary(), "all")
@@ -164,6 +197,20 @@ class BallRunnerGuards(unittest.TestCase):
         apply = source.index("ApplySourceMovement(actor, state);", merge)
         self.assertLess(tick, merge)
         self.assertLess(merge, apply)
+
+    def test_source_transform_mutant_still_omits_odd_dispatches_in_the_actual_shared_helper(self):
+        row = next(item for item in RUNNER.MUTATIONS if item[0] == "source-transform-wake")
+        self.assertEqual("GameSimulation.Source.cs", row[1])
+        self.assertEqual("if (SourceStationInputTransform == null) return command;", row[2])
+        self.assertEqual(
+            "if (SourceStationInputTransform == null || Model.SourceTick % 2 != 0) return command;", row[3])
+        self.assertEqual(("caller", "ordered raw drain transforms exactly once", 1), row[4:])
+        source = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_text()
+        start = source.index("private PlayerCommand TransformSourceStationInput(")
+        end = source.index("private void SourceStep(", start)
+        helper = source[start:end]
+        self.assertIn(row[2], helper)
+        self.assertIn("SourceStationInputTransform(new GameSnapshot(Model)", helper)
 
     def test_orientation_is_additive_and_each_control_targets_actual_compilable_production(self):
         self.assertEqual(34713, RUNNER.EXPECTED["orientation_ball_assertions"])

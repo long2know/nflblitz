@@ -45,8 +45,16 @@ public sealed class PreviewCamera
             input.RawGameMode == game.SourceCameraRawGameMode,
             "The original normal producer requires the actual immutable pre-actor Core boundary.");
         Playback.CameraSourceTick(input, data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution,
-            game.DrawSourceCameraRandom);
+            game.DrawSourceCameraRandom, game.SourceCameraProcesses);
         game.ApplySourceCameraFeedback(Playback.CameraFeedback);
+        if (!Playback.CameraFeedback.CameraCompleted)
+        {
+            Suspended = true;
+            Playback.ObserveCameraProcessSuspension(true);
+            Record(new { sourceTick = tick, kind = "camera-possession-sleep", sourceTicks = 40,
+                retainedOutputTick = Playback.LastCameraTick, processes = ((ISourcePossessionState)state).Processes });
+            return Playback.SourceHeading1024;
+        }
         SourceCinematicTransform executed = Playback.RequireSourceCameraAtTick(tick);
         game.SetSourceMovementCameraFrame(new SourceMovementCameraFrame(executed.Position, executed.Transform,
             data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution), tick);
@@ -75,7 +83,9 @@ public sealed class PreviewCamera
     public void ObserveHostStep(IGameState state)
     {
         SourceMatchPhase phase = ((ISourceMatchState)state).Match.Phase;
-        Suspended = phase is SourceMatchPhase.PlaySelection or SourceMatchPhase.PatSelection;
+        var processes = ((ISourcePossessionState)state).Processes;
+        Suspended = phase is SourceMatchPhase.PlaySelection or SourceMatchPhase.PatSelection ||
+            processes.Any(p => p.Id == 0x1400 && p.Suspended) || Playback.IsPossessionSleeping;
         Playback.ObserveCameraProcessSuspension(Suspended);
     }
 

@@ -108,6 +108,15 @@ public sealed class PlayerHost
 
     private void ObserveSound()
     {
+        foreach (SourcePossessionSpeech speech in Game.SourcePossessionSpeechSubmissions)
+        {
+            SoundSelections++;
+            UnqualifiedSoundCalls++;
+            Enqueue(events, new { kind = "intercepted_ball_sp", sourceTick = speech.SourceTick,
+                processOrder = speech.ProcessOrder, serial = speech.ProcessSerial, bank = speech.Bank,
+                ordinal = speech.SelectedOrdinal, playlist = speech.PlaylistId, volume = speech.Volume,
+                pan = speech.Pan, priority = speech.PriorityWord, pcmOrDspPlayback = false }, 64);
+        }
         SourceSoundVmBatch batch = Game.TakeSourceSoundVmDispatches();
         foreach (SourceSoundVmDispatch dispatch in batch.Dispatches)
         {
@@ -127,7 +136,8 @@ public sealed class PlayerHost
                 "The host skipped a source wake; source HUD/camera ordering cannot be reconstructed per render.");
             SourceWakes++;
             lastSourceTick = Game.SourceTick;
-            hudClock.Advance(lastSourceTick, HudProcess.CommittedHud.ClockWarning);
+            hudClock.Advance(lastSourceTick, HudProcess.CommittedHud.ClockWarning,
+                HudProcess.CommittedHud.StatusProcessSuspended);
         }
         Camera.ObserveHostStep(state);
         Fire.Observe(Game);
@@ -353,6 +363,18 @@ public sealed class PlayerHost
                 focus = new[] { Camera.Playback.SourceState.Focus.X, Camera.Playback.SourceState.Focus.Y,
                     Camera.Playback.SourceState.Focus.Z }, distance = Camera.Playback.SourceState.Distance,
                 viewProjection = Camera.ViewProjection, cameraSpaceProjection = Camera.CameraSpaceProjection
+            },
+            possessionServices = new {
+                ordering = "portable declared Core/FX slots; not a native global scheduler witness",
+                cameraSleeping = ((ISourcePossessionState)state).CameraProcessSleeping,
+                retainedOutputTick = ((ISourcePossessionState)state).CameraOutputSourceTick,
+                previousOffense = Camera.Playback.PossessionOffensePrevious,
+                timeout = Camera.Playback.PossessionTimeout,
+                message = ((ISourcePossessionState)state).PossessionMessage,
+                messages = ((ISourcePossessionState)state).PossessionMessages,
+                processes = ((ISourcePossessionState)state).Processes,
+                speech = Game.SourcePossessionSpeechSubmissions,
+                hudRepresentation = "exact logical pair; complete original WIF union while both flash states agree; native Composit packing unqualified"
             },
             sourceRandom = new {
                 evidence = Game.SourceRandomService.Provenance.Evidence.ToString(),

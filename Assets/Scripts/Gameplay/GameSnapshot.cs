@@ -4,7 +4,7 @@ using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
-    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState, ISourceCameraState
+    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState, ISourceCameraState, ISourcePossessionState
     {
         private readonly SourceKickMeterMetrics kickMeterMetrics;
         private readonly SourceKickMeterView kickMeter;
@@ -40,6 +40,11 @@ namespace Blitz.Gameplay
         public SourceMatchView Match { get; }
         public SourcePresentationSettings Presentation { get; }
         public SourceCameraBoundary CameraBoundary { get; }
+        public System.Collections.ObjectModel.ReadOnlyCollection<SourceProcessView> Processes { get; }
+        public SourcePossessionMessageView PossessionMessage { get; }
+        public System.Collections.ObjectModel.ReadOnlyCollection<SourcePossessionMessageView> PossessionMessages { get; }
+        public long CameraOutputSourceTick { get; }
+        public bool CameraProcessSleeping { get; }
 
         internal GameSnapshot(SimulationState model, int cameraProcessOrder = -1)
         {
@@ -88,6 +93,11 @@ namespace Blitz.Gameplay
             Players = Array.AsReadOnly(players);
             if (model.SourceMode)
             {
+                Processes = model.SourceProcesses.Processes;
+                PossessionMessage = model.SourcePossessionMessage;
+                PossessionMessages = model.SourcePossessionMessages;
+                CameraOutputSourceTick = model.SourceMovementCameraTick;
+                CameraProcessSleeping = model.SourceCameraPossessionContinuation;
                 CameraBoundary = CaptureCamera(model, cameraProcessOrder);
                 var scores = new SourceQuarterScore[model.Quarter];
                 for (int q = 0; q < scores.Length; q++)
@@ -153,7 +163,9 @@ namespace Blitz.Gameplay
                     new SourceVector3(model.SourceBallVelocity.X, model.SourceBallVerticalVelocity, model.SourceBallVelocity.Z),
                     model.SourceBallOrigin, model.SourceBallTarget, model.SourceCameraBallTarget,
                     (int)GameSimulation.SourceBallTypeFor(model.BallKind), unchecked((int)model.SourceBallFlags),
-                    model.PassTicksElapsed, model.ThrowerId, model.TargetPlayerId), actors);
+                    model.PassTicksElapsed, model.ThrowerId, model.TargetPlayerId), actors,
+                model.SourceOffenseTurnover, model.SourceMatchPhase == SourceMatchPhase.MatchEnded ? 4
+                    : model.SourceMatchPhase == SourceMatchPhase.PeriodTransition ? 3 : 2);
         }
 
         internal static PlayerView SourcePlayerView(ActorState actor, long tick, bool relativeToOrigin = false)

@@ -62,6 +62,7 @@ namespace Blitz.Presentation
         private readonly bool movement157;
         private readonly bool rawSourceCamera;
         private System.Action<SourceCameraFeedback> sourceCameraFeedback;
+        private ISourceCameraProcessServices sourceCameraProcesses;
         private float sourceHorizontalResolution = 512f, sourceVerticalResolution = 384f;
         private bool sourceMovementRasterConfigured;
 
@@ -136,13 +137,15 @@ namespace Blitz.Presentation
         internal void ConfigureSourceStage(IGameState initialState, System.Func<int> actualCameraOrder,
             System.Func<int, string, int> actualCameraRandom, System.Func<IGameState, int> actualRawGameMode,
             System.Func<int, SourceVector3> actualSourceActorRoot,
-            System.Action<SourceCameraFeedback> actualCameraFeedback = null)
+            System.Action<SourceCameraFeedback> actualCameraFeedback = null,
+            ISourceCameraProcessServices actualProcessServices = null)
         {
             if (actualCameraOrder == null || actualCameraRandom == null || actualRawGameMode == null || actualSourceActorRoot == null)
                 throw new System.InvalidOperationException("Original source camera registration requires actual Core order/RNG/game-mode/source-world getters.");
             sourceCameraOrder = actualCameraOrder; sourceCameraRandom = actualCameraRandom;
             sourceRawGameMode = actualRawGameMode; sourceActorRoot = actualSourceActorRoot;
             sourceCameraFeedback = actualCameraFeedback;
+            sourceCameraProcesses = actualProcessServices;
             stageRandomDraw = DrawStageRandom;
             InitializeSourceStage(initialState);
         }
@@ -198,6 +201,10 @@ namespace Blitz.Presentation
             ISourceMatchState match = state as ISourceMatchState;
             bool suspended = state.Phase == GamePhase.PlaySelect || match != null && match.Match != null &&
                 (match.Match.Phase == SourceMatchPhase.PlaySelection || match.Match.Phase == SourceMatchPhase.PatSelection);
+            ISourcePossessionState processes = state as ISourcePossessionState;
+            if (processes != null)
+                foreach (SourceProcessView p in processes.Processes)
+                    if (p.Id == 0x1400 && (p.Suspended || SourcePlayback.IsPossessionSleeping)) suspended = true;
             ObserveSourceCameraSuspension(suspended);
         }
 
@@ -276,8 +283,13 @@ namespace Blitz.Presentation
                 source.CameraBoundary.RawGameMode != sourceRawGameMode(beforeActors))
                 throw new System.InvalidOperationException("Original normal camera consumes only the executing typed pre-actor Core boundary.");
             SourcePlayback.CameraSourceTick(source.CameraBoundary, sourceHorizontalResolution, sourceVerticalResolution,
-                sourceCameraRandom);
+                sourceCameraRandom, sourceCameraProcesses);
             sourceCameraFeedback(SourcePlayback.CameraFeedback);
+            if (!SourcePlayback.CameraFeedback.CameraCompleted)
+            {
+                ObserveSourceCameraSuspension(true);
+                return SourcePlayback.SourceHeading1024;
+            }
             lastSourceStageTick = executingSourceTick; allowSourceStageGap = false;
             return SourcePlayback.SourceHeading1024;
         }

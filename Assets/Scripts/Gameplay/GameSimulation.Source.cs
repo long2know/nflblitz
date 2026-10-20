@@ -47,6 +47,7 @@ namespace Blitz.Gameplay
             Model.SourceClock = SourceClock.Create();
             int firstSide = (int)sourceConfiguration.FirstPossession;
             Model.SourceRules = new SourceRulesState(firstSide, firstSide, 1, 30, 100, SourcePlayType.Kickoff);
+            InitializeSourceProcesses();
             for (int id = 0; id < Model.Players.Length; id++)
             {
                 SourceTeamSelection team = id < 7 ? sourceConfiguration.HomeTeam : sourceConfiguration.AwayTeam;
@@ -61,15 +62,7 @@ namespace Blitz.Gameplay
         {
             BeginSourceProcess("game_proc", -1, 0);
             CommitSourceC2PlayEnd();
-            if (SourceStationInputTransform != null)
-            {
-                SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),
-                    Model.SourceTick, command.StationInputs);
-                if (transformed == null)
-                    throw new InvalidOperationException("The executing source station transform returned no input frame.");
-                command = new PlayerCommand(command.Move, command.Turbo, command.Action, command.Play,
-                    command.TargetPlayerId, command.Source, transformed);
-            }
+            command = TransformSourceStationInput(command);
             Model.SourceCurrentInput = command;
             if (command.Source.OffenseFlipped.HasValue && Model.Phase == GamePhase.PlaySelect)
                 Model.SourceOffenseFlipped = command.Source.OffenseFlipped.Value;
@@ -117,91 +110,134 @@ namespace Blitz.Gameplay
             return command;
         }
 
+        private PlayerCommand TransformSourceStationInput(PlayerCommand command)
+        {
+            if (SourceStationInputTransform == null) return command;
+            SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),
+                Model.SourceTick, command.StationInputs);
+            if (transformed == null)
+                throw new InvalidOperationException("The dispatched source station transform returned no input frame.");
+            return new PlayerCommand(command.Move, command.Turbo, command.Action, command.Play,
+                command.TargetPlayerId, command.Source, transformed);
+        }
+
         private void SourceStep(PlayerCommand command)
         {
             RequireSourceSoundVmBinding();
+            sourcePossessionSpeech.Clear();
+            Model.SourceProcesses.BeginTick(Model.SourceTick);
             Model.SourceDispatchOrdinal = 0;
             Model.SourcePresentationOrder = 0;
             if (SourceFireEnabled) command = DispatchSourceFireLevelZero(command);
             else
             {
+                foreach (SourceFireWakeSlot slot in SourceMessageSlots()) DispatchSourceMessage(slot);
                 DispatchSourceC2Whistles();
-                command = SourceGameProc(command);
+                if (EnterSourceProcess(GameProcess))
+                {
+                    command = SourceGameProc(command);
+                    CompleteSourceProcess();
+                }
             }
+            // Goose switch.c scanning is independent of suspended process bodies.
+            // Observe this tick without running game_proc or replaying its skipped input.
+            if (Model.SourceProcesses.Require(GameProcess).LastWakeTick != Model.SourceTick)
+                command = TransformSourceStationInput(command);
+            Model.SourceCurrentInput = command;
+            StepSourceClockProcess();
             StepSourceKickMeter();
+            if (EnterSourceProcess(PlayerInfoProcess)) CompleteSourceProcess();
+            if (EnterSourceProcess(StatusProcess)) CompleteSourceProcess();
+            Model.SourcePossessionMessage = CaptureSourcePossessionMessage();
             // Verified playsel.c 848-854/1530 suspends gameplay processes while
             // the selection process runs, then resumes them after selection.
             if (Model.Phase == GamePhase.PlaySelect)
             {
+                Model.SourcePossessionMessage = CaptureSourcePossessionMessage();
                 CaptureSourceFireFrame();
                 return;
             }
 
-            UpdateSourceStationMovementResources(command);
             // id.h RL_CAMBOT=0x100 precedes RL_PLAYER-1 and all actors.
-            if (SourceCameraHeadingProvider != null)
+            if (SourceCameraHeadingProvider != null && EnterSourceProcess(CameraProcess))
             {
+                Model.SourceCameraPossessionContinuation = false;
                 BeginSourceProcess("cambot_proc", -1, 0x100);
                 SourceCameraStageOrder = Model.SourcePresentationOrder++;
                 executingSourceCamera = true;
                 int heading;
                 try { heading = SourceCameraHeadingProvider(new GameSnapshot(Model, SourceCameraStageOrder), Model.SourceTick); }
-                finally { executingSourceCamera = false; }
+                finally { executingSourceCamera = false; CompleteSourceProcess(); }
                 SetSourceCameraHeading(heading, Model.SourceTick);
             }
             Model.SourceCameraHeading = pendingSourceCameraHeading;
             Model.SourceCameraHeadingSampleTick = pendingSourceCameraSampleTick;
-            if (SourceCameraHeadingProvider == null || Model.SourceMovementCameraTick != Model.SourceTick)
+            if (SourceCameraHeadingProvider == null || Model.SourceMovementCameraTick != Model.SourceTick &&
+                !SourceCameraHasRetainedOutput)
                 throw new InvalidOperationException("M1 requires actual cambot position/xform/resolution from the executing source camera provider.");
 
-            SourceClockStep clock = SourceClock.Step(Model.SourceClock,
-                new SourceClockInput(Model.SourceTick, Model.ClockActive, Model.Quarter - 1,
-                    sourceConfiguration.TimeAdjustment));
-            Model.SourceClock = clock.State;
-            UpdateSourceClockView();
-            foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;
-            CacheSourceGeometry();
-            Model.SourceAiFrame = BuildSourceAiFrame();
-            if (Model.Phase == GamePhase.LiveBall)
+            if (EnterSourceProcess(PrePlayerProcess))
             {
+                UpdateSourceStationMovementResources(command);
+                foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;
+                CacheSourceGeometry();
                 Model.SourceAiFrame = BuildSourceAiFrame();
-                Model.SourceBlocking = SourceDroneAI.AssignBlockers(Model.SourceAiFrame);
-                foreach (int blocker in Model.SourceBlocking.Blockers)
+                if (Model.Phase == GamePhase.LiveBall)
                 {
-                    int target = Model.SourceBlocking.TargetsByActor[blocker];
-                    Model.Players[blocker].SourceTarget = target;
-                    Model.Players[blocker].SourceJob = SourceActorJob.Block;
-                    Model.SourceDrones[blocker] = Model.SourceDrones[blocker].WithTarget(target);
+                    Model.SourceAiFrame = BuildSourceAiFrame();
+                    Model.SourceBlocking = SourceDroneAI.AssignBlockers(Model.SourceAiFrame);
+                    foreach (int blocker in Model.SourceBlocking.Blockers)
+                    {
+                        int target = Model.SourceBlocking.TargetsByActor[blocker];
+                        Model.Players[blocker].SourceTarget = target;
+                        Model.Players[blocker].SourceJob = SourceActorJob.Block;
+                        Model.SourceDrones[blocker] = Model.SourceDrones[blocker].WithTarget(target);
+                    }
+                    Model.SourceAiFrame = BuildSourceAiFrame();
+                    Model.SourceReceivers = SourceDroneAI.UpdateReceiverData(Model.SourceAiFrame);
                 }
-                Model.SourceAiFrame = BuildSourceAiFrame();
-                Model.SourceReceivers = SourceDroneAI.UpdateReceiverData(Model.SourceAiFrame);
+                CompleteSourceProcess();
             }
             UpdateSourceMovementPlayers(command);
-            CacheSourcePlayerCameraJoints();
-            // Active last_player_proc clears HICOUNT for all fourteen actors.
-            foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x04;
-            if (Model.SourceKickApproach)
+            if (EnterSourceProcess(PostPlayerProcess))
             {
-                int kicker = Model.SourceKickingSide * SliceRules.PlayersPerTeam;
-                if (PlayerSimulation.DistanceSquared(Model.Players[kicker].Position, Model.BallPosition)
-                    * SourceTiming.SourceUnitsPerYard * SourceTiming.SourceUnitsPerYard < 64f)
-                    BeginSourceKick();
+                CacheSourcePlayerCameraJoints();
+                // Active last_player_proc clears HICOUNT for all fourteen actors.
+                foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x04;
+                if (Model.SourceKickApproach)
+                {
+                    int kicker = Model.SourceKickingSide * SliceRules.PlayersPerTeam;
+                    if (PlayerSimulation.DistanceSquared(Model.Players[kicker].Position, Model.BallPosition)
+                        * SourceTiming.SourceUnitsPerYard * SourceTiming.SourceUnitsPerYard < 64f)
+                        BeginSourceKick();
+                }
+                CompleteSourceProcess();
             }
+            if (EnterSourceProcess(CursorProcess)) CompleteSourceProcess();
             // id.h:234-235; detect.c's wake is not conditional on a carrier,
             // live play, human A, Down, or MODE_UNINT.
-            BeginSourceProcess("detect_proc", -1, 0x500);
-            SourceContacts();
-            BeginSourceProcess("ball_proc", -1, 0x600);
-            if (Model.Phase == GamePhase.LiveBall)
+            if (EnterSourceProcess(24))
             {
-                AdvanceSourceBall();
-                if (Model.BallMode == BallMode.Held && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
-                    SynchronizeSourceHeldBall();
+                BeginSourceProcess("detect_proc", -1, 0x500);
+                SourceContacts();
+                CompleteSourceProcess();
             }
-            else if (Model.CarrierId >= 0 && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
-                SynchronizeSourceHeldBall();
-            else AdvanceSourceBall();
-            CacheSourceCameraBallTarget();
+            if (EnterSourceProcess(BallProcess))
+            {
+                BeginSourceProcess("ball_proc", -1, 0x600);
+                if (Model.Phase == GamePhase.LiveBall)
+                {
+                    AdvanceSourceBall();
+                    if (Model.BallMode == BallMode.Held && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
+                        SynchronizeSourceHeldBall();
+                }
+                else if (Model.CarrierId >= 0 && (Model.SourceBallFlags & SourceBallFlags.Phantom) == 0)
+                    SynchronizeSourceHeldBall();
+                else AdvanceSourceBall();
+                CacheSourceCameraBallTarget();
+                CompleteSourceProcess();
+            }
+            Model.SourcePossessionMessage = CaptureSourcePossessionMessage();
             CaptureSourceFireFrame();
         }
 
@@ -951,6 +987,7 @@ namespace Blitz.Gameplay
                     + " cause=" + cause + " kind=" + Model.BallKind + " sourceTick=" + Model.SourceTick);
             ApplySourceFirePlayEnd(endingInput, resolution);
             Model.SourceLastResult = resolution.Classification.Result;
+            if (resolution.TurnoverOnDowns) Model.SourceOffenseTurnover = true;
             Model.SourcePlayEndX = resolution.PlayEndX;
             SetSourceRules(resolution.State);
             if (resolution.PreserveDisplayedLines)
@@ -1017,6 +1054,8 @@ namespace Blitz.Gameplay
 
         private void ContinueSource()
         {
+            // plyrinfo.c:1402 result-box teardown, before the next play/period.
+            Model.SourceOffenseTurnover = false;
             // nfl.c:1943-1953 runs after the result box, before the period gate.
             if (Model.SourceForwardCatcher == -1)
                 Model.SourceConsecutiveCompletions[(int)Model.Possession] = 0;

@@ -8,8 +8,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from canonical import HARNESS, ROOT
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 from kernel_sources import production_paths, canonical_hashes
 from prepare_inputs import fixture_hashes
 
@@ -288,7 +291,10 @@ def main():
 
     def command(label, argv, stdin=None):
         result["commands"].append(argv)
-        p = subprocess.run(argv, input=stdin, env=env, cwd=ROOT, text=True, capture_output=True, timeout=240)
+        scratch = out / "runtime" / label
+        scratch.mkdir(parents=True, exist_ok=True)
+        execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
+        p = subprocess.run(argv, input=stdin, env=execute_env, cwd=ROOT, text=True, capture_output=True, timeout=240)
         (out / (label + ".log")).write_text(p.stdout + p.stderr)
         return p
 
@@ -329,11 +335,12 @@ def main():
         summaries = [json.loads(line) for line in p.stdout.splitlines() if line.startswith('{"schema":')]
         summary = summaries[-1] if len(summaries) == 1 else {}
         result["runs"][label] = dict(exit_code=p.returncode, summary=summary, compiled_zero_diagnostics=True)
+        control = None
         if mutation:
             if (p.returncode != 1 or summary.get("status") != "failed"
                     or mutation[4] not in summary.get("failed_assertion", "")):
                 raise RuntimeError("Control did not reject its exact causal contract: " + label)
-            result["controls"].append(dict(id=label, named_failure=summary["failed_assertion"]))
+            control = dict(id=label, named_failure=summary["failed_assertion"])
         elif args.retained_caller_controls_only:
             retained.require_summary(p.returncode, summary, "controlled", real_animation_sha)
         elif p.returncode or summary.get("status") != "passed" or summary.get("assertions") != (1142 if args.carrierless_switch_only else 325):
@@ -343,6 +350,7 @@ def main():
                 original_switch, out / label / "carrierless-defined.json", command, label)
         shutil.rmtree(copy)
         print("PASS " + label, flush=True)
+        return control
 
     try:
         real_animation_sha = "e87401c8cf3e348cc2d9c7255a1f18f43e41b1694ff7dff45c4bf025a5ecce4f"
@@ -351,8 +359,7 @@ def main():
         execute("baseline")
         mutations = [(identity, GAME + filename, old, new, expected)
                      for identity, filename, old, new, expected in retained.MUTANTS] if args.retained_caller_controls_only else CARRIERLESS_MUTANTS if args.carrierless_switch_only else MUTANTS
-        for mutation in mutations:
-            execute(mutation[0], mutation)
+        result["controls"] = run_mutations(mutations, lambda mutation: execute(mutation[0], mutation))
         execute("final-baseline")
         result["status"] = "passed-focused-strict-portable-not-full-M1"
     except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as error:

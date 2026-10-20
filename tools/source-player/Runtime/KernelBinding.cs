@@ -21,10 +21,12 @@ public static class KernelBinding
                     data.Configuration.Match, data.Configuration.Presentation, identity, side)) : null;
         SourceKickMeterMetrics meters = options.KickMeters == SourceKickMeterMode.PortableAuthored ?
             data.Hud.CreatePortableAuthoredKickMeterMetrics() : null;
-        return SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
+        GameSimulation game = SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
             data.Configuration.Match, data.Rosters, data.Configuration.Presentation, data.Movement,
             data.MovementSettings, data.Sound, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(data.Callbacks),
             compatibility: options.Compatibility, fireEffects: fire, kickMeterMetrics: meters);
+        game.BindSourcePossessionSoundData(data.PossessionSound);
+        return game;
     }
 
     public static bool IsPortable(GameSimulation game) => game.Compatibility == SourceGameplayCompatibility.Portable &&

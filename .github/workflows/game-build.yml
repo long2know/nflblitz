@@ -69,6 +69,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PYTHONDONTWRITEBYTECODE: '1'
+      BLITZ_CI_MUTATION_WORKERS: '2'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -86,12 +87,14 @@ jobs:
         run: python3 tests/run-core.py
       - name: Test the inventory failure gates
         run: |
+          python3 -B tests/ci/test_mutation_workers.py -q
           python3 tests/test-runner.py
           python3 -B tests/kick-meter/test_runner.py -q
           python3 -B tests/fire-kick-integration/test_runner.py -q
           python3 -B -m unittest discover -s tests/fire-producers -p 'test_*.py' -q
           python3 -B -m unittest discover -s tests/audio/runtime -p 'test_ci.py' -q
           python3 -B tests/movement-callers/test_public_replay.py -q
+          python3 -B tests/movement-callers/test_replay_generations.py -q
           python3 -B tests/source-host-lifecycle/run.py --output tests/source-host-lifecycle/.artifacts/ci-managed --controls
           python3 -B tests/impact-dust/test_ci.py
           python3 -B tests/impact-dust/run.py --output .squad/.scratch/impact-dust-ci --controls
@@ -159,6 +162,10 @@ jobs:
           python3 -B tools/animation/prepare_c2_impact.py --base-catalog .squad/.scratch/SourceData/contact-profile/impact272/impact-presentation.json --callback-data .squad/.scratch/SourceData/c2-m1/c2-callback-data.json --plyrseq .squad/.scratch/SourceData/source-kernel-original/plyrseq.c --programs Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs --profile contact281-c2-m1 --destination .squad/.scratch/SourceData/contact-profile/impact-m1
       - name: Prepare exact public replay input without simulation
         run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl
+      - name: Prepare source-current public replay input without simulation
+        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-possession-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
+      - name: Check historical and stale public replay generations
+        run: python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/public-replay-generation-ci
       - name: Test real-input fixture and ball-runner failure gates
         run: |
           python3 tests/parity/test_inputs.py
@@ -180,7 +187,7 @@ jobs:
         run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls
       - name: Compare original movement callers and post-animation physics
         # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
-        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
@@ -208,6 +215,15 @@ jobs:
         run: |
           python3 -B tests/presentation/normal-camera/test_ci.py
           python3 -B tests/presentation/normal-camera/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/raw-camera-ci --controls
+      - name: Fetch authenticated active possession service inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tests/presentation/possession-services/fetch_inputs.py --output .squad/.scratch/SourceData/possession-service-original
+      - name: Compare active original possession messages and process services
+        run: |
+          python3 -B tests/presentation/possession-services/prepare.py --original .squad/.scratch/SourceData/possession-service-original --output .squad/.scratch/SourceData/possession-services
+          python3 -B tests/presentation/possession-services/test_ci.py --original .squad/.scratch/SourceData/possession-service-original --prepared .squad/.scratch/SourceData/possession-services --output .squad/.scratch/possession-service-ci-guards
+          python3 -B tests/presentation/possession-services/run.py --fixture .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --m1 .squad/.scratch/SourceData/c2-m1 --impact .squad/.scratch/SourceData/contact-profile/impact-m1/impact-presentation.json --normal .squad/.scratch/raw-camera-ci/original-C/normal.json --speech .squad/.scratch/SourceData/possession-services/speech/possession-speech.bytes --hud .squad/.scratch/SourceData/possession-services/hud/interface.json --fire .squad/.scratch/SourceData/possession-services/fire --fire-sha256 90a134af37fe6d43f13977f7903315ee0d9a7f37f700669b365f45dd7c941d56 --authority .squad/.scratch/SourceData/possession-services/authority --output .squad/.scratch/possession-services-ci --controls
       - name: Test source-camera frame and resource mutations
         run: python3 tests/presentation/movement-stage/mutations.py
       - name: Test original audio package reader without banks or Unity

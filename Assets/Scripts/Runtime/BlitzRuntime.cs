@@ -116,6 +116,8 @@ namespace Blitz.Runtime
                                 sourceServices.PresentationSettings, identity, side));
                     }
                     simulation = sourceServices.CreateSimulation(prefab, compatibility, fireEffects: fire, kickMeters: kickMeters);
+                    if (profile.IsContact281C2M1)
+                        simulation.BindSourcePossessionSoundData(sourceServices.Hud.PossessionSound);
                     if (kickMeters == SourceKickMeterMode.PortableAuthored)
                         Debug.LogWarning("Portable-authored human kick meters enabled with the pinned authored HUD dimensions. "
                             + "Original generated native image_info_t/Composit metrics remain UNKNOWN. "
@@ -153,7 +155,7 @@ namespace Blitz.Runtime
                     playCamera.ConfigureSourceMovementRaster(bootstrap.HorizontalResolution, bootstrap.VerticalResolution);
                     playCamera.ConfigureSourceStage(State, () => simulation.SourceCameraStageOrder,
                         simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode,
-                        simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback);
+                        simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback, simulation.SourceCameraProcesses);
                     RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
                     SourcePresentationCueRaised += ConsumeSourcePresentationCue;
@@ -504,6 +506,8 @@ namespace Blitz.Runtime
             int heading = sourceCameraProducer(preActorState, executingSourceTick);
             if (heading < 0 || heading > 1023 || executingSourceTick <= lastSourceCameraTick)
                 throw new SourceInterfaceException("Original camera stage requires one ordered finite 1024-heading sample per source wake.");
+            if (!playCamera.SourcePlayback.CameraFeedback.CameraCompleted && playCamera.SourcePlayback.UsesOriginalNormalCamera)
+                return heading;
             SourceCinematicTransform frame = playCamera.RequireSourceCameraAtTick(executingSourceTick);
             SourceInterfaceMovementBootstrap bootstrap = sourceServices.MovementBootstrap;
             simulation.SetSourceMovementCameraFrame(new Blitz.Gameplay.SourceMovementCameraFrame(

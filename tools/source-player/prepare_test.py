@@ -9,6 +9,57 @@ SPEC.loader.exec_module(prepare)
 
 
 class PreparationChecks(unittest.TestCase):
+    def possession_fixture(self):
+        import json
+        root, source, _, _ = self.camera_fixture()
+        manifest = json.loads((source / "manifest.json").read_bytes())
+        manifest["entrypoints"]["normalCamera"] = "first.bytes"
+        (source / "manifest.json").write_text(json.dumps(manifest))
+        speech = root / "authored-speech.bytes"
+        speech.write_bytes(b"authored synthetic operand input, not original numeric data")
+        import prepare_possession
+        return root, source, speech, prepare_possession
+
+    def test_possession_extension_preserves_all_original_pins_and_profile(self):
+        import json
+        import shutil
+        root, source, speech, module = self.possession_fixture()
+        old_pin = module.SPEECH_SHA256
+        try:
+            module.SPEECH_SHA256 = prepare.digest(speech.read_bytes())
+            original = (source / "manifest.json").read_bytes()
+            before = {p.name: p.read_bytes() for p in source.iterdir()}
+            receipt = module.prepare(source, prepare.digest(original), speech, root / "extended")
+            extended = json.loads((root / "extended/manifest.json").read_bytes())
+            self.assertTrue(receipt["originalPinsPreserved"])
+            self.assertFalse(receipt["formatMigration"])
+            self.assertEqual(receipt["fileCount"], 3)
+            self.assertEqual(extended["entrypoints"]["possessionSound"], "camera/possession-speech.bytes")
+            self.assertEqual(extended["profile"], json.loads(original)["profile"])
+            self.assertEqual(json.loads(original)["files"], [pin for pin in extended["files"] if pin["path"] != "camera/possession-speech.bytes"])
+            self.assertEqual(before, {p.name: p.read_bytes() for p in source.iterdir()})
+        finally:
+            module.SPEECH_SHA256 = old_pin
+            shutil.rmtree(root)
+
+    def test_possession_extension_rejects_bad_source_hash_operand_and_changed_inherited_file(self):
+        import shutil
+        root, source, speech, module = self.possession_fixture()
+        old_pin = module.SPEECH_SHA256
+        try:
+            expected = prepare.digest((source / "manifest.json").read_bytes())
+            with self.assertRaisesRegex(ValueError, "manifest changed"):
+                module.prepare(source, "0" * 64, speech, root / "bad-manifest")
+            with self.assertRaisesRegex(ValueError, "authored-speech.bytes"):
+                module.prepare(source, expected, speech, root / "bad-operands")
+            module.SPEECH_SHA256 = prepare.digest(speech.read_bytes())
+            (source / "first.bytes").write_bytes(b"changed inherited synthetic asset")
+            with self.assertRaisesRegex(ValueError, "first.bytes"):
+                module.prepare(source, expected, speech, root / "bad-old-asset")
+        finally:
+            module.SPEECH_SHA256 = old_pin
+            shutil.rmtree(root)
+
     def camera_fixture(self):
         import json
         import uuid

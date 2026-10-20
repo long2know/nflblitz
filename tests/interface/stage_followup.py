@@ -18,6 +18,8 @@ RUNTIME = "Assets/Scripts/Runtime/BlitzRuntime.cs"
 HUD = "Assets/Scripts/Presentation/PlayHud.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 SERVICES = "Assets/Scripts/Runtime/SourceInterfaceServices.cs"
+IMPORTER = "Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs"
+IMPORT_CHECKS = "Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs"
 SOUND_FACTORIES = (
     ("Assets/Scripts/Runtime/SourceContactComposition.cs", "CreateSimulation", "soundFunctions"),
     ("Assets/Scripts/Runtime/SourceC2Composition.cs", "CreateChecked", "legacySoundFunctions"),
@@ -63,6 +65,15 @@ def validate_publishable_projects(root):
         path = root / "tests/interface" / name
         require(path.is_file(), "Publishable interface project is missing: " + name)
         require(ET.fromstring(path.read_bytes()).tag == "Project", "Invalid publishable interface project: " + name)
+
+
+def clean_checkout_guard_sources(root):
+    sources = {}
+    for name in (IMPORTER, IMPORT_CHECKS):
+        path = root / name
+        require(path.is_file(), "Clean checkout guard source is missing: " + name)
+        sources[name] = path.read_bytes()
+    return sources
 
 
 def expected_owned_sources(root):
@@ -121,7 +132,7 @@ def uncomment(text):
 
 def method(source, name):
     clean = uncomment(source)
-    match = re.search(r"\b(?:public|private|internal)\s+(?:static\s+)?[\w<>?,.]+\s+"
+    match = re.search(r"\b(?:public|private|internal)\s+(?:static\s+)?[\w<>?,.]+(?:\[\])*\s+"
                       + re.escape(name) + r"\s*\([^)]*\)\s*\{", clean)
     require(match is not None, "Actual Runtime method missing: " + name)
     start = clean.index("{", match.start())
@@ -155,10 +166,10 @@ def validate_runtime(source):
     awake = compact(method(source, "Awake"))
     configure = ("playCamera.ConfigureSourceStage(State,()=>simulation.SourceCameraStageOrder,"
                  "simulation.DrawSourceCameraRandom,state=>simulation.SourceCameraRawGameMode,"
-                 "simulation.SourceActorWorldPosition,simulation.ApplySourceCameraFeedback);")
+                 "simulation.SourceActorWorldPosition,simulation.ApplySourceCameraFeedback,simulation.SourceCameraProcesses);")
     register = "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);"
     attach = "simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;"
-    require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots and camera feedback via six-argument Configure")
+    require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots/feedback and process services via seven-argument Configure")
     require(awake.count(register) == 1, "actual Team SampleAtSourceTick must be registered exactly once")
     require(awake.count(attach) == 1 and awake.index(configure) < awake.index(register) < awake.index(attach),
             "configure/register before exposing Core's executing-source callback")
@@ -231,10 +242,13 @@ def validate_runtime(source):
     frame = "SourceCinematicTransformframe=playCamera.RequireSourceCameraAtTick(executingSourceTick);"
     inject = ("simulation.SetSourceMovementCameraFrame(newBlitz.Gameplay.SourceMovementCameraFrame("
               "frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution),executingSourceTick);")
+    retained = ("if(!playCamera.SourcePlayback.CameraFeedback.CameraCompleted"
+                "&&playCamera.SourcePlayback.UsesOriginalNormalCamera)returnheading;")
     require(sample.count(frame) == 1 and sample.count(inject) == 1,
             "M1 must inject the actual tick-guarded position/full transform and original DIP, not zero or render data")
-    require(sample.index("sourceCameraProducer(preActorState,executingSourceTick)") < sample.index(frame)
-            < sample.index(inject) < sample.index("lastSourceCameraTick=executingSourceTick;") < sample.index("returnheading;"),
+    require(sample.count(retained) == 1 and sample.index("sourceCameraProducer(preActorState,executingSourceTick)")
+            < sample.index(retained) < sample.index(frame)
+            < sample.index(inject) < sample.index("lastSourceCameraTick=executingSourceTick;") < sample.rindex("returnheading;"),
             "actual source sample/frame injection must occur in-order inside the existing pre-player provider")
     require(code.count("simulation.SetSourceMovementCameraFrame(") == 1 and ".SetSourceMovementCameraFrame(" not in after,
             "M1 frame must not be repeated or injected by post-host/render observers")
@@ -368,7 +382,54 @@ def assert_compile_inventory(compiled, expected_owned):
         require(compiled[name] == expected, "Actual compiled owned UI hash mismatch: " + name)
 
 
+def validate_possession_importer(source, checks):
+    command = compact(method(source, "ImportPossessionSpeechFromCommandLine"))
+    require('ImportPossessionSpeech(PlayerAssetImporter.RequiredArgument(args,"-interfacePossessionSpeechRoot"),'
+            'PlayerAssetImporter.RequiredArgument(args,"-interfacePossessionSpeech"),'
+            'PlayerAssetImporter.RequiredArgument(args,"-interfaceStableId"));' in command,
+            "speech import must use explicit authorized root, relative input and stable id")
+    entry = compact(method(source, "ImportPossessionSpeech"))
+    read = "byte[]bytes=ReadPossessionSpeech(authorizedRoot,relativeInput);"
+    require("PlayerImportPlan.ValidateStableId(stableId);" in entry and read in entry
+            and entry.index("PlayerImportPlan.ValidateStableId(stableId);") < entry.index(read)
+            < entry.index("FindUniqueResourcePath(") < entry.index("varoutput=")
+            < entry.index("WriteText(output,path,bytes);"),
+            "validate the explicit input before any asset output or existing-resource reuse")
+    load = compact(method(source, "ReadPossessionSpeech"))
+    require("newAuthorizedAssetRoot(authorizedRoot).ReadBytes(relativeInput,40);" in load
+            and "SourcePossessionSoundData.Read(bytes);" in load
+            and load.index("SourcePossessionSoundData.Read(bytes);") < load.index("returnbytes;"),
+            "speech import must enforce authorized paths and the actual strict forty-byte source pin")
+    require('stringexisting=FindUniqueResourcePath("TextAsset",SourceHudAsset.PossessionSpeechResourceKey);' in entry
+            and 'if(existing!=null)returnRequirePossessionSpeechResource();' in entry
+            and entry.index("returnRequirePossessionSpeechResource();") < entry.index("varoutput=")
+            and "SourceInterfacePackagePlan.RequireOutputIdentity(path,SourceHudAsset.PossessionSpeechResourceKey);" in entry
+            and entry.index("output.NewPath(path);") < entry.index("Folder(output,")
+            and entry.index("WriteText(output,path,bytes);") < entry.index("AssetDatabase.SaveAssets();"),
+            "speech import must reuse validated immutable resources or reserve the exact new resource without overwriting")
+    saved = compact(method(source, "RequirePossessionSpeechResource"))
+    require('FindUniqueResourcePath("TextAsset",SourceHudAsset.PossessionSpeechResourceKey)' in saved
+            and "Resources.Load<TextAsset>(SourceHudAsset.PossessionSpeechResourceKey)!=asset" in saved
+            and "thrownewSourceInterfaceException(" in saved
+            and "SourcePossessionSoundData.Read(asset.bytes);" in saved
+            and saved.index("SourcePossessionSoundData.Read(asset.bytes);") < saved.index("returnasset;"),
+            "saved speech must be unique, canonical, actually pinned and never silently substituted")
+    importing = compact(method(source, "Import"))
+    require("if(profile.IsContact281C2M1)RequirePossessionSpeechResource();" in importing
+            and importing.index("RequirePossessionSpeechResource();") < importing.index("varoutput="),
+            "only explicit M1 imports require speech, before any imported asset is created")
+    verifying = compact(method(checks, "VerifySaved"))
+    require("if(profile.IsContact281C2M1){SourceTeamInterfaceImporter.RequirePossessionSpeechResource();"
+            "Require(hud.PossessionSound!=null," in verifying,
+            "saved M1 verification must exercise the same strict canonical HUD speech binding")
+    return 7
+
+
 class CallerGuards(unittest.TestCase):
+    def test_method_extractor_supports_array_returns(self):
+        self.assertEqual(method("internal static byte[] ReadInput(string path) { return bytes; }",
+                                "ReadInput").strip(), "return bytes;")
+
     def test_actual_caller(self):
         self.assertEqual(validate_runtime((SOURCE_ROOT / RUNTIME).read_text()), 28)
 
@@ -377,6 +438,35 @@ class CallerGuards(unittest.TestCase):
 
     def test_actual_factories_bind_immutable_sound_before_returning(self):
         self.assertEqual(validate_sound_factories(SOURCE_ROOT), 8)
+
+    def test_actual_possession_speech_importer_wiring(self):
+        self.assertEqual(validate_possession_importer((SOURCE_ROOT / IMPORTER).read_text(),
+                                                     (SOURCE_ROOT / IMPORT_CHECKS).read_text()), 7)
+
+    def test_possession_speech_importer_removal_guards(self):
+        source = (SOURCE_ROOT / IMPORTER).read_text()
+        checks = (SOURCE_ROOT / IMPORT_CHECKS).read_text()
+        mutants = [
+            ("implicit-root", '"-interfacePossessionSpeechRoot"', '"-unrelatedRoot"'),
+            ("unchecked-input", "SourcePossessionSoundData.Read(bytes);", ""),
+            ("unbounded-input", "ReadBytes(relativeInput, 40)", "ReadBytes(relativeInput, 400)"),
+            ("unvalidated-reuse", "if (existing != null) return RequirePossessionSpeechResource();",
+             "if (existing != null) return null;"),
+            ("wrong-key", "SourceInterfacePackagePlan.RequireOutputIdentity(path, SourceHudAsset.PossessionSpeechResourceKey);", ""),
+            ("duplicate-key", 'FindUniqueResourcePath("TextAsset", SourceHudAsset.PossessionSpeechResourceKey)',
+             'FindUniqueResourcePath("TextAsset", "wrong-resource")'),
+            ("wrong-canonical", "Resources.Load<TextAsset>(SourceHudAsset.PossessionSpeechResourceKey) != asset", "false"),
+            ("changed-existing", "SourcePossessionSoundData.Read(asset.bytes);", ""),
+            ("missing-M1-preflight", "if (profile.IsContact281C2M1) RequirePossessionSpeechResource();", ""),
+        ]
+        for name, old, new in mutants:
+            with self.subTest(name=name):
+                self.assertIn(old, source)
+                with self.assertRaises(AssertionError):
+                    validate_possession_importer(source.replace(old, new, 1), checks)
+        with self.assertRaises(AssertionError):
+            validate_possession_importer(source, checks.replace(
+                "SourceTeamInterfaceImporter.RequirePossessionSpeechResource();", "", 1))
 
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
@@ -532,6 +622,14 @@ class CallerGuards(unittest.TestCase):
         expected = expected_owned_sources(SOURCE_ROOT)
         self.assertEqual(len(expected), 17)
         assert_compile_inventory(dict(expected), expected)
+        runtime, _, _, _ = release_sources(SOURCE_ROOT)
+        guards = clean_checkout_guard_sources(SOURCE_ROOT)
+        self.assertEqual(set(guards), {IMPORTER, IMPORT_CHECKS})
+        for name, data in guards.items():
+            self.assertNotIn(name, runtime)
+            self.assertEqual(data, (SOURCE_ROOT / name).read_bytes())
+        with self.assertRaisesRegex(AssertionError, "guard source is missing"):
+            clean_checkout_guard_sources(ARTIFACTS / "nonexistent-guard-root")
 
     def test_explicit_snapshot_roots_fail_closed(self):
         self.assertFalse(validate_snapshot_options(None, None, None, None))
@@ -747,10 +845,16 @@ def compile_actual(editor_data, args):
 
 def verify_clean_checkout(args):
     (sources, _, _, _), mode, overlays = select_sources(args)
+    guard_sources = clean_checkout_guard_sources(SOURCE_ROOT)
+    shadow_sources = dict(sources)
+    for name, data in guard_sources.items():
+        require(name not in shadow_sources or shadow_sources[name] == data,
+                "Clean checkout guard source conflicts with selected source: " + name)
+        shadow_sources[name] = data
     work = ARTIFACTS / ("clean-checkout-" + uuid.uuid4().hex)
     work.mkdir(parents=True)
     try:
-        for relative, data in sources.items():
+        for relative, data in shadow_sources.items():
             target = work / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
@@ -769,6 +873,7 @@ def verify_clean_checkout(args):
         require(report["status"] == "passed" and not (work / ".squad").exists(),
                 "Clean default may not depend on protected snapshots or original assets.")
         evidence = {"status": "passed", "source_mode": mode, "source_scripts": len(sources),
+                    "guard_only_source_sha256": {name: digest(data) for name, data in guard_sources.items()},
                     "dependency_overlays": overlays, "default_command": "python3 -B tests/interface/stage_followup.py",
                     "child_guard_tests": report["guard_tests"], "authoring_runtime_state_present": False,
                     "original_art_required": False, "Unity_required_for_default": False, "git_commands_used": False}
@@ -818,8 +923,10 @@ def main(argv=None):
             dependency_bytes(args.dependency_overlay, args.dependency_overlay_sha256)
         result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(CallerGuards))
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
-        report.update(guard_contracts=47, rejected_actual_source_guard_mutants=32,
+        report.update(guard_contracts=54, rejected_actual_source_guard_mutants=32,
                       rejected_actual_service_guard_mutants=15, rejected_actual_factory_guard_mutants=8,
+                      rejected_possession_importer_wiring_mutants=10,
+                      possession_importer_native_executed=False,
                       hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=8,
                       root_overlay_project_negative_guards=11, guard_tests=result.testsRun,
                       source_mode="explicit-protected-snapshots" if snapshot else "current-release-checkout",
@@ -836,7 +943,8 @@ def main(argv=None):
         print(json.dumps({"status": report["status"], "guard_contracts": report["guard_contracts"],
                           "rejected_guard_mutants": report["rejected_actual_source_guard_mutants"] +
                               report["rejected_actual_service_guard_mutants"] +
-                              report["rejected_actual_factory_guard_mutants"],
+                              report["rejected_actual_factory_guard_mutants"] +
+                              report["rejected_possession_importer_wiring_mutants"],
                           "hud_scope_mutants": report["hud_scope_mutants_rejected"],
                           "owned_inventory_mutants": report["owned_inventory_mutants_rejected"],
                           "actual_Unity_API_compiled": args.unity_editor_data is not None, "native_claimed": False}))

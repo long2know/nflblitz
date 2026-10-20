@@ -34,6 +34,24 @@ class LifecycleRunnerGuards(unittest.TestCase):
             with self.subTest(code=code), self.assertRaises(RuntimeError):
                 RUNNER.require_summary(code, summary)
 
+    def test_rejected_baselines_surface_the_actual_runtime_error_without_accepting_it(self):
+        summary = self.summary()
+        summary.update(status="error", assertions=265, cases=summary["cases"][:1],
+                       error="actual camera provider has no produced output")
+        with self.assertRaisesRegex(RuntimeError, "actual camera provider has no produced output"):
+            RUNNER.require_summary(1, summary)
+
+    def test_PAT_setup_produces_real_camera_before_the_declared_boundary_without_assigning_one(self):
+        source = (HERE / "Program.cs").read_text()
+        start = source.index("private static void Pat(")
+        pat = source[start:source.index("private static void Legacy()", start)]
+        self.assertLess(pat.index("i < SliceRules.TicksPerSecond"), pat.index("Prepare(game,"))
+        self.assertIn("game.Step(default(PlayerCommand));", pat)
+        self.assertIn("game.SourceTick != SourceTiming.DefaultTicksPerSecond", pat)
+        self.assertIn("game.Model.SourceClockRemainder != 0", pat)
+        self.assertIn("game.Model.SourceMovementCameraTick != game.SourceTick", pat)
+        self.assertNotIn("SourceMovementCamera =", pat.replace("SourceMovementCamera ==", ""))
+
     def test_controls_require_exact_named_runtime_failure_not_compile_or_unrelated_error(self):
         summary = self.summary()
         summary.update(status="failed", assertions=25, cases=summary["cases"][:1], failed_assertion="causal contract")
@@ -54,7 +72,8 @@ class LifecycleRunnerGuards(unittest.TestCase):
 
     def test_real_bridge_is_local_to_this_compile_closure_not_a_global_inventory_rebase(self):
         original = RUNNER.production_paths()
-        self.assertEqual(76, len(original))
+        self.assertEqual(77, len(original))
+        self.assertIn(RUNNER.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Possession.cs", original)
         self.assertIn(RUNNER.ROOT / "Assets/Scripts/AssetImport/SourceNormalCameraData.cs", original)
         self.assertIn(RUNNER.ROOT / "Assets/Scripts/Contracts/SourceCameraContracts.cs", original)
         self.assertNotIn(RUNNER.ROOT / RUNNER.BRIDGE, original)

@@ -11,6 +11,8 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from kernel_sources import canonical_hashes, production_paths
 from prepare_inputs import fixture_hashes
@@ -95,7 +97,10 @@ def require_summary(code, summary, expected_failure=None):
             raise RuntimeError("A compiled lifecycle control must reject its exact causal assertion.")
     elif (code or summary.get("status") != "passed" or summary.get("assertions") != 593
           or len(cases) != 71 or set(cases) != required_cases()):
-        raise RuntimeError("All593 assertions across the exact71 real-M1/bridge/PAT/legacy cases are required.")
+        observed = {key: summary.get(key) for key in ("status", "assertions", "failed_assertion", "error")}
+        observed.update(exit_code=code, cases=len(cases))
+        raise RuntimeError("All593 assertions across the exact71 real-M1/bridge/PAT/legacy cases are required. "
+                           "Observed: " + json.dumps(observed, sort_keys=True))
 
 
 def main():
@@ -127,7 +132,10 @@ def main():
 
     def command(label, argv):
         result["commands"].append(argv)
-        process = subprocess.run(argv, env=env, cwd=ROOT, capture_output=True, text=True, timeout=240)
+        scratch = out / "runtime" / label
+        scratch.mkdir(parents=True, exist_ok=True)
+        execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
+        process = subprocess.run(argv, env=execute_env, cwd=ROOT, capture_output=True, text=True, timeout=240)
         (out / (label + ".log")).write_text(process.stdout + process.stderr)
         return process
 
@@ -166,16 +174,15 @@ def main():
         summary = summaries[0] if len(summaries) == 1 else None
         result["runs"][label] = dict(exit_code=process.returncode, summary=summary, compiled_zero_diagnostics=True)
         require_summary(process.returncode, summary, mutation[4] if mutation else None)
-        if mutation:
-            result["controls"].append(dict(id=label, named_failure=summary["failed_assertion"]))
+        control = dict(id=label, named_failure=summary["failed_assertion"]) if mutation else None
         shutil.rmtree(copy)
         print("PASS " + label, flush=True)
+        return control
 
     try:
         execute("baseline")
         if args.controls:
-            for mutation in MUTANTS:
-                execute(mutation[0], mutation)
+            result["controls"] = run_mutations(MUTANTS, lambda mutation: execute(mutation[0], mutation))
         execute("final-baseline")
         result["complete_compiled_control_closure_executed"] = args.controls
         result["status"] = "passed-declared-real-M1-terminal-and-bridge" if args.controls else "passed-component-only-controls-not-run"

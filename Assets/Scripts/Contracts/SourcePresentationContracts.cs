@@ -4,6 +4,77 @@ using System.Collections.ObjectModel;
 
 namespace Blitz.Contracts
 {
+    public readonly struct SourcePossessionSprite
+    {
+        public long Serial { get; }
+        public string Image { get; }
+        public int ObjectId { get; }
+        public bool WhiteFlash { get; }
+        public bool ChromaKey { get; }
+        public SourcePossessionSprite(long serial, string image, int objectId, bool whiteFlash, bool chromaKey)
+        { Serial = serial; Image = image; ObjectId = objectId; WhiteFlash = whiteFlash; ChromaKey = chromaKey; }
+    }
+
+    public sealed class SourcePossessionMessageView
+    {
+        public int MessageNumber { get; }
+        public long ProcessSerial { get; }
+        public long EntryTick { get; }
+        public int HorizontalResolution { get; }
+        public int VerticalResolution { get; }
+        public ReadOnlyCollection<SourcePossessionSprite> Sprites { get; }
+        public SourcePossessionMessageView(int messageNumber, long processSerial, long entryTick,
+            int horizontalResolution, int verticalResolution, IReadOnlyList<SourcePossessionSprite> sprites)
+        {
+            if (sprites == null) throw new ArgumentNullException(nameof(sprites));
+            var copy = new SourcePossessionSprite[sprites.Count];
+            for (int i = 0; i < copy.Length; i++) copy[i] = sprites[i];
+            MessageNumber = messageNumber; ProcessSerial = processSerial; EntryTick = entryTick;
+            HorizontalResolution = horizontalResolution; VerticalResolution = verticalResolution;
+            Sprites = Array.AsReadOnly(copy);
+        }
+    }
+
+    public interface ISourcePossessionState
+    {
+        SourcePossessionMessageView PossessionMessage { get; }
+        ReadOnlyCollection<SourcePossessionMessageView> PossessionMessages { get; }
+        ReadOnlyCollection<SourceProcessView> Processes { get; }
+        long CameraOutputSourceTick { get; }
+        bool CameraProcessSleeping { get; }
+    }
+
+    public sealed class SourcePossessionSpeech
+    {
+        public long SourceTick { get; }
+        public long ProcessSerial { get; }
+        public int ProcessOrder { get; }
+        public string Bank { get; }
+        public int SelectedOrdinal { get; }
+        public int PlaylistId { get; }
+        public uint Volume { get; }
+        public uint Pan { get; }
+        public uint PriorityWord { get; }
+        public bool PcmOrDspPlayback { get { return false; } }
+        public SourcePossessionSpeech(long tick, long serial, int order, string bank, int ordinal,
+            int playlist, uint volume, uint pan, uint priority)
+        {
+            SourceTick = tick; ProcessSerial = serial; ProcessOrder = order; Bank = bank;
+            SelectedOrdinal = ordinal; PlaylistId = playlist; Volume = volume; Pan = pan; PriorityWord = priority;
+        }
+    }
+
+    public readonly struct SourcePossessionProcessRecord
+    {
+        public long SourceTick { get; }
+        public string Operation { get; }
+        public long Serial { get; }
+        public int Id { get; }
+        public int Value { get; }
+        public SourcePossessionProcessRecord(long tick, string operation, long serial, int id, int value)
+        { SourceTick = tick; Operation = operation; Serial = serial; Id = id; Value = value; }
+    }
+
     public sealed class SourcePresentationSettings
     {
         public TeamId DesignatedHomeSide { get; }

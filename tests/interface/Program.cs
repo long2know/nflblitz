@@ -371,7 +371,7 @@ internal static class Program
 
     private static void Menus(SourceInterfaceData data)
     {
-        var state = new FixtureState { Match = Match(Configuration(true)), LineOfScrimmage = 20 };
+        var state = new MenuFixtureState { Match = Match(Configuration(true)), LineOfScrimmage = 20 };
         var events = new List<SourceCabinetMenuEvent>();
         var selector = new SourceCabinetPlaySelection(data);
         selector.EventRaised += events.Add;
@@ -379,18 +379,18 @@ internal static class Program
             new SourceInputFrame(new[] { new SourceStationInput(station, pressed: buttons, held: buttons) });
         for (int tick = 1; tick <= 20; tick++)
         {
-            state.SourceTick = tick - 1;
+            state.SourceTick = tick;
             Check(!selector.ApplyAtSourceTick(state, tick, sample(2, SourceButtons.B)).Stations[0].Command.IsSpecified,
                 "original selection sleep20 does not leak early B presses");
         }
-        state.SourceTick = 20;
+        state.SourceTick = 21;
         SourceInputFrame combo = selector.ApplyAtSourceTick(state, 21, sample(2, SourceButtons.A | SourceButtons.B));
         Check(!combo.Stations[0].Command.IsSpecified && !selector.Flipped && selector.Page(TeamId.Home) == 0,
             "shipping exact menu switch ignores simultaneous AB rather than prioritizing B");
-        state.SourceTick = 21;
+        state.SourceTick = 22;
         SourceInputFrame teammate = selector.ApplyAtSourceTick(state, 22, sample(3, SourceButtons.B));
         Check(!teammate.Stations[0].Command.IsSpecified, "noncaptain teammate cannot silently pick captain play");
-        state.SourceTick = 22;
+        state.SourceTick = 23;
         SourceInputFrame picked = selector.ApplyAtSourceTick(state, 23, sample(2, SourceButtons.B));
         SourcePlaySelection play = picked.Stations[0].Command.Play;
         Check(picked.Stations[0].Command.Action == SourceAction.SelectPlay && play.PlaySymbol == "play_ch_1" &&
@@ -399,18 +399,18 @@ internal static class Program
         Check(events.Any(e => e.Kind == SourceCabinetMenuEventKind.Selected && e.StationId == 2), "menu emits source station event identity");
         Reject<SourceInterfaceException>(() => selector.ApplyAtSourceTick(state, 23, sample(2, SourceButtons.C)),
             "source menu cannot process a source tick twice");
-        selector.Clear(); state.SourceTick = 0;
+        selector.Clear(); state.SourceTick = 1;
         selector.ApplyAtSourceTick(state, 1, sample(2, SourceButtons.None));
         SourceInputFrame flip = null;
         for (int tick = 2; tick <= 21; tick++)
         {
-            state.SourceTick = tick - 1;
+            state.SourceTick = tick;
             flip = selector.ApplyAtSourceTick(state, tick, sample(2, tick == 21 ? SourceButtons.A : SourceButtons.None));
         }
         Check(selector.Flipped, "original offensive A toggles actual menu flip");
         Check(flip.Stations[0].Command.OffenseFlipped == true && flip.Stations[0].Command.Action == SourceAction.None,
             "A flip is transported explicitly even without selecting a play");
-        state.SourceTick = 21;
+        state.SourceTick = 22;
         SourceInputFrame flipped = selector.ApplyAtSourceTick(state, 22, sample(2, SourceButtons.B));
         Check(flipped.Stations[0].Command.OffenseFlipped == true &&
             flipped.Stations[0].Command.Play.IsSpecified, "source selected flip reaches Core, not merely the visual diagram");
@@ -525,7 +525,7 @@ internal static class Program
     }
 }
 
-internal sealed class FixtureState : ISourcePresentationState
+internal class FixtureState : ISourcePresentationState
 {
     public long Tick { get; set; }
     public long SourceTick { get; set; }
@@ -552,6 +552,17 @@ internal sealed class FixtureState : ISourcePresentationState
     public IReadOnlyList<PlayerView> Players { get { return Array.AsReadOnly(new PlayerView[0]); } }
     public SourceMatchView Match { get; set; }
     public SourcePresentationSettings Presentation { get; set; }
+}
+
+internal sealed class MenuFixtureState : FixtureState, ISourcePossessionState
+{
+    public SourcePossessionMessageView PossessionMessage { get { return null; } }
+    public System.Collections.ObjectModel.ReadOnlyCollection<SourcePossessionMessageView> PossessionMessages
+    { get { return Array.AsReadOnly(new SourcePossessionMessageView[0]); } }
+    public System.Collections.ObjectModel.ReadOnlyCollection<SourceProcessView> Processes
+    { get { return Array.AsReadOnly(new[] { new SourceProcessView(1, 0x0010, "game_proc", 0, 0, 0, SourceTick) }); } }
+    public long CameraOutputSourceTick { get { return SourceTick; } }
+    public bool CameraProcessSleeping { get { return false; } }
 }
 
 internal sealed class FixtureSimulation : ISourcePresentationSimulation

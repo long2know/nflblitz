@@ -74,13 +74,16 @@ namespace Blitz.Contracts
         public bool Pullback { get; }
         public int AutoHikeTicks { get; }
         public int OffensePlayFlags { get; }
+        public bool OffenseTurnover { get; }
+        public int RawGameState { get; }
         public SourceCameraBall Ball { get; }
         public ReadOnlyCollection<SourceCameraActor> Actors { get; }
 
         public SourceCameraBoundary(long sourceTick, int processOrder, int rawGameMode, int rawGameFlags,
             int rawPlayType, int rawPlayResult, int quarterIndex, int offenseSide, int lastPossession,
             int lineOfScrimmage, int carrier, bool humanTeammates, bool pullback, int autoHikeTicks,
-            int offensePlayFlags, SourceCameraBall ball, IReadOnlyList<SourceCameraActor> actors)
+            int offensePlayFlags, SourceCameraBall ball, IReadOnlyList<SourceCameraActor> actors,
+            bool offenseTurnover = false, int rawGameState = 2)
         {
             if (sourceTick < 0 || processOrder < -1) throw new ArgumentOutOfRangeException(nameof(sourceTick));
             SourceContractGuard.Range(rawGameMode, 0, 6, nameof(rawGameMode));
@@ -105,6 +108,7 @@ namespace Blitz.Contracts
             QuarterIndex = quarterIndex; OffenseSide = offenseSide; LastPossession = lastPossession;
             LineOfScrimmage = lineOfScrimmage; Carrier = carrier; HumanTeammates = humanTeammates;
             Pullback = pullback; AutoHikeTicks = autoHikeTicks; OffensePlayFlags = offensePlayFlags;
+            OffenseTurnover = offenseTurnover; RawGameState = rawGameState;
             Ball = ball; Actors = Array.AsReadOnly(copy);
         }
 
@@ -122,14 +126,46 @@ namespace Blitz.Contracts
         SourceCameraBoundary CameraBoundary { get; }
     }
 
+    public interface ISourceCameraProcessServices
+    {
+        bool Exists(int id, int mask);
+        void SuspendMultiple(int id, int mask);
+        void ResumeMultiple(int id, int mask);
+        void ResumeAll();
+        void CreateMessage(int originalMessageNumber);
+        void SleepCamera(int sourceTicks);
+    }
+
+    public readonly struct SourceProcessView
+    {
+        public long Serial { get; }
+        public int Id { get; }
+        public string Function { get; }
+        public int RunLevel { get; }
+        public long BirthTick { get; }
+        public ushort SleepWord { get; }
+        public long LastWakeTick { get; }
+        public bool Suspended { get { return (SleepWord & 0x8000) != 0; } }
+        public int SleepRemaining { get { return SleepWord & 0x7fff; } }
+        public SourceProcessView(long serial, int id, string function, int runLevel, long birthTick, ushort sleepWord,
+            long lastWakeTick = -1)
+        {
+            Serial = serial; Id = id; Function = function; RunLevel = runLevel;
+            BirthTick = birthTick; SleepWord = sleepWord;
+            LastWakeTick = lastWakeTick;
+        }
+    }
+
     public readonly struct SourceCameraFeedback
     {
         public long SourceTick { get; }
         public bool TargetOffscreen { get; }
         public int? OpeningAutoHikeTicks { get; }
         public int? FieldGoalLastCarrier { get; }
+        public bool CameraCompleted { get; }
+        public int CameraSleepTicks { get; }
         public SourceCameraFeedback(long sourceTick, bool targetOffscreen, int? openingAutoHikeTicks = null,
-            int? fieldGoalLastCarrier = null)
+            int? fieldGoalLastCarrier = null, bool cameraCompleted = true, int cameraSleepTicks = 0)
         {
             if (sourceTick < 0 || openingAutoHikeTicks.HasValue && openingAutoHikeTicks.Value < 0)
                 throw new ArgumentOutOfRangeException(nameof(sourceTick));
@@ -138,6 +174,9 @@ namespace Blitz.Contracts
             if (fieldGoalLastCarrier.HasValue)
                 SourceContractGuard.Range(fieldGoalLastCarrier.Value, 0, 13, nameof(fieldGoalLastCarrier));
             FieldGoalLastCarrier = fieldGoalLastCarrier;
+            if (cameraSleepTicks < 0 || cameraCompleted && cameraSleepTicks != 0)
+                throw new ArgumentOutOfRangeException(nameof(cameraSleepTicks));
+            CameraCompleted = cameraCompleted; CameraSleepTicks = cameraSleepTicks;
         }
     }
 }

@@ -201,6 +201,11 @@ internal static class Program
     {
         cases.Add(mode + "/actual-PAT/q" + quarter + "/" + home + "-" + away);
         GameSimulation game = Create(mode);
+        // Produce the real retained camera/cache and preserve the next skipped 60/57 host wake.
+        for (int i = 0; i < SliceRules.TicksPerSecond; i++) game.Step(default(PlayerCommand));
+        if (game.SourceTick != SourceTiming.DefaultTicksPerSecond || game.Model.SourceClockRemainder != 0
+            || game.Model.SourceMovementCamera == null || game.Model.SourceMovementCameraTick != game.SourceTick)
+            throw new InvalidOperationException("PAT fixture requires real current camera/cache output and an aligned 60/57 cycle.");
         Prepare(game, quarter, home, away, kind: SourcePlayType.ExtraPoint);
         game.Model.Phase = GamePhase.PlaySelect; game.Model.SourceMatchPhase = SourceMatchPhase.PatSelection;
         Bind<Action>(game, "Publish")();

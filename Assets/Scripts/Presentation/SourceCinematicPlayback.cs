@@ -78,6 +78,20 @@ namespace Blitz.Presentation
         private int fieldGoalMode;
         private SourceVector3 fieldGoalBase, fieldGoalTarget;
         private float fieldGoalBaseDistance;
+        private sealed class PossessionContinuation
+        {
+            internal SourceCinematicEntry ReturningEntry;
+            internal SourceCinematicFrame Frame;
+            internal SourceNormalCameraPlan Plan;
+            internal int Flags;
+            internal bool Returned, SnapReturn, NormalDispatch;
+            internal long SleepTick;
+        }
+        private PossessionContinuation possessionContinuation;
+        private int possessionOffensePrevious, possessionTimeout;
+        public bool IsPossessionSleeping { get { return possessionContinuation != null; } }
+        public int PossessionOffensePrevious { get { return possessionOffensePrevious; } }
+        public int PossessionTimeout { get { return possessionTimeout; } }
         public SourceNormalCameraModel OriginalNormal { get { return originalNormal; } }
         public bool UsesOriginalNormalCamera { get { return originalNormalData != null; } }
         public SourceCameraFeedback CameraFeedback { get; private set; }
@@ -352,41 +366,66 @@ namespace Blitz.Presentation
         }
 
         public SourceCinematicFrame CameraSourceTick(SourceCameraBoundary input, float horizontalResolution,
-            float verticalResolution, Func<int, string, int> actualRandom)
+            float verticalResolution, Func<int, string, int> actualRandom,
+            ISourceCameraProcessServices processServices = null)
         {
             if (!UsesOriginalNormalCamera || input == null || actualRandom == null)
                 throw new InvalidOperationException("Bind original normal data and the exact typed pre-actor camera boundary/RNG.");
             if (cameraProcessSuspended || input.ProcessOrder < 0 || input.SourceTick <= lastCameraTick ||
-                lastCameraTick >= 0 && input.SourceTick != lastCameraTick + 1 && !allowResumedTickGap)
+                lastCameraTick >= 0 && input.SourceTick != lastCameraTick + 1 && !allowResumedTickGap &&
+                possessionContinuation == null)
                 throw new InvalidOperationException("Execute CAMBOT exactly once per source wake; only actual process suspension permits a gap.");
             SourceCameraFrameClock.RequireOriginalRasterAspect(horizontalResolution, verticalResolution);
             Ordered(input.SourceTick, input.ProcessOrder, -1);
-            bool wasActive = camera.IsActive;
-            if (originalNormal.BeginWake(input, camera.IsActive))
-            {
-                camera.RevertToNormal();
-                resumingNormal = false;
-            }
             SourceCinematicEntry returningEntry = null;
             int flags = -1;
             bool returned = false, snapReturn = false, normalDispatch = !camera.IsActive;
             SourceCinematicFrame frame = default(SourceCinematicFrame);
-            if (camera.IsActive)
-            {
-                flags = camera.PrepareStep(RawTarget(input), false, out frame);
-                if (flags < 0)
-                {
-                    returned = frame.ReturnedToNormal; snapReturn = frame.SnapOnReturn;
-                    returningEntry = camera.Entry;
-                    normalDispatch = true;
-                }
-            }
             SourceNormalCameraPlan plan = default(SourceNormalCameraPlan);
-            if (normalDispatch)
+            if (possessionContinuation != null)
             {
-                plan = originalNormal.Prepare(camera.State, input, horizontalResolution, verticalResolution,
-                    actualRandom, snapReturn, snapReturn);
-                camera.SetState(plan.State);
+                PossessionContinuation saved = possessionContinuation;
+                if (processServices == null || input.SourceTick < saved.SleepTick + 40)
+                    throw new InvalidOperationException("Resume only the actual CAMBOT sleep(40) continuation.");
+                returningEntry = saved.ReturningEntry; flags = saved.Flags; returned = saved.Returned;
+                snapReturn = saved.SnapReturn; normalDispatch = saved.NormalDispatch; frame = saved.Frame; plan = saved.Plan;
+                possessionContinuation = null;
+                possessionTimeout = 6 * 57;
+                possessionOffensePrevious = -1;
+            }
+            else
+            {
+                if (originalNormal.BeginWake(input, camera.IsActive))
+                {
+                    camera.RevertToNormal();
+                    resumingNormal = false;
+                }
+                normalDispatch = !camera.IsActive;
+                if (camera.IsActive)
+                {
+                    flags = camera.PrepareStep(RawTarget(input), false, out frame);
+                    if (flags < 0)
+                    {
+                        returned = frame.ReturnedToNormal; snapReturn = frame.SnapOnReturn;
+                        returningEntry = camera.Entry;
+                        normalDispatch = true;
+                    }
+                }
+                if (normalDispatch)
+                {
+                    plan = originalNormal.Prepare(camera.State, input, horizontalResolution, verticalResolution,
+                        actualRandom, snapReturn, snapReturn);
+                    camera.SetState(plan.State);
+                }
+                if (ApplyOriginalPossession(input, processServices))
+                {
+                    possessionContinuation = new PossessionContinuation { ReturningEntry = returningEntry,
+                        Flags = flags, Returned = returned, SnapReturn = snapReturn, NormalDispatch = normalDispatch,
+                        Frame = frame, Plan = plan, SleepTick = input.SourceTick };
+                    CameraFeedback = new SourceCameraFeedback(input.SourceTick, originalNormal.TargetOffscreen,
+                        cameraCompleted: false, cameraSleepTicks: 40);
+                    return Frame;
+                }
             }
             int? fieldGoalLastCarrier = ApplyOriginalFieldGoal(input, horizontalResolution, verticalResolution, actualRandom,
                 ref normalDispatch, ref plan, ref flags, ref frame);
@@ -437,6 +476,53 @@ namespace Blitz.Presentation
             LastCameraBoundary = input;
             originalNormal.CompleteWake(input);
             return frame;
+        }
+
+        private bool ApplyOriginalPossession(SourceCameraBoundary input, ISourceCameraProcessServices services)
+        {
+            // cambot.c:2886-2970. This is inside cambot_special, AFTER mode
+            // preparation/unrotation and BEFORE any integrator or field-goal work.
+            if (input.RawGameMode != 2 && input.RawGameMode != 3)
+            { possessionOffensePrevious = input.LastPossession; return false; }
+            int message = -1;
+            if (possessionOffensePrevious != input.LastPossession)
+            {
+                if (possessionOffensePrevious < 0)
+                {
+                    if (services == null) throw new InvalidOperationException("The active possession wait requires real process services.");
+                    if (!services.Exists(0x0f15, -1) || --possessionTimeout == 0)
+                    {
+                        services.ResumeAll();
+                        possessionOffensePrevious = input.RawGameMode == 2 ? input.LastPossession : input.OffenseSide;
+                    }
+                }
+                else if (input.RawGameMode == 2)
+                {
+                    if ((input.Ball.RawFlags & 0x20) == 0 &&
+                        (input.Ball.RawType == 0 || input.Ball.RawType == 5 || input.Ball.RawType == 6))
+                        message = 8;
+                    else if (input.Ball.RawType == 1 || input.Ball.RawType == 6) message = 13;
+                    else if ((input.RawGameFlags & (0x10 | 0x100 | 0x800)) == 0x100 && input.RawGameState != 0)
+                        message = 15;
+                    else possessionOffensePrevious = input.LastPossession;
+                }
+            }
+            else if (input.RawGameMode == 3 && possessionOffensePrevious != input.OffenseSide)
+            {
+                if ((input.Ball.RawFlags & 0x20) == 0 && input.RawPlayResult != 10 && !input.OffenseTurnover &&
+                    (input.Ball.RawType == 0 || input.Ball.RawType == 5 || input.Ball.RawType == 6))
+                    message = 8;
+                else possessionOffensePrevious = input.OffenseSide;
+            }
+            if (message < 0) return false;
+            if (services == null)
+                throw new InvalidOperationException("The active original possession message cannot run without actual shared process services.");
+            services.SuspendMultiple(0, 0x8000);
+            services.ResumeMultiple(0x0f80, unchecked((int)0xfffffffe));
+            services.ResumeMultiple(0x0502, -1);
+            services.CreateMessage(message);
+            services.SleepCamera(40);
+            return true;
         }
 
         private SourceCinematicTarget RawTarget(SourceCameraBoundary input)
@@ -580,6 +666,7 @@ namespace Blitz.Presentation
             cameraProcessSuspended = allowResumedTickGap = false; LastObservedPlayerDown = default(SourcePresentationContext);
             CurrentSourceCamera = SourceCinematicTransform.FromState(normalCamera);
             executingSourceCamera.Reset();
+            possessionContinuation = null; possessionOffensePrevious = possessionTimeout = 0;
         }
 
         private bool Select(string table, int actualOrdinal, int actor)

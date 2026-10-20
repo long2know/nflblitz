@@ -304,6 +304,9 @@ namespace Blitz.Gameplay
                 Model.SourceCameraFeedbackTick == Model.SourceTick)
                 throw new InvalidOperationException("Apply CAMBOT feedback once inside its exact executing pre-player wake.");
             Model.SourceCameraFeedbackTick = Model.SourceTick;
+            if (!feedback.CameraCompleted && (feedback.CameraSleepTicks != 40 ||
+                Model.SourceProcesses.Require(CameraProcess).SleepRemaining != 40))
+                throw new InvalidOperationException("A retained camera output requires its real pending sleep(40), not a fabricated current frame.");
             if (feedback.TargetOffscreen) Model.SourceBallFlags |= SourceBallFlags.TargetOffscreen;
             else Model.SourceBallFlags &= ~SourceBallFlags.TargetOffscreen;
             if (feedback.OpeningAutoHikeTicks.HasValue)

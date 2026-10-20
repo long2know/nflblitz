@@ -112,17 +112,37 @@ namespace Blitz.Gameplay
             {
                 long serial;
                 if (!sourceFireWhistleSerials.TryGetValue(process.Id, out serial))
-                { serial = ++sourceFireNextSerial; sourceFireWhistleSerials.Add(process.Id, serial); }
+                { serial = process.HostSerial; sourceFireWhistleSerials.Add(process.Id, serial); }
                 whistles.Add(serial, process);
                 slots.Add(new SourceFireWakeSlot(SourceFireSlotKind.HostContinuation, serial, "whistle_proc"));
             }
             slots.Add(new SourceFireWakeSlot(SourceFireSlotKind.HostContinuation, 1, "game_proc"));
             PlayerCommand applied = command;
-            FireRuntime.BeginSourceTick(FireRuntime.PortableHeadThenHostTick(Model.SourceTick, FirePcount, slots),
+            SourceFireTickInput declared = FireRuntime.PortableHeadThenHostTick(Model.SourceTick, FirePcount, slots);
+            var ordered = new List<SourceFireWakeSlot>(declared.Slots);
+            foreach (SourceFireWakeSlot message in SourceMessageSlots())
+            {
+                int index = 0;
+                while (index < ordered.Count && (ordered[index].Kind == SourceFireSlotKind.EffectProcess ||
+                    ordered[index].Function == "show_message_proc" || ordered[index].Function == "flash_obj_proc") &&
+                    ordered[index].ProcessSerial > message.ProcessSerial) index++;
+                ordered.Insert(index, message);
+            }
+            FireRuntime.BeginSourceTick(new SourceFireTickInput(Model.SourceTick, FirePcount, ordered,
+                    "portable:known-head-effects-and-possession-children-then-existing-host-slots"),
                 SourceFireCallbacks((slot, ordinal) =>
                 {
                     sourceFireWakeOrdinal = ordinal;
-                    if (slot.Function == "game_proc") applied = SourceGameProc(command);
+                    if (slot.Function == "show_message_proc" || slot.Function == "flash_obj_proc")
+                        DispatchSourceMessage(slot);
+                    else if (slot.Function == "game_proc")
+                    {
+                        if (EnterSourceProcess(GameProcess))
+                        {
+                            applied = SourceGameProc(command);
+                            CompleteSourceProcess();
+                        }
+                    }
                     else
                     {
                         SourceC2WhistleProcess process;
@@ -135,8 +155,8 @@ namespace Blitz.Gameplay
 
         private SourceFireSite FireSite(string path, string function, int line, int actor = -1)
         {
-            long serial = actor >= 0 ? 2 + actor : function == "ball_proc" ? 16 : 1;
-            int level = actor >= 0 ? 0x300 + actor : function == "ball_proc" ? 0x600 : 0;
+            long serial = actor >= 0 ? 2 + actor : function == "ball_proc" ? 16 : function == "cambot_special" ? CameraProcess : 1;
+            int level = actor >= 0 ? 0x300 + actor : function == "ball_proc" ? 0x600 : function == "cambot_special" ? 0x100 : 0;
             int ordinal = 0;
             foreach (SourceFireRecord record in FireRuntime.CurrentRecords)
                 if (record.Site.NativeProcessSerial == serial && record.Site.WakeOrdinal == sourceFireWakeOrdinal)
@@ -159,6 +179,12 @@ namespace Blitz.Gameplay
 
         private void SourceFireSelectionEntry()
         {
+            if (!sourceProcessSelectionActive && sourceConfiguration.Stations.Count > 0)
+            {
+                Model.SourceProcesses.SuspendMultiple(0, 0x8000);
+                sourceProcessSelectionActive = true;
+                foreach (MessageProcess message in sourceMessages) message.Sprites.Clear();
+            }
             if (!SourceFireEnabled || sourceFireSelectionActive || sourceConfiguration.Stations.Count == 0) return;
             sourceFireSelectionActive = true;
             FireControl(SourceFireOperation.KillProcessGroup, "playsel.c", "play_select", 852, SourceFireIds.PlayerFlash);
@@ -169,6 +195,11 @@ namespace Blitz.Gameplay
 
         private void SourceFireSelectionExit()
         {
+            if (sourceProcessSelectionActive)
+            {
+                Model.SourceProcesses.ResumeAll();
+                sourceProcessSelectionActive = false;
+            }
             if (!SourceFireEnabled || !sourceFireSelectionActive) return;
             FireControl(SourceFireOperation.KillProcessGroup, "playsel.c", "clobber_playsel", 777, SourceFireIds.Spfx);
             FireControl(SourceFireOperation.DeleteObjectGroup, "playsel.c", "clobber_playsel", 782, SourceFireIds.PuffObject);
@@ -180,11 +211,14 @@ namespace Blitz.Gameplay
         private void RetainSourceFireCache(int actor, IReadOnlyList<SourceVector3> joints, SourceMovementCameraFrame camera)
         {
             if (!SourceFireEnabled) return;
-            SourceFireGuard.Require(camera.HorizontalResolution == 512 && Model.SourceMovementCameraTick == Model.SourceTick,
+            SourceFireGuard.Require(camera.HorizontalResolution == 512 && (Model.SourceMovementCameraTick == Model.SourceTick ||
+                SourceCameraHasRetainedOutput),
                 "FX requires actual current source512 raster and paired camera producer tick.");
             if (sourceFireCamera == null || sourceFireCamera.SourceTick != Model.SourceTick)
                 sourceFireCamera = new SourceFireCameraFrame(Model.SourceTick, camera.Position, camera.Transform,
-                    "actual executing Core cambot/cache pair; portable host camera,not native camera fidelity");
+                    Model.SourceMovementCameraTick == Model.SourceTick
+                        ? "actual executing Core cambot/cache pair; portable host camera,not native camera fidelity"
+                        : "actual post-player cache with explicitly retained CAMBOT output from source tick " + Model.SourceMovementCameraTick);
             SourceFireGuard.Require(camera.VerticalResolution == 256 || camera.VerticalResolution == 384,
                 "FX requires the actual source DIP vertical raster,not a guessed display size.");
             sourceFireVerticalResolution = (int)camera.VerticalResolution;
@@ -198,10 +232,10 @@ namespace Blitz.Gameplay
             SourceFireCachedPlayerFrame cache = sourceFireCaches[actor];
             SourceFireGuard.Require(cache != null, "No actual paired actor15/cambot cache has been produced; no FX bone fallback.");
             if (cache.CacheSourceTick >= Model.SourceTick - 1) return cache;
-            SourceFireGuard.Require(Model.Phase == GamePhase.PlaySelect,
+            SourceFireGuard.Require(Model.Phase == GamePhase.PlaySelect || Model.SourceProcesses.Require(2 + actor).Suspended,
                 "Older FX cache without actual Core play-selection suspension is unsupported.");
             return new SourceFireCachedPlayerFrame(actor, cache.CacheSourceTick, cache.Camera, cache.CameraJoints,
-                cache.CacheProvenance, "Core PlaySelect suspends player/cache producers; retaining their actual immutable prior camera pair");
+                cache.CacheProvenance, "Actual Core menu/possession suspension retains the immutable prior player/cache camera pair");
         }
 
         private void CaptureSourceFireFrame()

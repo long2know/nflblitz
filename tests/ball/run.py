@@ -15,6 +15,8 @@ from native_oracle import build, PINS
 SUITE = Path(__file__).resolve().parent
 ROOT = SUITE.parents[1]
 ARTIFACTS = SUITE / ".artifacts"
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes
 from contact_inputs import ANIMATION_SHA as CONTACT_ANIMATION_SHA, fixture_profile
@@ -77,8 +79,9 @@ MUTATIONS = (
     ("raw-new-pressed", "SourceMovementIntegration.cs", "state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;",
      "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
      "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1),
-    ("source-transform-wake", "GameSimulation.Source.cs", "if (SourceStationInputTransform != null)",
-     "if (SourceStationInputTransform != null && Model.SourceTick % 2 == 0)", "caller", "ordered raw drain transforms exactly once", 1),
+    ("source-transform-wake", "GameSimulation.Source.cs", "if (SourceStationInputTransform == null) return command;",
+     "if (SourceStationInputTransform == null || Model.SourceTick % 2 != 0) return command;",
+     "caller", "ordered raw drain transforms exactly once", 1),
     ("off-flip-real-lineup", "GameSimulation.Source.cs",
      "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped)",
      "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, false)", "caller", "off_flip passes exact source hash/offset", 1),
@@ -113,6 +116,24 @@ def source_files():
 
 def hashes(paths):
     return {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+
+
+def original_c_table_snapshot(root, pins):
+    tables = {Path(name): (root / name).read_bytes() for name in pins}
+    if not tables or any(hashlib.sha256(data).hexdigest() != pins[name.as_posix()]
+                         for name, data in tables.items()):
+        raise RuntimeError("Original-C table bytes must match this run's freshly executed oracle receipt.")
+    return tables
+
+
+def isolated_oracle_root(artifacts, run_id, label, tables):
+    destination = artifacts / "managed-oracles" / run_id / label
+    destination.mkdir(parents=True)
+    for relative, data in tables.items():
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    return destination
 
 
 def require_baseline(code, summary, section, animation_sha=None):
@@ -223,25 +244,36 @@ def main():
 
     def execute(label, section, source_root):
         build_root = workspace / label / "build"
+        scratch = build_root / "tmp"
+        scratch.mkdir(parents=True)
+        execute_env = dict(environment, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
+        case_oracle = native_root
+        if label not in ("baseline", "final-baseline"):
+            case_oracle = isolated_oracle_root(ARTIFACTS, workspace.name, label, oracle_snapshot)
         command = ["dotnet", "run", "--project", str(SUITE / "BallChecks.csproj"),
                    "--configuration", "Release", "--verbosity", "quiet",
                    "-p:BlitzSourceRoot=" + str(source_root) + "/",
                    "-p:BaseIntermediateOutputPath=" + str(build_root / "obj") + "/",
                    "-p:BaseOutputPath=" + str(build_root / "bin") + "/",
-                   "--", str(fixture), str(native_root), section]
+                   "--", str(fixture), str(case_oracle), section]
         if args.sound_functions is not None:
             command.append(str(args.sound_functions.resolve()))
         if args.c2_inputs is not None:
             command += ["--c2-inputs", str(args.c2_inputs.absolute())]
         evidence["commands"].append(command)
-        process = subprocess.run(command, cwd=ROOT, env=environment, text=True, capture_output=True, timeout=240)
+        process = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=240)
         text = process.stdout + process.stderr
         (ARTIFACTS / (label + ".log")).write_text(text, encoding="utf-8")
+        if any((case_oracle / name).read_bytes() != data for name, data in oracle_snapshot.items()):
+            raise RuntimeError("Managed execution changed its freshly executed original-C inputs: " + label)
         rows = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
         return process.returncode, rows[0] if len(rows) == 1 else None, text
 
     try:
         evidence["original_c"] = build(original, fixture, native_root)
+        oracle_snapshot = original_c_table_snapshot(native_root, evidence["original_c"]["output_sha256"])
+        evidence["original_c_output_sha256"] = {name.as_posix(): hashlib.sha256(data).hexdigest()
+                                               for name, data in oracle_snapshot.items()}
         code, baseline, text = execute("baseline", args.section, ROOT)
         evidence["baseline"], evidence["baseline_exit_code"] = baseline, code
         try:
@@ -254,7 +286,8 @@ def main():
                 GEOMETRY_MUTATIONS + tuple(row for row in MUTATIONS if row[0] == "delayed-catch-controller")
                 if args.geometry_controls else MUTATIONS + ORIENTATION_MUTATIONS + (
                     FIFO_MUTATIONS + GEOMETRY_MUTATIONS if args.c2_inputs is not None else ()))
-            for name, filename, anchor, replacement, section, expected_field, occurrences in selected:
+            def mutation(case):
+                name, filename, anchor, replacement, section, expected_field, occurrences = case
                 source_root = workspace / name / "source"
                 for relative, data in snapshot.items():
                     copied = source_root / relative
@@ -272,7 +305,6 @@ def main():
                        "expected_occurrences": occurrences, "source_sha256": before[relative],
                        "mutated_source_sha256": hashlib.sha256(mutated).hexdigest(),
                        "exit_code": code, "summary": summary}
-                evidence["mutations"].append(row)
                 try:
                     require_mutant(code, summary, expected_field)
                 except RuntimeError:
@@ -282,6 +314,8 @@ def main():
                 print("PASS actual-source mutant: " + name + " -> " + summary["failed_assertion"])
                 if hashes(source_files()) != before or actual_inputs() != fixture_before:
                     raise RuntimeError("Actual shared sources/real inputs changed during isolated mutations.")
+                return row
+            evidence["mutations"] = run_mutations(selected, mutation)
         code, final, text = execute("final-baseline", args.section, ROOT)
         evidence["final_baseline"], evidence["final_baseline_exit_code"] = final, code
         require_baseline(code, final, args.section, animation_sha)

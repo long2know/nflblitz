@@ -13,6 +13,8 @@ import uuid
 ROOT = Path(__file__).resolve().parents[3]
 SUITE = ROOT / "tests/audio/runtime"
 ARTIFACTS = SUITE / ".artifacts"
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 TRANSPORT = "Assets/Scripts/Runtime/SourceSoundVmTransport.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 MUTANTS = (
@@ -116,16 +118,19 @@ def main(argv=None):
             tests.mkdir(parents=True)
             for name in ("Program.cs", "ActualCore.cs", "SourceSoundRuntime.Checks.csproj"):
                 shutil.copyfile(SUITE / name, tests / name)
+            scratch = selected / "runtime"
+            scratch.mkdir()
+            execute_env = dict(environment, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
             build = ["dotnet", "build", str(tests / "SourceSoundRuntime.Checks.csproj"),
                      "--configuration", "Release", "--verbosity", "quiet",
                      "-p:BlitzSourceRoot=" + str(selected) + "/"]
-            compiled = subprocess.run(build, cwd=ROOT, env=environment, text=True, capture_output=True, timeout=180)
+            compiled = subprocess.run(build, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
             (ARTIFACTS / (label + "-build.log")).write_text(compiled.stdout + compiled.stderr)
             require(compiled.returncode == 0, "Compilation failure is NOT a rejected Runtime mutant: " + label)
             command = ["dotnet", str(tests / "bin/Release/net10.0/SourceSoundRuntime.Checks.dll")]
             if args.fixture_manifest and not mutant:
                 command += [str(args.fixture_manifest.resolve()), str(args.sound_functions.resolve())]
-            checked = subprocess.run(command, cwd=ROOT, env=environment, text=True, capture_output=True, timeout=180)
+            checked = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
             (ARTIFACTS / (label + ".log")).write_text(checked.stdout + checked.stderr)
             reports = [json.loads(line) for line in checked.stdout.splitlines() if line.startswith('{"schema":')]
             require(len(reports) == 1 and reports[0]["schema"] == "source-sound-runtime-checks/v1",
@@ -143,9 +148,10 @@ def main(argv=None):
 
         result["baseline"] = execute("baseline")
         if not args.no_mutations:
-            for mutant in MUTANTS:
+            def mutation(mutant):
                 report = execute(mutant[0], mutant)
-                result["mutants"].append({"id": mutant[0], "offending_assertion": report["failed_assertion"], "status": "rejected"})
+                return {"id": mutant[0], "offending_assertion": report["failed_assertion"], "status": "rejected"}
+            result["mutants"] = run_mutations(MUTANTS, mutation)
         final = execute("final")
         require(final == result["baseline"], "Final transport baseline changed.")
         for name, sha in guarded.items():

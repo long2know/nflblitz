@@ -14,6 +14,8 @@ import uuid
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 OUT = HERE / ".artifacts"
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 PROJECT = HERE / "SourceSoundVm.Checks.csproj"
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from prepare_inputs import fixture_hashes, MOVEMENT_ANIMATION_SHA, SOUND_SHA, SOUND_INCLUDE_SHA, SOUND_AUDIT_SHA
@@ -134,7 +136,10 @@ def main():
 
     def run(command, label, check=True, stdin=None):
         receipt["commands"].append([str(x) for x in command])
-        result = subprocess.run([str(x) for x in command], cwd=ROOT, env=env, text=True,
+        scratch = work / "runtime" / label
+        scratch.mkdir(parents=True, exist_ok=True)
+        execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
+        result = subprocess.run([str(x) for x in command], cwd=ROOT, env=execute_env, text=True,
                                 input=stdin, capture_output=True, timeout=240)
         text = result.stdout + result.stderr
         (OUT / (label + ".log")).write_text(text)
@@ -248,9 +253,8 @@ def main():
                 raise RuntimeError("Actual sound source inventory changed while capturing the isolated copies.")
             if {name for name, _, _ in specs} != set(MUTATION_FIELDS):
                 raise RuntimeError("Exact eleven named sound mutation contracts differ.")
-            mutations = []
-            receipt["mutations"] = mutations
-            for name, filename, edits in specs:
+            def mutation(case):
+                name, filename, edits = case
                 source_root = work / name / "source"
                 for relative, data in snapshot.items():
                     p = source_root / relative; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
@@ -265,14 +269,16 @@ def main():
                 code, summary, text = execute(mutant, name)
                 require_mutant(code, summary, MUTATION_FIELDS[name])
                 relative = "Assets/Scripts/Gameplay/" + filename
-                mutations.append({"name": name, "compiled": True, "source": relative,
-                                  "source_sha256": before[relative], "mutated_source_sha256": sha(target),
-                                  "required_assertion": MUTATION_FIELDS[name],
-                                  "offending_assertion": summary["failed_assertion"]})
+                row = {"name": name, "compiled": True, "source": relative,
+                       "source_sha256": before[relative], "mutated_source_sha256": sha(target),
+                       "required_assertion": MUTATION_FIELDS[name],
+                       "offending_assertion": summary["failed_assertion"]}
                 if before != {p.relative_to(ROOT).as_posix(): sha(p) for p in source_files()}:
                     raise RuntimeError("Live production changed during isolated sound mutation proof.")
                 if inputs != {p: sha(p) for p in inputs}:
                     raise RuntimeError("Actual sound/fixture inputs changed during isolated mutation proof.")
+                return row
+            receipt["mutations"] = run_mutations(specs, mutation)
 
         code, summary, text = execute(assembly, "final-baseline-original-C", cases, oracle)
         require_summary(code, summary, True, animation_sha)

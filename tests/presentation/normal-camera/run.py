@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 MODEL = "Assets/Scripts/Presentation/SourceNormalCameraModel.cs"
 PLAYBACK = "Assets/Scripts/Presentation/SourceCinematicPlayback.cs"
 
@@ -57,9 +59,9 @@ def mutations():
         ("omitted-unrotation", MODEL, "if ((flags & Unrotate) != 0 && unrotateTargets)",
          "if ((flags & Unrotate) != 0 && !unrotateTargets)", "normal must track actual actor root"),
         ("normal-loop-behind-special", PLAYBACK,
-         "flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                if (flags < 0)",
+         "flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                    if (flags < 0)",
          "originalNormal.Prepare(camera.State, input, horizontalResolution, verticalResolution, actualRandom);\n"
-         "                flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                if (flags < 0)",
+         "                    flags = camera.PrepareStep(RawTarget(input), false, out frame);\n                    if (flags < 0)",
          "original normal state must not advance behind a special"),
         ("return-reseeded-angles", PLAYBACK, "actualRandom, snapReturn, snapReturn);",
          "actualRandom, true, snapReturn);", "travel return must integrate actual transient angular state"),
@@ -96,12 +98,12 @@ def mutations():
          "Position = rawActor.Position; Facing = rawActor.Heading;", "Position = rawActor.Position; Facing = rawActor.Heading & 1023;",
          "actual Core camera preserves raw unwrapped actor facing"),
         ("new-play-destroys-dispatch-lifetime", PLAYBACK,
-         "camera.RevertToNormal();\n                resumingNormal = false;",
-         "camera.Reset(camera.State); rawSequence = 0; targetActor = -1;\n                resumingNormal = false;",
+         "camera.RevertToNormal();\n                    resumingNormal = false;",
+         "camera.Reset(camera.State); rawSequence = 0; targetActor = -1;\n                    resumingNormal = false;",
          "field-goal new-play retains source dispatch clock/target"),
         ("normal-plan-destroys-dispatch-lifetime", PLAYBACK,
-         "actualRandom, snapReturn, snapReturn);\n                camera.SetState(plan.State);",
-         "actualRandom, snapReturn, snapReturn);\n                camera.Reset(plan.State);",
+         "actualRandom, snapReturn, snapReturn);\n                    camera.SetState(plan.State);",
+         "actualRandom, snapReturn, snapReturn);\n                    camera.Reset(plan.State);",
          "original zoom expiry increments tick_cnt after ModeRevert"),
     ]
 
@@ -119,9 +121,9 @@ def caller_guards(source=ROOT):
             "portable source player calls the same pure original producer with exact immutable Core data")
     require("if (rawSourceCamera)\n                return AdvanceOriginalSourceStage(" in unity and
             "SourcePlayback.CameraSourceTick(source.CameraBoundary," in unity and
-            "sourceCameraRandom);" in unity and "sourceCameraFeedback(SourcePlayback.CameraFeedback);" in unity,
+            "sourceCameraRandom, sourceCameraProcesses);" in unity and "sourceCameraFeedback(SourcePlayback.CameraFeedback);" in unity,
             "Unity executes the same pure original producer/RNG/feedback, not a copied algorithm")
-    require("simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback);" in runtime,
+    require("simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback, simulation.SourceCameraProcesses);" in runtime,
             "actual Unity composition binds the Core-only feedback owner")
     require("new GameSnapshot(Model, SourceCameraStageOrder)" in core and
             core.index("SourceCameraHeadingProvider(new GameSnapshot") < core.index("UpdateSourceMovementPlayers(command);") <
@@ -170,6 +172,9 @@ def main():
         def run(label, files, original=False):
             destination = output / label
             destination.mkdir()
+            scratch = destination / "runtime"
+            scratch.mkdir()
+            execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
             paths = []
             for name, raw in files.items():
                 path = destination / name
@@ -183,7 +188,7 @@ def main():
             response = destination / "compile.rsp"
             response.write_text("\n".join(json.dumps(o) for o in options) + "\n")
             command = ["dotnet", str(compiler), "-noconfig", "@" + str(response)]
-            built = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+            built = subprocess.run(command, cwd=ROOT, env=execute_env, capture_output=True, text=True, timeout=120)
             (destination / "build.log").write_text(built.stdout + built.stderr)
             row = dict(name=label, compile=built.returncode, compileCommand=command)
             report["runs"].append(row)
@@ -193,7 +198,7 @@ def main():
                 "tfm": "net10.0", "framework": {"name": "Microsoft.NETCore.App", "version": "10.0.0"}}}))
             arguments = ["--active", actual] if original and actual != "-" else []
             command = ["dotnet", str(assembly)] + arguments
-            result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+            result = subprocess.run(command, cwd=ROOT, env=execute_env, capture_output=True, text=True, timeout=180)
             text = result.stdout + result.stderr
             (destination / "run.log").write_text(text)
             row.update(exit=result.returncode, output=text, command=command, assemblySha256=digest(assembly.read_bytes()))
@@ -203,10 +208,11 @@ def main():
         baseline = run("baseline", sources, True)
         require(baseline["exit"] == 0, "Actual raw camera producer failed.")
         summary = json.loads(baseline["output"])
-        require(len(summary["cases"]) == (13 if actual != "-" else 12) and summary["assertions"] >= 95,
+        require(len(summary["cases"]) == (14 if actual != "-" else 13) and summary["assertions"] >= 100,
                 "Exact raw camera case inventory changed; no skipped cases.")
         if args.controls:
-            for label, name, before, after, expected in mutations():
+            def mutation(case):
+                label, name, before, after, expected = case
                 text = sources[name].decode()
                 require(text.count(before) == 1, "Unique real-source semantic mutation anchor: " + label)
                 altered = dict(sources)
@@ -215,7 +221,11 @@ def main():
                 row["requiredNamedFailure"] = expected
                 require(row["exit"] == 1 and expected in row["output"],
                         "Compiled raw camera mutant survived or failed for the wrong cause: " + label)
-            require(run("final-baseline", sources)["exit"] == 0, "Final raw-camera baseline failed.")
+                return row
+            controls = run_mutations(mutations(), mutation)
+            final = run("final-baseline", sources)
+            require(final["exit"] == 0, "Final raw-camera baseline failed.")
+            report["runs"] = [baseline, *controls, final]
         require(all((ROOT / name).read_bytes() == raw for name, raw in sources.items() if name != "Program.cs"),
                 "Camera production sources changed during qualification.")
         report["status"] = "passed"

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Runtime;
+using Blitz.Presentation;
 using OriginalPlayer = Blitz.AssetImport.SourcePlayer;
 
 namespace Blitz.SourcePlayer;
@@ -91,6 +92,14 @@ public sealed class RenderAssets
             sink.Texture("hud/" + pair.Key, texture.Width, texture.Height, rgba, 1, false,
                 !texture.PointSampled, texture.Sha256, "original authored HUD raster / portable origin");
             TextureCount++;
+            if (pair.Key == "interface")
+            {
+                byte[] white = SourceHudTextureMask.WhiteFlash(rgba);
+                string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(white)).ToLowerInvariant();
+                sink.Texture("hud/interface-white", texture.Width, texture.Height, white, 1, false,
+                    !texture.PointSampled, hash, "original GR_COLORCOMBINE_ONE / black chroma key, authored-alpha portable mask");
+                TextureCount++;
+            }
         }
     }
 

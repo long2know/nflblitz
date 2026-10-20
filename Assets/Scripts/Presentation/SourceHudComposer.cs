@@ -42,12 +42,13 @@ namespace Blitz.Presentation
         private long lastTick = -1;
         private int delay = 8;
         public bool RedClock { get; private set; }
-        public void Advance(long sourceTick, bool clockWarning)
+        public void Advance(long sourceTick, bool clockWarning, bool processSuspended = false)
         {
             if (sourceTick == lastTick) return;
             if (sourceTick < lastTick || lastTick >= 0 && sourceTick != lastTick + 1)
                 throw new SourceInterfaceException("The HUD needs every ordered source wake; render catch-up cannot skip clock/status ticks.");
             lastTick = sourceTick;
+            if (processSuspended) return;
             if (clockWarning)
             {
                 if (delay-- == 0) { RedClock = !RedClock; delay = 8; }
@@ -97,7 +98,7 @@ namespace Blitz.Presentation
                     Menu(state, TeamId.Away, new SourceHudRect(layout.Menu.X + width, layout.Menu.Y, width, layout.Menu.Height), selection);
                 }
             }
-            else if (hud.ResultGraphic != null && hud.Match.Phase != SourceMatchPhase.LiveBall)
+            else if (hud.PossessionMessage == null && hud.ResultGraphic != null && hud.Match.Phase != SourceMatchPhase.LiveBall)
             {
                 SourceInterfaceImage image = data.Image(hud.ResultGraphic);
                 double fit = Math.Min(layout.Message.Width / image.Width, layout.Message.Height / image.Height);
@@ -105,9 +106,10 @@ namespace Blitz.Presentation
                     layout.Message.Y, image.Width * fit, image.Height * fit);
                 Image("result/" + hud.ResultGraphic, image, rect, White);
             }
-            else if (hud.StateText.Length > 0 && hud.Match.Phase != SourceMatchPhase.LiveBall && !hud.KickMeter.ShowMeterFlag)
+            else if (hud.PossessionMessage == null && hud.StateText.Length > 0 && hud.Match.Phase != SourceMatchPhase.LiveBall && !hud.KickMeter.ShowMeterFlag)
                 FitText("state", "bast18", hud.StateText, layout.Message, scale, White);
             KickMeter(hud.KickMeter, hud.KickMeterMetrics, viewport);
+            foreach (SourcePossessionMessageView message in hud.PossessionMessages) PossessionMessage(message, viewport);
             if (suspended)
                 FitText("adapter/pause", "bast18", "PAUSED - RELEASE CONTROLS", layout.Message, scale, Yellow);
             Controls(hud.Match, layout, hud.KickMeter.ShowMeterFlag);
@@ -115,6 +117,39 @@ namespace Blitz.Presentation
                 if (!viewport.Content.Contains(primitive.Bounds))
                     throw new SourceInterfaceException("Original HUD element exceeds actual CSS content: " + primitive.Element + ".");
             return Array.AsReadOnly(draw.ToArray());
+        }
+
+        private void PossessionMessage(SourcePossessionMessageView message, SourceHudViewport viewport)
+        {
+            if (message == null) return;
+            if (message.HorizontalResolution != 512 || message.VerticalResolution != 256 && message.VerticalResolution != 384)
+                throw new SourceInterfaceException("Possession imagery requires the actual original sprite raster.");
+            double scale = Math.Min(viewport.ContentWidth / message.HorizontalResolution,
+                viewport.ContentHeight / message.VerticalResolution);
+            double offsetX = (viewport.ContentWidth - message.HorizontalResolution * scale) / 2;
+            double offsetY = (viewport.ContentHeight - message.VerticalResolution * scale) / 2;
+            if (message.MessageNumber == 15)
+            {
+                if (message.Sprites.Count != 0) throw new SourceInterfaceException("Original punt return has no message sprites.");
+                return;
+            }
+            if (message.Sprites.Count != 2)
+                throw new SourceInterfaceException("The original possession message requires both actual object/flash continuations.");
+            SourcePossessionSprite sprite = message.Sprites[0], component = message.Sprites[1];
+            string symbol = message.MessageNumber == 8 ? "msg_int" : message.MessageNumber == 13 ? "msg_trn" : null;
+            if (symbol == null || sprite.Image != symbol || component.Image != symbol + "_c1" ||
+                sprite.ObjectId != component.ObjectId || sprite.WhiteFlash != component.WhiteFlash ||
+                sprite.ChromaKey != component.ChromaKey)
+                throw new SourceInterfaceException("Independent native Composit component geometry is unavailable; unequal component state cannot be replaced by a joined authored draw.");
+            // The pinned atlas retains the WHOLE original WIF image, not generated
+            // flash.h components. Draw that union once; never duplicate the image
+            // as an invented _c1 or guess native Composit cut/packing coordinates.
+            SourceInterfaceImage image = data.Image(symbol);
+            var rect = new SourceHudRect(offsetX + (message.HorizontalResolution / 2 - image.AnchorX) * scale,
+                offsetY + (message.VerticalResolution / 2 - 55 - image.AnchorY) * scale,
+                image.Width * scale, image.Height * scale);
+            Image("possession/" + sprite.Image + "+" + component.Image, image, rect, White,
+                texture: sprite.WhiteFlash && sprite.ChromaKey ? "interface-white" : "interface");
         }
 
         public IReadOnlyList<SourceHudPrimitive> Indicator(int stationId, double x, double y, SourceHudViewport viewport,
@@ -316,13 +351,13 @@ namespace Blitz.Presentation
         }
 
         private void Image(string element, SourceInterfaceImage image, SourceHudRect rect, uint color,
-            double fraction = 1, bool flipped = false)
+            double fraction = 1, bool flipped = false, string texture = "interface")
         {
             SourceInterfaceTexture atlas = data.Textures["interface"];
             double s0 = image.X / (double)atlas.Width, s1 = (image.X + image.Width * fraction) / atlas.Width;
             double t0 = image.Y / (double)atlas.Height, t1 = (image.Y + image.Height) / (double)atlas.Height;
             if (flipped) { double swap = s0; s0 = s1; s1 = swap; }
-            draw.Add(new SourceHudPrimitive(element, "interface", color, new[] {
+            draw.Add(new SourceHudPrimitive(element, texture, color, new[] {
                 new SourceHudVertex(rect.X, rect.Y, s0, t1), new SourceHudVertex(rect.Right, rect.Y, s1, t1),
                 new SourceHudVertex(rect.Right, rect.Bottom, s1, t0), new SourceHudVertex(rect.X, rect.Y, s0, t1),
                 new SourceHudVertex(rect.Right, rect.Bottom, s1, t0), new SourceHudVertex(rect.X, rect.Bottom, s0, t0) }));
