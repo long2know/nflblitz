@@ -30,6 +30,55 @@ def load_module(name, path):
     return module
 
 
+def validate_camera_provider_sample(sample):
+    producer = "sourceCameraProducer(preActorState,executingSourceTick)"
+    frame = "playCamera.RequireSourceCameraAtTick(executingSourceTick)"
+    publish = ("simulation.SetSourceMovementCameraFrame(newBlitz.Gameplay.SourceMovementCameraFrame("
+               "frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution),executingSourceTick);")
+    held = ("if(!playCamera.SourcePlayback.CameraFeedback.CameraCompleted&&"
+            "playCamera.SourcePlayback.UsesOriginalNormalCamera)returnheading;")
+    stamp = "lastSourceCameraTick=executingSourceTick;lastSourceCameraHeading=heading;"
+    ordered = "if(heading<0||heading>1023||executingSourceTick<=lastSourceCameraTick)"
+    require(sample.count(producer) == sample.count(frame) == sample.count(publish) == 1 and
+            sample.count("simulation.SetSourceMovementCameraFrame(") == 1 and
+            sample.count("returnheading;") == 2 and held in sample and stamp in sample and ordered in sample and
+            sample.index(producer) < sample.index(ordered) < sample.index(held) < sample.index(frame) <
+            sample.index(publish) < sample.index(stamp) < sample.rindex("returnheading;"),
+            "actual provider preserves held output or publishes one current frame inside the ordered source callback")
+
+
+def camera_provider_guard_controls(sample):
+    validate_camera_provider_sample(sample)
+    producer = "intheading=sourceCameraProducer(preActorState,executingSourceTick);"
+    frame = "SourceCinematicTransformframe=playCamera.RequireSourceCameraAtTick(executingSourceTick);"
+    publish = ("simulation.SetSourceMovementCameraFrame(newBlitz.Gameplay.SourceMovementCameraFrame("
+               "frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution),executingSourceTick);")
+    held = ("if(!playCamera.SourcePlayback.CameraFeedback.CameraCompleted&&"
+            "playCamera.SourcePlayback.UsesOriginalNormalCamera)returnheading;")
+    mutations = (
+        ("omit-producer", producer, "intheading=0;"),
+        ("duplicate-producer", producer, producer + "sourceCameraProducer(preActorState,executingSourceTick);"),
+        ("omit-current-frame", frame, "SourceCinematicTransformframe=default(SourceCinematicTransform);"),
+        ("omit-publication", publish, ""),
+        ("extra-publication", publish, publish + publish.replace("),executingSourceTick);", "),executingSourceTick+1);")),
+        ("omit-held-branch", held, ""),
+        ("invert-completion", held, held.replace("!playCamera", "playCamera", 1)),
+        ("omit-original-normal-guard", held, held.replace("&&playCamera.SourcePlayback.UsesOriginalNormalCamera", "")),
+        ("stamp-held-wake", held, held.replace("returnheading;", "{lastSourceCameraTick=executingSourceTick;returnheading;}")),
+        ("stale-publication", publish, publish.replace("),executingSourceTick);", "),executingSourceTick-1);")),
+    )
+    for name, old, new in mutations:
+        require(sample.count(old) == 1 and old != new, "unique actual provider guard mutation: " + name)
+        try:
+            validate_camera_provider_sample(sample.replace(old, new, 1))
+        except AssertionError as error:
+            require("actual provider preserves held output or publishes one current frame" in str(error),
+                    "provider mutation failed its intended structural contract: " + name)
+        else:
+            require(False, "actual provider structural mutation survived: " + name)
+    return len(mutations)
+
+
 def caller_guards(source_root=ROOT):
     helpers = load_module("real_stage_method_helpers", ROOT / "tests/interface/stage_followup.py")
     method, compact = helpers.method, helpers.compact
@@ -69,12 +118,8 @@ def caller_guards(source_root=ROOT):
             "actual M1 raster/raw provider registration occurs before source wake")
     require("state=>simulation.SourceCameraRawGameMode" in awake, "use Core's actual GAME.H raw mode, not GamePhase numeric cast")
     sample = compact(method(runtime, "SampleSourceCameraHeading"))
-    producer = "sourceCameraProducer(preActorState,executingSourceTick)"
-    frame = "playCamera.RequireSourceCameraAtTick(executingSourceTick)"
-    setframe = "simulation.SetSourceMovementCameraFrame("
-    require(sample.count(producer) == 1 and sample.count(frame) == 1 and sample.count(setframe) == 1 and
-            sample.index(producer) < sample.index(frame) < sample.index(setframe) < sample.index("returnheading;"),
-            "actual provider samples once, reads current pure frame, sets Core frame INSIDE same pre-player callback")
+    require(camera_provider_guard_controls(sample) == 10,
+            "all held/current camera provider structural controls are required")
     require("frame.Position,frame.Transform,bootstrap.HorizontalResolution,bootstrap.VerticalResolution" in sample,
             "actual source pose12 plus explicit bootstrap DIP, never WorldJoint/Unity camera")
     code = compact(helpers.uncomment(runtime))

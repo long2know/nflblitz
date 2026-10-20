@@ -45,6 +45,14 @@ guard-only dependencies. They remain excluded from Runtime compilation. The
 shadow runs the permanent importer guards without authoring state, original
 assets or a Unity executable; missing guard inputs fail explicitly.
 
+The Runtime camera provider still samples once per admitted source callback.
+An incomplete original-normal continuation returns its retained heading without
+publishing a new frame or advancing the last completed camera stamp. Otherwise
+the provider reads the stamped pure frame and publishes the full Core transform
+and explicit DIP in that same callback. The movement-stage guard protects both
+exclusive paths and rejects ten actual-method source-text mutations; these
+structural controls are not compiled or native execution evidence.
+
 ## Current synchronous sound-VM candidate
 
 The sound-runtime candidate extends the published movement157 layer without
