@@ -44,7 +44,7 @@ def validate_camera_provider_sample(sample):
             sample.count("returnheading;") == 2 and held in sample and stamp in sample and ordered in sample and
             sample.index(producer) < sample.index(ordered) < sample.index(held) < sample.index(frame) <
             sample.index(publish) < sample.index(stamp) < sample.rindex("returnheading;"),
-            "actual provider preserves held output or publishes one current frame inside the ordered source callback")
+            "actual provider samples once, reads current pure frame, sets Core frame INSIDE same pre-player callback")
 
 
 def camera_provider_guard_controls(sample):
@@ -72,7 +72,8 @@ def camera_provider_guard_controls(sample):
         try:
             validate_camera_provider_sample(sample.replace(old, new, 1))
         except AssertionError as error:
-            require("actual provider preserves held output or publishes one current frame" in str(error),
+            require(str(error) == "M1 presentation caller guard: actual provider samples once, reads current pure frame, "
+                    "sets Core frame INSIDE same pre-player callback",
                     "provider mutation failed its intended structural contract: " + name)
         else:
             require(False, "actual provider structural mutation survived: " + name)
