@@ -13,6 +13,8 @@ import uuid
 SUITE = Path(__file__).resolve().parent
 ROOT = SUITE.parents[1]
 ARTIFACTS = SUITE / ".artifacts"
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 RULE_SOURCES = ("SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs")
 EXPECTED = {
     "promoted_dto_assertions": 177,
@@ -136,6 +138,17 @@ def snapshot():
     return contents, captured
 
 
+def harness_snapshot():
+    contents = {}
+    for parent, directories, files in os.walk(SUITE):
+        directories[:] = sorted(name for name in directories if name not in (".artifacts", "bin", "obj"))
+        for name in sorted(files):
+            path = Path(parent) / name
+            if path.suffix in (".cs", ".csproj"):
+                contents[path.relative_to(SUITE)] = path.read_bytes()
+    return contents
+
+
 def require_baseline(exit_code, summary):
     if (exit_code != 0 or not isinstance(summary, dict)
             or summary.get("schema") != "actual-source-contract-checks/v1"
@@ -157,6 +170,7 @@ def require_mutation(exit_code, summary, assertion):
 
 def main():
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    harness = harness_snapshot()
     workspace = ARTIFACTS / ("run-" + uuid.uuid4().hex)
     report = ARTIFACTS / "result.json"
     report.unlink(missing_ok=True)
@@ -170,6 +184,7 @@ def main():
         "status": "failed",
         "commands": [],
         "mutations": [],
+        "harness_sha256": {name.as_posix(): hashlib.sha256(data).hexdigest() for name, data in harness.items()},
         "profile": "Actual sources compiled as C#7.3 netstandard2.1, warnings-as-errors; net10.0 runner.",
         "full_gameplay_parity_claimed": False,
         "unity_editor_native_build_browser_or_hosting_executed": False,
@@ -179,17 +194,18 @@ def main():
 
     def execute(label, source_root):
         project_root = workspace / label / "tests/contracts"
-        for path in SUITE.rglob("*"):
-            if (path.is_file() and path.suffix in (".cs", ".csproj")
-                    and not any(part in (".artifacts", "bin", "obj") for part in path.relative_to(SUITE).parts)):
-                copied = project_root / path.relative_to(SUITE)
-                copied.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(path, copied)
+        for name, data in harness.items():
+            copied = project_root / name
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            copied.write_bytes(data)
+        scratch = project_root / "build-scratch"
+        scratch.mkdir()
+        execute_env = dict(environment, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
         build = ["dotnet", "build", str(project_root / "ContractChecks.csproj"),
                  "--configuration", "Release", "--verbosity", "quiet",
                  "-p:BlitzSourceRoot=" + source_root.as_posix() + "/"]
         evidence["commands"].append(build)
-        compiled = subprocess.run(build, cwd=ROOT, env=environment, capture_output=True,
+        compiled = subprocess.run(build, cwd=ROOT, env=execute_env, capture_output=True,
                                   text=True, timeout=180)
         (ARTIFACTS / (label + "-build.log")).write_text(
             compiled.stdout + compiled.stderr, encoding="utf-8")
@@ -198,7 +214,7 @@ def main():
                                "; see " + label + "-build.log")
         command = ["dotnet", str(project_root / "bin/Release/net10.0/ContractChecks.dll")]
         evidence["commands"].append(command)
-        process = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True,
+        process = subprocess.run(command, cwd=ROOT, env=execute_env, capture_output=True,
                                  text=True, timeout=60)
         (ARTIFACTS / (label + ".log")).write_text(process.stdout + process.stderr, encoding="utf-8")
         summaries = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
@@ -214,7 +230,8 @@ def main():
         require_baseline(code, baseline)
         if hashes() != before:
             raise RuntimeError("Actual source inventory changed during the baseline.")
-        for name, filename, anchor, replacement, assertion in MUTATIONS:
+        def mutation(case):
+            name, filename, anchor, replacement, assertion = case
             source_root = workspace / name / "source"
             for relative, data in contents.items():
                 path = source_root / relative
@@ -233,13 +250,14 @@ def main():
                 "mutated_source_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
                 "exit_code": code, "summary": summary, "live_source_modified": False,
             }
-            evidence["mutations"].append(result)
             require_mutation(code, summary, assertion)
             result["rejected_by_assertion"] = assertion
             result["behaviorally_rejected"] = True
             if hashes() != before:
                 raise RuntimeError("Actual source inventory changed during isolated mutations.")
             print("PASS mutation: " + name + " -> " + assertion)
+            return result
+        evidence["mutations"] = run_mutations(MUTATIONS, mutation)
         code, final = execute("final-baseline", ROOT)
         evidence["final_baseline_exit_code"] = code
         evidence["final_baseline"] = final
@@ -262,6 +280,10 @@ def main():
             evidence["hash_error"] = str(error)
         if not evidence["production_hashes_unchanged"]:
             evidence["status"] = "inconclusive-sources-changed"
+            exit_code = 1
+        evidence["harness_hashes_unchanged"] = harness == harness_snapshot()
+        if not evidence["harness_hashes_unchanged"]:
+            evidence["status"] = "inconclusive-harness-changed"
             exit_code = 1
         report.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
         print("Evidence: " + report.relative_to(ROOT).as_posix())

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Guard tests for the actual-source regression runner; not gameplay evidence."""
 import importlib.util
+import os
 from pathlib import Path
+import shutil
 import unittest
+from unittest.mock import patch
+import uuid
 
 
 SPEC = importlib.util.spec_from_file_location("contract_runner", Path(__file__).with_name("run.py"))
@@ -87,6 +91,34 @@ class ContractRunnerGuards(unittest.TestCase):
         self.assertNotIn("Gameplay/**/*.cs", project)
         self.assertNotIn("SourceRandom.cs", project)
         self.assertNotIn("Presentation/*.cs", project)
+
+    def test_actual_harness_snapshot_prunes_generated_trees_before_traversal(self):
+        actual = RUNNER.harness_snapshot()
+        self.assertTrue(actual)
+        parent = Path(os.environ.get("BLITZ_CI_TEST_OUTPUT", RUNNER.ROOT / ".squad/.scratch/contract-harness-tests"))
+        self.assertTrue(parent.resolve().is_relative_to(RUNNER.ROOT))
+        work = parent / uuid.uuid4().hex
+        work.mkdir(parents=True)
+        self.addCleanup(shutil.rmtree, work)
+        for name, data in actual.items():
+            target = work / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        for name in (".artifacts/mutant/Program.cs", "bin/generated/Unexpected.csproj", "model/obj/Stale.cs"):
+            target = work / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("must not be a harness input")
+        walk = os.walk
+        visited = []
+        def tracked(*args, **kwargs):
+            for row in walk(*args, **kwargs):
+                visited.append(Path(row[0]).relative_to(work))
+                yield row
+        with patch.object(RUNNER, "SUITE", work), patch.object(RUNNER.os, "walk", tracked):
+            captured = RUNNER.harness_snapshot()
+        self.assertEqual(captured, actual, "every actual harness/project byte is retained, without stale shadow inputs")
+        self.assertFalse(any({".artifacts", "bin", "obj"} & set(path.parts) for path in visited),
+                         "filtering after rglob would still race/traverse other workers' build trees")
 
 
 if __name__ == "__main__":

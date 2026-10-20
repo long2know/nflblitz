@@ -9,9 +9,12 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from threading import Lock
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from contact_inputs import fixture_profile
 from prepare_inputs import fixture_hashes
@@ -280,6 +283,7 @@ def m1_main(argv):
     result["public_controller_policy_seed_vector_clock_unchanged"] = True
     result["portable_is_deliberate_correction_not_original_hardware"] = args.source_compatibility == "portable"
     result["complete_compiled_control_closure_executed"] = False
+    counter_lock = Lock()
 
     def execute(label, observed=False, mutation=None, section=None):
         copy = output / "copies" / label
@@ -300,21 +304,24 @@ def m1_main(argv):
             target.write_text(text.replace(old, new))
         project = tests / "tests/movement-callers/MovementCallerChecks.csproj"
         build = output / "build" / label
+        scratch = build / "tmp"
+        scratch.mkdir(parents=True)
+        execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
         common = ["-p:BlitzSourceRoot=" + str(source) + "/",
                   "-p:BaseIntermediateOutputPath=" + str(build / "obj") + "/",
                   "-p:BaseOutputPath=" + str(build / "bin") + "/"]
         command = ["dotnet", "build", str(project), "--no-restore", "--configuration", "Release",
                    "--verbosity", "quiet", *common]
         result["commands"].append(command)
-        compiled = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=240)
+        compiled = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=240)
         if compiled.returncode and "NETSDK1004" in compiled.stdout + compiled.stderr:
             restore = ["dotnet", "restore", str(project), "--source", str(work / "empty-feed"),
                        "--verbosity", "quiet", "-p:NuGetAudit=false", *common]
             result["commands"].append(restore)
-            restored = subprocess.run(restore, cwd=ROOT, env=env, text=True, capture_output=True, timeout=240)
+            restored = subprocess.run(restore, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=240)
             if restored.returncode:
                 raise RuntimeError("M1 isolated restore failed after missing SDK assets.")
-            compiled = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=240)
+            compiled = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=240)
         text = compiled.stdout + compiled.stderr
         (output / (label + "-compile.log")).write_text(text)
         if compiled.returncode or "0 Warning(s)" not in text or "0 Error(s)" not in text:
@@ -329,8 +336,9 @@ def m1_main(argv):
         command += ["--source-compatibility", args.source_compatibility]
         result["commands"].append(command)
         if section is None:
-            result["public_vector_executions"] = result.get("public_vector_executions", 0) + 1
-        process = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=900)
+            with counter_lock:
+                result["public_vector_executions"] = result.get("public_vector_executions", 0) + 1
+        process = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=900)
         (output / (label + ".log")).write_text(process.stdout + process.stderr)
         rows = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
         summary = rows[-1] if len(rows) == 1 else None
@@ -378,12 +386,14 @@ def m1_main(argv):
                 if a.read_bytes() != b.read_bytes():
                     raise RuntimeError("Passive observer changed actual recorded state/input/pose/RNG: " + name)
             result["uninstrumented_and_actual_observer_state_RNG_and_poses_byte_identical"] = True
-            for spec in CANONICAL_CACHE_MUTANTS:
-                execute("cache-control-" + spec[0], True, spec)
+            run_mutations(CANONICAL_CACHE_MUTANTS,
+                          lambda spec: execute("cache-control-" + spec[0], True, spec))
             execute("controlled-baseline", section="controlled")
-            for identity, filename, old, new, expected in controls.MUTANTS:
-                execute("caller-control-" + identity, mutation=(identity, "production",
+            def caller_control(spec):
+                identity, filename, old, new, expected = spec
+                return execute("caller-control-" + identity, mutation=(identity, "production",
                     "Assets/Scripts/Gameplay/" + filename, old, new, expected), section="controlled")
+            run_mutations(controls.MUTANTS, caller_control)
             execute("controlled-final", section="controlled")
             execute("existing-caller-physics", section="campaigns")
             native_output = HERE / ".artifacts" / ("m1-post-VM-" + sha(str(output).encode())[:16])

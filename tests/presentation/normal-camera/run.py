@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 MODEL = "Assets/Scripts/Presentation/SourceNormalCameraModel.cs"
 PLAYBACK = "Assets/Scripts/Presentation/SourceCinematicPlayback.cs"
 
@@ -170,6 +172,9 @@ def main():
         def run(label, files, original=False):
             destination = output / label
             destination.mkdir()
+            scratch = destination / "runtime"
+            scratch.mkdir()
+            execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
             paths = []
             for name, raw in files.items():
                 path = destination / name
@@ -183,7 +188,7 @@ def main():
             response = destination / "compile.rsp"
             response.write_text("\n".join(json.dumps(o) for o in options) + "\n")
             command = ["dotnet", str(compiler), "-noconfig", "@" + str(response)]
-            built = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+            built = subprocess.run(command, cwd=ROOT, env=execute_env, capture_output=True, text=True, timeout=120)
             (destination / "build.log").write_text(built.stdout + built.stderr)
             row = dict(name=label, compile=built.returncode, compileCommand=command)
             report["runs"].append(row)
@@ -193,7 +198,7 @@ def main():
                 "tfm": "net10.0", "framework": {"name": "Microsoft.NETCore.App", "version": "10.0.0"}}}))
             arguments = ["--active", actual] if original and actual != "-" else []
             command = ["dotnet", str(assembly)] + arguments
-            result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+            result = subprocess.run(command, cwd=ROOT, env=execute_env, capture_output=True, text=True, timeout=180)
             text = result.stdout + result.stderr
             (destination / "run.log").write_text(text)
             row.update(exit=result.returncode, output=text, command=command, assemblySha256=digest(assembly.read_bytes()))
@@ -206,7 +211,8 @@ def main():
         require(len(summary["cases"]) == (14 if actual != "-" else 13) and summary["assertions"] >= 100,
                 "Exact raw camera case inventory changed; no skipped cases.")
         if args.controls:
-            for label, name, before, after, expected in mutations():
+            def mutation(case):
+                label, name, before, after, expected = case
                 text = sources[name].decode()
                 require(text.count(before) == 1, "Unique real-source semantic mutation anchor: " + label)
                 altered = dict(sources)
@@ -215,7 +221,11 @@ def main():
                 row["requiredNamedFailure"] = expected
                 require(row["exit"] == 1 and expected in row["output"],
                         "Compiled raw camera mutant survived or failed for the wrong cause: " + label)
-            require(run("final-baseline", sources)["exit"] == 0, "Final raw-camera baseline failed.")
+                return row
+            controls = run_mutations(mutations(), mutation)
+            final = run("final-baseline", sources)
+            require(final["exit"] == 0, "Final raw-camera baseline failed.")
+            report["runs"] = [baseline, *controls, final]
         require(all((ROOT / name).read_bytes() == raw for name, raw in sources.items() if name != "Program.cs"),
                 "Camera production sources changed during qualification.")
         report["status"] = "passed"

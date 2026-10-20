@@ -13,6 +13,8 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "tests/ci"))
+from isolated_mutations import run_mutations
 GAME = "Assets/Scripts/Gameplay/GameSimulation.Possession.cs"
 PLAYBACK = "Assets/Scripts/Presentation/SourceCinematicPlayback.cs"
 SELECTOR = "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs"
@@ -239,6 +241,9 @@ def main():
         def execute(label, files):
             destination = output / label
             destination.mkdir()
+            scratch = destination / "runtime"
+            scratch.mkdir()
+            execute_env = dict(env, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
             paths = []
             for name, raw in files.items():
                 p = destination / name
@@ -251,7 +256,7 @@ def main():
             response = destination / "compile.rsp"
             response.write_text("\n".join(json.dumps(flag) for flag in options) + "\n")
             build_start = time.monotonic()
-            build = subprocess.run(["dotnet", str(compiler), "-noconfig", "@" + str(response)], env=env,
+            build = subprocess.run(["dotnet", str(compiler), "-noconfig", "@" + str(response)], env=execute_env,
                                    capture_output=True, text=True, timeout=180)
             (destination / "compile.log").write_text(build.stdout + build.stderr)
             require(build.returncode == 0 and not build.stdout + build.stderr,
@@ -263,7 +268,7 @@ def main():
                        str(fixture_file), str(args.hud.absolute()), str(args.fire.absolute()), args.fire_sha256]
             compile_seconds = round(time.monotonic() - build_start, 3)
             run_start = time.monotonic()
-            run = subprocess.run(command, env=env, cwd=ROOT, capture_output=True, text=True, timeout=240)
+            run = subprocess.run(command, env=execute_env, cwd=ROOT, capture_output=True, text=True, timeout=240)
             text = run.stdout + run.stderr
             row = dict(name=label, compile=build.returncode, exit=run.returncode, executionExit=run.returncode,
                        executionOutput=text, output=text, command=command,
@@ -304,7 +309,8 @@ def main():
         require(set(summary["cases"]) == expected_cases and len(summary["cases"]) == 50 and summary["assertions"] == 2240,
                 "Exact50-case possession/cabinet/Core/HUD inventory or retained assertion categories changed.")
         report["baselineSummary"] = summary
-        for name, path, before, after, failure in controls:
+        def mutation(case):
+            name, path, before, after, failure = case
             text = sources[path].decode()
             require(text.count(before) == 1, "Unique real-source semantic mutation anchor: " + name)
             altered = dict(sources); altered[path] = text.replace(before, after, 1).encode()
@@ -312,7 +318,10 @@ def main():
             row["requiredNamedFailure"] = failure
             require(row["exit"] == 1 and failure in row["output"],
                     "Compiled control survived or failed the wrong assertion: " + name + "\n" + row["output"])
+            return row
+        controlled = run_mutations(controls, mutation)
         final = execute("final-baseline", sources)
+        report["runs"] = [baseline, *controlled, final]
         require(final["exit"] == 0 and json.loads(final["output"]) == summary, "Final original-C baseline inventory changed.")
         require(len(report["runs"]) == 23 and baseline["originalCComparedCases"] == final["originalCComparedCases"] == 40,
                 "No original-C comparison/control/final-baseline selection may be omitted.")

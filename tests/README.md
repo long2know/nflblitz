@@ -139,6 +139,38 @@ run full M1/public replays, or qualify a new Unity/browser generation.
 Numeric source data and generated reference/proof artifacts remain local and
 ignored. The legacy60 route is unchanged.
 
+## Bounded CI mutation workers
+
+The Game source checks job retains its exact **40-minute** budget and every
+existing command, source/input gate, assertion and causal mutation campaign.
+`BLITZ_CI_MUTATION_WORKERS=2` overlaps only independently copied mutation trees;
+local runs default to one worker. Baselines, original-C execution and final
+source/input checks remain required. Shared-output mutation campaigns stay serial.
+No compiler server, shared build outputs or cached test results are introduced.
+Contracts snapshots its unchanged harness once and prunes generated directories
+before walking them, rather than rescanning other workers' live build trees.
+
+`python3 -B tests/ci/test_mutation_workers.py -q` checks the two-worker bound,
+ordered complete results, unique case identities and failure propagation.
+Workers finish before a runner may remove its trees or return a failure.
+The inherited workflow hash gate normalizes only the two exact worker additions;
+it still protects every pre-existing command, filter and the exact budget.
+Scoped timing measurements are not completed hosted CI or
+Unity/browser/DSP/gameplay qualification.
+
+The eligible campaigns are Contracts, ball/callers, portable carrierless
+switching, terminal/bridge lifecycle, full current M1's cache/caller controls,
+normal camera, possession services, sound VM and resolved sound Runtime.
+Each has case-specific source, intermediate, binary, log and
+temporary paths. Ball mutation workers also receive separate copies of this run's
+fresh original-C tables because their managed diagnostics write beside those
+tables. Only this run's receipt-pinned tables are copied, never old managed
+proofs; a run-unique parent also keeps repeated author runs independent.
+Baseline/final diagnostics retain their original location.
+Cache/caller inventories and strict named failures are unchanged.
+M1's uninstrumented, observer and final public baselines and original-C physics
+comparison remain serial; its concurrent recording-execution counter is locked.
+
 ## Current Contact/C2 gates
 
 From the repository root, Python 3.10+ and the existing .NET 10.0.100 SDK suffice
