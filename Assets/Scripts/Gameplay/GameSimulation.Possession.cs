@@ -201,6 +201,7 @@ namespace Blitz.Gameplay
 
         private void InitializeSourceProcesses()
         {
+            ResetSourceRandomSelections();
             Model.SourceProcesses = new SourcePortableProcessHost();
             Model.SourcePossessionMessages = Array.AsReadOnly(new SourcePossessionMessageView[0]);
             sourceFireNextSerial = 32; sourceMessages.Clear(); sourcePossessionSpeech.Clear();

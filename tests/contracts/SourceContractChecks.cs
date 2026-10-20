@@ -323,7 +323,7 @@ internal static class SourceContractChecks
         }
         Throws<ArgumentOutOfRangeException>("unknown source button bits rejected",
             () => new SourceStationInput(0, held: (SourceButtons)8));
-        Throws<ArgumentOutOfRangeException>("unknown source action rejected", () => new SourceCommand((SourceAction)21));
+        Throws<ArgumentOutOfRangeException>("unknown source action rejected", () => new SourceCommand((SourceAction)22));
         Throws<ArgumentOutOfRangeException>("negative possession time rejected",
             () => new SourceBallControlView(-1, -1, possessionTicks: -1));
         Throws<ArgumentOutOfRangeException>("negative no-catch time rejected",

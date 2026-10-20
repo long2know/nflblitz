@@ -15,6 +15,18 @@ Historical constructor/resource descriptions below retain their original
 generation meaning; old56/117/156/157 assets are not current-engine fallbacks.
 The two timing profiles below are distinct from these three resource profiles.
 
+**Cabinet RANDOM_SELECT (bounded portable):** the selector emits a station-owned
+start intent; the actual Core `game_proc` menu consumer owns shared ordered RNG,
+both sides' sleep1/sleep2 continuations and the parent's final sleep1/timeout
+completion. Runtime applies immutable `SourceRandomSelectionView` operations
+through the existing page/slot/play validator and offensive flip command. There
+is no input/render RNG callback, synthetic B edge or replacement source process.
+Restart clears the continuation; suspension does not advance it, and unavailable
+selection/output fails closed without retry draws. Browser sound events expose
+source operands, not DSP success. See the
+[bounded random-gesture evidence](source-parity.md#cabinet-random_select--bounded-portable-increment-october-20-2026);
+whole-game/native acceptance remains open.
+
 **Qualification boundary:** Source57 now retains PreSnap/HikingBall until the
 actual `hike_ball` stream callback; request-time Live/holder assignment is not
 the source contract. That source-derived fix does not define the remaining

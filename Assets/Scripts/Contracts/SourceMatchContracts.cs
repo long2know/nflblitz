@@ -4,6 +4,30 @@ using System.Collections.ObjectModel;
 
 namespace Blitz.Contracts
 {
+    public enum SourceRandomSelectionAction { None, ChangePage, Flip, Choose }
+
+    public readonly struct SourceRandomSelectionView
+    {
+        public bool IsSpecified { get; }
+        public long SourceTick { get; }
+        public bool ControllerAwake { get; }
+        public int Direction { get; }
+        public SourceRandomSelectionAction Action { get; }
+
+        public SourceRandomSelectionView(long sourceTick, bool controllerAwake, int direction,
+            SourceRandomSelectionAction action)
+        {
+            if (sourceTick < 0) throw new ArgumentOutOfRangeException(nameof(sourceTick));
+            if (direction != 0 && direction != 1 && direction != 2 && direction != 4 && direction != 8)
+                throw new ArgumentOutOfRangeException(nameof(direction));
+            SourceContractGuard.Range((int)action, 0, 3, nameof(action));
+            if (!controllerAwake && (direction != 0 || action != SourceRandomSelectionAction.None))
+                throw new ArgumentException("A sleeping random controller cannot emit menu operations.");
+            SourceTick = sourceTick; ControllerAwake = controllerAwake;
+            Direction = direction; Action = action; IsSpecified = true;
+        }
+    }
+
     public sealed class SourceSelectionTimerView
     {
         public long ProcessSerial { get; }
@@ -294,6 +318,8 @@ namespace Blitz.Contracts
         public SourcePlaySelection AwayPlay { get; }
         public int SelectionCountdown { get; }
         public SourceSelectionTimerView SelectionTimer { get; }
+        public SourceRandomSelectionView HomeRandomSelection { get; }
+        public SourceRandomSelectionView AwayRandomSelection { get; }
         public SourcePatOption PatChoice { get; }
         public SourcePatStatus PatStatus { get; }
         public SourceKickoffType? Kickoff { get; }
@@ -327,7 +353,9 @@ namespace Blitz.Contracts
             int handicapRepetitionBonus = 0,
             SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
             long compatibilityRepairCount = 0, IReadOnlyList<SourceCompatibilityRepair> compatibilityRepairs = null,
-            SourceSelectionTimerView selectionTimer = null)
+            SourceSelectionTimerView selectionTimer = null,
+            SourceRandomSelectionView homeRandomSelection = default(SourceRandomSelectionView),
+            SourceRandomSelectionView awayRandomSelection = default(SourceRandomSelectionView))
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -407,6 +435,8 @@ namespace Blitz.Contracts
             AwayPlay = awayPlay;
             SelectionCountdown = selectionCountdown;
             SelectionTimer = selectionTimer;
+            HomeRandomSelection = homeRandomSelection;
+            AwayRandomSelection = awayRandomSelection;
             PatChoice = patChoice;
             PatStatus = patStatus;
             Kickoff = kickoff;
@@ -424,6 +454,12 @@ namespace Blitz.Contracts
             CompatibilityRepairs = Array.AsReadOnly(repairCopy);
             QuarterScores = Array.AsReadOnly(scoresCopy);
             Stations = Array.AsReadOnly(stationsCopy);
+        }
+
+        public SourceRandomSelectionView RandomSelection(TeamId side)
+        {
+            SourceContractGuard.Team(side, nameof(side));
+            return side == TeamId.Home ? HomeRandomSelection : AwayRandomSelection;
         }
     }
 

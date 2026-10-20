@@ -62,7 +62,18 @@ namespace Blitz.Gameplay
         {
             BeginSourceProcess("game_proc", -1, 0);
             CommitSourceC2PlayEnd();
-            command = TransformSourceStationInput(command);
+            try
+            {
+                AdvanceSourceRandomSelections();
+                ObserveSourceRandomSelectionCaller();
+                command = TransformSourceStationInput(command);
+            }
+            catch (Exception error)
+            {
+                if (HasSourceRandomSelection)
+                    Model.SourceAnimationFailure = "Source random play selection: " + error.Message;
+                throw;
+            }
             Model.SourceCurrentInput = command;
             if (command.Source.OffenseFlipped.HasValue && Model.Phase == GamePhase.PlaySelect)
                 Model.SourceOffenseFlipped = command.Source.OffenseFlipped.Value;
@@ -84,6 +95,7 @@ namespace Blitz.Gameplay
                     if (action == SourceAction.SelectPlay)
                         SelectSourcePlay(command.Play, command.Source.Play);
                     ApplySourceStationMenuCommands(command);
+                    ObserveSourceRandomSelectionCaller();
                     if (Model.Phase == GamePhase.PlaySelect && sourceSelectionFinishPending)
                         CompleteSourceTimedSelection();
                     CaptureSourceSelectionTimer();
@@ -302,6 +314,19 @@ namespace Blitz.Gameplay
                 selectingOffense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense);
             SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);
             StoreSourceSelection(selectingSide, selected);
+            if (HasSourceRandomSelection)
+            {
+                bool pending = false;
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (!Model.SourcePlaySelectionReady[(int)station.Team]) pending = true;
+                if (!pending && !sourceSelectionFinishPending)
+                {
+                    sourceSelectionFinishPending = true; sourceSelectionFinishSide = selectingSide;
+                    sourceRandomSelectionFinishTick = SourceSelectionTimedOut
+                        ? sourceSelectionTimer.ForceTick + 1 : Model.SourceTick + 1;
+                }
+                return;
+            }
             if (SourceSelectionTimedOut)
             {
                 bool pendingHuman = false;
@@ -330,13 +355,15 @@ namespace Blitz.Gameplay
 
         private void CompleteSourceTimedSelection()
         {
+            if (HasSourceRandomSelection && Model.SourceTick < sourceRandomSelectionFinishTick) return;
             // playsel.c lets the forced controllers finish before CPU side0, then side1.
             for (int side = 0; side < 2; side++)
                 if (!Model.SourcePlaySelectionReady[side])
                 {
                     TeamId other = GameplayRules.Opponent((TeamId)side);
                     SourcePlaySelection opponent = other == TeamId.Home ? Model.SourceHomePlay : Model.SourceAwayPlay;
-                    if (!Model.SourcePlaySelectionReady[(int)other] && sourceConfiguration.Stations.Count != 0)
+                    if (!Model.SourcePlaySelectionReady[(int)other] && sourceConfiguration.Stations.Count != 0 &&
+                        !HasSourceRandomSelection)
                         throw new InvalidOperationException("Timed selection has no actual human opponent choice for cpu_pick_play.");
                     StoreSourceSelection((TeamId)side, ChooseSourceCpuPlay((TeamId)side,
                         Model.SourcePlaySelectionReady[(int)other] ? sourcePlaybook.GetPlay(opponent.PlaySymbol) : null));
@@ -396,7 +423,9 @@ namespace Blitz.Gameplay
                             throw new InvalidOperationException("Only the offensive side can submit original off_flip.");
                         Model.SourceOffenseFlipped = source.OffenseFlipped.Value;
                     }
-                    if (source.Action == SourceAction.SelectPlay)
+                    if (source.Action == SourceAction.StartRandomPlaySelection)
+                        StartSourceRandomSelection(team.Value, input.StationId);
+                    else if (source.Action == SourceAction.SelectPlay)
                         SelectSourcePlay(command.Play, source.Play, team);
                     else if (source.Action == SourceAction.SelectPat && team.Value == Model.Possession
                         && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)

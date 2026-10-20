@@ -76,6 +76,9 @@ class RecordingGenerationTests(unittest.TestCase):
         self.assertEqual((self.identity["source_count"], self.identity["harness_count"]), (78, 12))
         self.assertEqual(self.identity["source_manifest_sha256"], generations.CURRENT_SOURCE_SHA256)
         self.assertEqual(self.identity["harness_manifest_sha256"], generations.HARNESS_SHA256)
+        self.assertEqual(generations.TIMER_RECORDING_SOURCE_SHA256,
+                         replay.SOURCE_TIMER_EXPECTED_RECIPE["source_manifest_sha256"])
+        self.assertNotEqual(generations.CURRENT_SOURCE_SHA256, generations.TIMER_RECORDING_SOURCE_SHA256)
         for name in ("Assets/Scripts/Gameplay/GameSimulation.Source.cs", "tests/movement-callers/Canonical.cs",
                      "tests/movement-callers/PortablePublicPolicy.cs"):
             changed = dict(self.live)
