@@ -93,6 +93,8 @@ class InventoryGuardTests(unittest.TestCase):
             "ball/BallChecks.csproj",
             "camera/CameraChecks.csproj",
             "contact/ContactChecks.csproj",
+            "defensive-presnap-switch/PreSnapSwitch.Checks.csproj",
+            "defensive-presnap-switch/PreSnapSwitch.Production.csproj",
             "fire-handicap/FireHandicapChecks.csproj",
             "kick-meter/KickMeterChecks.csproj",
             "match-lifecycle/MatchLifecycleChecks.csproj",
