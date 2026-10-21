@@ -83,6 +83,41 @@ LEGACY_BOOTSTRAP = (
     "        working-directory: .\n"
     "        run: " + CI + " workspace --output " + LEGACY_WORKSPACE + " --inherited\n"
 )
+BROWSER_NAME = "Test browser assertions and isolated runtime"
+BROWSER_COMMAND = "node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs"
+ORIGINAL_BROWSER_STEP = "      - name: " + BROWSER_NAME + "\n        run: " + BROWSER_COMMAND + "\n"
+BROWSER_STEP = """      - name: Test browser assertions and isolated runtime
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import stat
+          import subprocess
+          import uuid
+
+          runtime = Path.home() / (".c-" + uuid.uuid4().hex[:16])
+          runtime.mkdir(mode=0o700)
+          identity = runtime.lstat()
+          try:
+              if (not stat.S_ISDIR(identity.st_mode) or runtime.resolve() != runtime or
+                      identity.st_uid != os.getuid() or stat.S_IMODE(identity.st_mode) != 0o700):
+                  raise RuntimeError("CI browser runtime requires owned physical 0700 POSIX storage")
+              print("CI browser runtime: " + json.dumps(dict(path=str(runtime), uid=identity.st_uid,
+                  mode=stat.S_IMODE(identity.st_mode), dev=identity.st_dev, ino=identity.st_ino)), flush=True)
+              result = subprocess.run(
+                  ["node", "--test", "tests/browser/lib.test.mjs", "tests/browser/runtime.test.mjs", "tests/viewport/gpu.test.mjs"],
+                  env=dict(os.environ, CHROME_RUNTIME_ROOT=str(runtime)))
+          finally:
+              current = runtime.lstat()
+              if (not stat.S_ISDIR(current.st_mode) or runtime.resolve() != runtime or
+                      (current.st_dev, current.st_ino, current.st_uid) !=
+                      (identity.st_dev, identity.st_ino, identity.st_uid)):
+                  raise RuntimeError("Refusing to remove replaced CI browser runtime: " + str(runtime))
+              runtime.rmdir()
+          raise SystemExit(result.returncode)
+          PY
+"""
 
 
 def require(value, message):
@@ -212,6 +247,7 @@ def inherited_game(text):
     text = remove_once(text, new_job())
     text = remove_once(text, LEGACY_DEFAULTS)
     text = remove_once(text, LEGACY_BOOTSTRAP)
+    text = remove_once(text, BROWSER_STEP, ORIGINAL_BROWSER_STEP)
     text = remove_once(text, " --partition archived-four\n", "\n")
     for path in GAME_PATH_ADDITIONS:
         addition = "      - '" + path + "'\n"
@@ -1268,6 +1304,191 @@ def populate_checkout(probe):
         require(name in names, "The clean fixture must not borrow an uncommitted/ignored dependency: " + name)
         (checkout / name).write_bytes((ROOT / name).read_bytes())
     return head
+
+
+def browser_step_body(game):
+    steps = checkout_context(game, "core-and-tooling")["steps"]
+    matches = [step for step in steps if step.startswith("      - name: " + BROWSER_NAME + "\n")]
+    require(len(matches) == 1, "Browser CI must execute exactly one actual browser step")
+    header, separator, body = matches[0].partition("        run: ")
+    require(separator and header == "      - name: " + BROWSER_NAME + "\n",
+            "Browser CI must retain its inherited working directory and environment")
+    first, _, rest = body.partition("\n")
+    if first != "|":
+        require(not rest.strip(), "Browser CI cannot hide additional commands")
+        return first + "\n"
+    require(all(not line or line.startswith("          ") for line in rest.splitlines()),
+            "Browser CI requires the actual literal shell body")
+    return "\n".join(line[10:] if line else "" for line in rest.splitlines()) + "\n"
+
+
+class BrowserRuntimeCI(unittest.TestCase):
+    def setUp(self):
+        self.directory = Path.home() / (".b-" + uuid.uuid4().hex[:8])
+        self.directory.mkdir(mode=0o700)
+        self.identity = self.directory.lstat()
+        require(self.directory.resolve() == self.directory and
+                stat.S_ISDIR(self.identity.st_mode) and self.identity.st_uid == os.getuid() and
+                stat.S_IMODE(self.identity.st_mode) == 0o700, "Browser CI fixture requires real owned POSIX storage")
+        self.cwd = self.directory / "runner/work/nflblitz/nflblitz" / LEGACY_WORKSPACE
+        self.cwd.mkdir(parents=True)
+        names = ["tests/browser/" + name for name in
+                 ("lib.test.mjs", "lib.mjs", "runtime.test.mjs", "runtime.mjs", "chrome.mjs", "smoke.mjs")]
+        names += ["tests/viewport/gpu.test.mjs", "tests/viewport/gpu.mjs"]
+        self.pins = {}
+        for name in names:
+            source, target = ROOT / name, self.cwd / name
+            require(source.resolve() == source and stat.S_ISREG(source.stat().st_mode),
+                    "Browser CI must copy actual regular browser sources: " + name)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
+            self.pins[name] = sha(source.read_bytes())
+        temporary = self.cwd / ".squad/.scratch/ci-runtime/temp"
+        temporary.mkdir(parents=True)
+        self.environment = dict(os.environ, HOME=str(self.directory),
+                                TMPDIR=str(temporary), TMP=str(temporary), TEMP=str(temporary))
+        self.environment.pop("CHROME_RUNTIME_ROOT", None)
+        require(len(os.fsencode(self.cwd)) > 62 and len(os.fsencode(temporary)) > 62,
+                "Browser CI must exercise the actual long inherited workspace and SDK temp context")
+        self.probes = []
+
+    def tearDown(self):
+        current = self.directory.lstat()
+        require(self.directory.resolve() == self.directory and stat.S_ISDIR(current.st_mode) and
+                (current.st_dev, current.st_ino, current.st_uid) ==
+                (self.identity.st_dev, self.identity.st_ino, self.identity.st_uid),
+                "Refusing to clean a replaced browser CI fixture")
+        shutil.rmtree(self.directory)
+
+    def probe(self, game, label):
+        body = browser_step_body(game)
+        syntax = subprocess.run(["bash", "--noprofile", "--norc", "-n"], input=body,
+                                capture_output=True, text=True, timeout=30)
+        require(syntax.returncode == 0, "Browser CI mutation must be valid shell, not a syntax failure: " + syntax.stderr)
+        before = set(self.directory.iterdir())
+        started = time.monotonic()
+        command = ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", body]
+        process = subprocess.run(command, cwd=self.cwd, env=self.environment,
+                                 capture_output=True, text=True, timeout=30)
+        text = process.stdout + process.stderr
+        require(not re.search(r"SyntaxError|ERR_MODULE_NOT_FOUND|Cannot find module|command not found", text),
+                "Browser CI controls must reach named real assertions, not interpreter/import infrastructure: " + text)
+        counts = {name: int(value) for name, value in
+                  re.findall(r"^(?:ℹ |# )(tests|pass|fail|cancelled|skipped|todo) (\d+)$", text, re.M)}
+        roots = re.findall(r"^CI browser runtime: (\{.+\})$", text, re.M)
+        require(len(roots) <= 1, "Browser CI must own only one invocation-local runtime base")
+        row = dict(label=label, command=command, exit=process.returncode, output=text, counts=counts,
+                   seconds=round(time.monotonic() - started, 3), cwd=str(self.cwd),
+                   environment={key: self.environment[key] for key in ("HOME", "TMPDIR", "TMP", "TEMP")},
+                   runtime=json.loads(roots[0]) if roots else None,
+                   leftovers=sorted(str(path) for path in set(self.directory.iterdir()) - before))
+        self.probes.append(row)
+        require(all(sha((ROOT / name).read_bytes()) == pin and
+                    sha((self.cwd / name).read_bytes()) == pin for name, pin in self.pins.items()),
+                "Browser CI must not change or fake the production browser units/runtime")
+        return row
+
+    def require_success(self, row):
+        runtime = row["runtime"]
+        require(runtime is not None and runtime["uid"] == os.getuid() and runtime["mode"] == 0o700 and
+                Path(runtime["path"]).parent == self.directory and
+                len(os.fsencode(Path(runtime["path"]) / "c-XXXXXX/tmp")) <= 62,
+                "Browser CI must supply a short owned physical 0700 runtime base")
+        if row["counts"].get("fail", 0):
+            require(row["exit"] != 0, "Browser CI must propagate the actual node failure exit")
+        require(row["counts"] == dict(tests=36, **{"pass": 36, "fail": 0, "cancelled": 0, "skipped": 0, "todo": 0}),
+                "Browser CI must execute all36 inherited units without failures or skips")
+        require(row["exit"] == 0, "Browser CI must surface runtime setup/cleanup errors")
+        require(not os.path.lexists(runtime["path"]) and not row["leftovers"],
+                "Browser CI must remove exactly its owned runtime base")
+
+    def test_actual_emitted_step_fixes_exact_five_long_socket_failures_without_environment_override(self):
+        game = (ROOT / GAME).read_text()
+        before = self.probe(inherited_game(game), "original-unset-root")
+        self.assertEqual(before["exit"], 1)
+        self.assertEqual(before["counts"],
+                         dict(tests=36, **{"pass": 31, "fail": 5, "cancelled": 0, "skipped": 0, "todo": 0}))
+        self.assertEqual(set(re.findall(r"^✖ (.+?) \([^\n]*ms\)$", before["output"], re.M)), {
+            "Chrome uses a unique owned 0700 runtime and cleans only that runtime",
+            "cleanup unlinks child symlinks without traversing their target",
+            "cleanup refuses a runtime root replaced by a symlink",
+            "a symlink-selected runtime base is rejected before creating a profile",
+            "an unavailable browser fails without hanging or leaving its private runtime",
+        })
+        paths = re.findall(r"Error: Chrome runtime socket path is too long: (.+?)\. Select", before["output"])
+        self.assertEqual(len(paths), 5)
+        self.assertTrue(all(len(os.fsencode(path)) > 62 for path in paths))
+        first = self.probe(game, "actual-repaired-step")
+        second = self.probe(game, "actual-repaired-step-again")
+        self.require_success(first)
+        self.require_success(second)
+        self.assertNotEqual(first["runtime"]["path"], second["runtime"]["path"])
+        self.assertNotIn("CHROME_RUNTIME_ROOT", self.environment)
+
+    def test_actual_step_mutations_fail_named_runtime_inventory_cleanup_and_exit_guards(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        binding = "env=dict(os.environ, CHROME_RUNTIME_ROOT=str(runtime))"
+        all36 = "all36 inherited units"
+        owned = "short owned physical 0700"
+        setup_error = "requires owned physical 0700 POSIX storage"
+        socket_error = "Chrome runtime socket path is too long"
+        cases = [
+            ("missing-root", [(binding, "env=dict(os.environ)")], all36, socket_error, 1, 31, 5),
+            ("long-root", [(binding, "env=dict(os.environ, CHROME_RUNTIME_ROOT=str(Path.cwd()))")],
+             all36, socket_error, 1, 31, 5),
+            ("unsafe-mode", [("          runtime.mkdir(mode=0o700)\n",
+                             "          runtime.mkdir(mode=0o700)\n          runtime.chmod(0o755)\n")],
+             owned, setup_error, 1, None, None),
+            ("symlink-root", [("          identity = runtime.lstat()\n",
+                '          target = runtime.with_name(runtime.name + "-target")\n'
+                '          runtime.rename(target)\n'
+                '          (target / "sentinel").write_text("untouched")\n'
+                '          runtime.symlink_to(target, target_is_directory=True)\n'
+                '          identity = runtime.lstat()\n')],
+             owned, setup_error, 1, None, None),
+            ("missing-cleanup", [("              runtime.rmdir()\n", "              pass\n")],
+             "remove exactly its owned runtime base", None, 0, 36, 0),
+            ("swallowed-node-exit", [(binding, "env=dict(os.environ)"),
+                                    ("raise SystemExit(result.returncode)", "raise SystemExit(0)")],
+             "propagate the actual node failure exit", socket_error, 0, 31, 5),
+            ("cleanup-not-empty", [("              runtime.rmdir()\n",
+                '              (runtime / "sentinel").write_text("untouched")\n'
+                '              runtime.rmdir()\n')],
+             "surface runtime setup/cleanup errors", "Directory not empty", 1, 36, 0),
+            ("replaced-cleanup-root", [("          finally:\n",
+                '          finally:\n'
+                '              target = runtime.with_name(runtime.name + "-target")\n'
+                '              runtime.rename(target)\n'
+                '              (target / "sentinel").write_text("untouched")\n'
+                '              runtime.symlink_to(target, target_is_directory=True)\n')],
+             "surface runtime setup/cleanup errors", "Refusing to remove replaced CI browser runtime", 1, 36, 0),
+        ]
+        for name in ("lib.test.mjs", "runtime.test.mjs", "gpu.test.mjs"):
+            selector = ("tests/viewport/" if name == "gpu.test.mjs" else "tests/browser/") + name
+            cases.append(("missing-" + name, [(', "' + selector + '"', "")], all36, None, 0, None, 0))
+        for label, changes, guard, error, exit_code, passed, failed in cases:
+            with self.subTest(mutation=label):
+                mutant = game
+                for old, new in changes:
+                    self.assertEqual(mutant.count(old), 1, old)
+                    mutant = mutant.replace(old, new, 1)
+                with self.assertRaisesRegex(AssertionError, BROWSER_NAME):
+                    validate_workflows(mutant, player)
+                row = self.probe(mutant, label)
+                self.assertEqual(row["exit"], exit_code, row["output"])
+                if error:
+                    self.assertIn(error, row["output"])
+                if passed is not None:
+                    self.assertEqual(row["counts"].get("pass"), passed, row["output"])
+                if failed is not None:
+                    self.assertEqual(row["counts"].get("fail"), failed, row["output"])
+                with self.assertRaisesRegex(AssertionError, guard):
+                    self.require_success(row)
+                if label in ("symlink-root", "replaced-cleanup-root", "cleanup-not-empty"):
+                    sentinels = [Path(path) / "sentinel" for path in row["leftovers"]
+                                 if Path(path).is_dir() and not Path(path).is_symlink()]
+                    self.assertEqual(len(sentinels), 1)
+                    self.assertEqual(sentinels[0].read_text(), "untouched")
 
 
 class CheckoutBootstrapCI(unittest.TestCase):

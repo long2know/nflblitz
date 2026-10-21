@@ -275,7 +275,36 @@ jobs:
           python3 -B tests/presentation/c2-runtime/run.py
           python3 -B tests/presentation/c2-runtime/mutations.py
       - name: Test browser assertions and isolated runtime
-        run: node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import stat
+          import subprocess
+          import uuid
+
+          runtime = Path.home() / (".c-" + uuid.uuid4().hex[:16])
+          runtime.mkdir(mode=0o700)
+          identity = runtime.lstat()
+          try:
+              if (not stat.S_ISDIR(identity.st_mode) or runtime.resolve() != runtime or
+                      identity.st_uid != os.getuid() or stat.S_IMODE(identity.st_mode) != 0o700):
+                  raise RuntimeError("CI browser runtime requires owned physical 0700 POSIX storage")
+              print("CI browser runtime: " + json.dumps(dict(path=str(runtime), uid=identity.st_uid,
+                  mode=stat.S_IMODE(identity.st_mode), dev=identity.st_dev, ino=identity.st_ino)), flush=True)
+              result = subprocess.run(
+                  ["node", "--test", "tests/browser/lib.test.mjs", "tests/browser/runtime.test.mjs", "tests/viewport/gpu.test.mjs"],
+                  env=dict(os.environ, CHROME_RUNTIME_ROOT=str(runtime)))
+          finally:
+              current = runtime.lstat()
+              if (not stat.S_ISDIR(current.st_mode) or runtime.resolve() != runtime or
+                      (current.st_dev, current.st_ino, current.st_uid) !=
+                      (identity.st_dev, identity.st_ino, identity.st_uid)):
+                  raise RuntimeError("Refusing to remove replaced CI browser runtime: " + str(runtime))
+              runtime.rmdir()
+          raise SystemExit(result.returncode)
+          PY
       - name: Validate Unity metadata and script references
         run: python3 tests/test-unity-metadata.py
       - name: Build-tool unit checks

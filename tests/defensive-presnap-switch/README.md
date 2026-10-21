@@ -141,6 +141,25 @@ guard job. Do not append the new full command into the old39:40 job's20-second
 margin, increase either existing timeout, upload private inputs between jobs, or
 run authoring in CI.
 
+The inherited Game browser-unit step creates a unique, physical, owned0700
+POSIX base beneath the runner's home directory. Only its unchanged
+`node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs`
+invocation receives `CHROME_RUNTIME_ROOT`; the long inherited working directory,
+SDK temp environment and runtime's62-byte socket-path limit remain unchanged.
+After the units clean their children, an identity-checked nonrecursive `rmdir`
+removes only that base. Node failures and cleanup errors remain nonzero.
+
+```sh
+python3 -B tests/defensive-presnap-switch/test_ci.py -q BrowserRuntimeCI
+```
+
+This guard executes the actual emitted step in a long physical POSIX inherited
+workspace with long `TMPDIR` and no inherited `CHROME_RUNTIME_ROOT`. It reproduces
+the five named socket-length failures, requires all36 unchanged units, and
+rejects actual step mutations of root selection, permissions, symlinks,
+selectors, cleanup and failure propagation. Only this exact reviewed browser
+boundary is reversed when checking the unchanged historical workflow hash.
+
 Before spending that window, the v4 orchestration is frozen with the compile
 closure and all inputs. It calls the unchanged controller once per host using
 only its public snapshot projection, then uses its unchanged raw cabinet packet
