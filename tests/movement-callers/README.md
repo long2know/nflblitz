@@ -1,5 +1,59 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Explicit defensive pre-snap-switch generation
+
+The successor case is
+`portable-cabinet-wide-pass-clearance-presnap-switch-12000`,
+generation `source-defensive-presnap-switch/v4`, profile
+`contact282-c2-m1-presnap-switch`, actual factory
+`SourceC2Composition.CreatePreSnapSwitchSimulation`. It retains the unchanged
+approved `PortablePublicPolicy.cs`, seed1, same unfiltered fifteen-entry raw
+vector, station0/Home, Away first possession, opponents5/11 and neutral inputs.
+Only this generation changes the existing station layout from TwoStation to
+FourStation; it does not introduce four humans or a new controller.
+
+`run.py --author-presnap-switch` requires a source/data-frozen explicit policy
+and creates its one-window marker with create-new semantics. Any source fault,
+incomplete12000 window, missing B witness or unmet normal real-pose/R_SKIP gate
+is nonzero and retained. Do not regenerate old recordings or retry this window.
+The saved successful capture can be input-only re-exported with
+`export_portable_public.py --case
+portable-cabinet-wide-pass-clearance-presnap-switch-12000`; no game is run by
+export/preparation. The new full gate uses `--c2-presnap-switch-inputs` and keeps
+the existing eight caller/three cache controls, actual original-C post-VM
+physics and uninstrumented/observer byte-equality requirements plus B evidence.
+
+The October 20, 2026 local qualification completed the first and only authoring
+window without faults:12000 hosts/11400 source ticks,15 actual fresh-B witnesses
+and the normal two-distinct-real-pose R_SKIP predicate. The separately named
+input-only fixture is8,534,581 decoded bytes, SHA-256
+`556ba823b68767e8c6a302d9d59a231fbb457720723a372bf830d57fc8bdd975`;
+its66,288-byte deterministic gzip is
+`9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40`.
+Preparation never runs gameplay or spends another authoring window:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-presnap-switch-12000 \
+  --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl.gz \
+  --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.recipe.json \
+  --output "$NEW_V4_JSONL"
+```
+
+The enabled new-factory full gate passed with2,259,581 uninstrumented and
+9,573,043 observer assertions, all three cache/eight caller freshly compiled
+named causal kills, and664 actual post-VM inputs/5,312 exact original-C checks.
+The full gate also retains its own15 source-B witnesses and real R_SKIP poses.
+Its371.327-second local duration is not a complete CI-job timing or a native,
+Unity, browser, whole-game or publication approval.
+
+The new focused original-C/VM/pose/sound/raw-host runner and private acquisition
+union are documented in [`tests/defensive-presnap-switch`](../defensive-presnap-switch/README.md).
+The three old recordings/recipes and historical/stale source fingerprints below
+retain their original generation meanings. A disabled old-M1 pass cannot qualify
+the new profile; genuine World, complete host CI, exact40-minute budget and
+Quality remain outstanding until separately measured.
+
 ## Saved Portable authoring harness and audited re-export
 
 `PortablePublicPolicy.cs` retains the separately authorized
@@ -852,13 +906,20 @@ remain separate from the current78-source pin. Two workers compile fresh,
 disjoint source/build trees; the two main39 replays reuse only that immutable
 main39 executable and have separate replay outputs.
 
-Four mandatory, explicitly named probes retain main38+`830e7bad...` positive,
-main39+`830e7bad...` stale5553, main39+`33a1686f...` positive, and actual
-current+`33a1686f...` stale2694. Stale acceptance requires exit2, the exact
+The original four mandatory, explicitly named probes retain main38+`830e7bad...`
+positive, main39+`830e7bad...` stale5553, main39+`33a1686f...` positive, and
+PR41+`33a1686f...` stale2694. PR41 is now archived at exact commit
+`c339efcccc7caf82fb1c3533bf952dc4d3f3600e`, tree
+`c974448da52f2ad7dc74f28e777eee1715ef9dc1`; its original source and twelve-file
+harness pins are not rebased to U2. A separately pinned `u2-current` source and
+harness executes the fifth `u2-current-possession-stale` probe against the same
+unchanged possession recording and actual disabled old-M1 factory. Stale acceptance requires exit2, the exact
 submitting-side fault/command, host/source/raw counts, PlaySelect phase,
 possession and game-process context, plus its matching first-fault artifact.
 Wrong identities/counts, missing artifacts, generic crashes and success-shaped
 stale results reject. Neither historical positive is current full qualification.
+The new enabled282/v4 full qualification remains a different required command;
+these old-profile stale checks cannot stand in for it.
 
 The separate sealed **main39-only** source-current full qualification passed the
 unchanged gate: three positive12000/11400 runs, raw cursor22504,164 R_SKIP

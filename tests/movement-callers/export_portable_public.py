@@ -85,14 +85,16 @@ def project_capture(data):
     return public.encode([project_row(row, host) for host, row in enumerate(rows)])
 
 
-def require_candidate(receipt, poses):
+def require_candidate(receipt, poses, presnap_switch=False):
     public.require(receipt.get("failure") is None and receipt.get("completedHosts") == 12000
                    and receipt.get("SourceTick") == 11400
                    and receipt.get("gameplayCompatibility") == "Portable"
-                   and receipt.get("factory") == "REAL SourceC2Composition.CreateM1Simulation"
-                   and receipt.get("profile") == "original-teams-contact281-c2-m1"
-                   and receipt.get("sourceData") ==
-                   "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a",
+                   and receipt.get("factory") == ("REAL SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap_switch else
+                                                   "REAL SourceC2Composition.CreateM1Simulation")
+                   and receipt.get("profile") == ("original-teams-contact282-c2-m1-presnap-switch" if presnap_switch else
+                                                   "original-teams-contact281-c2-m1")
+                   and receipt.get("sourceData") == ("e9a2ccbfffda0e83ae9ba409e4fbfd6f6c6f074ebd024aa30367d9d06c29c653" if presnap_switch else
+                       "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a"),
                    "export requires entire fault-free actual Portable M1 first window")
     positive = receipt.get("positive")
     public.require(type(positive) is dict, "no genuine public R_SKIP witness")
@@ -121,6 +123,53 @@ def require_candidate(receipt, poses):
     public.require(selected[0]["real15LocalPose"] != selected[1]["real15LocalPose"],
                    "two actual distinct15-bone local poses required")
     return positive
+
+
+def export_presnap(args, output):
+    receipt=public.decode(args.receipt.read_bytes())
+    policy_raw=args.policy.read_bytes()
+    policy=public.decode(policy_raw)
+    require_candidate(receipt,public.decode(args.poses.read_bytes()),True)
+    public.require(receipt.get("schema")=="presnap-switch-public-policy-first-window/v1" and
+        receipt.get("recordingGeneration")=="source-defensive-presnap-switch/v4" and
+        receipt.get("maximumInitialWindows")==receipt.get("initialExecutions")==1 and
+        receipt.get("attemptedHosts")==12000 and receipt.get("preSnapSwitchWitnesses",0)>0 and
+        receipt.get("faults")==[] and receipt.get("policySha256")==sha(policy_raw),
+        "new export requires the actual one complete fault-free window and fresh-B witness")
+    public.require(policy.get("recordingGeneration")=="source-defensive-presnap-switch/v4" and
+        policy.get("maximumInitialWindows")==1 and policy.get("maxHosts")==12000 and
+        policy.get("seed")==1 and policy.get("providerProfile")=="source-sound-smoke/raw-vector-v1" and
+        sha(json.dumps(policy["rawVector"],separators=(",",":")).encode())==
+            "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827",
+        "new export must retain the unchanged seed/provider/unfiltered15-entry vector")
+    public.require(sha((ROOT/CONTROLLER).read_bytes())==policy.get("controllerSha256")==
+        public.SOURCE_TIMER_EXPECTED_RECIPE["controller_sha256"],"the actual frozen controller changed")
+    for name,pin in policy["frozenCodeSha256"].items():
+        public.require(not Path(name).is_absolute() and ".." not in Path(name).parts and
+            sha((ROOT/name).read_bytes())==pin,"frozen authoring source changed: "+name)
+    for name,pin in policy["frozenInputSha256"].items():
+        path=Path(name)
+        public.require(path.is_absolute() and not path.is_symlink() and ".." not in path.parts and
+            sha(path.read_bytes())==pin,"frozen authoring input changed")
+    compiled={p.relative_to(ROOT).as_posix():sha(p.read_bytes()) for p in production_paths(ROOT)}
+    public.require(compiled==policy["productionSourceSha256"] and
+        manifest(compiled)==policy["sourceManifestSha256"],"new recipe requires the actual frozen compiled source identity")
+    marker=args.policy.parent/"only-public-window-started.json"
+    public.exact_metadata(public.decode(marker.read_bytes()),dict(policySha=sha(policy_raw),
+        maximumInitialWindows=1,maxHosts=12000,recordingGeneration="source-defensive-presnap-switch/v4"),"new marker")
+    capture=args.capture.read_bytes()
+    public.require(sha(capture)==receipt["publicInputSha256"],"saved capture differs from the actual one-window receipt")
+    projected=project_capture(capture)
+    packed=public.compress(projected)
+    recipe=public.validate_presnap_recipe(public.make_presnap_recipe(policy["sourceManifestSha256"],projected,packed))
+    raw=(json.dumps(recipe,indent=2)+"\n").encode("ascii")
+    output.mkdir(parents=True)
+    for suffix,data in ((".jsonl",projected),(".jsonl.gz",packed),(".recipe.json",raw)):
+        public.write_new_or_verify(output/(public.PRESNAP_CASE+suffix),data)
+    print(json.dumps(dict(schema="portable-public-input-export-result/v1",status="exported-not-full-qualified",
+        case=public.PRESNAP_CASE,jsonl_sha256=sha(projected),gzip_sha256=sha(packed),recipe_sha256=sha(raw),
+        policy_sha256=sha(policy_raw),gameplayExecutions=0)))
+    return 0
 
 
 def text(value, where):
@@ -273,7 +322,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("capture", "receipt", "poses", "policy", "output"):
         parser.add_argument("--" + name, type=Path, required=True, action="append")
-    parser.add_argument("--case", choices=(CASE, public.SOURCE_TIMER_CASE), action="append")
+    parser.add_argument("--case", choices=(CASE, public.SOURCE_TIMER_CASE, public.PRESNAP_CASE), action="append")
     parser.add_argument("--producer-source", type=Path, action="append",
                         help="Retained original author exporter source; defaults to the frozen policy worktree")
     args = parser.parse_args(argv)
@@ -286,6 +335,8 @@ def main(argv=None):
     output = public.output_path(args.output)
     public.require(not output.exists() and output.is_relative_to(ROOT / ".squad/.scratch"),
                    "export needs a NEW ignored local output; never overwrite a33 or prior proof")
+    if case == public.PRESNAP_CASE:
+        return export_presnap(args,output)
     receipt = public.decode(args.receipt.read_bytes())
     policy_raw = args.policy.read_bytes()
     policy, producer_sha = (validate_policy(policy_raw, receipt, args.producer_source)

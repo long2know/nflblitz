@@ -56,6 +56,12 @@ namespace Blitz.Editor
             Import(PlanFromContact281C2M1Arguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
         }
 
+        public static void ImportContact282C2M1PreSnapSwitchFromCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            Import(PlanFromContact282C2M1PreSnapSwitchArguments(args), PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId"));
+        }
+
         public static void ImportPossessionSpeechFromCommandLine()
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -134,6 +140,14 @@ namespace Blitz.Editor
                 PlayerAssetImporter.RequiredArgument(args, "-interfaceC2HitExtension"));
         }
 
+        public static SourceInterfacePackagePlan PlanFromContact282C2M1PreSnapSwitchArguments(string[] args)
+        {
+            return SourceInterfacePackagePlan.WithContact282C2M1PreSnapSwitch(PlanFromContact272Arguments(args),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceC2Root"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceC2Data"),
+                PlayerAssetImporter.RequiredArgument(args, "-interfaceC2HitExtension"));
+        }
+
         private static SourceInterfacePackagePlan PlanFromArguments(string[] args, bool movement157)
         {
             string hudRoot = PlayerAssetImporter.RequiredArgument(args, "-interfaceAssetRoot");
@@ -191,7 +205,7 @@ namespace Blitz.Editor
             if (teams == null || teams.Template.StableId != profile.StableId ||
                 teams.Rosters.ContentSha256 != SourceTeamPresentationData.PinnedRosterSha256)
                 throw new SourceInterfaceException("Missing/wrong actual opposing-team/profile/roster resources.");
-            if (profile.IsContact281C2M1) RequirePossessionSpeechResource();
+            if (profile.UsesM1Services) RequirePossessionSpeechResource();
 
             string existingHudPath = FindUniqueResourcePath("SourceHudAsset", SourceInterfacePackagePlan.HudResourceKey);
             SourceHudAsset hud = existingHudPath == null ? null : AssetDatabase.LoadAssetAtPath<SourceHudAsset>(existingHudPath);
@@ -261,15 +275,21 @@ namespace Blitz.Editor
             var services = ScriptableObject.CreateInstance<SourceInterfaceServices>();
             if (profile.UsesC2Data)
             {
-                string callbackKey = profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
+                string callbackKey = profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackResourceKey :
+                    profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
                     SourceInterfacePackagePlan.C2CallbackResourceKey;
-                string callbackHash = profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackSha256 :
+                string callbackHash = profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 :
+                    profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackSha256 :
                     SourceInterfacePackagePlan.C2CallbackSha256;
                 TextAsset callbacks = FindOrWriteC2(output, destination, callbackKey,
                     ".json", plan.CopyC2Callbacks(), callbackHash);
                 TextAsset hit = FindOrWriteC2(output, destination, SourceInterfacePackagePlan.C2HitResourceKey,
                     ".bytes", plan.CopyC2HitExtension(), SourceInterfacePackagePlan.C2HitSha256);
-                if (profile.IsContact281C2M1)
+                if (profile.IsContact282C2M1PreSnapSwitch)
+                    services.InitializeContact282C2M1PreSnapSwitch(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
+                        plan.Configuration.NativeGamepadsEnabled, bootstrapText, plan.BootstrapSha256,
+                        soundVmText, SourceInterfacePackagePlan.SoundVmFunctionsSha256, callbacks, hit);
+                else if (profile.IsContact281C2M1)
                     services.InitializeContact281C2M1(animations, hud, bookText, plan.Configuration.Match, plan.Configuration.Presentation,
                         plan.Configuration.NativeGamepadsEnabled, bootstrapText, plan.BootstrapSha256,
                         soundVmText, SourceInterfacePackagePlan.SoundVmFunctionsSha256, callbacks, hit);
@@ -304,12 +324,12 @@ namespace Blitz.Editor
         {
             if (asset == null) throw new SourceInterfaceException("Import the exact canonical animation resource for " + profile.StableId + ".");
             string path = AssetDatabase.GetAssetPath(asset);
-            bool allowed = path == profile.AnimationAssetPath || profile.UsesC2Data &&
+            bool allowed = path == profile.AnimationAssetPath || (profile.IsContact281C2 || profile.IsContact281C2M1) &&
                 (path == SourceTeamResourceProfile.Contact281C2.AnimationAssetPath ||
                  path == SourceTeamResourceProfile.Contact281C2M1.AnimationAssetPath);
             if (!allowed || FindUniqueResourcePath("SourceAnimationLibraryAsset", profile.AnimationResourceKey) != path ||
                 !ReferenceEquals(Resources.Load<SourceAnimationLibraryAsset>(profile.AnimationResourceKey), asset))
-                throw new SourceInterfaceException("Animation resource must be unique and canonical; only byte-identical e874 animation is shared across explicit C2 generations.");
+                throw new SourceInterfaceException("Animation resource must be unique and canonical; only old byte-identical e874 C2/M1 animation may be shared. The282 successor has its own exact resource.");
             profile.RequireLibrary(asset.Load());
         }
 

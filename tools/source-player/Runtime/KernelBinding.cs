@@ -8,10 +8,19 @@ namespace Blitz.SourcePlayer;
 public static class KernelBinding
 {
     public const string Factory = "SourceC2Composition.CreateM1Simulation";
+    public const string PreSnapSwitchFactory = "SourceC2Composition.CreatePreSnapSwitchSimulation";
+
+    public static string FactoryFor(SourceTeamResourceProfile profile) =>
+        profile.IsContact282C2M1PreSnapSwitch ? PreSnapSwitchFactory :
+        profile.IsContact281C2M1 ? Factory :
+        throw new InvalidDataException("No portable host factory for this exact resource profile.");
 
     public static GameSimulation Create(PlayerData data, PreviewOptions options = null)
     {
-        options ??= PreviewOptions.FromUrl("");
+        ArgumentNullException.ThrowIfNull(data);
+        options ??= PreviewOptions.FromUrl("", data.Catalog.Profile.StableId);
+        DataCatalog.Require(options.Profile == data.Catalog.Profile.StableId,
+            "Preview options and authenticated data catalog profiles differ; no factory fallback.");
         if (options.FireEnabled && data.Fire == null)
             throw new InvalidDataException("source-fire=portable requires the authenticated original SDL/17-TGA fire bundle before simulation.");
         if (options.FireEnabled) { data.Fire.RequireDust(); data.Fire.RequireHelmet(); }
@@ -21,7 +30,12 @@ public static class KernelBinding
                     data.Configuration.Match, data.Configuration.Presentation, identity, side)) : null;
         SourceKickMeterMetrics meters = options.KickMeters == SourceKickMeterMode.PortableAuthored ?
             data.Hud.CreatePortableAuthoredKickMeterMetrics() : null;
-        GameSimulation game = SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
+        GameSimulation game = data.Catalog.Profile.IsContact282C2M1PreSnapSwitch
+            ? SourceC2Composition.CreatePreSnapSwitchSimulation(data.Animations, data.ReferencePivots, data.Playbook,
+                data.Configuration.Match, data.Rosters, data.Configuration.Presentation, data.Movement,
+                data.MovementSettings, data.Sound, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(data.Callbacks),
+                compatibility: options.Compatibility, fireEffects: fire, kickMeterMetrics: meters)
+            : SourceC2Composition.CreateM1Simulation(data.Animations, data.ReferencePivots, data.Playbook,
             data.Configuration.Match, data.Rosters, data.Configuration.Presentation, data.Movement,
             data.MovementSettings, data.Sound, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(data.Callbacks),
             compatibility: options.Compatibility, fireEffects: fire, kickMeterMetrics: meters);
@@ -37,7 +51,10 @@ public static class KernelBinding
         SourceMatchView match = ((ISourceMatchState)game.State).Match;
         return new {
             policy = game.Compatibility.ToString(), snapshotPolicy = match.Compatibility.ToString(),
-            portableBound = IsPortable(game), factory = Factory,
+            portableBound = IsPortable(game), factory = game.SourceDefensivePreSnapSwitchEnabled ? PreSnapSwitchFactory : Factory,
+            resourceProfile = game.SourceDefensivePreSnapSwitchEnabled ? SourceTeamResourceProfile.PreSnapSwitchStableId :
+                SourceTeamResourceProfile.C2M1StableId,
+            defensivePreSnapSwitchEnabled = game.SourceDefensivePreSnapSwitchEnabled,
             sourceFire = game.SourceFireEnabled ? "portable" : "disabled",
             kickMeters = ((ISourceKickMeterState)game.State).KickMeterMode.ToString(),
             repairCount = match.CompatibilityRepairCount,

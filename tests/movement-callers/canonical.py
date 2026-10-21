@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from threading import Lock
 
 HERE = Path(__file__).resolve().parent
@@ -18,11 +19,13 @@ from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from contact_inputs import fixture_profile
 from prepare_inputs import fixture_hashes
-from kernel_sources import canonical_hashes, production_paths, C2_ANIMATION_SHA
+from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA,
+                            PRESNAP_ANIMATION_SHA, PRESNAP_DATA_SHA, successor_hashes)
 from compare_physics import compare
 
 CACHE_SOURCE = "Assets/Scripts/Gameplay/SourceMovementIntegration.cs"
 CACHE_SOURCE_SHA = "17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b"
+U1_CACHE_SOURCE_SHA = "9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165"
 CALL = """                IReadOnlyList<SourceVector3> joints = geometry.CameraJoints(
                     GameSnapshot.SourcePlayerView(actor, Model.SourceTick, true), root, frame);
                 if (joints == null || joints.Count != 15)
@@ -63,8 +66,8 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def inject(original):
-    if sha(original) != CACHE_SOURCE_SHA:
+def inject(original, expected_sha=CACHE_SOURCE_SHA):
+    if expected_sha not in (CACHE_SOURCE_SHA, U1_CACHE_SOURCE_SHA) or sha(original) != expected_sha:
         raise ValueError("Canonical cache observation requires the exact frozen original production hash.")
     old, new = CALL.encode(), OBSERVED_CALL.encode()
     if original.count(old) != 1 or b"CanonicalCacheCapture" in original:
@@ -73,6 +76,13 @@ def inject(original):
     if observed.count(new) != 1 or observed.replace(new, old) != original:
         raise ValueError("Removing only the observer/local argument capture must restore the original bytes.")
     return observed
+
+
+def inject_current(original):
+    actual = sha(original)
+    if actual not in (CACHE_SOURCE_SHA, U1_CACHE_SOURCE_SHA):
+        raise ValueError("Current cache observer requires an explicitly frozen historical or U1 generation.")
+    return inject(original, actual)
 
 
 M1_COVERAGE_ASSERTION = "M1 full public R_SKIP gate requires after2299 same-instance two ordinals and two real15 poses"
@@ -198,19 +208,23 @@ def snap_hike_main(argv):
     return 0 if result["status"] == "passed-focused-not-full-M1" else 1
 
 
-def require_m1_replay(code, summary, receipt, compatibility="strict"):
+def require_m1_replay(code, summary, receipt, compatibility="strict", presnap_switch=False):
     expected = "Portable" if compatibility == "portable" else "StrictSource"
     if receipt.get("gameplayCompatibility", "StrictSource") != expected:
         raise RuntimeError("Explicit gameplay compatibility must match the actual factory receipt.")
     if receipt.get("failure") is not None:
         raise RuntimeError("Actual M1 source fault: stop without rescue, extra wake or next replay.")
     if (receipt.get("completedHosts") != 12000 or receipt.get("SourceTick") != 11400
-            or receipt.get("profile") != "original-teams-contact281-c2-m1"
-            or receipt.get("factory") != "REAL SourceC2Composition.CreateM1Simulation"
-            or receipt.get("sourceData") != "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a"
+            or receipt.get("profile") != ("original-teams-contact282-c2-m1-presnap-switch" if presnap_switch else
+                                          "original-teams-contact281-c2-m1")
+            or receipt.get("factory") != ("REAL SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap_switch else
+                                          "REAL SourceC2Composition.CreateM1Simulation")
+            or receipt.get("sourceData") != (PRESNAP_DATA_SHA if presnap_switch else
+                    "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a")
             or receipt.get("originalPublicVectorRetainedWithoutStateConditionedRegeneration") is not True):
         raise RuntimeError("Entire12000 explicit successor actual-factory input/source identity required.")
-    if code == 0 and summary.get("status") == "passed" and summary.get("public_R_SKIP_gate_qualified") is True and receipt.get("positive"):
+    if (code == 0 and summary.get("status") == "passed" and summary.get("public_R_SKIP_gate_qualified") is True
+            and receipt.get("positive") and (not presnap_switch or receipt.get("preSnapSwitchWitnesses",0)>0)):
         return "positive"
     if (code == 1 and summary.get("status") == "failed" and
             M1_COVERAGE_ASSERTION in summary.get("failed_assertion", "") and receipt.get("positive") is None):
@@ -234,15 +248,107 @@ def _write_m1_result(output, result):
         print("M1 report:", path, file=sys.stderr)
 
 
+def post_vm_output(output, presnap_switch=False):
+    prefix = "presnap-post-VM-" if presnap_switch else "m1-post-VM-"
+    return HERE / ".artifacts" / (prefix + sha(str(Path(output).absolute()).encode())[:16])
+
+
+def author_presnap_main(argv):
+    """One explicitly frozen authoring window; no search, retries or fallback factory."""
+    parser = argparse.ArgumentParser(description=author_presnap_main.__doc__)
+    parser.add_argument("--author-presnap-switch",action="store_true",required=True)
+    for name in ("source-root","fixture-manifest","sound-functions","c2-presnap-switch-inputs","policy","output"):
+        parser.add_argument("--"+name,type=Path,required=True)
+    args=parser.parse_args(argv)
+    output=args.output.absolute()
+    if output.exists() or output.resolve()!=output or not output.is_relative_to(ROOT/".squad/.scratch"):
+        parser.error("Choose a new ignored authoring output; no prior capture may be overwritten.")
+    marker=args.policy.absolute().parent/"only-public-window-started.json"
+    if marker.exists():
+        parser.error("The single create-new authoring marker already exists; never execute another gameplay window.")
+    fixture_profile(args.fixture_manifest,"contact272")
+    inputs=fixture_hashes(args.fixture_manifest,args.sound_functions)
+    inputs.update(successor_hashes(args.c2_presnap_switch_inputs))
+    policy=json.loads(args.policy.read_bytes())
+    production={p.relative_to(ROOT).as_posix():p.read_bytes() for p in production_paths()}
+    harness={name:(ROOT/name).read_bytes() for name in HARNESS}
+    for name,raw in {**production,**harness}.items():
+        if policy["frozenCodeSha256"].get(name)!=sha(raw):
+            raise ValueError("Frozen authoring compile closure changed: "+name)
+    if any(policy["frozenInputSha256"].get(name)!=pin for name,pin in inputs.items()):
+        raise ValueError("Frozen authoring input-generation closure changed.")
+    output.mkdir(parents=True)
+    copy=output/"compile"
+    for folder,files in (("source",production),("harness",harness)):
+        for name,raw in files.items():
+            target=copy/folder/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    work=output/"work";work.mkdir();(work/"empty-feed").mkdir()
+    env=dict(os.environ,TMPDIR=str(work),TMP=str(work),TEMP=str(work),DOTNET_CLI_TELEMETRY_OPTOUT="1",
+             DOTNET_NOLOGO="1",MSBUILDDISABLENODEREUSE="1",PYTHONDONTWRITEBYTECODE="1")
+    result=dict(schema="defensive-presnap-switch-one-authoring-window/v1",status="failed-before-window",
+                maximumInitialWindows=1,commands=[],policySha256=sha(args.policy.read_bytes()))
+    def execute(command,label,timeout=240):
+        start=time.monotonic()
+        process=subprocess.run(command,cwd=ROOT,env=env,capture_output=True,text=True,timeout=timeout)
+        text=process.stdout+process.stderr;(output/(label+".log")).write_text(text)
+        result["commands"].append(dict(command=command,exit=process.returncode,seconds=round(time.monotonic()-start,3),
+            log=label+".log",diagnostics=[line for line in text.splitlines()
+                if " error CS" in line or " warning CS" in line or "error NETSDK" in line]))
+        return process.returncode,text
+    code=1
+    try:
+        project=copy/"harness/tests/movement-callers/MovementCallerChecks.csproj"
+        build=output/"build"
+        common=["-p:BlitzSourceRoot="+str(copy/"source")+"/","-p:BaseIntermediateOutputPath="+str(build/"obj")+"/",
+                "-p:BaseOutputPath="+str(build/"bin")+"/","-p:UseSharedCompilation=false"]
+        command=["dotnet","build",str(project),"--no-restore","-c","Release","-v:q","--nologo",*common]
+        status,text=execute(command,"compile")
+        if status and "NETSDK1004" in text:
+            status,_=execute(["dotnet","restore",str(project),"--source",str(work/"empty-feed"),"-v:q",
+                              "-p:NuGetAudit=false",*common],"restore-after-missing-assets")
+            if status:raise RuntimeError("Missing-assets restore failed before authoring.")
+            status,text=execute(command,"compile-restored")
+        if status or "0 Warning(s)" not in text or "0 Error(s)" not in text:
+            raise RuntimeError("Authoring requires a fresh zero-diagnostic actual-source compile.")
+        command=["dotnet",str(build/"bin/Release/net10.0/MovementCallerChecks.dll"),
+                 str(args.fixture_manifest.absolute()),str(output/"capture"),"presnap-public-policy",
+                 str(args.sound_functions.absolute()),str(args.c2_presnap_switch_inputs.absolute()),
+                 str(args.policy.absolute()),"--source-compatibility","portable"]
+        code,text=execute(command,"one-public-window",900)
+        result["status"]="captured-full-qualification-required" if code==0 else "STOP-source-fault-or-unmet-one-window"
+        receipt=output/"capture/public-window-result.json"
+        if receipt.exists():
+            result["receipt"]=json.loads(receipt.read_bytes())
+            result["receipt_sha256"]=sha(receipt.read_bytes())
+        result["marker_exists"]=marker.is_file()
+        if not result["marker_exists"]:raise RuntimeError("No create-new one-window marker was persisted.")
+    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+        result["error"]=str(error);code=1
+    finally:
+        result["production_unchanged"]={n:sha((ROOT/n).read_bytes()) for n in production}=={n:sha(b) for n,b in production.items()}
+        result["harness_unchanged"]=all((ROOT/n).read_bytes()==b for n,b in harness.items())
+        if not result["production_unchanged"] or not result["harness_unchanged"]:code=1
+        shutil.rmtree(copy)
+        (output/"authoring-result.json").write_text(json.dumps(result,indent=2)+"\n")
+    print(json.dumps(dict(status=result["status"],exit=code,report=str(output/"authoring-result.json"))))
+    return code
+
+
 def m1_main(argv):
     parser = argparse.ArgumentParser(description="Full actual-factory M1 successor fixed-vector gate, never old scoped acceptance.")
-    for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "source-root", "replay-commands", "output"):
+    for name in ("fixture-manifest", "sound-functions", "source-root", "replay-commands", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    generations = parser.add_mutually_exclusive_group(required=True)
+    generations.add_argument("--c2-m1-inputs",type=Path)
+    generations.add_argument("--c2-presnap-switch-inputs",type=Path)
     parser.add_argument("--input-profile", choices=("contact272",), default="contact272")
     parser.add_argument("--source-compatibility", action="append", metavar="{strict,portable}")
     parser.add_argument("--single-public-attempt", action="store_true",
                         help="Run one unchanged vector only; never claim the complete compiled-control closure.")
     args = parser.parse_args(argv)
+    presnap_switch = args.c2_presnap_switch_inputs is not None
+    profile_inputs = args.c2_presnap_switch_inputs if presnap_switch else args.c2_m1_inputs
+    animation_sha = PRESNAP_ANIMATION_SHA if presnap_switch else C2_ANIMATION_SHA
     modes = args.source_compatibility or ["strict"]
     if len(modes) != 1:
         parser.error("argument --source-compatibility: duplicate argument; specify only once")
@@ -256,12 +362,12 @@ def m1_main(argv):
     output.mkdir(parents=True)
     fixture_profile(args.fixture_manifest, "contact272")
     inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
-    inputs.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
+    inputs.update(successor_hashes(profile_inputs) if presnap_switch else canonical_hashes(profile_inputs, "contact281-c2-m1"))
     inputs[str(args.replay_commands.absolute())] = sha(args.replay_commands.read_bytes())
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
-    observed_source = inject(production[CACHE_SOURCE])
+    observed_source = inject_current(production[CACHE_SOURCE])
     work = output / "work"
     work.mkdir()
     (work / "empty-feed").mkdir()
@@ -329,10 +435,12 @@ def m1_main(argv):
         destination = output / label
         command = ["dotnet", str(build / "bin/Release/net10.0/MovementCallerChecks.dll"),
                    str(args.fixture_manifest.absolute()), str(destination),
-                   section or ("m1-complete-observed" if observed else "m1-complete"),
+                   section or (("presnap-complete-observed" if observed else "presnap-complete") if presnap_switch
+                               else "m1-complete-observed" if observed else "m1-complete"),
                    str(args.sound_functions.absolute())]
-        command += ["--c2-m1-inputs", str(args.c2_m1_inputs.absolute())] if section else [
-            str(args.c2_m1_inputs.absolute()), str(args.replay_commands.absolute())]
+        command += ["--c2-presnap-switch-inputs" if presnap_switch else "--c2-m1-inputs",
+                    str(profile_inputs.absolute())] if section else [
+            str(profile_inputs.absolute()), str(args.replay_commands.absolute())]
         command += ["--source-compatibility", args.source_compatibility]
         result["commands"].append(command)
         if section is None:
@@ -351,7 +459,7 @@ def m1_main(argv):
             run["named_causal_failure"] = summary["failed_assertion"]
         elif section:
             if section == "controlled":
-                controls.require_summary(process.returncode, summary, "controlled", C2_ANIMATION_SHA)
+                controls.require_summary(process.returncode, summary, "controlled", animation_sha)
             elif (process.returncode != 0 or summary.get("status") != "passed"
                   or summary.get("actual_Core_post_VM_physics_cases") != 664):
                 raise RuntimeError("Retained M1 caller/physics inventory failed.")
@@ -365,7 +473,7 @@ def m1_main(argv):
                 run["fault_metadata"] = {key: failure.get(key) for key in ("host", "before", "SourceTick", "error")}
                 if args.source_compatibility == "portable":
                     result["status"] = "failed-portable-source-fault"
-            run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility)
+            run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility, presnap_switch)
             run["replay_receipt_sha256"] = sha((destination / "m1-replay-result.json").read_bytes())
             run["receipt"] = receipt
         shutil.rmtree(copy)
@@ -396,7 +504,7 @@ def m1_main(argv):
             run_mutations(controls.MUTANTS, caller_control)
             execute("controlled-final", section="controlled")
             execute("existing-caller-physics", section="campaigns")
-            native_output = HERE / ".artifacts" / ("m1-post-VM-" + sha(str(output).encode())[:16])
+            native_output = post_vm_output(output, presnap_switch)
             result["original_C_post_VM"] = compare(args.source_root,
                 output / "existing-caller-physics/actual-caller-physics.tsv", native_output)
             final = execute("final-uninstrumented")
@@ -444,7 +552,7 @@ def main():
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
-    observed_source = inject(production[CACHE_SOURCE])
+    observed_source = inject_current(production[CACHE_SOURCE])
     workspace = output / "isolated"
     work = output / "work"
     work.mkdir()

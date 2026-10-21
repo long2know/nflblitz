@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Runtime;
@@ -22,8 +23,20 @@ static class Checks
             string root = Path.GetFullPath(args[0]);
             byte[] manifest = File.ReadAllBytes(Path.Combine(root, "manifest.json"));
             byte[] Read(string path) => File.ReadAllBytes(Path.Combine(root, path));
+            if (args.Contains("--loader-contract-only"))
+            {
+                int index = Array.IndexOf(args, "--proof-output");
+                VerifyLoaderContract(manifest, Read, index >= 0 ? args[index + 1] : null);
+                return 0;
+            }
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
+            if (args.Contains("--defensive-presnap-switch-only"))
+            {
+                int index = Array.IndexOf(args, "--proof-output");
+                PreSnapSwitchChecks.Run(data, index >= 0 ? args[index + 1] : null);
+                return 0;
+            }
             if (args.Contains("--random-selection-only")) { VerifyRandomSelection(data); return 0; }
             if (args.Contains("--loose-helmet-only")) { HelmetAdapterChecks.Run(data); return 0; }
             if (args.Contains("--dust-only")) { DustAdapterChecks.Run(data); return 0; }
@@ -31,10 +44,13 @@ static class Checks
             if (args.Contains("--fire-adapter-only")) { FeatureChecks.Run(data); return 0; }
             if (args.Contains("--free-ball-only")) { FreeBallChecks.Run(data); return 0; }
             if (args.Length == 3 && args[1] == "--free-ball-reference") { FreeBallChecks.VerifyReference(data, args[2]); return 0; }
-            Check(data.Animations.SequenceNames.Count == 281 && data.Animations.FrameCount == 26230,
-                "The actual original281 library must feed gameplay and pose sampling.");
-            Check(data.Callbacks.Profile == SourceC2CallbackData.M1Profile && data.Callbacks.Bindings.Count == 14,
-                "The real M1 fourteen-binding bootstrap is required.");
+            Check(data.Animations.SequenceNames.Count == catalog.Profile.ClipCount &&
+                data.Animations.FrameCount == catalog.Profile.FrameCount,
+                "The actual exact-profile library must feed gameplay and pose sampling.");
+            Check(data.Callbacks.Profile == (catalog.Profile.IsContact282C2M1PreSnapSwitch ?
+                SourceC2CallbackData.PreSnapSwitchProfile : SourceC2CallbackData.M1Profile) &&
+                data.Callbacks.Bindings.Count == (catalog.Profile.IsContact282C2M1PreSnapSwitch ? 15 : 14),
+                "The real exact-profile callback bootstrap is required.");
             var sink = new RecordingSink();
             var host = new PlayerHost(data, sink);
             host.Advance(0, 1024, 768, 1024, 768, 1);
@@ -109,7 +125,7 @@ static class Checks
             Directory.CreateDirectory("tools/source-player/artifacts");
             File.WriteAllText("tools/source-player/artifacts/native-frame.json", host.LastStatus);
             Console.WriteLine(JsonSerializer.Serialize(new {
-                status = "passed", assertions, factory = KernelBinding.Factory, policy = host.Game.Compatibility.ToString(),
+                status = "passed", assertions, factory = KernelBinding.FactoryFor(catalog.Profile), policy = host.Game.Compatibility.ToString(),
                 portableBound = KernelBinding.IsPortable(host.Game), sourceTick = host.Game.SourceTick,
                 originalModels = sink.Models.Count, originalMeshes = sink.Meshes.Count,
                 originalTextures = sink.Textures.Count, worldDraws = sink.WorldDraws,
@@ -266,6 +282,150 @@ static class Checks
         Console.WriteLine(JsonSerializer.Serialize(new { status = "passed", assertions, randomDraws = 30,
             sourceTick = choice.SourceTick, page = choice.Selection.PageIndex, slot = choice.Selection.SlotIndex,
             boundary = "Real prepared PlayerHost/Core/cabinet/bridge/HUD, managed recording sink; not browser/Unity/DSP/native proof." }));
+    }
+
+    private static void VerifyLoaderContract(byte[] manifest, Func<string, byte[]> read, string? output)
+    {
+        (DataCatalog Catalog, PlayerData Data, PlayerHost Host, RecordingSink Sink, List<string> Reads)
+            Load(byte[] raw, Func<string, byte[]> source)
+        {
+            var unread = JsonNode.Parse(raw)!["files"]!.AsArray()
+                .Select(pin => pin!["path"]!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
+            var reads = new List<string>();
+            byte[] ReadOnce(string path)
+            {
+                DataCatalog.Require(unread.Remove(path), "Missing/repeated actual JS readFile input: " + path);
+                reads.Add(path);
+                return source(path);
+            }
+            var catalog = new DataCatalog(raw, ReadOnce);
+            var data = new PlayerData(catalog);
+            var sink = new RecordingSink();
+            var host = new PlayerHost(data, sink);
+            catalog.RequireAllInputsConsumed();
+            Check(unread.Count == 0, "Both the actual managed loader and JS-style one-shot input map must be empty.");
+            return (catalog, data, host, sink, reads);
+        }
+
+        var loaded = Load(manifest, read);
+        bool successor = loaded.Catalog.Profile.IsContact282C2M1PreSnapSwitch;
+        string[] retainedPaths = successor ? new[] { "animation/export-inventory.json",
+            "kernel/c2-callback-data.json", "kernel/impact-presentation.json", "settings.json" } : Array.Empty<string>();
+        Check(loaded.Catalog.RetainedInputs.Select(pin => pin.Path).SequenceEqual(retainedPaths),
+            "Only the four exact historical558 entries have sealed retained roles in the explicit successor.");
+        Check(loaded.Reads.Distinct(StringComparer.Ordinal).Count() == loaded.Catalog.FileCount &&
+            loaded.Catalog.ConsumedInputCount == loaded.Catalog.FileCount &&
+            loaded.Catalog.VerifiedRetainedInputCount == retainedPaths.Length &&
+            loaded.Reads.Count(path => !retainedPaths.Contains(path)) == loaded.Catalog.ActiveInputCount,
+            "Every actual input is authenticated exactly once, with active and sealed retained accounting separated.");
+        Check(loaded.Catalog.FileCount == (successor ? 563 : 558) &&
+            loaded.Catalog.ActiveInputCount == (successor ? 559 : 558),
+            "The real563 successor is559 active plus4 retained; the historical558 reader has no retained exemption.");
+        var configured = loaded.Data.Configuration.Match;
+        var declared = SourceInterfacePackagePlan.ReadConfiguration(read(loaded.Catalog.Entry("settings")),
+            loaded.Catalog.EntryHash("settings")).Match;
+        Check(configured.StationLayout == declared.StationLayout &&
+            configured.Stations.SequenceEqual(declared.Stations) &&
+            (!successor || configured.StationLayout == SourceStationLayout.FourStation &&
+                configured.Stations.Count == 1 && configured.Stations[0].StationId == 0 &&
+                configured.Stations[0].Team == TeamId.Home),
+            "Only active declared settings apply: single-human station0/Home for new data; historical configuration stays intact.");
+        loaded.Host.Advance(0, 512, 384, 512, 384, 1);
+        for (int i = 0; i < 3; i++) loaded.Host.Advance(FixedStepBridge.StepSeconds, 512, 384, 512, 384, 1);
+        Check(loaded.Host.Game.SourceDefensivePreSnapSwitchEnabled == successor &&
+            loaded.Sink.WorldDraws > 0 && loaded.Sink.Models.Count == 32 &&
+            loaded.Sink.State.GetProperty("actorCount").GetInt32() == 14 &&
+            loaded.Host.Game.SourceTick >= 2,
+            "The real loader feeds the actual profile factory/flag, original world and production actors.");
+
+        JsonObject Document() => JsonNode.Parse(manifest)!.AsObject();
+        JsonObject Pin(JsonObject document, string path) => document["files"]!.AsArray()
+            .Select(node => node!.AsObject()).Single(pin => pin["path"]!.GetValue<string>() == path);
+        var controls = new List<object>();
+        void Reject(string name, JsonObject document, Func<string, byte[]> source, string expected)
+        {
+            Exception? failure = null;
+            try { Load(JsonSerializer.SerializeToUtf8Bytes(document), source); }
+            catch (Exception error) { failure = error; }
+            Check(failure != null && failure.Message.Contains(expected, StringComparison.Ordinal),
+                "Actual managed loader control must fail by exact identity: " + name + " / " + expected);
+            controls.Add(new { name, expected, error = failure!.Message });
+        }
+
+        var wrongProfile = Document();
+        wrongProfile["profile"] = "original-teams-future-not-authorized";
+        Reject("unknown-profile", wrongProfile, read, "Only the explicitly identified");
+        var extra = Document();
+        byte[] unexpected = System.Text.Encoding.UTF8.GetBytes("Authored unexpected input, not original source data.");
+        const string unexpectedPath = "private/unexpected-loader-input.bytes";
+        extra["files"]!.AsArray().Add(new JsonObject {
+            ["path"] = unexpectedPath, ["bytes"] = unexpected.Length, ["sha256"] = DataCatalog.Hash(unexpected)
+        });
+        Reject("unexpected-declared-input", extra, path => path == unexpectedPath ? unexpected : read(path),
+            successor ? "exact563-file successor" : "unconsumed private input files: " + unexpectedPath);
+
+        if (successor)
+        {
+            var historical = Document();
+            historical["profile"] = SourceTeamResourceProfile.C2M1StableId;
+            Reject("new-bundle-relabeled-historical", historical, read, "requires its exact 281-clip");
+            foreach (string path in retainedPaths)
+            {
+                var renamed = Document();
+                Pin(renamed, path)["path"] = "retained-substitute/" + path;
+                Reject("retained-substituted-name:" + path, renamed, read, "sealed retained historical input: " + path);
+                var changedPin = Document();
+                Pin(changedPin, path)["sha256"] = new string('0', 64);
+                Reject("retained-changed-manifest-hash:" + path, changedPin, read, "sealed retained historical input: " + path);
+                var changedCount = Document();
+                Pin(changedCount, path)["bytes"] = Pin(changedCount, path)["bytes"]!.GetValue<int>() + 1;
+                Reject("retained-changed-byte-count:" + path, changedCount, read, "sealed retained historical input: " + path);
+                var missing = Document();
+                missing["files"]!.AsArray().Remove(Pin(missing, path));
+                Reject("retained-missing-manifest-entry:" + path, missing, read, "exact563-file successor");
+                Reject("retained-missing-bytes:" + path, Document(),
+                    name => name == path ? Array.Empty<byte>() : read(name), "actual source asset: " + path);
+                byte[] corrupt = read(path);
+                corrupt[corrupt.Length / 2] ^= 1;
+                Reject("retained-corrupt-bytes:" + path, Document(),
+                    name => name == path ? corrupt : read(name), "actual source asset: " + path);
+                var selfConsistent = Document();
+                Pin(selfConsistent, path)["sha256"] = DataCatalog.Hash(corrupt);
+                Reject("retained-self-consistent-substitution:" + path, selfConsistent,
+                    name => name == path ? corrupt : read(name), "sealed retained historical input: " + path);
+            }
+            var oldSettings = Document();
+            oldSettings["entrypoints"]!["settings"] = "settings.json";
+            Reject("retained-settings-cannot-be-active", oldSettings, read, "explicit new configuration");
+        }
+        else
+        {
+            var relabeled = Document();
+            relabeled["profile"] = SourceTeamResourceProfile.PreSnapSwitchStableId;
+            Reject("historical-bundle-relabeled-successor", relabeled, read, "exact563-file successor");
+        }
+        RejectMissingAndChanged(manifest, read, loaded.Catalog.Entry("model"));
+        var proof = new {
+            schema = "source-player-private-input-accounting/v1", status = "passed", assertions,
+            profile = loaded.Catalog.Profile.StableId, factory = KernelBinding.FactoryFor(loaded.Catalog.Profile),
+            enabled = loaded.Host.Game.SourceDefensivePreSnapSwitchEnabled, loaded.Catalog.ManifestSha256,
+            files = loaded.Catalog.FileCount, active = loaded.Catalog.ActiveInputCount,
+            retained = loaded.Catalog.VerifiedRetainedInputCount, consumedPaths = loaded.Reads,
+            retainedInputs = loaded.Catalog.RetainedInputs.Select(pin => new { path = pin.Path, bytes = pin.Bytes, sha256 = pin.Sha256 }),
+            controls, worldDraws = loaded.Sink.WorldDraws, sourceTick = loaded.Host.Game.SourceTick,
+            stationLayout = (int)loaded.Data.Configuration.Match.StationLayout,
+            stations = loaded.Data.Configuration.Match.Stations.Count,
+            boundary = "Actual managed PlayerData/PlayerHost loaders and one-shot private-input accounting; not a real browser/Unity/native/DSP qualification."
+        };
+        if (output != null)
+        {
+            Directory.CreateDirectory(output);
+            File.WriteAllText(Path.Combine(output, "loader-contract.json"), JsonSerializer.Serialize(proof));
+        }
+        Console.WriteLine(JsonSerializer.Serialize(new {
+            proof.schema, proof.status, proof.assertions, proof.profile, proof.factory, proof.enabled,
+            proof.files, proof.active, proof.retained, controls = controls.Count, proof.worldDraws, proof.sourceTick
+        }));
     }
 
     private static void RejectMissingAndChanged(byte[] manifest, Func<string, byte[]> read, string modelPath)

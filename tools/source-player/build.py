@@ -8,11 +8,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
-from prepare import portable
+from prepare import portable, read, require
 
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
+OLD_PROFILE = "original-teams-contact281-c2-m1"
+PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 
 
 def sha(path):
@@ -36,9 +38,32 @@ def source_inventory(root):
     return records
 
 
+def verify_private_inputs(data, manifest):
+    expected = {"manifest.json"}
+    aliases = {"manifest.json"}
+    for entry in manifest["files"]:
+        relative = portable(entry["path"])
+        require(relative.lower() not in aliases, "Duplicate/aliased private input: " + relative)
+        aliases.add(relative.lower())
+        expected.add(relative)
+        raw = read(data, relative, entry["sha256"])
+        require(len(raw) == entry["bytes"], "Explicit private input byte count changed: " + relative)
+    actual = set()
+    for path in data.rglob("*"):
+        require(not path.is_symlink(), "Symlinked private input: " + path.relative_to(data).as_posix())
+        if path.is_file():
+            actual.add(path.relative_to(data).as_posix())
+    require(actual == expected, "Private input inventory differs; unexpected=" +
+            repr(sorted(actual - expected)) + ", missing=" + repr(sorted(expected - actual)))
+    if manifest["profile"] == PROFILE:
+        require(len(manifest["files"]) == 563, "Pre-snap switch requires the exact563-file successor.")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, required=True, help="Explicit pinned private data output from prepare.py.")
+    parser.add_argument("--profile", choices=(OLD_PROFILE, PROFILE), default=PROFILE,
+                        help="New enabled default; historical M1 data requires its explicit old stable ID.")
     parser.add_argument("--source-root", type=Path, default=PROJECT,
                         help="Immutable accepted production source root (BlitzSourceRoot override).")
     parser.add_argument("--source-handoff", type=Path,
@@ -51,10 +76,12 @@ def main(argv=None):
     manifest = json.loads((data / "manifest.json").read_bytes())
     if manifest.get("schema") != "blitz-portable-source-player/v1":
         parser.error("A complete prepared source-player manifest is required.")
-    for entry in manifest["files"]:
-        path = data / portable(entry["path"])
-        if path.resolve() != path or not path.is_file() or path.stat().st_size != entry["bytes"] or sha(path) != entry["sha256"]:
-            parser.error("Explicit private input changed: " + entry["path"])
+    if manifest.get("profile") != args.profile:
+        parser.error("Prepared manifest.profile differs from --profile; missing new data never falls back to historical M1.")
+    try:
+        verify_private_inputs(data, manifest)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        parser.error(str(error))
     root = args.source_root.resolve()
     if "enum SourceGameplayCompatibility" not in (root / "Assets/Scripts/Contracts/SourceMatchContracts.cs").read_text():
         parser.error("The accepted portable production Core API is required. Integrate that dependency or supply --source-root pointing to its immutable accepted snapshot; strict-source fallback is forbidden.")
@@ -100,6 +127,9 @@ def main(argv=None):
         "sourceRootDigest": hashlib.sha256(json.dumps(before, sort_keys=True).encode()).hexdigest(),
         "sources": before,
         "dataManifestSha256": sha(data / "manifest.json"),
+        "profile": args.profile,
+        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation" if args.profile == PROFILE else
+                   "SourceC2Composition.CreateM1Simulation",
         "acceptedSourceHandoffSha256": handoff_hash,
         "assemblies": [{"path": "_framework/" + p.name, "bytes": p.stat().st_size, "sha256": sha(p)}
                        for p in sorted(assemblies)],

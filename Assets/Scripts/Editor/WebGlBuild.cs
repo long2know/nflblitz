@@ -32,6 +32,9 @@ namespace Blitz.Editor
         public static void PrepareContact281C2M1Project()
         { PrepareProfile(SourceTeamResourceProfile.Contact281C2M1); }
 
+        public static void PrepareContact282C2M1PreSnapSwitchProject()
+        { PrepareProfile(SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch); }
+
         private static void PrepareProfile(SourceTeamResourceProfile profile)
         {
             if (profile.UsesC2Data) SourceTeamResourceProfile.SelectRuntimeProfile(null, profile.StableId);
@@ -50,7 +53,8 @@ namespace Blitz.Editor
                     throw new BuildFailedException("Explicit C2 build requires its actual canonical team/template resources.");
                 SourcePlayerRig template = teams.Template;
                 profile.RequireImpact(SourcePlayerProvider.ResolveRequiredCinematicLibrary(template));
-                if (services.C2Data.PayloadSha256 != (profile.IsContact281C2M1 ?
+                if (services.C2Data.PayloadSha256 != (profile.IsContact282C2M1PreSnapSwitch ?
+                    SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 : profile.IsContact281C2M1 ?
                     SourceInterfacePackagePlan.C2M1CallbackSha256 : SourceInterfacePackagePlan.C2CallbackSha256))
                     throw new BuildFailedException("Explicit C2 build callback data changed.");
             }
@@ -69,6 +73,9 @@ namespace Blitz.Editor
 
         public static void BuildContact281C2M1()
         { BuildProfile(SourceTeamResourceProfile.Contact281C2M1); }
+
+        public static void BuildContact282C2M1PreSnapSwitch()
+        { BuildProfile(SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch); }
 
         private static void BuildProfile(SourceTeamResourceProfile profile)
         {

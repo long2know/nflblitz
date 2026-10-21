@@ -20,6 +20,66 @@ BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 SERVICES = "Assets/Scripts/Runtime/SourceInterfaceServices.cs"
 IMPORTER = "Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs"
 IMPORT_CHECKS = "Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs"
+PROFILES = "Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs"
+M1_PREFLIGHT = "if (profile.UsesM1Services) RequirePossessionSpeechResource();"
+M1_IMPORT_ASSERTION = "only the two explicit M1 service profiles require speech before asset output"
+M1_SAVED_ASSERTION = "saved M1 verification must exercise the same strict canonical HUD speech binding"
+M1_ANCESTRY_ASSERTION = "M1 services ancestry must be exactly old281 or new282, never other profiles"
+POSSESSION_IMPORTER_MUTATIONS = (
+    ("implicit-root", '"-interfacePossessionSpeechRoot"', '"-unrelatedRoot"',
+     "speech import must use explicit authorized root"),
+    ("unchecked-input", "SourcePossessionSoundData.Read(bytes);", "",
+     "speech import must enforce authorized paths"),
+    ("unbounded-input", "ReadBytes(relativeInput, 40)", "ReadBytes(relativeInput, 400)",
+     "speech import must enforce authorized paths"),
+    ("unvalidated-reuse", "if (existing != null) return RequirePossessionSpeechResource();",
+     "if (existing != null) return null;", "speech import must reuse validated immutable resources"),
+    ("wrong-key", "SourceInterfacePackagePlan.RequireOutputIdentity(path, SourceHudAsset.PossessionSpeechResourceKey);",
+     "", "speech import must reuse validated immutable resources"),
+    ("duplicate-key", 'FindUniqueResourcePath("TextAsset", SourceHudAsset.PossessionSpeechResourceKey)',
+     'FindUniqueResourcePath("TextAsset", "wrong-resource")', "speech import must reuse validated immutable resources"),
+    ("wrong-canonical", "Resources.Load<TextAsset>(SourceHudAsset.PossessionSpeechResourceKey) != asset", "false",
+     "saved speech must be unique, canonical"),
+    ("changed-existing", "SourcePossessionSoundData.Read(asset.bytes);", "",
+     "saved speech must be unique, canonical"),
+    ("missing-M1-preflight", M1_PREFLIGHT, "", M1_IMPORT_ASSERTION),
+    ("old-only-M1-preflight", M1_PREFLIGHT,
+     "if (profile.IsContact281C2M1) RequirePossessionSpeechResource();", M1_IMPORT_ASSERTION),
+    ("new-only-M1-preflight", M1_PREFLIGHT,
+     "if (profile.IsContact282C2M1PreSnapSwitch) RequirePossessionSpeechResource();", M1_IMPORT_ASSERTION),
+    ("nonM1-C2-preflight", M1_PREFLIGHT,
+     "if (profile.UsesC2Data) RequirePossessionSpeechResource();", M1_IMPORT_ASSERTION),
+    ("nonM1-movement-preflight", M1_PREFLIGHT,
+     "if (profile.UsesMovementData) RequirePossessionSpeechResource();", M1_IMPORT_ASSERTION),
+    ("unconditional-M1-preflight", M1_PREFLIGHT, "RequirePossessionSpeechResource();", M1_IMPORT_ASSERTION),
+    ("dead-M1-preflight", M1_PREFLIGHT, "if (ReferenceEquals(profile, null)) { " + M1_PREFLIGHT + " }",
+     M1_IMPORT_ASSERTION),
+    ("wrong-import-profile", "SourceTeamResourceProfile profile = plan.Profile;",
+     "SourceTeamResourceProfile profile = SourceTeamResourceProfile.Contact272;", M1_IMPORT_ASSERTION),
+)
+POSSESSION_SAVED_MUTATIONS = (
+    ("missing-saved-speech", "SourceTeamInterfaceImporter.RequirePossessionSpeechResource();", "", M1_SAVED_ASSERTION),
+    ("old-only-saved-speech", "if (profile.UsesM1Services)", "if (profile.IsContact281C2M1)", M1_SAVED_ASSERTION),
+    ("new-only-saved-speech", "if (profile.UsesM1Services)",
+     "if (profile.IsContact282C2M1PreSnapSwitch)", M1_SAVED_ASSERTION),
+    ("nonM1-saved-speech", "if (profile.UsesM1Services)", "if (profile.UsesC2Data)", M1_SAVED_ASSERTION),
+    ("missing-HUD-speech", "hud.PossessionSound != null", "true", M1_SAVED_ASSERTION),
+    ("wrong-saved-profile", "SourceTeamResourceProfile profile = plan.Profile;",
+     "SourceTeamResourceProfile profile = SourceTeamResourceProfile.Contact272;", M1_SAVED_ASSERTION),
+    ("dead-saved-speech", "if (profile.UsesM1Services)",
+     "if (ReferenceEquals(profile, null)) if (profile.UsesM1Services)", M1_SAVED_ASSERTION),
+)
+M1_ANCESTRY_MUTATIONS = (
+    ("lost-old281", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "IsContact282C2M1PreSnapSwitch"),
+    ("lost-new282", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"),
+    ("any-profile", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "true"),
+    ("nonM1-C2-ancestry", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch",
+     "IsContact281C2 || IsContact281C2M1 || IsContact282C2M1PreSnapSwitch"),
+    ("nonM1-C1-ancestry", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch",
+     "IsContact272 || IsContact281C2M1 || IsContact282C2M1PreSnapSwitch"),
+    ("old-profile-alias", "StableId == C2M1StableId", "StableId == C2StableId"),
+    ("new-profile-alias", "StableId == PreSnapSwitchStableId", "StableId == C2M1StableId"),
+)
 SOUND_FACTORIES = (
     ("Assets/Scripts/Runtime/SourceContactComposition.cs", "CreateSimulation", "soundFunctions"),
     ("Assets/Scripts/Runtime/SourceC2Composition.cs", "CreateChecked", "legacySoundFunctions"),
@@ -382,7 +442,57 @@ def assert_compile_inventory(compiled, expected_owned):
         require(compiled[name] == expected, "Actual compiled owned UI hash mismatch: " + name)
 
 
-def validate_possession_importer(source, checks):
+def validate_m1_services_ancestry(source):
+    clean = uncomment(source)
+    for name, expression in (
+        ("UsesM1Services", "IsContact281C2M1||IsContact282C2M1PreSnapSwitch"),
+        ("IsContact281C2M1", "StableId==C2M1StableId"),
+        ("IsContact282C2M1PreSnapSwitch", "StableId==PreSnapSwitchStableId"),
+    ):
+        bodies = re.findall(r"\bpublic\s+bool\s+" + name + r"\s*\{\s*get\s*\{([^{}]*)\}\s*\}", clean)
+        require(len(bodies) == 1 and compact(bodies[0]) == "return" + expression + ";",
+                M1_ANCESTRY_ASSERTION)
+    identities = (
+        ("B1Final117", '"original-teams"', "original-teams", False),
+        ("Movement157", "MovementStableId", "original-teams-movement157", False),
+        ("Contact272", "ContactStableId", "original-teams-contact272", False),
+        ("Contact281C2", "C2StableId", "original-teams-contact281-c2", False),
+        ("Contact281C2M1", "C2M1StableId", "original-teams-contact281-c2-m1", True),
+        ("Contact282C2M1PreSnapSwitch", "PreSnapSwitchStableId",
+         "original-teams-contact282-c2-m1-presnap-switch", True),
+    )
+    singletons = re.findall(r"\bpublic\s+static\s+readonly\s+SourceTeamResourceProfile\s+(\w+)\s*="
+                            r"\s*new\s+SourceTeamResourceProfile\s*\(([^;]*)\);", clean)
+    require(len(singletons) == len(identities) and len(dict(singletons)) == len(identities),
+            M1_ANCESTRY_ASSERTION)
+    singletons = dict(singletons)
+    for name, token, stable_id, _ in identities:
+        require(name in singletons and compact(singletons[name]).split(",")[0] == token,
+                M1_ANCESTRY_ASSERTION)
+        if not token.startswith('"'):
+            constants = re.findall(r"\bpublic\s+const\s+string\s+" + token + r'\s*=\s*"([^"]*)";', clean)
+            require(constants == [stable_id], M1_ANCESTRY_ASSERTION)
+    resolver = compact(method(source, "FromStableId"))
+    prefix = "".join("if(stableId==" + name + ".StableId)return" + name + ";"
+                     for name, _, _, _ in identities)
+    require(resolver.startswith(prefix + "thrownewSourceInterfaceException(")
+            and resolver.count("return") == len(identities), M1_ANCESTRY_ASSERTION)
+    return {stable_id: required for _, _, stable_id, required in identities}
+
+
+def top_level_statement(body, statement):
+    code = compact(uncomment(body))
+    if code.count(statement) != 1:
+        return False
+    index = code.index(statement)
+    prefix = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', "", code[:index])
+    return (prefix.count("{") == prefix.count("}")
+            and (index == 0 or code[index - 1] in ";}")
+            and not code[index + len(statement):].startswith("else"))
+
+
+def validate_possession_importer(source, checks, profiles=None):
+    validate_m1_services_ancestry((SOURCE_ROOT / PROFILES).read_text() if profiles is None else profiles)
     command = compact(method(source, "ImportPossessionSpeechFromCommandLine"))
     require('ImportPossessionSpeech(PlayerAssetImporter.RequiredArgument(args,"-interfacePossessionSpeechRoot"),'
             'PlayerAssetImporter.RequiredArgument(args,"-interfacePossessionSpeech"),'
@@ -414,14 +524,25 @@ def validate_possession_importer(source, checks):
             and "SourcePossessionSoundData.Read(asset.bytes);" in saved
             and saved.index("SourcePossessionSoundData.Read(asset.bytes);") < saved.index("returnasset;"),
             "saved speech must be unique, canonical, actually pinned and never silently substituted")
-    importing = compact(method(source, "Import"))
-    require("if(profile.IsContact281C2M1)RequirePossessionSpeechResource();" in importing
-            and importing.index("RequirePossessionSpeechResource();") < importing.index("varoutput="),
-            "only explicit M1 imports require speech, before any imported asset is created")
-    verifying = compact(method(checks, "VerifySaved"))
-    require("if(profile.IsContact281C2M1){SourceTeamInterfaceImporter.RequirePossessionSpeechResource();"
-            "Require(hud.PossessionSound!=null," in verifying,
-            "saved M1 verification must exercise the same strict canonical HUD speech binding")
+    importing_body = method(source, "Import")
+    importing = compact(importing_body)
+    profile = "SourceTeamResourceProfileprofile=plan.Profile;"
+    preflight = compact(M1_PREFLIGHT)
+    require(top_level_statement(importing_body, profile)
+            and top_level_statement(importing_body, preflight)
+            and importing.count("RequirePossessionSpeechResource();") == 1
+            and importing.index(profile) < importing.index(preflight)
+            < importing.index("stringexistingHudPath=") < importing.index("varoutput="),
+            M1_IMPORT_ASSERTION)
+    verifying_body = method(checks, "VerifySaved")
+    verifying = compact(verifying_body)
+    saved = ("if(profile.UsesM1Services){SourceTeamInterfaceImporter.RequirePossessionSpeechResource();"
+             "Require(hud.PossessionSound!=null,")
+    require(top_level_statement(verifying_body, profile)
+            and top_level_statement(verifying_body, saved)
+            and verifying.count("RequirePossessionSpeechResource();") == 1
+            and verifying.index(profile) < verifying.index(saved),
+            M1_SAVED_ASSERTION)
     return 7
 
 
@@ -443,30 +564,49 @@ class CallerGuards(unittest.TestCase):
         self.assertEqual(validate_possession_importer((SOURCE_ROOT / IMPORTER).read_text(),
                                                      (SOURCE_ROOT / IMPORT_CHECKS).read_text()), 7)
 
+    def test_actual_m1_services_ancestry_and_old_nonM1_exclusions(self):
+        self.assertEqual(validate_m1_services_ancestry((SOURCE_ROOT / PROFILES).read_text()), {
+            "original-teams": False, "original-teams-movement157": False,
+            "original-teams-contact272": False, "original-teams-contact281-c2": False,
+            "original-teams-contact281-c2-m1": True,
+            "original-teams-contact282-c2-m1-presnap-switch": True,
+        })
+
+    def test_m1_services_ancestry_removal_guards(self):
+        profiles = (SOURCE_ROOT / PROFILES).read_text()
+        source = (SOURCE_ROOT / IMPORTER).read_text()
+        checks = (SOURCE_ROOT / IMPORT_CHECKS).read_text()
+        for name, old, new in M1_ANCESTRY_MUTATIONS:
+            with self.subTest(name=name):
+                self.assertEqual(profiles.count(old), 1, name)
+                with self.assertRaisesRegex(AssertionError, M1_ANCESTRY_ASSERTION):
+                    validate_possession_importer(source, checks, profiles.replace(old, new, 1))
+
     def test_possession_speech_importer_removal_guards(self):
         source = (SOURCE_ROOT / IMPORTER).read_text()
         checks = (SOURCE_ROOT / IMPORT_CHECKS).read_text()
-        mutants = [
-            ("implicit-root", '"-interfacePossessionSpeechRoot"', '"-unrelatedRoot"'),
-            ("unchecked-input", "SourcePossessionSoundData.Read(bytes);", ""),
-            ("unbounded-input", "ReadBytes(relativeInput, 40)", "ReadBytes(relativeInput, 400)"),
-            ("unvalidated-reuse", "if (existing != null) return RequirePossessionSpeechResource();",
-             "if (existing != null) return null;"),
-            ("wrong-key", "SourceInterfacePackagePlan.RequireOutputIdentity(path, SourceHudAsset.PossessionSpeechResourceKey);", ""),
-            ("duplicate-key", 'FindUniqueResourcePath("TextAsset", SourceHudAsset.PossessionSpeechResourceKey)',
-             'FindUniqueResourcePath("TextAsset", "wrong-resource")'),
-            ("wrong-canonical", "Resources.Load<TextAsset>(SourceHudAsset.PossessionSpeechResourceKey) != asset", "false"),
-            ("changed-existing", "SourcePossessionSoundData.Read(asset.bytes);", ""),
-            ("missing-M1-preflight", "if (profile.IsContact281C2M1) RequirePossessionSpeechResource();", ""),
-        ]
-        for name, old, new in mutants:
+        for name, old, new, assertion in POSSESSION_IMPORTER_MUTATIONS:
             with self.subTest(name=name):
                 self.assertIn(old, source)
-                with self.assertRaises(AssertionError):
+                with self.assertRaisesRegex(AssertionError, assertion):
                     validate_possession_importer(source.replace(old, new, 1), checks)
-        with self.assertRaises(AssertionError):
-            validate_possession_importer(source, checks.replace(
-                "SourceTeamInterfaceImporter.RequirePossessionSpeechResource();", "", 1))
+        for name, old, new, assertion in POSSESSION_SAVED_MUTATIONS:
+            with self.subTest(name=name):
+                self.assertIn(old, checks)
+                with self.assertRaisesRegex(AssertionError, assertion):
+                    validate_possession_importer(source, checks.replace(old, new, 1))
+
+    def test_possession_runtime_callback_removal_guards(self):
+        source = (SOURCE_ROOT / RUNTIME).read_text()
+        callback = "playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);"
+        self.assertEqual(source.count(callback), 1)
+        with self.assertRaisesRegex(AssertionError, "paired resolved sounds must bypass generic callbacks once"):
+            validate_runtime(source.replace(callback, "", 1))
+        hud = (SOURCE_ROOT / HUD).read_text()
+        event = "sourceHud.OnSourceEvent(value);"
+        self.assertEqual(hud.count(event), 1)
+        with self.assertRaisesRegex(AssertionError, "actual source HUD event/host bodies must remain intact"):
+            validate_hud_scope(hud.replace(event, "{ }", 1))
 
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
@@ -925,7 +1065,14 @@ def main(argv=None):
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
         report.update(guard_contracts=54, rejected_actual_source_guard_mutants=32,
                       rejected_actual_service_guard_mutants=15, rejected_actual_factory_guard_mutants=8,
-                      rejected_possession_importer_wiring_mutants=10,
+                      rejected_possession_importer_wiring_mutants=len(POSSESSION_IMPORTER_MUTATIONS) +
+                          len(POSSESSION_SAVED_MUTATIONS),
+                      rejected_m1_ancestry_mutants=len(M1_ANCESTRY_MUTATIONS),
+                      rejected_possession_runtime_callback_mutants=2,
+                      possession_m1_services_profiles=validate_m1_services_ancestry(
+                          (SOURCE_ROOT / PROFILES).read_text()),
+                      possession_guard_source_sha256={name: digest((SOURCE_ROOT / name).read_bytes())
+                                                       for name in (IMPORTER, IMPORT_CHECKS, PROFILES)},
                       possession_importer_native_executed=False,
                       hud_scope_mutants_rejected=1, owned_inventory_mutants_rejected=8,
                       root_overlay_project_negative_guards=11, guard_tests=result.testsRun,
@@ -944,7 +1091,9 @@ def main(argv=None):
                           "rejected_guard_mutants": report["rejected_actual_source_guard_mutants"] +
                               report["rejected_actual_service_guard_mutants"] +
                               report["rejected_actual_factory_guard_mutants"] +
-                              report["rejected_possession_importer_wiring_mutants"],
+                                  report["rejected_possession_importer_wiring_mutants"] +
+                                  report["rejected_m1_ancestry_mutants"] +
+                                  report["rejected_possession_runtime_callback_mutants"],
                           "hud_scope_mutants": report["hud_scope_mutants_rejected"],
                           "owned_inventory_mutants": report["owned_inventory_mutants_rejected"],
                           "actual_Unity_API_compiled": args.unity_editor_data is not None, "native_claimed": False}))

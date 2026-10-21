@@ -65,7 +65,7 @@ namespace Blitz.Presentation
 
         public static SourceNormalCameraData ResolveRequiredNormalCameraData(SourcePlayerRig sourcePrefab)
         {
-            if (sourcePrefab == null || !SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsContact281C2M1)
+            if (sourcePrefab == null || !SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).UsesM1Services)
                 throw new InvalidOperationException("Original CAMBOT normal requires the explicit M1 source profile.");
             SourceTeamResourceProfile profile = SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId);
             SourceCinematicLibraryAsset asset = Resources.Load<SourceCinematicLibraryAsset>(profile.ImpactResourceKey);

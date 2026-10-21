@@ -37,6 +37,101 @@ stated native limitations. See the
 [published portable-browser evidence](source-parity.md#published-portable-browser-evidence)
 for the actual build identity and bounded match/capture qualification.
 
+## Required pre-snap-switch CI
+
+`Game source checks` has two **concurrent, unconditional required jobs**, each
+with the unchanged **40-minute** limit. `core-and-tooling` retains every original
+campaign, command, source/recording pin, the literal14 Stage7 bindings, its first
+two inventory guards and the full historical281/M1 replay. The new
+`defensive-presnap-switch` job independently reconstructs private inputs and runs:
+
+- The actual original-C/production focused runner with
+  `--presnap-switch-inputs`, `--sdk-netstandard21`, **all15** separately compiled
+  causal controls, final baseline and the real raw `PlayerHost` proof.
+- The saved, input-only v4 gzip/closed recipe through
+  `prepare_public_replay.py prepare`, never authoring or a new12,000-host window.
+- The **normal full** movement-caller runner with
+  `--c2-presnap-switch-inputs` and `--source-compatibility portable`: all three
+  cache/eight caller controls, actual664 post-VM original-C cases/5,312 checks,
+  real fifteen-joint R_SKIP evidence and state/input/RNG/pose byte equality.
+- Strict result, factory/profile, complete558-to563 bundle, input-immutability
+  and privacy checks. Missing, corrupt, partial, uncompiled or unmet results
+  fail; an old factory, empty discovery or a status-only receipt is not accepted.
+
+The new factory is `SourceC2Composition.CreatePreSnapSwitchSimulation`, with
+`original-teams-contact282-c2-m1-presnap-switch`,282 clips/15 callbacks/482 impact
+sites. The base558 manifest remains
+`d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134`;
+the563-file extension preserves every inherited pin. All originals and decoded
+assets are acquired/prepared inside a new job-local workspace from the same
+pinned NFL2000 and Midway repositories, commits and regular Git blobs. There is
+no inter-job asset cache/upload, original-C/WAN/geometry/pose upload, or recording
+regeneration.
+
+### Historical partitions and frozen guard compatibility
+
+Checkout first initializes the physical `github.workspace`, with no job-wide
+`GIT_DIR` or `GIT_WORK_TREE` override. The later run-directory defaults do not
+apply to the checkout action. Pointing its Git process at a not-yet-created
+`.squad` work tree makes `git init` fail before any test can run. Only after
+checkout, additive-wiring validation and the private workspace copy succeed
+does bootstrap export the resolved source Git directory and the existing
+isolated work tree through `GITHUB_ENV`. Both Git views are verified before
+export. The regression starts with genuinely empty runners, exercises real
+`git init` for both Game jobs and Source player, restores the bad binding to
+prove exit128, and runs both actual post-checkout bootstrap commands against
+committed-only fixtures.
+
+`check_replay_generations.py` defaults to **all five actual probes**, as before.
+Its only CI partitions are `--partition archived-four` in the core job and
+`--partition u2-current-fifth` in the new job. Their closed inventories are
+disjoint and their exact union is the default five. The four archived
+source/harness/reference identities and positive/stale values remain unchanged;
+the fifth compiles the separately pinned current U2 sources against the
+unchanged old possession recording and disabled old-M1 factory. Neither
+partition replaces the new enabled-profile full replay.
+
+The original workflow guards deliberately freeze an entire inherited workflow.
+Before the core job executes, the new guard validates the **submitted** two-job
+workflow and the player workflow, then copies actual current code into a private
+compatibility workspace. Every production/harness byte is verified identical.
+Only its workflow file receives the explicitly reversible CI projection:
+remove this new job/bootstrap/default-directory/trigger wiring and
+the archived partition argument. The result must retain the original workflow
+SHA-256 `b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241`
+and pass the untouched inherited sound, possession and timer guards, including
+the timer's `1016fb32…` baseline. No original guard, inventory hash, case ID,
+control, failure rule or recipe is rebased or relaxed. Original commands execute
+unchanged in that isolated workspace; the actual submitted workflow is never
+rewritten. Both workspaces have private outputs, temporary directories, NuGet
+packages and SDK homes, with nonnested worker limits of at most two.
+The API preflight first attempts the actual build and an offline restore. Only
+an observed missing `NETStandard.Library.Ref` pack permits restoring the exact
+implicit2.1.0 reference pack from the official NuGet feed into that private
+package root; it never adds a package reference, changes a framework or accepts
+compiler diagnostics as qualification.
+
+The separate `Source player asset-free checks` job retains all original commands
+and its exact **10-minute** limit. It adds actual new-profile preparation,
+recording/runner/CI mutation guards and compile closure checks, without original
+assets, a browser, services, credentials or a Unity installation. Both workflows
+cover their own/cross-workflow changes and the new runner, shared parity,
+animation/audio preparation and roster parser dependencies.
+
+### Budget evidence is not hosted acceptance
+
+The preceding published Game job took **39m40s including finalization** under
+its40-minute limit: its observed20 seconds is not assumed to accommodate a new
+campaign. Moving only the fresh fifth probe and adding a concurrent job does
+not increase either limit, waive the inherited minimum30 guard, chain the
+workflow into80 minutes or drop an old test. Local phase/whole-body measurements
+are recorded privately in `.squad/.scratch/defensive-switch-ci/handoff.json`;
+they do not measure GitHub checkout/setup latency, runner contention or hosted
+finalization. Final-head hosted execution of **both workflows, all jobs and
+finalization** must still succeed within their unchanged limits. Genuine current
+World evidence, Quality's later single material gate and authorized normal PR
+integration remain separate. All sixteen whole/native rows remain OPEN.
+
 ## Pinned toolchain and external activation
 
 The current source profiles require the [M1 successor](../tools/interface/packaging.md#explicit-c2-m1-fourteen-binding-successor)

@@ -7,6 +7,52 @@ Original weighted numeric tables, constants, source declarations and generated
 data stay **ignored**. `function-inputs.json` pins every public input blob;
 `sound-functions.schema.json` describes the ignored audit manifest.
 
+## Explicit pre-snap fixed attack callback (separate from old SAFN)
+
+Only the trusted
+`OriginalRelease57Hz-C2-M1-PreSnapSwitch-InitSoundBanks-v1` generation admits
+`(plyrseq.c,m_hopclp_anim,3409,attack_snd,127,0,0)`, with
+`SourceC2SoundFunctionKind.AttackSoundFixed=5`. Kinds1–4, the old-six SAFN,
+ONE7538 hit extension, old-nine/fourteen callback payloads and nine original
+`CallTemplates` are unchanged. Separate typed `AttackSoundHuman` and
+`AttackSoundDrone` templates retain the actual `sounds.c` blob and source
+call1638; no legacy else-ground route is used.
+
+The actual void `attack_snd` body at1623–1644 tests `ISHUMAN(ppdata)`:
+station other than `-1` selects **`PRIORITY_LVL2=10`**, while a drone selects
+**`PRIORITY_LVL1=15`**. These are not the flagged `LVL2`/`LVL1` macros.
+The positive first argument emits precisely one `snd_scall_bank` using the
+actual synchronous `plyr_bnk_str`, playlist127, `VOLUME2=160`, pan127 and
+that priority. Arguments two/three are zero; the random attack-pool branch
+is unreachable. The selector consumes **zero RNG draws**.
+
+`SourceC2SoundFunctions.Select` requires the exact registered original cue,
+actual script instance/ANI_CODE, actor/tick/arguments, new data generation and
+same executing process/order/call cursor. It reads the actual actor station
+after recomputation and actual current player bank, never a fallback bank.
+Unknown station/bank throws `SourceAudioMissingInputException`, preserving
+the actual partial result. The unused void return stays opaque in the frozen
+VM; no integer return or native return-register evidence is invented.
+
+`SourceSoundVmTransport` accepts this exact typed result and pairs/delivers
+the same cue/context exactly once. Missing consumer, duplicate drain/delivery,
+reordered cue, wrong discriminator/tuple/call, empty/multiple calls, nonzero RNG
+or an Unsupported hop is not a successful silent output. Other existing
+partial-failure/restart behavior remains unchanged.
+
+See `tools/animation/README.md` for the exact one-clip/282-library/15-binding/
+rebound482 generation and frozen hashes. The S1 real-data boundary checks use
+the authentic selected clip and actual frozen VM callback, and exercise both
+human10 and drone15. They are not integrated mode-handler/public-host evidence.
+The U2 factory/default host and subsequent qualification remain pending;
+raw call selection/transport is **not PCM, DSP playback or native Unity proof**.
+The historical `SourceCinematicPlayback.ConsumeResolvedSourceSound` still
+rejects kind5 and its retained per-call C2 context. S1 does not own that file
+and does not remove/relabel the context or route around its ordering checks.
+Full presentation integration requires a separately authorized narrow update
+to those two guards; the failing actual-sink probe is retained in the private
+handoff rather than counted as green.
+
 ## Reproduce
 
 No Unity installation or original assets are required for the default SDK tests:

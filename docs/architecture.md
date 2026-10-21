@@ -1,5 +1,29 @@
 # Unity source-port integration contract v1
 
+## Explicit defensive pre-snap-switch descendant — October 20, 2026
+
+The separately prepared portable public default is now
+`original-teams-contact282-c2-m1-presnap-switch`, with282 authentic clips,
+26265 selected frames, fifteen callbacks and rebound482-site impact metadata.
+`CreatePreSnapSwitchSimulation` preflights exact library/bootstrap/SAFN/hit and
+explicit source configuration before constructor draws/AI. Old factories,
+profiles, inventories, constructors' historical defaults and recordings are
+not aliases. Enablement derives from the exact authenticated callback profile,
+not mutable settings or mere clip presence.
+
+The new settings use the existing FourStation layout with only physical0/Home,
+avoiding original `update_stations`' undefined incomplete TwoStation table.
+This is not a four-human, clock, powerup, audible or controller policy change.
+Actual catalog -> options -> PlayerData -> KernelBinding -> factory composition
+is typed and rejects conflicting built/URL identities before successful play.
+Status records real source output, not JavaScript football or an authored pose.
+The exact narrow qualification and old/new recording roles are documented in
+[`tests/defensive-presnap-switch`](../tests/defensive-presnap-switch/README.md).
+
+This integration does not change the historical Unity engine's C1 default
+described below or establish an Editor import/native build. Genuine current
+World, full required CI within unchanged budgets and Quality remain separate.
+
 **Owner:** Lead. **Contract checked:** October 17, 2026 (PDT).
 **Current source boundary:** default/empty selection remains Contact272;
 old-nine Contact281C2 and StageB Contact281C2M1 are separate explicit opt-ins,

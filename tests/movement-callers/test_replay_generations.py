@@ -319,6 +319,7 @@ class RecordingGenerationTests(unittest.TestCase):
             generations.main39_positive(2, summary, receipt)
 
     def test_actual_cli_rejects_unknown_duplicate_or_shortcut_modes_before_output(self):
+        self.assert_partition_cli_rejects_unknown_duplicate_and_unavailable_modes()
         command = [sys.executable, "-B", str(Path(generations.__file__)),
                    "--baseline-ref", generations.BASELINE_REF,
                    "--previous-ref", generations.PREVIOUS_REF,
@@ -403,11 +404,66 @@ class RecordingGenerationTests(unittest.TestCase):
         self.assertEqual(list(self.work.iterdir()), [])
 
     def test_zero_duplicate_or_wrong_summary_never_becomes_generation_acceptance(self):
+        self.assert_closed_partitions_are_disjoint_complete_and_default_still_runs_all_five()
+        self.assert_every_partition_requires_every_actual_compiled_classified_probe()
         for stdout in ("", "not a summary\n", '{"schema":"wrong"}\n{"schema":"wrong"}\n'):
             with self.subTest(stdout=stdout), self.assertRaisesRegex(ValueError, "one actual"):
                 generations.summary_line(stdout)
         with self.assertRaisesRegex(ValueError, "summary"):
             generations.common_result(generations.summary_line('{"schema":"wrong"}\n'), self.receipt())
+
+    def assert_closed_partitions_are_disjoint_complete_and_default_still_runs_all_five(self):
+        self.assertEqual(generations.probe_inventory(), (
+            "main38-old-positive", "main39-old-stale", "main39-possession-positive",
+            "current-possession-stale", "u2-current-possession-stale"))
+        archived = generations.probe_inventory("archived-four")
+        current = generations.probe_inventory("u2-current-fifth")
+        self.assertFalse(set(archived).intersection(current))
+        self.assertEqual(archived + current, generations.probe_inventory("all-five"))
+        self.assertIsNone(generations.argument_parser().get_default("partition"))
+        for value in ("", "old", "current", "all", None):
+            with self.subTest(partition=value), self.assertRaisesRegex(ValueError, "closed"):
+                generations.probe_inventory(value)
+
+    def assert_every_partition_requires_every_actual_compiled_classified_probe(self):
+        probes = {}
+        for name in generations.ALL_PROBES:
+            positive = "positive" in name
+            probes[name] = dict(source_generation=generations.PROBE_SOURCES[name],
+                compile_zero_diagnostics=True, exit_code=0 if positive else 2,
+                classification=("positive-historical-main38-only" if name == "main38-old-positive" else
+                    "positive-pinned-main39-possession-only" if positive else
+                    "rejected-pinned-main39-old-stale-playbook-side" if name == "main39-old-stale" else
+                    "rejected-current-possession-stale-playbook-side"))
+        for partition in ("all-five", "archived-four", "u2-current-fifth"):
+            selected = {name: probes[name] for name in generations.probe_inventory(partition)}
+            generations.validate_probe_inventory(partition, selected)
+            for name in selected:
+                missing = dict(selected)
+                del missing[name]
+                with self.subTest(partition=partition, missing=name), self.assertRaises(ValueError):
+                    generations.validate_probe_inventory(partition, missing)
+                for field, value in (("source_generation", "unavailable"), ("compile_zero_diagnostics", False),
+                                     ("exit_code", 1), ("exit_code", True), ("classification", "skipped")):
+                    changed = copy.deepcopy(selected)
+                    changed[name][field] = value
+                    with self.subTest(probe=name, field=field), self.assertRaises(ValueError):
+                        generations.validate_probe_inventory(partition, changed)
+            with self.assertRaises(ValueError):
+                generations.validate_probe_inventory(partition, dict(selected, unavailable={}))
+
+    def assert_partition_cli_rejects_unknown_duplicate_and_unavailable_modes(self):
+        command = [sys.executable, "-B", generations.__file__,
+                   "--baseline-ref", generations.BASELINE_REF, "--previous-ref", generations.PREVIOUS_REF]
+        for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "replay-commands",
+                     "possession-replay-commands", "output"):
+            command.extend(("--" + name, str(self.work / name)))
+        for change, message in ((["--partition", "unavailable"], "invalid choice"),
+                (["--partition", "archived-four", "--partition", "u2-current-fifth"], "duplicate --partition")):
+            process = subprocess.run(command + change, capture_output=True, text=True)
+            self.assertEqual(process.returncode, 2)
+            self.assertIn(message, process.stderr)
+            self.assertFalse((self.work / "output").exists())
 
 
 if __name__ == "__main__":

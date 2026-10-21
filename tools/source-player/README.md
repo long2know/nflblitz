@@ -1,5 +1,88 @@
 # Portable C# browser preview (not a Unity player build)
 
+## Explicit pre-snap-switch public default
+
+`build.py --data "$PLAYER563"` now defaults to the closed stable profile
+`original-teams-contact282-c2-m1-presnap-switch`. A missing/mismatched new bundle
+fails before publish, never falls back to old M1. Historical builds require
+`--profile original-teams-contact281-c2-m1`; historical `prepare.py` retains its
+old output/defaults and `PreviewOptions.FromUrl(url)` retains its historical
+contract. Browser startup authenticates the catalog before selecting options;
+the host and factory default from that same catalog. Conflicting URL/profile
+identities reject.
+
+Prepare the successor without overwriting its complete558-file base:
+
+```sh
+python3 -B tools/source-player/prepare_presnap_switch.py \
+  --input "$PINNED_PLAYER558" --input-manifest-sha256 "$BASE558_SHA256" \
+  --profile-inputs "$PINNED_PROFILE282" --impact "$REBOUND_IMPACT" \
+  --settings tools/source-player/match-settings.presnap-switch.json \
+  --output "$NEW_PLAYER563"
+```
+
+All558 inherited pins remain present. Only the authentic hop, new animation
+inventory, fifteen-binding callbacks, rebound482-site impact and explicit new
+settings are added; four entrypoints redirect. The new default settings differ
+from historical single-human defaults only in `station_layout:2 -> 4`, not in
+station0/Home or a four-human policy. Original incomplete TwoStation
+`plyr_control[-1]` remains a fail-stop boundary.
+
+The complete563-file manifest contains **559 active inputs and four sealed
+retained inputs**: `animation/export-inventory.json`,
+`kernel/c2-callback-data.json`, `kernel/impact-presentation.json`, and
+`settings.json`. The successor catalog authenticates each retained path, byte
+count and frozen historical558 SHA256; `PlayerData` reads and verifies those
+bytes without parsing/applying the superseded services. In particular the
+retained `settings.json` is the approved four-human base configuration, not the
+new single-human configuration. No retained entry can be an active entrypoint.
+Historical profiles receive no retained-input exemption.
+
+Both C# startup and the unchanged generated JavaScript require every declared
+input to have been consumed before accepting the host. Unknown/missing/renamed
+or corrupt inputs remain fatal; the builder also rejects unlisted files in the
+private input tree before publishing. This does not delete or rewrite any of
+the558 inherited files, add a profile alias, or change gameplay/recordings.
+
+Run the real managed loader contract on each explicitly prepared bundle:
+
+```sh
+dotnet "$OWNED_CHECKS_DLL" "$PLAYER563" --loader-contract-only \
+  --proof-output "$OWNED_NEW_PROOF"
+dotnet "$OWNED_CHECKS_DLL" "$PINNED_PLAYER558" --loader-contract-only \
+  --proof-output "$OWNED_OLD_PROOF"
+```
+
+Permanent regression coverage uses actual compiled C# `PlayerData`/`PlayerHost`,
+the real563 manifest and **actual `build.py` output**, not a hand-built loader:
+
+```sh
+SOURCE_PLAYER_TEST_DATA="$PLAYER563" \
+SOURCE_PLAYER_TEST_OLD_DATA="$PINNED_PLAYER558" \
+SOURCE_PLAYER_TEST_CHECKS="$OWNED_CHECKS_DLL" \
+SOURCE_PLAYER_TEST_BUNDLE="$OWNED_APPBUNDLE" \
+SOURCE_PLAYER_TEST_OUTPUT="$NEW_PRIVATE_TEST_OUTPUT" \
+python3 -B -m unittest discover -s tools/source-player -p prepare_test.py -v
+```
+
+The generated-JS boundary test replays the actual managed file-read ledger
+through emitted `main.js`: valid data empties the input map, omitting precisely
+the four retained reads reproduces the original fatal error, an unknown input
+still fails, and all four missing/corrupt retained files fail by name. Its
+stubbed runtime imports are boundary tests, **not** genuine browser startup or
+World/PNG evidence. With no explicit private paths these tests skip rather
+than generating substitute assets. Use isolated output/intermediate/SDK roots.
+
+Status passively exposes catalog/library/callback identity, actual factory and
+enabled flag, real ownership/pose data, and resolved hop selections delivered
+through the actual transport/cinematic recording consumer. It introduces no
+JavaScript gameplay, browser command or private-state setter. This is not native
+audio, a new Unity build, genuine World evidence, or whole-feature acceptance.
+The v4 recording and exact focused/full commands are documented in
+[`tests/defensive-presnap-switch`](../../tests/defensive-presnap-switch/README.md).
+The v3 and older recording descriptions below remain historical, not aliases
+for the new enabled profile.
+
 This is a separate, static .NET 10 browser-WASM application. It compiles and
 executes the **actual production C# M1 gameplay kernel**. JavaScript only delivers
 cabinet samples and draws C#-supplied original assets/matrices/HUD commands with

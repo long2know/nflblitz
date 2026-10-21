@@ -14,8 +14,14 @@ public sealed class PreviewOptions
     { Profile = profile; FireEnabled = fire; KickMeters = meters; Compatibility = compatibility; }
 
     public static PreviewOptions FromUrl(string url)
+        => FromUrl(url, SourceTeamResourceProfile.C2M1StableId);
+
+    public static PreviewOptions FromUrl(string url, string builtStableId)
     {
-        var profile = SourceTeamResourceProfile.SelectRuntimeProfile(url, SourceTeamResourceProfile.C2M1StableId);
+        DataCatalog.Require(builtStableId == SourceTeamResourceProfile.C2M1StableId ||
+            builtStableId == SourceTeamResourceProfile.PreSnapSwitchStableId,
+            "An explicit authenticated historical M1 or pre-snap-switch built profile is required.");
+        var profile = SourceTeamResourceProfile.SelectRuntimeProfile(url, builtStableId);
         bool fire = SourceFireGameplayOptions.PortableRequested(url);
         SourceKickMeterMode meters = SourceKickMeterOptions.FromUrl(url);
         SourceGameplayCompatibility parsed = SourceGameplayCompatibilityOptions.FromUrl(url);
@@ -24,7 +30,7 @@ public sealed class PreviewOptions
         if (query >= 0 && (fragment < 0 || query < fragment))
             foreach (string part in url.Substring(query + 1, (fragment < 0 ? url.Length : fragment) - query - 1).Split('&'))
                 explicitCompatibility |= Uri.UnescapeDataString(part.Split('=')[0]) == "source-compatibility";
-        DataCatalog.Require(profile.IsContact281C2M1, "This private browser asset generation requires its selected M1 profile; no C1/old-nine alias.");
+        DataCatalog.Require(profile.UsesM1Services, "This private browser asset generation requires its selected M1 profile; no C1/old-nine alias.");
         return new PreviewOptions(profile.StableId, fire, meters,
             explicitCompatibility ? parsed : SourceGameplayCompatibility.Portable);
     }

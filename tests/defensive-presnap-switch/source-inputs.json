@@ -1,0 +1,22 @@
+{
+  "schema": "defensive-presnap-switch-original-inputs/v1",
+  "repository": "historicalsource/nflblitz2000",
+  "revision": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "tree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
+  "inputs": {
+    "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+    "pmisc.c": "50426d40ecd03515cecd295fb80a63ffa0cb0683",
+    "sounds.c": "f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9",
+    "plyrseq.c": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
+    "include/player.h": "a86b1a5b52ba842b206cd7dd0bbb26521db6dcb8",
+    "include/GAME.H": "09d65c92971c32c44b1dc49fb4e4e98b371b1cd3",
+    "include/sndcalls.h": "69f6c483502fb689eb1991169e0e31858378c763",
+    "include/ani3d.h": "826c6322467fcfe503b8402b540e4731671f9b6b",
+    "include/Anim.h": "640a17bc2fc7e549adcb7958e461e23c6ea3a247",
+    "lib/ani3d/ANIM.C": "97d7856d67a432937e249be274ef67a9ad354dc1",
+    "lib/ani3d/pipe3D.c": "0966ecaf0d7eef7d9c635a97899a421ce1eeea41",
+    "anim/misc2.wan": "5b3083a71b1a7729d508b804712f5a754afaca5b",
+    "anim/Line.wan": "1f1f998404c804946d0e09a811f26aa974593b97"
+  },
+  "boundary": "Named original caller/station/sound/VM bodies and existing selected-pose lineage only; private extraction, no original bodies or numeric fixtures in Git."
+}

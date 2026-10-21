@@ -56,7 +56,7 @@ def ignored_output(path):
 
 
 def input_pins(profile="legacy"):
-    if profile not in ("legacy", "contact272"):
+    if profile not in ("legacy", "contact272", "defensive-presnap-switch"):
         raise ValueError("Unknown explicit original-input profile: " + profile)
     pins = {}
 
@@ -95,9 +95,16 @@ def input_pins(profile="legacy"):
         add(name, pin)
     for name, pin in SOUND_STATE_INPUTS.items():
         add(name, pin)
-    if profile == "contact272":
+    if profile in ("contact272", "defensive-presnap-switch"):
         from contact_inputs import SOURCE_PINS
         for name, pin in SOURCE_PINS.items():
+            add(name, pin)
+    if profile == "defensive-presnap-switch":
+        selected = json.loads((ROOT / "tests/defensive-presnap-switch/source-inputs.json").read_bytes())
+        if (selected["schema"] != "defensive-presnap-switch-original-inputs/v1" or
+                selected["revision"] != REVISION or selected["tree"] != TREE):
+            raise ValueError("The exact bounded defensive pre-snap original-input selection is required.")
+        for name, pin in selected["inputs"].items():
             add(name, pin)
     return dict(sorted(pins.items()))
 
@@ -137,7 +144,7 @@ def verified_original_hashes(root, profile="legacy"):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--profile", choices=("legacy", "contact272"), default="legacy",
+    parser.add_argument("--profile", choices=("legacy", "contact272", "defensive-presnap-switch"), default="legacy",
                         help="Keep the original69 default; contact272 adds only active C1 source/operand/WAN pins.")
     parser.add_argument("--cache", type=Path, action="append", default=[],
                         help="Explicit read-only original cache; only matching bytes are used.")
@@ -210,7 +217,7 @@ def main():
         raise ValueError("Tree metadata identity/completeness mismatch.")
     if not tree_target.exists():
         tree_target.write_bytes(tree_bytes)
-    if args.profile == "contact272":
+    if args.profile != "legacy":
         verified_original_hashes(destination, args.profile)
     receipt = {"schema": "source-kernel-original-inputs/v1", "repository": REPOSITORY,
                "revision": REVISION, "tree": TREE, "verified_blobs": records,

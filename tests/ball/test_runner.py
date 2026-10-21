@@ -177,8 +177,14 @@ class BallRunnerGuards(unittest.TestCase):
                 RUNNER.require_mutant(code, summary, "actual field")
 
     def test_actual_frozen_mutation_anchor_inventory_is_exact(self):
-        self.assertEqual(20, len(RUNNER.MUTATIONS))
-        self.assertEqual(20, len({row[0] for row in RUNNER.MUTATIONS}))
+        self.assertEqual((
+            "pelvis-strict14", "wrist-strict5", "early-defender30", "original-deflect-quirk",
+            "original-ball-floor", "control-time18-probability", "actual-wrist-basis",
+            "focus-edge-flush", "raw-released-latch", "raw-new-pressed", "source-transform-wake",
+            "off-flip-real-lineup", "original-predicate90", "singleton-camera-draw",
+            "noncarrier-shaker-filter", "human-receiver-columns", "pat-sentinel-rejected",
+            "normal-down-upper-bound", "delayed-catch-controller", "delayed-possession-credit",
+        ), tuple(row[0] for row in RUNNER.MUTATIONS))
         for name, filename, anchor, replacement, _, _, occurrences in RUNNER.MUTATIONS:
             with self.subTest(name=name):
                 path = RUNNER.ROOT / "Assets/Scripts/Gameplay" / filename
@@ -187,16 +193,73 @@ class BallRunnerGuards(unittest.TestCase):
 
     def test_fresh_press_mutant_targets_active_post_begin_tick_state_merge(self):
         row = next(item for item in RUNNER.MUTATIONS if item[0] == "raw-new-pressed")
-        self.assertEqual("SourceMovementIntegration.cs", row[1])
-        self.assertEqual("state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;", row[2])
-        self.assertIn("post-BeginTick latched fresh B", row[5])
-        source = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_text()
+        self.assertEqual((
+            "raw-new-pressed", "SourceMovementIntegration.cs",
+            "state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);",
+            "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
+            "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1,
+        ), row)
+        self.assertEqual("defensive-presnap-switch/post-BeginTick/v1", RUNNER.RAW_NEW_PRESSED_GENERATION)
+        self.assertEqual("9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165",
+                         RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256)
+        data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_bytes()
+        self.assertEqual(RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256, hashlib.sha256(data).hexdigest())
+        source = data.decode()
         begin = source.index("private void UpdateSourceMovementPlayers(")
+        end = source.index("private void IntegrateSourceMovementPlayer(", begin)
+        actor_merge = source.index(
+            "actor.SourceNewButtons |= SourceMovementPressedButtons(actor, station.Pressed);", begin)
         tick = source.index("state = SourceMovement.BeginTick(", begin)
         merge = source.index(row[2], tick)
         apply = source.index("ApplySourceMovement(actor, state);", merge)
-        self.assertLess(tick, merge)
-        self.assertLess(merge, apply)
+        execute = source.index("ExecuteSourceMovementMode(actor, input);", apply)
+        self.assertEqual(sorted((begin, actor_merge, tick, merge, apply, execute, end)),
+                         [begin, actor_merge, tick, merge, apply, execute, end])
+        self.assertEqual(1, source[begin:end].count(row[2]))
+        self.assertNotIn("state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;", source)
+        helper_begin = source.index("private SourceDroneButtons SourceMovementPressedButtons(")
+        helper_end = source.index("private void SourceDefensivePreSnapSwitch(", helper_begin)
+        helper = source[helper_begin:helper_end]
+        self.assertIn("SourceDroneButtons buttons = (SourceDroneButtons)(int)pressed;", helper)
+        self.assertIn("return SourceDefensivePreSnapSwitchEnabled && actor.SourceFakeBTick == Model.SourceTick\n"
+                      "                ? buttons & ~SourceDroneButtons.B : buttons;", helper)
+        self.assertIn("actor.SourceNewButtons = state.NewButtons;", source)
+
+        mutated = RUNNER.mutation_source(row, data)
+        self.assertNotEqual(data, mutated)
+        self.assertEqual(0, mutated.count(row[2].encode()))
+        self.assertEqual(1, mutated.count(row[3].encode()))
+        self.assertEqual(data, mutated.replace(row[3].encode(), row[2].encode()))
+        artifact = mutated.decode()
+        self.assertEqual(source[:merge], artifact[:merge])
+        self.assertLess(artifact.index("state = SourceMovement.BeginTick(", begin), artifact.index(row[3]))
+        self.assertLess(artifact.index(row[3]), artifact.index("ApplySourceMovement(actor, state);", begin))
+        self.assertIn(helper, artifact, "The causal control must retain the real same-wake fake-B mask.")
+
+    def test_fresh_press_mutation_rejects_mistargeted_metadata_and_stale_source(self):
+        row = next(item for item in RUNNER.MUTATIONS if item[0] == "raw-new-pressed")
+        data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_bytes()
+        for index, wrong in (
+                (0, "raw-new-pressed-skipped"),
+                (1, "GameSimulation.cs"),
+                (2, "actor.SourceNewButtons |= SourceMovementPressedButtons(actor, station.Pressed);"),
+                (2, "state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;"),
+                (2, "actor.SourceReleasedButtons |= (SourceDroneButtons)(int)station.Released;"),
+                (3, row[2]), (4, "native"), (5, "unrelated assertion"), (6, 2)):
+            with self.subTest(field=index, wrong=wrong):
+                changed = list(row)
+                changed[index] = wrong
+                with self.assertRaisesRegex(RuntimeError, "Actual mutation binding changed"):
+                    RUNNER.mutation_source(tuple(changed), data)
+        for changed in (
+                data + b"\n",
+                data.replace(b"? buttons & ~SourceDroneButtons.B : buttons;", b"? buttons : buttons;"),
+                data.replace(row[2].encode(), b"state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;"),
+                data.replace(row[2].encode(),
+                             b"actor.SourceNewButtons |= SourceMovementPressedButtons(actor, station.Pressed);")):
+            with self.subTest(source_sha256=hashlib.sha256(changed).hexdigest()):
+                with self.assertRaisesRegex(RuntimeError, "Actual raw-new-pressed source SHA256 changed"):
+                    RUNNER.mutation_source(row, changed)
 
     def test_source_transform_mutant_still_omits_odd_dispatches_in_the_actual_shared_helper(self):
         row = next(item for item in RUNNER.MUTATIONS if item[0] == "source-transform-wake")

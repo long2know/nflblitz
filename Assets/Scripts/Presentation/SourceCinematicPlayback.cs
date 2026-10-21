@@ -187,12 +187,19 @@ namespace Blitz.Presentation
             if (cue.Kind != SourcePresentationCueKind.SoundCallback)
                 throw new InvalidOperationException("Only an already-resolved sound callback belongs here; PlayerDown/SPFX are not replayed.");
             RequireOriginalCallback(cue);
-            if (dispatch.C2Context != null)
+            bool preSnapSwitchCue = cue.Context.ExecutingSymbol == "m_hopclp_anim";
+            if (dispatch.C2Context != null || preSnapSwitchCue)
             {
                 SourceC2SoundContext c2Context = dispatch.C2Context;
-                if (!c2Context.HasOriginalAnimationCue || !ReferenceEquals(c2Context.OriginalAnimationCue, cue) ||
+                if (c2Context == null || !c2Context.HasOriginalAnimationCue || !ReferenceEquals(c2Context.OriginalAnimationCue, cue) ||
                     c2Context.Kind != SourceC2SoundFunctionKind.TauntSpeech &&
-                    c2Context.Kind != SourceC2SoundFunctionKind.HitFunctionExtension)
+                    c2Context.Kind != SourceC2SoundFunctionKind.HitFunctionExtension &&
+                    c2Context.Kind != SourceC2SoundFunctionKind.AttackSoundFixed ||
+                    preSnapSwitchCue != (c2Context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed) ||
+                    c2Context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed &&
+                    (cue.Context.SourceLine != 3409 || cue.FunctionSymbol != "attack_snd" ||
+                        cue.Argument0 != 127 || cue.Argument1 != 0 || cue.Argument2 != 0 ||
+                        !cue.Context.ScriptInstanceId.HasValue || cue.Context.OpcodeSymbol != "ANI_CODE"))
                     throw new InvalidOperationException("Only actual C2 animation sound kinds use the cinematic cue path; native whistles have no fake ANI cue.");
                 if (c2Context.Kind == SourceC2SoundFunctionKind.HitFunctionExtension &&
                     (cue.FunctionSymbol != "get_hit_snd" || cue.Context.SourceLine != 7538 || cue.Argument0 != 70))
@@ -207,7 +214,8 @@ namespace Blitz.Presentation
                 SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls[i];
                 if (call == null || !call.HasOriginalAnimationCue || !ReferenceEquals(call.OriginalCue, cue) ||
                     call.SubcallOrder != i || dispatch.C2Context != null &&
-                    (dispatch.C2Context.Kind == SourceC2SoundFunctionKind.TauntSpeech
+                    (dispatch.C2Context.Kind == SourceC2SoundFunctionKind.TauntSpeech ||
+                        dispatch.C2Context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed
                         ? !ReferenceEquals(call.C2Context, dispatch.C2Context)
                         : call.C2Context != null))
                     throw new InvalidOperationException("Already-resolved source sound output must retain the exact OriginalCue and ordered subcalls.");

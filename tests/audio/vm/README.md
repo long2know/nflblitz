@@ -11,9 +11,16 @@ remain separately identified. `--output` requires a new ignored child.
 The resumed current run passes142 short checks,800,735 full VM assertions /
 15,912 unchanged original-C cases, all11 successfully compiled named controls,
 and the final unchanged original-C baseline. The eleventh `post-host-selection`
-control now uniquely anchors the actual `ExecuteSourceSoundVm` binding-required
-guard before the C2 dispatch branch; its deferral behavior and causal assertion
-are unchanged. The prior10/11 stale-anchor failure remains preserved, not
+control uniquely anchors the actual `ExecuteSourceSoundVm` method entry through
+`RequireSourceSoundVmBinding();`, before both the new pre-snap-switch tuple
+validation and the C2 dispatch branch. It no longer assumes that those two
+statements are adjacent. Its current-source identity is recorded under
+`defensive-presnap-switch/binding-required/v1`; the shared mutation writer and
+asset-free guards reject a stale source, dropped control/edits, or a retarget to
+the native-sound method. Deferral remains after mandatory binding and before
+selection, with the same named process-offset assertion. Legacy six-tuple SAFN,
+old C2 and new fixed-hop callback/payload contracts are not relabelled or relaxed.
+The prior10/11 stale-anchor failure remains preserved, not
 counted as a kill. This is not whole-game/DSP/native acceptance.
 
 This is a pure Core regression suite, not an audio player or Unity/DSP test.
@@ -116,11 +123,11 @@ semantics.
 
 The C1-integrated C# VM inventory is **142 short assertions**, then **800,735
 assertions / 15,912 actual-C cases**. All **11** source mutants must fail their
-individual named contracts, followed by another exact800,734 baseline. The
+individual named contracts, followed by another exact800,735 baseline. The
 runner rejects wrong counts, missing tuples,117/156 aliases, untrusted SAFN,
 unrelated assertions, crashes and compile failures. It hashes all actual
 prepared files, explicit overrides, original state/function sources and the
-complete compiled production inventory before/after. Eight asset-free guards
+complete compiled production inventory before/after. Twelve asset-free guards
 exercise those gates; they are not counted as original-C cases.
 
 `SourceSoundVmSources.props` explicitly links the unchanged pure

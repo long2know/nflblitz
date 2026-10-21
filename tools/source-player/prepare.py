@@ -69,7 +69,7 @@ class Bundle:
     def document(self, root, relative, expected, destination=None):
         return json.loads(self.add(root, relative, expected, destination))
 
-    def persist(self, output, entrypoints, origins=None):
+    def persist(self, output, entrypoints, origins=None, profile="original-teams-contact281-c2-m1"):
         output = output.absolute()
         require(output.resolve() == output and PROJECT in output.parents,
                 "Private data output must be a real ignored directory inside this checkout.")
@@ -80,7 +80,7 @@ class Bundle:
         manifest = {
             "schema": "blitz-portable-source-player/v1",
             "runtimeFlavor": "portable C# browser preview (not a Unity player build)",
-            "profile": "original-teams-contact281-c2-m1",
+            "profile": profile,
             "sourceRevision": SOURCE,
             "converterRevision": "1792293aaaea00a919b59e8c05716978e85b4333",
             "entrypoints": entrypoints,

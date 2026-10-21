@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Asset-free guards for the actual linked pure selector and explicit input contract."""
+import hashlib
 import importlib.util
 from pathlib import Path
 import unittest
@@ -13,16 +14,70 @@ SPEC.loader.exec_module(RUNNER)
 
 class SoundVmClosure(unittest.TestCase):
     def test_post_host_selection_anchor_is_the_unique_current_binding_required_boundary(self):
-        current = (ROOT / "Assets/Scripts/Gameplay/SourceSoundVm.cs").read_text()
+        current = (ROOT / "Assets/Scripts/Gameplay/SourceSoundVm.cs").read_bytes().decode("utf-8")
         old, new = RUNNER.POST_HOST_SELECTION_ANCHOR, RUNNER.POST_HOST_SELECTION_DEFERRED
         self.assertEqual(current.count(old), 1)
         self.assertIn("private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)", old)
-        self.assertIn("RequireSourceSoundVmBinding();\n            if (SourceC2Enabled)", old)
+        self.assertTrue(old.endswith("RequireSourceSoundVmBinding();"))
+        self.assertEqual(hashlib.sha256(current.encode()).hexdigest(),
+                         RUNNER.POST_HOST_SELECTION_SOURCE_SHA256)
+        self.assertEqual(RUNNER.POST_HOST_SELECTION_BINDING,
+                         "defensive-presnap-switch/binding-required/v1")
         self.assertIn("deferred.Add(Tuple.Create(actor,cue)); return;", new)
         self.assertEqual(new.replace(
             " if (!deliveringDeferred) { deferred.Add(Tuple.Create(actor,cue)); return; }", ""), old)
         self.assertEqual(RUNNER.MUTATION_FIELDS["post-host-selection"],
                          "current source process call offset enters selector")
+        name, filename, edits = RUNNER.mutation_specs()[-1]
+        self.assertEqual((name, filename), ("post-host-selection", "SourceSoundVm.cs"))
+        mutated = RUNNER.mutated_source(current, name, edits)
+        expected = current.replace(
+            "private bool sourceSoundVmFailed;",
+            "private bool sourceSoundVmFailed;\n        private bool deliveringDeferred;\n"
+            "        private readonly List<Tuple<ActorState, SourceCallbackCue>> deferred = "
+            "new List<Tuple<ActorState, SourceCallbackCue>>();", 1).replace(
+            "var batch = new SourceSoundVmBatch(sourceSoundVmPending);",
+            "deliveringDeferred = true; foreach (var item in deferred) "
+            "ExecuteSourceSoundVm(item.Item1,item.Item2); deferred.Clear(); deliveringDeferred = false;\n"
+            "            var batch = new SourceSoundVmBatch(sourceSoundVmPending);", 1).replace(old, new, 1)
+        self.assertEqual(mutated, expected)
+        reverse = mutated
+        for before, after in reversed(edits):
+            self.assertEqual(reverse.count(after), 1)
+            reverse = reverse.replace(after, before, 1)
+        self.assertEqual(reverse, current)
+        start = mutated.index("private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)")
+        points = [
+            "RequireSourceSoundVmBinding();",
+            "if (!deliveringDeferred) { deferred.Add(Tuple.Create(actor,cue)); return; }",
+            "bool preSnapSwitchSound = SourceDefensivePreSnapSwitchEnabled",
+            'cue.Context.ExecutingSymbol == "m_hopclp_anim"',
+            "if (preSnapSwitchSound && (cue.Kind != SourcePresentationCueKind.SoundCallback",
+            "if (SourceC2Enabled)",
+            "foreach (SourceC2VmBinding candidate in sourceC2Bootstrap.Data.Bindings)",
+            "ExecuteSourceC2Sound(c2Context, C2SoundState(actorState), actorState, execution);",
+            "SourceAudioVmBinding binding = null;",
+            "SourceAudioFunctionResult result = SourceAudioFunctions.Select(",
+            "AdvanceSourceSoundRandom(context, result);",
+        ]
+        offsets = [mutated.index(point, start) for point in points]
+        self.assertEqual(offsets, sorted(set(offsets)))
+
+    def test_post_host_selection_rejects_dropped_edits_stale_source_and_native_retarget(self):
+        current = (ROOT / "Assets/Scripts/Gameplay/SourceSoundVm.cs").read_bytes().decode("utf-8")
+        name, _, edits = RUNNER.mutation_specs()[-1]
+        native = """        private void ExecuteSourceC2NativeSound(SourceC2SoundContext context)
+        {
+            RequireSourceSoundVmBinding();"""
+        self.assertEqual(current.count(native), 1)
+        for value, changed in (
+            (current + "\n", edits),
+            (current, edits[:-1]),
+            (current, edits[:-1] + [(native, native + " return;")]),
+        ):
+            with self.subTest(edits=len(changed)), self.assertRaisesRegex(
+                    RuntimeError, "current source and binding-required boundary"):
+                RUNNER.mutated_source(value, name, changed)
 
     def test_frozen_selector_is_an_explicit_actual_compile_dependency(self):
         props = ET.parse(ROOT / "tests/audio/vm/SourceSoundVmSources.props")
@@ -120,6 +175,11 @@ class SoundVmClosure(unittest.TestCase):
 
     def test_all_eleven_mutants_require_the_named_field_not_just_any_failure(self):
         self.assertEqual(11, len(RUNNER.MUTATION_FIELDS))
+        self.assertEqual([name for name, _, _ in RUNNER.mutation_specs()], [
+            "double-consume", "wrong-stream", "wrong-process-order", "cursor-offset-reset",
+            "raw-flags-as-role", "mode-as-role", "wrong-script-tuple", "unknown-is-null",
+            "partial-offset-rollback", "duplicate-delivery", "post-host-selection",
+        ])
         for name, field in RUNNER.MUTATION_FIELDS.items():
             row = {"schema": "source-sound-vm-checks/v1", "status": "failed",
                    "assertions": 1, "failed_assertion": field}

@@ -180,12 +180,45 @@ namespace Blitz.Runtime
                 throw new InvalidOperationException("C2 sound retains its actual source process/call cursor, not a presentation clock.");
             if (c2 != null && dispatch.HasOriginalAnimationCue &&
                 (!c2.HasOriginalAnimationCue || !ReferenceEquals(c2.OriginalAnimationCue, dispatch.OriginalCue) ||
-                    c2.Kind != SourceC2SoundFunctionKind.TauntSpeech && c2.Kind != SourceC2SoundFunctionKind.HitFunctionExtension))
-                throw new InvalidOperationException("C2 animation sound must retain its real cue and taunt/hit discriminator.");
+                    c2.Kind != SourceC2SoundFunctionKind.TauntSpeech && c2.Kind != SourceC2SoundFunctionKind.HitFunctionExtension &&
+                    c2.Kind != SourceC2SoundFunctionKind.AttackSoundFixed))
+                throw new InvalidOperationException("C2 animation sound must retain its real cue and exact typed discriminator.");
             if (c2 != null && c2.Kind == SourceC2SoundFunctionKind.HitFunctionExtension &&
                 (!dispatch.HasOriginalAnimationCue || dispatch.OriginalCueContext.SourceLine != 7538 ||
                     dispatch.OriginalCue.FunctionSymbol != "get_hit_snd" || dispatch.OriginalCue.Argument0 != 70))
                 throw new InvalidOperationException("C2 HitFunctionExtension retains actual7538/get_hit_snd70.");
+            bool hop = dispatch.HasOriginalAnimationCue &&
+                dispatch.OriginalCueContext.SourcePath == "plyrseq.c" &&
+                dispatch.OriginalCueContext.ExecutingSymbol == "m_hopclp_anim";
+            bool attack = c2 != null && c2.Kind == SourceC2SoundFunctionKind.AttackSoundFixed;
+            if (hop || attack)
+            {
+                if (!hop || !attack || dispatch.OriginalCueContext.SourceLine != 3409 ||
+                    !dispatch.OriginalCueContext.ScriptInstanceId.HasValue ||
+                    dispatch.OriginalCueContext.OpcodeSymbol != "ANI_CODE" ||
+                    dispatch.OriginalCue.Kind != SourcePresentationCueKind.SoundCallback ||
+                    dispatch.OriginalCue.FunctionSymbol != "attack_snd" || dispatch.OriginalCue.Argument0 != 127 ||
+                    dispatch.OriginalCue.Argument1 != 0 || dispatch.OriginalCue.Argument2 != 0 ||
+                    dispatch.Status == SourceSoundVmStatus.Unsupported)
+                    throw new InvalidOperationException("Original hop requires its exact3409/attack_snd127,0,0 resolved typed cue, never Unsupported/legacy-ground fallback.");
+                if (dispatch.Status == SourceSoundVmStatus.Resolved)
+                {
+                    if (dispatch.Result == null || dispatch.Result.RandomCalls != 0 ||
+                        dispatch.Result.Calls.Count != 1 || !dispatch.C2StateAtCall.HasValue)
+                        throw new InvalidOperationException("Fixed attack sound requires exactly one actual call and zero RNG.");
+                    Blitz.Presentation.SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls[0];
+                    SourceC2SoundState state = dispatch.C2StateAtCall.Value;
+                    if (call == null || !state.ActorStation.HasValue || state.ActorStation.Value < -1 ||
+                        state.ActorStation.Value > 3 || string.IsNullOrEmpty(state.CurrentPlayerBank) ||
+                        call.Bank != state.CurrentPlayerBank || call.PlaylistId != 127 || call.Volume != 160 ||
+                        call.Pan != 127 || call.PriorityWord != (state.ActorStation.Value != -1 ? 10u : 15u) ||
+                        call.RandomCalls != 0 || call.CalleeSourceSite == null ||
+                        call.CalleeSourceSite.SourcePath != "sounds.c" ||
+                        call.CalleeSourceSite.SourceGitBlob != "f5ac3fd2cec5c20998bb613066a355e0d0d4d0e9" ||
+                        call.CalleeSourceSite.FunctionSymbol != "attack_snd" || call.CalleeSourceSite.SourceLine != 1638)
+                        throw new InvalidOperationException("Fixed attack output must retain actual bank/station and original1638/127/160/127/human10-or-drone15 selection.");
+                }
+            }
             if (dispatch.Status == SourceSoundVmStatus.Unsupported)
             {
                 if (dispatch.Result != null)
@@ -195,6 +228,9 @@ namespace Blitz.Runtime
             if (dispatch.Status != SourceSoundVmStatus.Resolved && dispatch.Status != SourceSoundVmStatus.MissingInput ||
                 dispatch.Result == null)
                 throw new InvalidOperationException("Completed or partial source sound records must retain the actual result.");
+            if (attack && (dispatch.Result.RandomCalls != 0 ||
+                dispatch.Status == SourceSoundVmStatus.MissingInput && dispatch.Result.Calls.Count != 0))
+                throw new InvalidOperationException("Fixed attack partial failure retains zero draws and no calls before missing station/bank input.");
             for (int i = 0; i < dispatch.Result.Calls.Count; i++)
             {
                 Blitz.Presentation.SourceAudioResolvedOriginalSoundCall call = dispatch.Result.Calls[i];

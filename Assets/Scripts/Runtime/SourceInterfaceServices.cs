@@ -80,6 +80,7 @@ namespace Blitz.Runtime
         public const string ResourceKey = SourceInterfacePackagePlan.ContactServicesResourceKey;
         public const string C2ResourceKey = SourceInterfacePackagePlan.C2ServicesResourceKey;
         public const string C2M1ResourceKey = SourceInterfacePackagePlan.C2M1ServicesResourceKey;
+        public const string PreSnapSwitchResourceKey = SourceInterfacePackagePlan.PreSnapSwitchServicesResourceKey;
         public const string HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey;
         public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
         public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
@@ -126,6 +127,7 @@ namespace Blitz.Runtime
         public static string ResourceKeyFor(SourceTeamResourceProfile profile)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
+            if (profile.IsContact282C2M1PreSnapSwitch) return PreSnapSwitchResourceKey;
             if (profile.IsContact281C2M1) return C2M1ResourceKey;
             if (profile.IsContact281C2) return C2ResourceKey;
             if (profile.IsContact272) return ResourceKey;
@@ -138,14 +140,16 @@ namespace Blitz.Runtime
                 if (!Profile.UsesC2Data) throw new SourceInterfaceException("Historical services have no implicit C2 bank-entry bootstrap.");
                 if (c2Data == null)
                 {
-                    string callbackKey = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
+                    string callbackKey = Profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackResourceKey :
+                        Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
                         SourceInterfacePackagePlan.C2CallbackResourceKey;
                     TextAsset callbacks = Resources.Load<TextAsset>(callbackKey);
                     TextAsset hit = Resources.Load<TextAsset>(SourceInterfacePackagePlan.C2HitResourceKey);
                     if (callbacks == null || hit == null || !ReferenceEquals(callbacks, originalC2Callbacks) ||
                         !ReferenceEquals(hit, originalC2HitExtension))
                         throw new SourceInterfaceException("C2 services require the SAME canonical JSON/ONE7538 extension assets; copied/old resources are not aliases.");
-                    c2Data = Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hit.bytes) :
+                    c2Data = Profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks.bytes, hit.bytes) :
+                        Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hit.bytes) :
                         SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hit.bytes);
                 }
                 return c2Data;
@@ -262,6 +266,16 @@ namespace Blitz.Runtime
                 soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
         }
 
+        public void InitializeContact282C2M1PreSnapSwitch(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA, TextAsset callbacks, TextAsset hitExtension)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
+        }
+
         private void InitializeProfile(SourceTeamResourceProfile profile, SourceAnimationLibraryAsset animationAsset,
             SourceHudAsset hud, TextAsset playbookText, SourceMatchConfiguration configuration,
             SourcePresentationSettings actualPresentation, bool enableNativeGamepads, TextAsset movementBootstrapText,
@@ -283,7 +297,9 @@ namespace Blitz.Runtime
             {
                 if (callbacks == null || hitExtension == null)
                     throw new SourceInterfaceException("C2 initialization requires actual canonical callback JSON and ONE7538 extension.");
-                if (profile.IsContact281C2M1)
+                if (profile.IsContact282C2M1PreSnapSwitch)
+                    SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks.bytes, hitExtension.bytes);
+                else if (profile.IsContact281C2M1)
                     SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hitExtension.bytes);
                 else SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hitExtension.bytes);
                 originalC2Callbacks = callbacks; originalC2HitExtension = hitExtension;
@@ -332,10 +348,10 @@ namespace Blitz.Runtime
             SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
             SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMode kickMeters = SourceKickMeterMode.Disabled)
         {
-            if (fireEffects != null && !Profile.IsContact281C2M1)
+            if (fireEffects != null && !Profile.UsesM1Services)
                 throw new SourceInterfaceException("source-fire=portable requires the explicit actual M1 resource profile.");
             if (compatibility != SourceGameplayCompatibility.StrictSource
-                && (compatibility != SourceGameplayCompatibility.Portable || !Profile.IsContact281C2M1))
+                && (compatibility != SourceGameplayCompatibility.Portable || !Profile.UsesM1Services))
                 throw new SourceInterfaceException("Portable gameplay requires the explicit M1 resource profile.");
             if (!Profile.IsContact272 && !Profile.UsesC2Data)
                 throw new SourceInterfaceException("This engine requires explicit Contact272 or Contact281C2 services. Historical157 resources are not silently upgraded or routed to old contact physics.");
@@ -358,6 +374,10 @@ namespace Blitz.Runtime
             {
                 SourceC2Bootstrap bootstrap = SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);
                 Debug.LogWarning("Explicit C2 original sound-bank entry consumes announcer then taunt draws BEFORE initial AI. Pre-boundary boot RNG and old golden trajectories are not claimed equivalent.");
+                if (Profile.IsContact282C2M1PreSnapSwitch)
+                    return SourceC2Composition.CreatePreSnapSwitchSimulation(animations, pivots, playbook, Configuration(),
+                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
+                        compatibility: compatibility, fireEffects: fireEffects, kickMeterMetrics: kickMetrics);
                 if (Profile.IsContact281C2M1)
                     return SourceC2Composition.CreateM1Simulation(animations, pivots, playbook, Configuration(),
                         teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,

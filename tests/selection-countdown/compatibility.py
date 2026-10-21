@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 BASE = "e3157c42df9a5f09d534f689339495429e778768"
 TREE = "7793a6257537fb165e97f7316cc8e6d97b2e72fe"
+FIXTURE_LOADER = "tests/parity/FullKernelInputs.cs"
 
 
 def require(value, message):
@@ -35,7 +36,7 @@ def source_baseline(names):
             require(kind == "blob" and mode in ("100644", "100755") and name in names,
                     "Only selected regular original-main production sources are permitted.")
             entries[name] = blob
-    require(set(entries) == set(names), "Baseline production compile closure differs.")
+    require(set(entries) == set(names), "Baseline selected compile closure differs.")
     files = {}
     with tarfile.open(fileobj=io.BytesIO(git("archive", "--format=tar", BASE, "--", *names))) as archive:
         for member in archive:
@@ -54,18 +55,21 @@ def source_baseline(names):
 def generate(args, output, production, compiler, references):
     started = time.monotonic()
     output.mkdir()
-    baseline = source_baseline(sorted(production))
-    common = {"DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes(),
-              "FullKernelInputs.cs": (ROOT / "tests/parity/FullKernelInputs.cs").read_bytes()}
+    baseline = source_baseline(sorted([*production, FIXTURE_LOADER]))
+    loaders = {"main40": baseline.pop(FIXTURE_LOADER),
+               "current": (ROOT / FIXTURE_LOADER).read_bytes()}
+    common = {"DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes()}
     receipt = dict(schema="untriggered-cabinet-byte-compatibility/v1", base=BASE, tree=TREE,
                    commands=[], runs=[], compared={}, originalTargetRandomQualified=False,
                    fullPublicReplayRegenerated=False, hostedOrFullM1Campaign=False,
-                   harnessSha256={n: hashlib.sha256(b).hexdigest() for n, b in common.items()})
+                   harnessSha256={n: hashlib.sha256(b).hexdigest() for n, b in common.items()},
+                   fixtureLoaderPath=FIXTURE_LOADER)
     for label, source in (("main40", baseline), ("current", production)):
         destination = output / label
         destination.mkdir()
         paths = []
-        for name, data in dict(source, **common).items():
+        harness = dict(common, **{"FullKernelInputs.cs": loaders[label]})
+        for name, data in dict(source, **harness).items():
             path = destination / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
@@ -84,7 +88,10 @@ def generate(args, output, production, compiler, references):
         compile_seconds = round(time.monotonic() - compile_start, 3)
         receipt["commands"].append(command)
         (destination / "compile.log").write_text(build.stdout + build.stderr)
-        require(build.returncode == 0 and not build.stdout + build.stderr, "Default compatibility compilation must have zero diagnostics.")
+        require(build.returncode == 0 and not build.stdout + build.stderr,
+                "Default compatibility compilation must have zero diagnostics (" + label +
+                ", exit " + str(build.returncode) + ", log " + str(destination / "compile.log") + "):\n" +
+                build.stdout + build.stderr)
         assembly.with_suffix(".runtimeconfig.json").write_text(json.dumps({"runtimeOptions": {
             "tfm": "net10.0", "framework": {"name": "Microsoft.NETCore.App", "version": "10.0.0"}}}))
         command = ["dotnet", str(assembly)] + [str(getattr(args, n).absolute()) for n in
@@ -99,6 +106,7 @@ def generate(args, output, production, compiler, references):
             exit=run.returncode, summary=json.loads(run.stdout),
             compileSeconds=compile_seconds, executeSeconds=round(time.monotonic() - run_start, 3),
             buildRoot=str(destination), runtimeRoot=str(destination),
+            harnessSha256={n: hashlib.sha256(b).hexdigest() for n, b in harness.items()},
             sources={n: hashlib.sha256(b).hexdigest() for n, b in source.items()}))
     for name in ("default-host.jsonl", "default-rng.json", "default-menu.json"):
         a, b = [(output / label / name).read_bytes() for label in ("main40", "current")]

@@ -562,6 +562,15 @@ namespace Blitz.Gameplay
                 new SourceAnimationInstruction(SourceAnimationOp.PrepareTransition, a: 3, b: 0),
                 new SourceAnimationInstruction(SourceAnimationOp.Callback, a: (int)SourceAnimationSignal.GeneralRun),
                 new SourceAnimationInstruction(SourceAnimationOp.End));
+            if (!programs.ContainsKey("m_hopclp_anim")) programs["m_hopclp_anim"] = new SourceAnimationProgram("m_hopclp_anim",
+                new SourceAnimationInstruction(SourceAnimationOp.SetMode, a: 131074),
+                new SourceAnimationInstruction(SourceAnimationOp.ZeroVelocity),
+                new SourceAnimationInstruction(SourceAnimationOp.PresentationCallback, a: 127, b: 0, c: 0, text: "attack_snd", sourceLine: 3409),
+                new SourceAnimationInstruction(SourceAnimationOp.NewSequence, text: "M_HOPCLP"),
+                new SourceAnimationInstruction(SourceAnimationOp.SetYVelocity, x: 0.54f),
+                new SourceAnimationInstruction(SourceAnimationOp.Stream, a: 19, b: 13),
+                new SourceAnimationInstruction(SourceAnimationOp.Stream, a: 16, b: 11),
+                new SourceAnimationInstruction(SourceAnimationOp.JumpProgram, text: "stance_anim_int", branchPc: -1));
             if (!programs.ContainsKey("stance_anim_int")) programs["stance_anim_int"] = new SourceAnimationProgram("stance_anim_int",
                 new SourceAnimationInstruction(SourceAnimationOp.SetMode, a: 131072),
                 new SourceAnimationInstruction(SourceAnimationOp.Interpolate, a: 16, b: 0, text: "RUSH_C"),

@@ -145,12 +145,24 @@ namespace Blitz.Gameplay
         private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
         {
             RequireSourceSoundVmBinding();
+            bool preSnapSwitchSound = SourceDefensivePreSnapSwitchEnabled
+                && cue.Context.SourcePath == "plyrseq.c" && cue.Context.ExecutingSymbol == "m_hopclp_anim";
+            if (preSnapSwitchSound && (cue.Kind != SourcePresentationCueKind.SoundCallback
+                || cue.Context.SourceLine != 3409 || cue.FunctionSymbol != "attack_snd"
+                || cue.Argument0 != 127 || cue.Argument1 != 0 || cue.Argument2 != 0))
+                throw new NotSupportedException("The enabled original hop supports only its exact attack_snd(127,0,0) cue.");
             if (SourceC2Enabled)
             {
                 foreach (SourceC2VmBinding candidate in sourceC2Bootstrap.Data.Bindings)
                 {
                     if (!candidate.Matches(cue)) continue;
-                    SourceRandomContext execution = SourceAnimationRandomContext(actor);
+                    if (preSnapSwitchSound && candidate.FunctionKind != SourceC2SoundFunctionKind.AttackSoundFixed)
+                        throw new NotSupportedException("The enabled original hop requires its exact fixed attack-sound binding.");
+                    // Immediate hop entry belongs to the caller's existing ordered process, not a new destination wake.
+                    SourceRandomContext execution = preSnapSwitchSound
+                        ? new SourceRandomContext(Model.SourceTick, actor.Id, Model.SourceRandomProcess,
+                            Model.SourceRandomProcessOrder, sourceRandom.Provenance.Profile, Model.SourceRandomCallIndex)
+                        : SourceAnimationRandomContext(actor);
                     var c2Context = new SourceC2SoundContext(candidate.FunctionKind, Model.SourceTick, execution.Process,
                         execution.ProcessOrder, actor.Id, cue.Context.SourcePath, cue.FunctionSymbol,
                         cue.Context.SourceLine, cue.Argument0, cue.Argument1, cue.Argument2, cue,
@@ -159,6 +171,12 @@ namespace Blitz.Gameplay
                     ExecuteSourceC2Sound(c2Context, C2SoundState(actorState), actorState, execution);
                     return;
                 }
+            }
+            if (preSnapSwitchSound)
+            {
+                sourceSoundVmFailed = true;
+                throw new NotSupportedException("The enabled original hop has no authenticated fixed attack-sound binding; "
+                    + "an Unsupported or legacy ground selector is not a successful fallback.");
             }
             SourceAudioVmBinding binding = null;
             foreach (SourceAudioVmBinding candidate in sourceSoundVmData.VmBindings)
@@ -224,6 +242,17 @@ namespace Blitz.Gameplay
             {
                 SourceAudioFunctionResult result = SourceC2SoundFunctions.Select(sourceC2Bootstrap.Data,
                     context.Kind, context, state, sourceRandom, execution);
+                if (context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed &&
+                    (result == null || result.RandomCalls != 0 || result.Calls.Count != 1 ||
+                        result.Calls[0] == null || result.Calls[0].SubcallOrder != 0 ||
+                        result.Calls[0].RandomCalls != 0 || !ReferenceEquals(result.Calls[0].C2Context, context) ||
+                        !result.Calls[0].HasOriginalAnimationCue ||
+                        !ReferenceEquals(result.Calls[0].OriginalCue, context.OriginalAnimationCue)))
+                {
+                    if (result != null) AdvanceSourceSoundRandom(execution, result);
+                    sourceSoundVmFailed = true;
+                    throw new InvalidOperationException("Fixed hop sound requires one real cue-paired original call and zero random draws.");
+                }
                 AdvanceSourceSoundRandom(execution, result);
                 sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,
                     SourceSoundVmStatus.Resolved, result, null));

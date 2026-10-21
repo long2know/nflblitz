@@ -10,10 +10,16 @@ public sealed class DataCatalog
     private readonly Func<string, byte[]> read;
     private readonly Dictionary<string, FilePin> files = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> entrypoints = new(StringComparer.Ordinal);
+    private readonly HashSet<string> consumed = new(StringComparer.Ordinal);
     public string ManifestSha256 { get; }
     public int FileCount => files.Count;
     public long ByteCount { get; }
     public IReadOnlyDictionary<string, FilePin> Files => files;
+    public IReadOnlyList<FilePin> RetainedInputs { get; } = Array.Empty<FilePin>();
+    public int ActiveInputCount => FileCount - RetainedInputs.Count;
+    public int ConsumedInputCount => consumed.Count;
+    public int VerifiedRetainedInputCount => RetainedInputs.Count(pin => consumed.Contains(pin.Path));
+    public SourceTeamResourceProfile Profile { get; }
 
     public sealed record FilePin(string Path, int Bytes, string Sha256);
 
@@ -27,10 +33,12 @@ public sealed class DataCatalog
         var root = json.RootElement;
         Require(root.GetProperty("schema").GetString() == "blitz-portable-source-player/v1" &&
             root.GetProperty("runtimeFlavor").GetString() == PlayerHost.RuntimeFlavor &&
-            root.GetProperty("profile").GetString() == SourceTeamResourceProfile.C2M1StableId &&
+            (root.GetProperty("profile").GetString() == SourceTeamResourceProfile.C2M1StableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.PreSnapSwitchStableId) &&
             root.GetProperty("sourceRevision").GetString() == SourceEnvironmentReader.SourceCommit &&
             root.GetProperty("converterRevision").GetString() == SourceEnvironmentReader.ToolsCommit,
-            "Only the explicitly identified original M1 portable preview data generation is supported.");
+            "Only the explicitly identified historical M1 or pre-snap-switch portable data generation is supported.");
+        Profile = SourceTeamResourceProfile.FromStableId(root.GetProperty("profile").GetString());
         var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var value in root.GetProperty("files").EnumerateArray())
         {
@@ -53,6 +61,45 @@ public sealed class DataCatalog
         foreach (string name in new[] { "rosters", "model", "skeleton", "playbook", "movement", "sound",
             "animations", "callbacks", "hit", "impact", "world", "teams", "hud", "settings", "bootstrap", "freeBall" })
             Require(entrypoints.ContainsKey(name), "Required actual source service is missing: " + name);
+        if (Profile.IsContact282C2M1PreSnapSwitch)
+        {
+            Require(files.Count == 563, "Pre-snap switch requires the exact563-file successor, not a relabeled historical bundle.");
+            foreach (var pair in new[] {
+                ("animations", "animation/export-inventory-presnap-switch.json", Profile.AnimationSha256),
+                ("callbacks", "kernel/c2-presnap-switch-callback-data.json", SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256),
+                ("impact", "kernel/impact-presnap-switch-presentation.json", SourceTeamResourceProfile.PreSnapSwitchImpactSha256)
+            })
+                Require(Entry(pair.Item1) == pair.Item2 && EntryHash(pair.Item1) == pair.Item3,
+                    "Pre-snap switch entrypoint/generation differs: " + pair.Item1);
+            Require(Entry("settings") == "settings-presnap-switch.json" &&
+                files.ContainsKey("animation/clips/M_HOPCLP.json"),
+                "The explicit new configuration and authentic hop clip are mandatory.");
+            RetainedInputs = Array.AsReadOnly(new[] {
+                new FilePin("animation/export-inventory.json", 194429, SourceTeamResourceProfile.C2AnimationSha256),
+                new FilePin("kernel/c2-callback-data.json", 8195, SourceInterfacePackagePlan.C2M1CallbackSha256),
+                new FilePin("kernel/impact-presentation.json", 141550, SourceTeamResourceProfile.C2M1ImpactSha256),
+                new FilePin("settings.json", 834, "a78aaa6144e80700550ff1204c393bda2c279200dbf9b5a4dad147d6c6b20777")
+            });
+            foreach (FilePin pin in RetainedInputs)
+            {
+                Require(files.TryGetValue(pin.Path, out FilePin actual) && actual == pin,
+                    "Missing/changed sealed retained historical input: " + pin.Path);
+                Require(!entrypoints.ContainsValue(pin.Path),
+                    "A sealed retained historical input cannot be an active source service: " + pin.Path);
+            }
+        }
+    }
+
+    internal void VerifyRetainedInputs()
+    {
+        foreach (FilePin pin in RetainedInputs) Read(pin.Path);
+    }
+
+    public void RequireAllInputsConsumed()
+    {
+        string[] remaining = files.Keys.Where(path => !consumed.Contains(path)).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+        Require(remaining.Length == 0, "The real source loaders left " + remaining.Length +
+            " unconsumed private input files: " + string.Join(", ", remaining));
     }
 
     public byte[] Read(string relative)
@@ -63,6 +110,7 @@ public sealed class DataCatalog
         byte[] bytes = read(relative);
         Require(bytes != null && bytes.Length == pin.Bytes && Hash(bytes) == pin.Sha256,
             "Missing/changed actual source asset: " + relative + ". No substitute is allowed.");
+        consumed.Add(relative);
         return bytes;
     }
 

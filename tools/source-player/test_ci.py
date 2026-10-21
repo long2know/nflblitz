@@ -1,6 +1,7 @@
 """Asset-free guards for the separate source-player workflow; no gameplay proof."""
 
 import ast
+import importlib.util
 from pathlib import Path
 import re
 import shlex
@@ -16,18 +17,32 @@ CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 NODE = "actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38"
 DOTNET = "actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68"
 PATHS = ("Assets/**", "Dockerfile", "tools/source-player/**",
-         ".github/workflows/game-build.yml", ".github/workflows/source-player.yml")
+         ".github/workflows/game-build.yml", ".github/workflows/source-player.yml",
+         "tests/defensive-presnap-switch/**", "tools/animation/**", "tools/audio/**",
+         "tests/parity/**", "tests/movement-callers/**", "tools/rosters/c_source.py",
+         "docs/build.md")
 PREPARATION_CASES = (
     "test_relative_explicit_input_roots_are_normalized_without_allowing_traversal",
     "test_real_source_artifact_mutation_is_rejected_by_name",
     "test_camera_extension_preserves_every_inherited_pin_without_format_migration",
     "test_camera_extension_rejects_wrong_manifest_camera_and_changed_old_asset",
 )
+PRESNAP_PREPARATION_CASES = (
+    "test_presnap_default_changes_only_existing_station_layout_type",
+    "test_build_rejects_historical_data_under_new_default_before_publish",
+    "test_bundle_persist_default_remains_historical_and_new_profile_is_explicit",
+)
 SDK_COMMAND = r"""printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json"""
 PUBLIC_DOTNET = 'SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh'
 COMMANDS = {
     "Select the tested SDK": (SDK_COMMAND,),
     "Guard workflow coverage and resource boundaries": ("python3 -B tools/source-player/test_ci.py",),
+    "Guard the enabled pre-snap profile and CI failure boundaries": (
+        "python3 -B tests/defensive-presnap-switch/test_ci.py",
+        "python3 -B tests/defensive-presnap-switch/test_runner.py -q",
+        "python3 -B tests/defensive-presnap-switch/test_recording.py -q",
+        "python3 -B tools/animation/tests/test_prepare_presnap_switch_profile.py MetadataChecks -q",
+    ),
     "Compile the actual public host without private inputs": (
         "mkdir -p tools/source-player/.runtime/empty-nuget",
         PUBLIC_DOTNET + ' restore tools/source-player/SourcePlayer.Checks.csproj --source "$PWD/tools/source-player/.runtime/empty-nuget" -p:NuGetAudit=false --nologo',
@@ -42,6 +57,10 @@ COMMANDS = {
     ),
     "Test public preparation failure gates": (
         "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name for name in PREPARATION_CASES),
+    ),
+    "Test explicit new profile preparation without original assets": (
+        "python3 -B -m unittest " + " ".join("prepare_test.PreparationChecks." + name
+                                           for name in PRESNAP_PREPARATION_CASES),
     ),
     "Test standalone hosting configuration without a daemon": (
         "docker compose version", "python3 -B tools/source-player/hosting_test.py",
@@ -93,7 +112,7 @@ def validate_workflow(text):
     expected = {name: [shlex.split(command) for command in commands] for name, commands in COMMANDS.items()}
     require(step_commands(text) == expected, "Run every actual asset-free command, not echo/skip/substitutes")
     require(len(re.findall(r"^\s*(?:- )?run:", text, re.M)) == len(COMMANDS), "No unguarded extra shell stages")
-    require(re.findall(r"^\s*working-directory: (.+)$", text, re.M) == ["tools/source-player"],
+    require(re.findall(r"^\s*working-directory: (.+)$", text, re.M) == ["tools/source-player"] * 2,
             "Only the named preparation cases use the public tool directory")
     preparation = text.split("      - name: Test public preparation failure gates\n", 1)[1].split("      - name:", 1)[0]
     require("        working-directory: tools/source-player\n" in preparation, "Use the actual preparation test module")
@@ -107,6 +126,11 @@ def validate_workflow(text):
         "--fetch", "--download", "workload install", "docker pull", "compose up", "apt-get", "pip install",
     ):
         require(forbidden not in text, "Asset-free CI must not consume credentials/private/live inputs: " + forbidden)
+    spec = importlib.util.spec_from_file_location("source_player_defensive_ci",
+        ROOT / "tests/defensive-presnap-switch/test_ci.py")
+    defensive = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(defensive)
+    defensive.validate_workflows(GAME_BUILD.read_text(), text)
 
 
 class SourcePlayerCI(unittest.TestCase):
@@ -140,6 +164,12 @@ class SourcePlayerCI(unittest.TestCase):
              "python3 -B -m unittest discover -s tools/source-player -p prepare_test.py"),
             ("python3 -B tools/source-player/hosting_test.py", "true"),
             ("python3 -B tools/source-player/test_ci.py", "true"),
+            ("python3 -B tests/defensive-presnap-switch/test_runner.py -q", "true"),
+            ("python3 -B tests/defensive-presnap-switch/test_recording.py -q", "true"),
+            ("python3 -B tools/animation/tests/test_prepare_presnap_switch_profile.py MetadataChecks -q", "true"),
+            (COMMANDS["Test explicit new profile preparation without original assets"][0], "true"),
+            ("      - 'tests/defensive-presnap-switch/**'\n", ""),
+            ("      - 'tools/rosters/c_source.py'\n", ""),
             (".source-player-ci-no-daemon.sock", "live-docker.sock"),
             ("    steps:\n", "    continue-on-error: true\n    steps:\n"),
             ("    steps:\n", "    env:\n      GH_TOKEN: ${{ github.token }}\n    steps:\n"),
@@ -187,13 +217,15 @@ class SourcePlayerCI(unittest.TestCase):
         tree = ast.parse((HERE / "prepare_test.py").read_text())
         cases = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PreparationChecks")
         methods = {node.name: node for node in cases.body if isinstance(node, ast.FunctionDef)}
-        for name in PREPARATION_CASES:
+        for name in PREPARATION_CASES + PRESNAP_PREPARATION_CASES:
             self.assertIn(name, methods)
             self.assertFalse(any(isinstance(node, ast.Attribute) and node.attr == "skipTest"
                                  for node in ast.walk(methods[name])))
         private_case = methods["test_actual_prepared_inputs_have_complete_verified_inventory"]
         self.assertTrue(any(isinstance(node, ast.Attribute) and node.attr == "skipTest" for node in ast.walk(private_case)))
         self.assertIn('"config", "--format", "json"', (HERE / "hosting_test.py").read_text())
+        self.assertIn('Compile Include="PreSnapSwitchChecks.cs"', (HERE / "SourcePlayer.Checks.csproj").read_text())
+        self.assertIn('args.Contains("--defensive-presnap-switch-only")', checks)
 
 
 if __name__ == "__main__":

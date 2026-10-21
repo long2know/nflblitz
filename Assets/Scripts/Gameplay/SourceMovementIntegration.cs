@@ -432,7 +432,7 @@ namespace Blitz.Gameplay
                     if (input.StationInputs != null)
                         foreach (SourceStationInput station in input.StationInputs.Stations)
                             if (station.StationId == actor.SourceControllerStation)
-                                actor.SourceNewButtons |= (SourceDroneButtons)(int)station.Pressed;
+                                actor.SourceNewButtons |= SourceMovementPressedButtons(actor, station.Pressed);
                 }
                 if (human) actor.SourceStick = SourcePlayerDriver.ActorStick(actor, input);
                 else SourceDroneMove(actor, input);
@@ -450,7 +450,7 @@ namespace Blitz.Gameplay
                     foreach (SourceStationInput station in input.StationInputs.Stations)
                         if (station.StationId == actor.SourceControllerStation)
                         {
-                            state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;
+                            state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);
                             actor.SourceReleasedButtons |= (SourceDroneButtons)(int)station.Released;
                         }
                 ApplySourceMovement(actor, state);
@@ -505,6 +505,8 @@ namespace Blitz.Gameplay
             }
             if (mode == SourceActorMode.ReceiverPreSnap && Model.Phase == GamePhase.LiveBall)
                 actor.SourceMode = SourceActorMode.Receiver;
+            if (mode == SourceActorMode.DefensiveBackPreSnap)
+                SourceDefensivePreSnapSwitch(actor);
             if (mode == SourceActorMode.DefensiveBackPreSnap && Model.Phase == GamePhase.LiveBall)
                 actor.SourceMode = SourceActorMode.DefensiveBack;
             if (mode == SourceActorMode.Quarterback && Model.Phase == GamePhase.LiveBall)
@@ -650,14 +652,88 @@ namespace Blitz.Gameplay
             return 1;
         }
 
+        private SourceDroneButtons SourceMovementPressedButtons(ActorState actor, SourceButtons pressed)
+        {
+            SourceDroneButtons buttons = (SourceDroneButtons)(int)pressed;
+            return SourceDefensivePreSnapSwitchEnabled && actor.SourceFakeBTick == Model.SourceTick
+                ? buttons & ~SourceDroneButtons.B : buttons;
+        }
+
+        private void SourceDefensivePreSnapSwitch(ActorState actor)
+        {
+            if (!SourceDefensivePreSnapSwitchEnabled || (actor.SourceNewButtons & SourceDroneButtons.B) == 0
+                || actor.SourceControllerStation == -1 || (Model.SourceFlags & SourceGameFlags.OnsideKick) != 0
+                || Model.PreSnapTicksRemaining >= SourceClock.DefaultAutoHikeTicks - 15)
+                return;
+            int selected = actor.Id;
+            int count = 10;
+            do
+            {
+                selected++;
+                count--;
+                if (selected % 7 == 0) selected -= 7;
+            }
+            while (count > 0 && (Model.Players[selected].SourceControllerStation != -1
+                || Model.Players[selected].SourceMode != SourceActorMode.DefensiveBackPreSnap
+                    && Model.Players[selected].SourceMode != SourceActorMode.DefensiveBack));
+            ActorState next = Model.Players[selected];
+            TransferSourceMovementStation(actor, next);
+            next.SourceFakeBTick = Model.SourceTick;
+            if (SourceDraw(10, "player.c:_mode_dbps:2785", SourceRandomKind.RandRange) < 35)
+                next.AnimationState.FullBody("m_hopclp_anim", next, Model.SourceTick, SourceDraw,
+                    AnimationSelectionEvidence.SourceVerified);
+        }
+
+        private void RecomputeSourceMovementStations()
+        {
+            foreach (ActorState actor in Model.Players) actor.SourceControllerStation = -1;
+            int[] control = Model.SourceStationPlayers;
+            if (sourceConfiguration.StationLayout == SourceStationLayout.TwoStation)
+            {
+                for (int station = 0; station < 2; station++)
+                {
+                    int player = control[station];
+                    if (player < 0 || player >= Model.Players.Length)
+                        throw new NotSupportedException("pmisc.c:update_stations:" + (638 + station)
+                            + " indexes player_blocks[plyr_control[" + station + "]==" + player
+                            + "]; undefined original source input has no Portable repair.");
+                    Model.Players[player].SourceControllerStation = station;
+                }
+                Model.ControlledPlayerId = sourceConfiguration.Stations.Count == 0 ? -1
+                    : control[sourceConfiguration.Stations[0].StationId];
+                return;
+            }
+            for (int station = 0; station < 4; station++)
+                if (control[station] != -1) Model.Players[control[station]].SourceControllerStation = station;
+            int status = 0;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                status |= 1 << station.StationId;
+            // Always-QB/receiver powerups are neutral, so original off_captain retains captain.
+            int offCaptain = (int)Model.SourceCaptain;
+            int firstMask = status & 0x3;
+            int firstCaptain = Model.Possession == TeamId.Away ? (int)Model.SourceCaptain : offCaptain;
+            Model.SourceCaptainPlayers[0] = firstMask == 0 ? -1
+                : control[firstMask == 0x3 ? firstCaptain : firstMask - 1];
+            int secondMask = status & 0xc;
+            int secondCaptain = Model.Possession == TeamId.Away ? offCaptain : (int)Model.SourceCaptain;
+            Model.SourceCaptainPlayers[1] = secondMask == 0 ? -1
+                : control[secondMask == 0xc ? secondCaptain + 2 : ((status >> 2) & 0x3) + 1];
+            Model.ControlledPlayerId = sourceConfiguration.Stations.Count == 0 ? -1
+                : control[sourceConfiguration.Stations[0].StationId];
+        }
+
         private void TransferSourceMovementStation(ActorState previous, ActorState next)
         {
             int station = previous.SourceControllerStation;
-            previous.SourceControllerStation = -1; next.SourceControllerStation = station;
             Model.SourceStationPlayers[station] = next.Id;
+            if (SourceDefensivePreSnapSwitchEnabled) RecomputeSourceMovementStations();
+            else
+            {
+                previous.SourceControllerStation = -1; next.SourceControllerStation = station;
+                if (sourceConfiguration.Stations.Count > 0 && sourceConfiguration.Stations[0].StationId == station)
+                    Model.ControlledPlayerId = next.Id;
+            }
             next.SourceButtons |= SourceDroneButtons.B;
-            if (sourceConfiguration.Stations.Count > 0 && sourceConfiguration.Stations[0].StationId == station)
-                Model.ControlledPlayerId = next.Id;
             EmitSource(SourceEventType.ControllerChanged, next.Id, previous.Id, station: station);
         }
 

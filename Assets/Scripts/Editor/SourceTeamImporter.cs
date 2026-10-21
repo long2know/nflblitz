@@ -33,6 +33,9 @@ namespace Blitz.Editor
         public static void ImportContact281C2M1FromCommandLine()
         { ImportFromArguments(Environment.GetCommandLineArgs(), SourceTeamResourceProfile.Contact281C2M1); }
 
+        public static void ImportContact282C2M1PreSnapSwitchFromCommandLine()
+        { ImportFromArguments(Environment.GetCommandLineArgs(), SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch); }
+
         private static void ImportFromArguments(string[] args, SourceTeamResourceProfile profile)
         {
             string root = PlayerAssetImporter.RequiredArgument(args, "-teamAssetRoot");
@@ -132,7 +135,7 @@ namespace Blitz.Editor
             byte[] impactBytes = impactInput.ReadBytes("impact-presentation.json", 1024 * 1024);
             profile.RequireImpact(SourceCinematicLibrary.Read(impactBytes, expectedImpactSha256));
             byte[] normalBytes = null;
-            if (profile.IsContact281C2M1)
+            if (profile.UsesM1Services)
             {
                 normalBytes = impactInput.ReadBytes("normal-camera-original.json", 1024 * 1024);
                 SourceNormalCameraData.Read(normalBytes);

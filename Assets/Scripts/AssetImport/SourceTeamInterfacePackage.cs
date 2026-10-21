@@ -25,6 +25,12 @@ namespace Blitz.AssetImport
         public const string C2ProgramsSha256 = "0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc";
         public const string C2M1StableId = "original-teams-contact281-c2-m1";
         public const string C2M1ImpactSha256 = "2fee43a7a20dad06d8846b1d558a69d8648041368091ab12677c941e19b66cd1";
+        public const string PreSnapSwitchStableId = "original-teams-contact282-c2-m1-presnap-switch";
+        public const string PreSnapSwitchAnimationKey = "SourceData/local-plyr266-contact282-c2-m1-presnap-switch-50aa432f";
+        public const string PreSnapSwitchAnimationSha256 = "50aa432ff9b332ec9087133f5bccb43ae18e1ca7c0bf7830cbdd675d3e024046";
+        public const string PreSnapSwitchImpactSha256 = "456d525aa75ba343942613793cc437d6732f0b16d972a981537929daece9f3d7";
+        public const string PreSnapSwitchMovementProgramsSha256 = "2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef";
+        public const string PreSnapSwitchHopInventorySha256 = "ec3a334976e0dc0b13accc9b2b9cff098e61c800bd2eba1bf02f831c03f84cef";
         public static readonly SourceTeamResourceProfile B1Final117 = new SourceTeamResourceProfile(
             "original-teams", "BlitzSourcePlayers/original-teams/animation-library",
             SourceInterfacePackagePlan.AnimationSha256, 117, 10288, false);
@@ -36,6 +42,8 @@ namespace Blitz.AssetImport
             C2StableId, C2AnimationKey, C2AnimationSha256, 281, 26230, false);
         public static readonly SourceTeamResourceProfile Contact281C2M1 = new SourceTeamResourceProfile(
             C2M1StableId, C2AnimationKey, C2AnimationSha256, 281, 26230, false);
+        public static readonly SourceTeamResourceProfile Contact282C2M1PreSnapSwitch = new SourceTeamResourceProfile(
+            PreSnapSwitchStableId, PreSnapSwitchAnimationKey, PreSnapSwitchAnimationSha256, 282, 26265, false);
 
         public string StableId { get; }
         public string AnimationResourceKey { get; }
@@ -46,7 +54,9 @@ namespace Blitz.AssetImport
         public bool IsContact272 { get { return StableId == ContactStableId; } }
         public bool IsContact281C2 { get { return StableId == C2StableId; } }
         public bool IsContact281C2M1 { get { return StableId == C2M1StableId; } }
-        public bool UsesC2Data { get { return IsContact281C2 || IsContact281C2M1; } }
+        public bool IsContact282C2M1PreSnapSwitch { get { return StableId == PreSnapSwitchStableId; } }
+        public bool UsesM1Services { get { return IsContact281C2M1 || IsContact282C2M1PreSnapSwitch; } }
+        public bool UsesC2Data { get { return IsContact281C2 || UsesM1Services; } }
         public bool UsesMovementData { get { return IsMovement157 || IsContact272 || UsesC2Data; } }
         public string TeamResourceKey { get { return "BlitzSourcePlayers/" + StableId + "/team-presentation"; } }
         public string ImpactResourceKey { get { return "BlitzSourcePlayers/" + StableId + "/impact-library"; } }
@@ -67,7 +77,8 @@ namespace Blitz.AssetImport
             if (stableId == Contact272.StableId) return Contact272;
             if (stableId == Contact281C2.StableId) return Contact281C2;
             if (stableId == Contact281C2M1.StableId) return Contact281C2M1;
-            throw new SourceInterfaceException("Unknown original team resource profile; no117/157/272/281 key alias: " + stableId);
+            if (stableId == Contact282C2M1PreSnapSwitch.StableId) return Contact282C2M1PreSnapSwitch;
+            throw new SourceInterfaceException("Unknown original team resource profile; no117/157/272/281/282 key alias: " + stableId);
         }
 
         public static SourceTeamResourceProfile SelectRuntimeProfile(string url, string serializedStableId = null)
@@ -86,7 +97,7 @@ namespace Blitz.AssetImport
             if (selected != null && serializedStableId != null && selected != serializedStableId)
                 throw new SourceInterfaceException("URL and built source profile differ; entry provenance cannot change silently.");
             SourceTeamResourceProfile profile = FromStableId(selected ?? serializedStableId ?? ContactStableId);
-            if (!profile.IsContact272 && !profile.IsContact281C2 && !profile.IsContact281C2M1)
+            if (!profile.IsContact272 && !profile.UsesC2Data)
                 throw new SourceInterfaceException("This engine accepts only explicit C1 or C2 source services; old profiles remain historical.");
             return profile;
         }
@@ -122,6 +133,12 @@ namespace Blitz.AssetImport
                 library.ContactProgramsSha256 != C2ProgramsSha256 ||
                 library.C2CallbackDataSha256 != SourceInterfacePackagePlan.C2M1CallbackSha256))
                 throw new SourceInterfaceException("Contact281C2M1 requires its exact482-site catalog and explicit fourteen-binding generation.");
+            if (IsContact282C2M1PreSnapSwitch && (library.ContentSha256 != PreSnapSwitchImpactSha256 ||
+                library.ContactAnimationManifestSha256 != AnimationSha256 ||
+                library.ContactProgramsSha256 != C2ProgramsSha256 ||
+                library.PreSnapSwitchMovementProgramsSha256 != PreSnapSwitchMovementProgramsSha256 ||
+                library.C2CallbackDataSha256 != SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256))
+                throw new SourceInterfaceException("Contact282C2M1PreSnapSwitch requires its exact rebound482-site catalog,282 library, fifteen callbacks and separate frozen C2/Movement program pins.");
         }
     }
 
@@ -161,6 +178,9 @@ namespace Blitz.AssetImport
         public const string C2M1ServicesResourceKey = "BlitzSourceInterface/original-contact281-c2-m1-match-services";
         public const string C2M1CallbackResourceKey = "SourceData/source-c2-m1-callbacks-b0c02e55";
         public const string C2M1CallbackSha256 = "b0c02e5516f4f932625e1f8ccb3ff0fd53ae222657f899eb8c9d0b0c2e74460a";
+        public const string PreSnapSwitchServicesResourceKey = "BlitzSourceInterface/original-contact282-c2-m1-presnap-switch-match-services";
+        public const string PreSnapSwitchCallbackResourceKey = "SourceData/source-c2-m1-presnap-switch-callbacks-e9a2ccbf";
+        public const string PreSnapSwitchCallbackSha256 = "e9a2ccbfffda0e83ae9ba409e4fbfd6f6c6f074ebd024aa30367d9d06c29c653";
         public const string C2HitResourceKey = "SourceData/sound-functions-c2-hit7538-bb978454";
         public const string C2HitSha256 = "bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904";
         public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
@@ -186,7 +206,8 @@ namespace Blitz.AssetImport
         public bool HasC2 { get { return c2Callbacks != null; } }
         public bool HasSoundVm { get { return soundVmFunctions != null; } }
         public string SelectedServicesResourceKey
-        { get { return Profile.IsContact281C2M1 ? C2M1ServicesResourceKey : Profile.IsContact281C2 ? C2ServicesResourceKey : Profile.IsContact272 ? ContactServicesResourceKey : HasSoundVm ? SoundVmServicesResourceKey :
+        { get { return Profile.IsContact282C2M1PreSnapSwitch ? PreSnapSwitchServicesResourceKey :
+                    Profile.IsContact281C2M1 ? C2M1ServicesResourceKey : Profile.IsContact281C2 ? C2ServicesResourceKey : Profile.IsContact272 ? ContactServicesResourceKey : HasSoundVm ? SoundVmServicesResourceKey :
                     Profile.IsMovement157 ? MovementServicesResourceKey : ServicesResourceKey; } }
 
         private SourceInterfacePackagePlan(byte[] manifest, byte[] book, byte[] config, string configHash,
@@ -219,7 +240,8 @@ namespace Blitz.AssetImport
             if (c2Callbacks != null || c2HitExtension != null)
             {
                 Require(Profile.UsesC2Data && HasSoundVm, "C2 data requires a separately selected281 profile and unchanged legacy SAFN.");
-                C2Data = Profile.IsContact281C2M1 ? ReadC2M1Callbacks(c2Callbacks, c2HitExtension)
+                C2Data = Profile.IsContact282C2M1PreSnapSwitch ? ReadPreSnapSwitchCallbacks(c2Callbacks, c2HitExtension)
+                    : Profile.IsContact281C2M1 ? ReadC2M1Callbacks(c2Callbacks, c2HitExtension)
                     : ReadC2Callbacks(c2Callbacks, c2HitExtension);
                 this.c2Callbacks = (byte[])c2Callbacks.Clone(); this.c2HitExtension = (byte[])c2HitExtension.Clone();
             }
@@ -255,17 +277,22 @@ namespace Blitz.AssetImport
         public static SourceC2CallbackData ReadC2M1Callbacks(byte[] callbacks, byte[] hitExtension)
         { return ReadC2CallbacksForProfile(callbacks, hitExtension, SourceTeamResourceProfile.Contact281C2M1); }
 
+        public static SourceC2CallbackData ReadPreSnapSwitchCallbacks(byte[] callbacks, byte[] hitExtension)
+        { return ReadC2CallbacksForProfile(callbacks, hitExtension, SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch); }
+
         private static SourceC2CallbackData ReadC2CallbacksForProfile(byte[] callbacks, byte[] hitExtension,
             SourceTeamResourceProfile profile)
         {
             Require(callbacks != null && hitExtension != null, "Actual canonical C2 JSON and ONE7538 SAFN are required.");
             SourceAudioFunctionData hit = SourceAudioFunctionData.Read(hitExtension, C2HitSha256);
             SourceC2CallbackData data = SourceC2CallbackData.Read(callbacks,
+                profile.IsContact282C2M1PreSnapSwitch ? PreSnapSwitchCallbackSha256 :
                 profile.IsContact281C2M1 ? C2M1CallbackSha256 : C2CallbackSha256, hit);
-            Require(data.Profile == (profile.IsContact281C2M1 ? SourceC2CallbackData.M1Profile : SourceC2CallbackData.EntryProfile),
+            Require(data.Profile == (profile.IsContact282C2M1PreSnapSwitch ? SourceC2CallbackData.PreSnapSwitchProfile :
+                profile.IsContact281C2M1 ? SourceC2CallbackData.M1Profile : SourceC2CallbackData.EntryProfile),
                 "C2 callback profile and explicitly selected resource generation differ.");
-            Require(data.AnimationManifestSha256 == SourceTeamResourceProfile.C2AnimationSha256,
-                "C2 callback data must reference the exact same canonical281 library.");
+            Require(data.AnimationManifestSha256 == profile.AnimationSha256,
+                "C2 callback data must reference the exact same selected canonical library.");
             return data;
         }
 
@@ -327,6 +354,21 @@ namespace Blitz.AssetImport
             return new SourceInterfacePackagePlan(contact272.CopyManifest(), contact272.CopyPlaybook(),
                 contact272.CopyConfiguration(), contact272.ConfigurationSha256, contact272.Hud, contact272.Playbook,
                 contact272.Configuration, contact272.Textures.ToArray(), SourceTeamResourceProfile.Contact281C2M1,
+                contact272.CopyMovement(), contact272.CopyBootstrap(), contact272.BootstrapSha256,
+                contact272.CopySoundVmFunctions(), callbacks, hit);
+        }
+
+        public static SourceInterfacePackagePlan WithContact282C2M1PreSnapSwitch(SourceInterfacePackagePlan contact272,
+            string profileRoot, string callbacksPath, string hitExtensionPath)
+        {
+            Require(contact272 != null && contact272.Profile.IsContact272 && contact272.HasSoundVm && !contact272.HasC2,
+                "Explicit pre-snap successor selection requires actual C1 inputs, never old M1 promotion or fallback.");
+            var input = new AuthorizedAssetRoot(profileRoot);
+            byte[] callbacks = input.ReadBytes(callbacksPath, 128 * 1024), hit = input.ReadBytes(hitExtensionPath, 1024 * 1024);
+            ReadPreSnapSwitchCallbacks(callbacks, hit);
+            return new SourceInterfacePackagePlan(contact272.CopyManifest(), contact272.CopyPlaybook(),
+                contact272.CopyConfiguration(), contact272.ConfigurationSha256, contact272.Hud, contact272.Playbook,
+                contact272.Configuration, contact272.Textures.ToArray(), SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch,
                 contact272.CopyMovement(), contact272.CopyBootstrap(), contact272.BootstrapSha256,
                 contact272.CopySoundVmFunctions(), callbacks, hit);
         }
@@ -440,7 +482,7 @@ namespace Blitz.AssetImport
         {
             AuthorizedAssetRoot.ValidateRelativePath(assetPath);
             Require((resourceKey == HudResourceKey || resourceKey == ServicesResourceKey || resourceKey == MovementServicesResourceKey ||
-                resourceKey == SoundVmServicesResourceKey) &&
+                resourceKey == SoundVmServicesResourceKey || resourceKey == PreSnapSwitchServicesResourceKey) &&
                 assetPath.StartsWith("Assets/Imported/", StringComparison.Ordinal) &&
                 assetPath.EndsWith("/Resources/" + resourceKey + ".asset", StringComparison.Ordinal),
                 "Generated original resource must remain ignored under Assets/Imported with its exact Resources identity.");
