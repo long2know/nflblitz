@@ -264,6 +264,7 @@ namespace Blitz.Presentation
     {
         public string StableId { get { return "managed-profile"; } }
         public bool IsContact281C2M1 { get { return HostProbe.Source; } }
+        public bool UsesM1Services { get { return IsContact281C2M1; } }
         public bool UsesC2Data { get { return HostProbe.Source; } }
         public static SourceTeamResourceProfile SelectRuntimeProfile(string url, string stableId) { return new SourceTeamResourceProfile(); }
     }

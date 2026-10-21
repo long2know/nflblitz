@@ -1,5 +1,34 @@
 # Source parity and port evidence
 
+## Defensive pre-snap fresh-B integration — October 20, 2026
+
+The explicit new portable profile `original-teams-contact282-c2-m1-presnap-switch`
+binds the original cyclic DBPS control transfer, authentic35/15 M_HOPCLP
+streams, existing stance continuation and synchronous fixed attack-sound
+selection to a separately preflighted factory and public catalog. The narrow
+runner extracts authenticated original bodies into private fixtures and compares
+actual caller/control/captain/RNG, selected-pose/root/VM and transport/cinematic
+output. New source/profile, API-source and raw-host checks are not evidence of
+native audio, generated ANI ABI, complete source scheduling or whole fidelity.
+
+The existing three12000 public recordings and their old-M1/historical/stale
+classifications remain immutable. The new v4 generation has a separate one-
+authoring-window marker, seed1/provider/controller identity, FourStation/single-
+human configuration, input-only output and normal full R_SKIP/cache/physics
+requirements plus fresh-B evidence. A source fault, incomplete window or missing
+witness must stop nonzero; it cannot be repaired with new seeds/input filtering,
+an old factory, a weaker gate or invented `bc_adjust` behavior.
+
+See the [exact focused/full commands and evidence limits](../tests/defensive-presnap-switch/README.md).
+The October20 local enabled282/v4 qualification passed its sole12000-host
+authoring window,15 same-window fresh-B witnesses, unchanged real-pose/R_SKIP
+predicate, full caller/VM/cache controls and664 actual original-C post-VM cases.
+All five historical runtime probes passed without rebasing the four original
+source/recording boundaries. These bounded local results are not genuine
+current-build World, complete old/new hosted suites, an exact40-minute job-budget
+measurement or the single later Quality gate. Those remain required, and all
+sixteen whole/native completion rows remain OPEN.
+
 **Status checked October 18, 2026 (PDT).** Reference: public
 [`historicalsource/nflblitz2000`](https://github.com/historicalsource/nflblitz2000).
 Pinned default-branch revision:

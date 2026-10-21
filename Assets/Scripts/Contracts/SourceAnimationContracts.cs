@@ -26,7 +26,7 @@ namespace Blitz.Contracts
     public enum SourceBallKind { Unspecified, Pass, Fumble, Punt, Kickoff, FieldGoal, Bobble, Lateral }
 
     public enum SourceAnimationCodeReturnEvidence { LegacyUnqualified, KnownInt, VoidOpaque }
-    public enum SourceC2SoundFunctionKind { TauntSpeech = 1, HitFunctionExtension, WhistleProc, WhistleImmediate }
+    public enum SourceC2SoundFunctionKind { TauntSpeech = 1, HitFunctionExtension, WhistleProc, WhistleImmediate, AttackSoundFixed = 5 }
     public enum SourceC2EntryKind { OriginalProgramBootSoundBanks, VerifiedOriginalContinuation }
     public enum SourceC2EventKind
     {
@@ -92,7 +92,7 @@ namespace Blitz.Contracts
             int argument0 = 0, int argument1 = 0, int argument2 = 0,
             SourceCallbackCue originalAnimationCue = null, long invocationId = 0, int firstCallIndex = 0)
         {
-            if (kind < SourceC2SoundFunctionKind.TauntSpeech || kind > SourceC2SoundFunctionKind.WhistleImmediate)
+            if (kind < SourceC2SoundFunctionKind.TauntSpeech || kind > SourceC2SoundFunctionKind.AttackSoundFixed)
                 throw new ArgumentOutOfRangeException(nameof(kind));
             if (sourceTick < 0 || processOrder < 0 || sourceLine <= 0 || invocationId < 0 || firstCallIndex < 0)
                 throw new ArgumentOutOfRangeException(nameof(sourceTick));
@@ -114,6 +114,11 @@ namespace Blitz.Contracts
                 originalAnimationCue.FunctionSymbol != function || originalAnimationCue.Argument0 != argument0 ||
                 originalAnimationCue.Argument1 != argument1 || originalAnimationCue.Argument2 != argument2)
                 throw new ArgumentException("Original sound cue must identify the same actor, tick, source site and argument tuple.");
+            if (kind == SourceC2SoundFunctionKind.AttackSoundFixed &&
+                (sourcePath != "plyrseq.c" || function != "attack_snd" || sourceLine != 3409 ||
+                    argument0 != 127 || argument1 != 0 || argument2 != 0 ||
+                    originalAnimationCue.Context.ExecutingSymbol != "m_hopclp_anim"))
+                throw new ArgumentException("Fixed attack sound requires the exact original hop animation cue.");
             if (actorId < -1 || actorId > 13) throw new ArgumentOutOfRangeException(nameof(actorId));
             Kind = kind; SourceTick = sourceTick; Process = process; ProcessOrder = processOrder; ActorId = actorId;
             SourcePath = sourcePath; FunctionSymbol = function; SourceLine = sourceLine;

@@ -335,7 +335,7 @@ namespace Blitz.Presentation
         {
             sourceProfilePrefab = sourcePrefab;
             movement157 = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsMovement157;
-            rawSourceCamera = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).IsContact281C2M1;
+            rawSourceCamera = sourcePrefab != null && SourceTeamResourceProfile.FromStableId(sourcePrefab.StableId).UsesM1Services;
             camera = new GameObject("Play camera").AddComponent<Camera>();
             camera.transform.SetParent(parent, false);
             camera.tag = "MainCamera";

@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="SourcePlayer.Core.csproj" />
     <Compile Include="Checks.cs" />
+    <Compile Include="PreSnapSwitchChecks.cs" />
     <Compile Include="FeatureChecks.cs" />
     <Compile Include="PoppedHeadChecks.cs" />
     <Compile Include="FreeBallChecks.cs" />

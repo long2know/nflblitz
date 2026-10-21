@@ -112,6 +112,8 @@ namespace Blitz.Gameplay
         private float transitionRootTo;
         private SourceJointPose transitionFrom;
         private SourceJointPose pendingTransitionOrigin;
+        private ISourceAnimationClip transitionSourceClip;
+        private ISourceAnimationClip pendingSourceClip;
         private int transitionSourceOrdinal;
         private int transitionSourceFrameCount = 1;
         private int? pendingSourceOrdinal;
@@ -131,6 +133,7 @@ namespace Blitz.Gameplay
         internal Func<ActorState, int> HitHeading;
         internal Func<ActorState, int> GroundTime;
         internal Action<Exception> FailureReported;
+        internal bool SourceFrameInterpolationRoots;
         private int turnHack;
         private string failedExecution;
 
@@ -172,6 +175,8 @@ namespace Blitz.Gameplay
             transitionRootTo = other.transitionRootTo;
             transitionFrom = other.transitionFrom;
             pendingTransitionOrigin = other.pendingTransitionOrigin;
+            transitionSourceClip = other.transitionSourceClip;
+            pendingSourceClip = other.pendingSourceClip;
             transitionSourceOrdinal = other.transitionSourceOrdinal;
             transitionSourceFrameCount = other.transitionSourceFrameCount;
             pendingSourceOrdinal = other.pendingSourceOrdinal;
@@ -191,6 +196,7 @@ namespace Blitz.Gameplay
             if (origin != null)
                 origin = SourcePoseMath.Turn(origin, headingCorrection);
             pendingTransitionOrigin = origin;
+            pendingSourceClip = InterpolationSourceClip();
             pendingSourceOrdinal = SourceProgressOrdinal();
             pendingSourceFrameCount = SourceProgressFrameCount();
             program = RequireProgram(symbol);
@@ -322,6 +328,7 @@ namespace Blitz.Gameplay
                     floatingFrame = -1f;
                     transitionTicks = 0;
                     pendingTransitionOrigin = null;
+                    pendingSourceClip = null;
                     pendingSourceOrdinal = pendingSourceFrameCount = null;
                     Mode &= ~(SourceAnimationModes.Streaming | SourceAnimationModes.Interpolating);
                     break;
@@ -414,7 +421,9 @@ namespace Blitz.Gameplay
                 case SourceAnimationOp.PresentationCallback:
                     if (i.Text == "grnd_hit_snd") signals |= SourceAnimationSignal.GroundContact;
                     if (C2VoidCode != null && (i.Text == "taunt_speech" ||
-                        i.Text == "get_hit_snd" && i.SourceLine == 7538 && ScriptSymbol == "m_qbfite_anim"))
+                        i.Text == "get_hit_snd" && i.SourceLine == 7538 && ScriptSymbol == "m_qbfite_anim" ||
+                        i.Text == "attack_snd" && i.SourceLine == 3409 && ScriptSymbol == "m_hopclp_anim"
+                            && i.A == 127 && i.B == 0 && i.C == 0))
                         CodeReturnEvidence = SourceAnimationCodeReturnEvidence.VoidOpaque;
                     break;
                 case SourceAnimationOp.MovementCode:
@@ -599,6 +608,8 @@ namespace Blitz.Gameplay
             pendingTransitionOrigin = null;
             int previousFrame = pendingSourceOrdinal ?? SourceProgressOrdinal();
             int previousCount = pendingSourceFrameCount ?? SourceProgressFrameCount();
+            ISourceAnimationClip sourceClip = pendingSourceClip ?? InterpolationSourceClip();
+            pendingSourceClip = null;
             pendingSourceOrdinal = pendingSourceFrameCount = null;
             ISourceAnimationClip destination = RequireClip(i.Text);
             int ticks = i.A == -1 ? VariableCount : i.A;
@@ -614,6 +625,9 @@ namespace Blitz.Gameplay
             }
             if (ordinal < 0 || ordinal >= destination.SelectedSourceFrames.Count)
                 throw Failure("INTTOSEQ target outside selected frames: " + ordinal);
+            transitionRootFrom = SourceFrameInterpolationRoots && (Mode & SourceAnimationModes.Secondary) == 0
+                && sourceClip != null && previousFrame >= 0
+                ? Frame(sourceClip, previousFrame).ScaledRoot.Y * actor.ModelScale : actor.SourceRoot.Y;
             clip = destination;
             FrameOrdinal = ordinal;
             floatingFrame = ordinal;
@@ -622,7 +636,7 @@ namespace Blitz.Gameplay
             transitionCount = 0;
             transitionSourceOrdinal = previousFrame;
             transitionSourceFrameCount = previousCount;
-            transitionRootFrom = actor.SourceRoot.Y;
+            transitionSourceClip = sourceClip;
             transitionRootTo = Frame(ordinal).ScaledRoot.Y * actor.ModelScale;
             Mode |= SourceAnimationModes.Interpolating;
             Mode &= ~SourceAnimationModes.Streaming;
@@ -665,6 +679,7 @@ namespace Blitz.Gameplay
             streamIncrement = (float)frames / ticks;
             transitionTicks = 0;
             pendingTransitionOrigin = null;
+            pendingSourceClip = null;
             pendingSourceOrdinal = pendingSourceFrameCount = null;
             Mode |= SourceAnimationModes.Streaming;
             StreamFrame(actor);
@@ -705,6 +720,7 @@ namespace Blitz.Gameplay
             FrameOrdinal++;
             transitionTicks = 0;
             pendingTransitionOrigin = null;
+            pendingSourceClip = null;
             pendingSourceOrdinal = pendingSourceFrameCount = null;
             SourceAnimationFrame frame = Frame(FrameOrdinal);
             hold = ticks;
@@ -782,6 +798,12 @@ namespace Blitz.Gameplay
                 && transitionCount <= transitionTicks / 2 ? transitionSourceOrdinal : FrameOrdinal;
         }
 
+        private ISourceAnimationClip InterpolationSourceClip()
+        {
+            // ANIM.C retains the source translation table until INTTOSEQ completes.
+            return transitionTicks > 0 && transitionCount < transitionTicks ? transitionSourceClip : clip;
+        }
+
         private int SourceProgressFrameCount()
         {
             return (Mode & SourceAnimationModes.Interpolating) != 0
@@ -790,11 +812,16 @@ namespace Blitz.Gameplay
 
         private SourceAnimationFrame Frame(int ordinal)
         {
-            if (clip == null || ordinal < 0 || ordinal >= clip.SelectedSourceFrames.Count)
+            return Frame(clip, ordinal);
+        }
+
+        private SourceAnimationFrame Frame(ISourceAnimationClip source, int ordinal)
+        {
+            if (source == null || ordinal < 0 || ordinal >= source.SelectedSourceFrames.Count)
                 throw Failure("selected frame ordinal out of range: " + ordinal);
-            int authoringFrame = clip.SelectedSourceFrames[ordinal];
+            int authoringFrame = source.SelectedSourceFrames[ordinal];
             SourceAnimationFrame frame;
-            try { frame = clip.GetFrame(authoringFrame); }
+            try { frame = source.GetFrame(authoringFrame); }
             catch (Exception e) { throw Failure("missing authoring frame " + authoringFrame, e); }
             SourceVector3 root = frame.ScaledRoot;
             SourceVector3 authoring = frame.AuthoringRoot;

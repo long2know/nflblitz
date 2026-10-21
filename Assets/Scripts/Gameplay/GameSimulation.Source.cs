@@ -1703,7 +1703,7 @@ namespace Blitz.Gameplay
                 foreach (SourceStationInput input in Model.SourceCurrentInput.StationInputs.Stations)
                     if (input.StationId == actor.SourceControllerStation)
                     {
-                        actor.SourceNewButtons |= (SourceDroneButtons)(int)input.Pressed;
+                        actor.SourceNewButtons |= SourceMovementPressedButtons(actor, input.Pressed);
                         actor.SourceReleasedButtons |= (SourceDroneButtons)(int)input.Released;
                         break;
                     }
@@ -1722,7 +1722,10 @@ namespace Blitz.Gameplay
         private void ConfigureSourceStations()
         {
             for (int id = 0; id < Model.Players.Length; id++)
+            {
                 Model.Players[id].SourceControllerStation = -1;
+                Model.Players[id].SourceFakeBTick = -1;
+            }
             for (int i = 0; i < Model.SourceStationPlayers.Length; i++)
             {
                 Model.SourceStationPlayers[i] = -1;
@@ -1754,6 +1757,7 @@ namespace Blitz.Gameplay
                 Model.SourceStationPlayers[station.StationId] = chosen;
                 Model.Players[chosen].SourceControllerStation = station.StationId;
             }
+            if (SourceDefensivePreSnapSwitchEnabled) RecomputeSourceMovementStations();
             Model.ControlledPlayerId = sourceConfiguration.Stations.Count == 0 ? -1
                 : Model.SourceStationPlayers[sourceConfiguration.Stations[0].StationId];
         }
@@ -1787,9 +1791,13 @@ namespace Blitz.Gameplay
             if (station < 0)
                 throw new InvalidOperationException("Source catch could not resolve a human station for actor " + actor.Id + ".");
             int old = Model.SourceStationPlayers[station];
-            if (old >= 0) Model.Players[old].SourceControllerStation = -1;
             Model.SourceStationPlayers[station] = actor.Id;
-            actor.SourceControllerStation = station;
+            if (SourceDefensivePreSnapSwitchEnabled) RecomputeSourceMovementStations();
+            else
+            {
+                if (old >= 0) Model.Players[old].SourceControllerStation = -1;
+                actor.SourceControllerStation = station;
+            }
             actor.Turbo01 = Model.SourceStationTurbo[station] / 100f;
             actor.SourceButtons |= SourceDroneButtons.A | SourceDroneButtons.B;
             if (sourceConfiguration.Stations.Count > 0 && sourceConfiguration.Stations[0].StationId == station)
@@ -1947,6 +1955,8 @@ namespace Blitz.Gameplay
 
         private void BindSourceAnimation(ActorState actor)
         {
+            actor.AnimationState.Primary.SourceFrameInterpolationRoots =
+                actor.AnimationState.Secondary.SourceFrameInterpolationRoots = SourceDefensivePreSnapSwitchEnabled;
             actor.AnimationState.BindMovementExecution(SourceMovementAnimationCode, SourceMovementLeapAttack);
             if (SourceC2Enabled) actor.AnimationState.BindC2VoidExecution(ExecuteSourceC2Void);
             actor.AnimationState.BindContactExecution(SetSourcePuppetPosition, SourceContactHitHeading, SourceContactGroundTime,

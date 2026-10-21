@@ -34,6 +34,8 @@ Assets/Imported/
 Assets/Imported.meta
 .vs/
 *.csproj
+!/tests/defensive-presnap-switch/PreSnapSwitch.Checks.csproj
+!/tests/defensive-presnap-switch/PreSnapSwitch.Production.csproj
 *.sln
 *.slnx
 *.user

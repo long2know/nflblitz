@@ -23,6 +23,7 @@ internal sealed class FullKernelInputs
     internal bool IsContactProfile { get; private set; }
     internal bool IsC2Profile { get; private set; }
     internal bool IsC2M1Profile { get; private set; }
+    internal bool IsPreSnapSwitchProfile { get; private set; }
     internal SourceC2CallbackData C2Data { get; private set; }
     internal string C2InputRoot { get; private set; }
     internal SourceVector3[] ReferencePivots { get; private set; }
@@ -55,10 +56,11 @@ internal sealed class FullKernelInputs
 
     internal static FullKernelInputs Load(string manifestPath, bool movementLibrary = false,
         bool selectedMovementLibrary = false, string soundFunctionsPath = null, bool legacyAnimationLibrary = false,
-        string c2InputsPath = null, string c2M1InputsPath = null)
+        string c2InputsPath = null, string c2M1InputsPath = null, string c2PreSnapSwitchInputsPath = null)
     {
-        if (c2InputsPath != null && c2M1InputsPath != null)
-            throw new ArgumentException("Select exactly one old-nine or M1-successor C2 input generation.");
+        if ((c2InputsPath == null ? 0 : 1) + (c2M1InputsPath == null ? 0 : 1) +
+            (c2PreSnapSwitchInputsPath == null ? 0 : 1) > 1)
+            throw new ArgumentException("Select exactly one old-nine, M1 or pre-snap-switch C2 input generation.");
         if (string.IsNullOrWhiteSpace(manifestPath))
             throw new ArgumentException("An explicit prepared real-input fixture manifest is required.", nameof(manifestPath));
         string root = Path.GetDirectoryName(Path.GetFullPath(manifestPath));
@@ -151,24 +153,27 @@ internal sealed class FullKernelInputs
                     GameSimulation.SourceSoundVmDataSha256)
                 : File.ReadAllBytes(soundFunctionsPath);
             result.SoundFunctions = SourceAudioFunctionData.Read(soundFunctions, GameSimulation.SourceSoundVmDataSha256);
-            if (c2InputsPath != null || c2M1InputsPath != null)
+            if (c2InputsPath != null || c2M1InputsPath != null || c2PreSnapSwitchInputsPath != null)
             {
                 if (selectedMovementLibrary || legacyAnimationLibrary)
                     throw new InvalidDataException("Canonical281 cannot alias a historical selected156/legacy library.");
                 result.IsC2M1Profile = c2M1InputsPath != null;
-                result.C2InputRoot = Path.GetFullPath(c2M1InputsPath ?? c2InputsPath);
-                string animationRoot = Path.Combine(result.C2InputRoot, "animation281");
+                result.IsPreSnapSwitchProfile = c2PreSnapSwitchInputsPath != null;
+                SourceTeamResourceProfile c2Profile = result.IsPreSnapSwitchProfile
+                    ? SourceTeamResourceProfile.Contact282C2M1PreSnapSwitch
+                    : result.IsC2M1Profile ? SourceTeamResourceProfile.Contact281C2M1 : SourceTeamResourceProfile.Contact281C2;
+                result.C2InputRoot = Path.GetFullPath(c2PreSnapSwitchInputsPath ?? c2M1InputsPath ?? c2InputsPath);
+                string animationRoot = Path.Combine(result.C2InputRoot, result.IsPreSnapSwitchProfile ? "animation282" : "animation281");
                 byte[] c2Inventory = File.ReadAllBytes(Path.Combine(animationRoot, "export-inventory.json"));
-                if (Sha256(c2Inventory) != SourceTeamResourceProfile.C2AnimationSha256)
-                    throw new InvalidDataException("Canonical281 requires its exact frozen production inventory.");
+                if (Sha256(c2Inventory) != c2Profile.AnimationSha256)
+                    throw new InvalidDataException("The explicit C2 generation requires its exact frozen production inventory.");
                 result.Animations = SourceAnimationLibrary.Read(c2Inventory,
                     relative => File.ReadAllBytes(Path.Combine(animationRoot, relative)));
-                SourceTeamResourceProfile.Contact281C2.RequireLibrary(result.Animations);
-                if (result.Animations.SequenceNames.Count != 281 || result.Animations.FrameCount != 26230)
-                    throw new InvalidDataException("Canonical281 requires every actual clip/frame, never a272 relabel.");
+                c2Profile.RequireLibrary(result.Animations);
                 byte[] callbacks = File.ReadAllBytes(Path.Combine(result.C2InputRoot, "c2-callback-data.json"));
                 byte[] hit = File.ReadAllBytes(Path.Combine(result.C2InputRoot, "m-qbfite-hit-extension.safn"));
-                result.C2Data = result.IsC2M1Profile ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks, hit)
+                result.C2Data = result.IsPreSnapSwitchProfile ? SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks, hit)
+                    : result.IsC2M1Profile ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks, hit)
                     : SourceInterfacePackagePlan.ReadC2Callbacks(callbacks, hit);
                 result.Geometry = new SourceCatchGeometry(result.Animations, pivots);
                 result.IsContactProfile = false;
@@ -191,7 +196,12 @@ internal sealed class FullKernelInputs
         {
             if (configuration == null || presentation == null)
                 throw new InvalidDataException("Canonical281 callers must provide their existing explicit match/presentation inputs.");
-            game = IsC2M1Profile
+            game = IsPreSnapSwitchProfile
+                ? SourceC2Composition.CreatePreSnapSwitchSimulation(Animations, ReferencePivots, Playbook, configuration,
+                    Rosters, presentation, MovementRuntime, settings, SoundFunctions,
+                    SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings, compatibility,
+                    fireEffects, kickMeterMetrics)
+                : IsC2M1Profile
                 ? SourceC2Composition.CreateM1Simulation(Animations, ReferencePivots, Playbook, configuration,
                     Rosters, presentation, MovementRuntime, settings, SoundFunctions,
                     SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data), randomFactory, seed, handicapSettings, compatibility,

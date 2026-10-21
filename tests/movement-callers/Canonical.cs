@@ -232,9 +232,64 @@ internal static partial class Program
     private static bool m1ReplayPositive;
     private static object m1ReplayEvidence;
 
+    private sealed class PreSnapPublicEdge
+    {
+        internal readonly int Host;
+        internal readonly long BeforeTick;
+        internal readonly PortableVisible Visible;
+        internal readonly PlayerCommand Command;
+        internal PreSnapPublicEdge(int host, GameSimulation game, PlayerCommand command)
+        { Host = host; BeforeTick = game.SourceTick; Visible = PortableVisible.Project(game.State); Command = command; }
+    }
+
+    private static PreSnapPublicEdge CapturePublicB(int host, GameSimulation game, PlayerCommand command,
+        PreSnapPublicEdge pending)
+    {
+        if (command.StationInputs != null && command.StationInputs.Stations.Any(input =>
+            input.StationId == 0 && (input.Held & SourceButtons.B) != 0 &&
+            (input.Pressed & SourceButtons.B) != 0))
+            return new PreSnapPublicEdge(host, game, command);
+        return pending;
+    }
+
+    private static object RequirePublicSwitchWitness(int host, GameSimulation game, SourceSoundVmDispatch sound,
+        PreSnapPublicEdge edge)
+    {
+        Check(edge != null && edge.BeforeTick < game.SourceTick &&
+            edge.Command.StationInputs.Stations.Count == 1 &&
+            edge.Command.StationInputs.Stations[0].StationId == 0,
+            "new B witness requires an actual captured fresh raw station0 edge, including a skipped host");
+        SourceGameEvent transfer = game.SourceEvents.Single(e => e.Type == SourceEventType.ControllerChanged &&
+            e.ActorPlayerId == sound.C2Context.ActorId && e.StationId == 0);
+        PlayerView actor = game.State.Players.Single(p => p.Id == transfer.ActorPlayerId);
+        Check(transfer.SourceTick == game.SourceTick && transfer.TargetPlayerId == edge.Visible.ControlledId &&
+            transfer.ActorPlayerId == game.State.ControlledPlayerId &&
+            transfer.ActorPlayerId != transfer.TargetPlayerId && actor.Team == TeamId.Home,
+            "new B witness binds public prior/current ownership and the actual source transfer");
+        Check(actor.Animation.Primary.ScriptSymbol == "m_hopclp_anim" &&
+            actor.Animation.Primary.Sample.SequenceName == "M_HOPCLP" &&
+            actor.Animation.SourceTick == game.SourceTick,
+            "new B witness samples the real transferred actor's authentic immediate hop");
+        Check(sound.Status == SourceSoundVmStatus.Resolved && sound.Result != null &&
+            sound.Result.Calls.Count == 1 && sound.Result.RandomCalls == 0 &&
+            sound.C2Context.SourceTick == game.SourceTick,
+            "new B witness retains a synchronous resolved kind5 call without callback RNG");
+        var call = sound.Result.Calls.Single();
+        Check(call.PlaylistId == 127 && call.Volume == 160 && call.Pan == 127 && call.PriorityWord == 10 &&
+            call.CalleeSourceSite.SourcePath == "sounds.c" && call.CalleeSourceSite.SourceLine == 1638 &&
+            ReferenceEquals(call.C2Context, sound.C2Context) && ReferenceEquals(call.OriginalCue, sound.OriginalCue),
+            "new B witness retains the exact original human sound tuple, cue and call context");
+        SourceEvaluatedPose pose = SourceActorPoseSampler.Evaluate(library, real.ReferencePivots, actor, actor, 1f);
+        Check(pose.Joints.Count == 15, "new B witness retains all fifteen actual evaluated joints");
+        return new { host, game.SourceTick, rawHost = edge.Host, edge.BeforeTick, edge.Visible, edge.Command,
+            transfer, sound.C2Context, sound.C2StateAtCall, sound.Status, original = sound.OriginalCue,
+            calls = sound.Result.Calls.Select(c => new { c.Bank,c.PlaylistId,c.Volume,c.Pan,c.PriorityWord,c.CalleeSourceSite }),
+            actor, real15LocalPose = pose.Joints.Select(j => j.Position).ToArray() };
+    }
+
     private static void M1CompleteReplay(string replayPath, bool observed, bool historical)
     {
-        Check(real.IsC2Profile && real.IsC2M1Profile != historical,
+        Check(real.IsC2Profile && (real.IsC2M1Profile || real.IsPreSnapSwitchProfile) != historical,
             "M1 full public loop explicitly selects real successor factory, never bare272 or proxy constructor");
         PlayerCommand[] commands = ReadPublicReplay(replayPath);
         int[] rawVector = { 0, 1, 2, 3, 17, 31, 127, 257, 4096, 65537, 104729, 1234567,
@@ -264,6 +319,9 @@ internal static partial class Program
         object firstNewCallback = null, positive = null, failure = null;
         Exception firstFailure = null;
         int completed = 0, rSkipFrames = 0;
+        int preSnapSwitchWitnesses = 0;
+        object firstPreSnapSwitch = null;
+        PreSnapPublicEdge pendingPublicB = null;
         Action<Dictionary<string, int>, string> count = (values, key) => {
             int prior; values.TryGetValue(key, out prior); values[key] = prior + 1;
         };
@@ -274,6 +332,8 @@ internal static partial class Program
             {
                 long before = game.SourceTick;
                 PlayerCommand command = commands[host];
+                if (real.IsPreSnapSwitchProfile)
+                    pendingPublicB = CapturePublicB(host, game, command, pendingPublicB);
                 try { game.Step(command); witness.Complete(before); }
                 catch (Exception error)
                 {
@@ -284,6 +344,19 @@ internal static partial class Program
                         JsonSerializer.Serialize(failure, options));
                 }
                 SourceSoundVmDispatch[] dispatches = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
+                if (real.IsPreSnapSwitchProfile)
+                    foreach (SourceSoundVmDispatch dispatch in dispatches.Where(d =>
+                        d.C2Context != null && d.C2Context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed))
+                    {
+                        object actual = RequirePublicSwitchWitness(host, game, dispatch, pendingPublicB);
+                        if (pendingPublicB.Visible.Phase == GamePhase.PreSnap &&
+                            pendingPublicB.Visible.Possession == TeamId.Away)
+                        {
+                            preSnapSwitchWitnesses++;
+                            if (firstPreSnapSwitch == null) firstPreSnapSwitch = actual;
+                        }
+                    }
+                if (game.SourceTick != before) pendingPublicB = null;
                 object sounds = dispatches.Select(item => new {
                     item.Status, item.Detail, item.RandomContext, item.HasOriginalAnimationCue,
                     original = item.HasOriginalAnimationCue ? item.OriginalCue : null,
@@ -379,10 +452,13 @@ internal static partial class Program
             compatibilityRepairs = game.Model.SourceCompatibilityRepairs.ToArray(),
             rawHandicap = game.Model.SourceTeamHandicap,
             effectiveHandicap = game.Model.SourceEffectiveTeamHandicap,
-            profile = historical ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.C2M1StableId,
+            profile = real.IsPreSnapSwitchProfile ? SourceTeamResourceProfile.PreSnapSwitchStableId :
+                historical ? SourceTeamResourceProfile.C2StableId : SourceTeamResourceProfile.C2M1StableId,
             sourceData = real.C2Data.PayloadSha256, replayFileSha256 = CanonicalHash(File.ReadAllBytes(replayPath)),
-            factory = historical ? "REAL SourceC2Composition.CreateSimulation" : "REAL SourceC2Composition.CreateM1Simulation",
+            factory = real.IsPreSnapSwitchProfile ? "REAL SourceC2Composition.CreatePreSnapSwitchSimulation" :
+                historical ? "REAL SourceC2Composition.CreateSimulation" : "REAL SourceC2Composition.CreateM1Simulation",
             completedHosts = completed, game.SourceTick, rawVector, rawCursor, rSkipFrames, positive,
+            preSnapSwitchWitnesses, firstPreSnapSwitch,
             firstNewCallback, failure, phaseCounts, actionCounts, cache = witness.Summary(),
             originalPublicVectorRetainedWithoutStateConditionedRegeneration = true,
             sourceAudioDSPOrTargetRngOrFullGameAccepted = false };
@@ -400,6 +476,174 @@ internal static partial class Program
                 "M1 full actual-factory strict CURRENT/PREV14x15 witness includes every contact actor");
         if (!historical)
             Check(m1ReplayPositive, "M1 full public R_SKIP gate requires after2299 same-instance two ordinals and two real15 poses");
+        if (real.IsPreSnapSwitchProfile)
+            Check(preSnapSwitchWitnesses > 0, "new full profile requires its own real fresh-B transfer/hop/resolved-sound witness");
+    }
+
+    private static int AuthorPreSnapPublicPolicy(string policyPath, IDictionary<string, object> summary)
+    {
+        Check(real.IsPreSnapSwitchProfile && !real.IsC2M1Profile &&
+            gameplayCompatibility == SourceGameplayCompatibility.Portable,
+            "new authoring generation requires its actual new factory, never an old M1 alias");
+        byte[] policyBytes = File.ReadAllBytes(policyPath);
+        string policySha = CanonicalHash(policyBytes);
+        int[] rawVector;
+        using (JsonDocument document = JsonDocument.Parse(policyBytes))
+        {
+            JsonElement policy = document.RootElement;
+            Check(policy.GetProperty("recordingGeneration").GetString() == "source-defensive-presnap-switch/v4" &&
+                policy.GetProperty("maxHosts").GetInt32() == 12000 &&
+                policy.GetProperty("maximumInitialWindows").GetInt32() == 1 &&
+                policy.GetProperty("controllerSha256").GetString() ==
+                    "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+                "new generation preserves the approved controller and exactly one authoring window");
+            foreach (JsonProperty pin in policy.GetProperty("frozenCodeSha256").EnumerateObject())
+                Check(CanonicalHash(File.ReadAllBytes(Path.Combine(policy.GetProperty("worktree").GetString(),pin.Name))) ==
+                    pin.Value.GetString(),"new authoring source freeze changed: "+pin.Name);
+            foreach (JsonProperty pin in policy.GetProperty("frozenInputSha256").EnumerateObject())
+                Check(CanonicalHash(File.ReadAllBytes(pin.Name)) == pin.Value.GetString(),"new authoring data freeze changed: "+pin.Name);
+            rawVector = policy.GetProperty("rawVector").EnumerateArray().Select(v=>v.GetInt32()).ToArray();
+        }
+        Check(rawVector.Length == 15 && CanonicalHash(JsonSerializer.SerializeToUtf8Bytes(rawVector)) ==
+            "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827",
+            "new authoring uses the same seed1/provider/unfiltered15-entry vector");
+        string markerPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(policyPath)),"only-public-window-started.json");
+        using (var marker = new FileStream(markerPath,FileMode.CreateNew))
+        {
+            byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new { policySha,maximumInitialWindows=1,maxHosts=12000,
+                recordingGeneration="source-defensive-presnap-switch/v4" });
+            marker.Write(bytes,0,bytes.Length);
+        }
+        int rawCursor = 0;
+        SourceInjectedRandom shared = null;
+        GameSimulation game = Create(camera:false,random: seed => shared = new SourceInjectedRandom(
+            site => rawVector[rawCursor++ % rawVector.Length],new SourceRandomProvenance(
+                "source-sound-smoke/raw-vector-v1","Same unfiltered raw vector shared by ALL sites, not native PRNG",
+                "new282 actual composition entry; approved single human; explicit FourStation layout",SourceRandomEvidence.ExternalUnverified)),
+            compatibility:SourceGameplayCompatibility.Portable);
+        Check(game.SourceDefensivePreSnapSwitchEnabled && shared.Trace[0].Raw == 0 && shared.Trace[1].Raw == 1 &&
+            shared.Trace[0].Site.SourceIdentity.Contains("InitGameProc:556") &&
+            shared.Trace[1].Site.SourceIdentity.Contains("InitGameProc:560"),
+            "new authoring retains both actual bootstrap draws before AI on the same provider");
+        var cache = new CanonicalWitness(game,false);
+        game.SourceCameraHeadingProvider = (state,tick) => {
+            int heading = FullKernelInputs.SetControlledMovementCamera(game,state,tick);
+            cache.Camera(tick);return heading;
+        };
+        var controller = new PortablePublicController();
+        var packets = new PortableCabinetPackets();
+        var options = new JsonSerializerOptions { IncludeFields = true };
+        var first = new Dictionary<string,Tuple<long,int,string>>();
+        var poses = new List<object>();
+        var switches = new List<object>();
+        var rawDefendingB = new List<object>();
+        var faults = new List<object>();
+        PreSnapPublicEdge pendingPublicB = null;
+        int attempted = 0,completed = 0,rSkipFrames = 0;
+        object positive = null;
+        string inputPath = Path.Combine(outputRoot,"captured-public-commands.jsonl");
+        using (var commands = new StreamWriter(inputPath,false,new UTF8Encoding(false)))
+        using (var observations = new StreamWriter(Path.Combine(outputRoot,"public-window-observations.jsonl"),false,new UTF8Encoding(false)))
+        {
+            for (int host=0;host<12000;host++)
+            {
+                PortableVisible visible = PortableVisible.Project(game.State);
+                PortableIntent intent = controller.Choose(visible);
+                PlayerCommand command = packets.Encode(intent);
+                PreSnapPublicEdge captured = CapturePublicB(host,game,command,pendingPublicB);
+                if (!ReferenceEquals(captured,pendingPublicB) && captured.Visible.Phase == GamePhase.PreSnap &&
+                    captured.Visible.Possession == TeamId.Away)
+                    rawDefendingB.Add(new { host,before=game.SourceTick,visible,intent,command });
+                pendingPublicB = captured;
+                commands.WriteLine(JsonSerializer.Serialize(new { host,command },options));commands.Flush();attempted++;
+                long before = game.SourceTick;
+                try { game.Step(command);cache.Complete(before);completed++; }
+                catch (Exception error)
+                {
+                    object fault = new { host,before,game.SourceTick,command,error=error.ToString(),
+                        actual=CanonicalObservation(game,host,rawCursor,null),allSharedRawDraws=shared.Trace };
+                    faults.Add(fault);
+                    File.WriteAllText(Path.Combine(outputRoot,"first-source-fault.json"),JsonSerializer.Serialize(fault,options));
+                }
+                SourceSoundVmDispatch[] sounds = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
+                if (faults.Count == 0)
+                    try
+                    {
+                        foreach (SourceSoundVmDispatch sound in sounds.Where(s=>s.C2Context != null &&
+                            s.C2Context.Kind == SourceC2SoundFunctionKind.AttackSoundFixed))
+                        {
+                            object actual = RequirePublicSwitchWitness(host,game,sound,pendingPublicB);
+                            if (pendingPublicB.Visible.Phase == GamePhase.PreSnap &&
+                                pendingPublicB.Visible.Possession == TeamId.Away) switches.Add(actual);
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        object fault = new { host,before,game.SourceTick,command,error=error.ToString(),
+                            boundary="actual-public-B-witness",actual=CanonicalObservation(game,host,rawCursor,null),
+                            allSharedRawDraws=shared.Trace };
+                        faults.Add(fault);
+                        File.WriteAllText(Path.Combine(outputRoot,"first-public-witness-fault.json"),
+                            JsonSerializer.Serialize(fault,options));
+                    }
+                if (game.SourceTick != before) pendingPublicB = null;
+                if (faults.Count != 0) break;
+                if (game.SourceTick != before)
+                    foreach (ActorState actor in game.Model.Players)
+                    {
+                        SourceAnimationLayerState layer = actor.AnimationState.Primary;
+                        if (layer.SequenceName != "R_SKIP") continue;
+                        rSkipFrames++;
+                        if (game.SourceTick <= 2299 || !layer.IsSpecified || layer.SourceTick != game.SourceTick) continue;
+                        PlayerView view = GameSnapshot.SourcePlayerView(actor,game.SourceTick,true);
+                        SourceEvaluatedPose local = SourceActorPoseSampler.Evaluate(library,real.ReferencePivots,view,view,1f);
+                        SourceVector3[] joints = Enumerable.Range(0,15).Select(j=>game.Model.SourceCameraJoints[actor.Id,j]).ToArray();
+                        Check(game.Model.SourceCameraJointTick == game.SourceTick &&
+                            joints.All(j=>!float.IsNaN(j.X)&&!float.IsInfinity(j.X)&&!float.IsNaN(j.Y)&&
+                                !float.IsInfinity(j.Y)&&!float.IsNaN(j.Z)&&!float.IsInfinity(j.Z)),
+                            "new recording retains the normal full gate's actual15 cached joints");
+                        string pose = JsonSerializer.Serialize(local.Joints.Select(j=>j.Position).ToArray(),options);
+                        poses.Add(new { host,game.SourceTick,actor=actor.Id,layer.InstanceId,ordinal=layer.FrameOrdinal,
+                            real15Joints=joints,real15LocalPose=local.Joints.Select(j=>j.Position).ToArray(),view });
+                        string key = actor.Id+"/"+layer.InstanceId;
+                        Tuple<long,int,string> earlier;
+                        if (!first.TryGetValue(key,out earlier)) first[key]=Tuple.Create(game.SourceTick,layer.FrameOrdinal,pose);
+                        else if (positive == null && game.SourceTick > earlier.Item1 && layer.FrameOrdinal != earlier.Item2 && pose != earlier.Item3)
+                            positive = new { actor=actor.Id,layer.InstanceId,firstTick=earlier.Item1,secondTick=game.SourceTick,
+                                firstOrdinal=earlier.Item2,secondOrdinal=layer.FrameOrdinal };
+                    }
+                observations.WriteLine(JsonSerializer.Serialize(new { host,before,game.SourceTick,visible,intent,command,
+                    game.State,game.SourceEvents,rawCursor,game.Model.SourceRandomProcess,game.Model.SourceRandomProcessOrder,
+                    game.Model.SourceRandomCallIndex,
+                    sounds=sounds.Select(s=>new { s.Status,c2Context=CanonicalSoundContext(s.C2Context),s.C2StateAtCall,
+                        calls=s.Result == null ? null : s.Result.Calls.Select(c=>new {
+                            c.Bank,c.PlaylistId,c.Volume,c.Pan,c.PriorityWord,c.CalleeSourceSite }) }),
+                    stateEventCacheSha256=CanonicalHash(JsonSerializer.SerializeToUtf8Bytes(
+                        CanonicalObservation(game,host,rawCursor,null),options)) },options));
+            }
+        }
+        Check(shared.Trace.Count == rawCursor,"new one-window recording retains every shared raw draw");
+        object receipt = new { schema="presnap-switch-public-policy-first-window/v1",
+            recordingGeneration="source-defensive-presnap-switch/v4",policySha256=policySha,
+            maximumInitialWindows=1,initialExecutions=1,attemptedHosts=attempted,completedHosts=completed,game.SourceTick,
+            rawCursor,rawVector,rSkipFrames,positive,failure=faults.FirstOrDefault(),faults,
+            preSnapSwitchWitnesses=switches.Count,profile=SourceTeamResourceProfile.PreSnapSwitchStableId,
+            rawDefendingBInputs=rawDefendingB.Count,
+            sourceData=real.C2Data.PayloadSha256,factory="REAL SourceC2Composition.CreatePreSnapSwitchSimulation",
+            gameplayCompatibility=game.Compatibility.ToString(),publicInputSha256=CanonicalHash(File.ReadAllBytes(inputPath)),
+            cache=cache.Summary(),fullM1OrCIOrNativeOrWholeGameQualified=false };
+        File.WriteAllText(Path.Combine(outputRoot,"public-window-result.json"),JsonSerializer.Serialize(receipt,options));
+        File.WriteAllText(Path.Combine(outputRoot,"all-shared-raw-draws.json"),JsonSerializer.Serialize(shared.Trace,options));
+        File.WriteAllText(Path.Combine(outputRoot,"R_SKIP-real-poses.json"),JsonSerializer.Serialize(poses,options));
+        File.WriteAllText(Path.Combine(outputRoot,"pre-snap-switch-witnesses.json"),JsonSerializer.Serialize(switches,options));
+        File.WriteAllText(Path.Combine(outputRoot,"raw-defending-B-inputs.json"),JsonSerializer.Serialize(rawDefendingB,options));
+        summary["status"] = faults.Count != 0 ? "STOP-new-source-fault" :
+            completed != 12000 || game.SourceTick != 11400 ? "STOP-incomplete-window" :
+            positive == null ? "UNMET-public-R_SKIP" : switches.Count == 0 ? "UNMET-fresh-B-switch" :
+            "recorded-new-window-full-qualification-required";
+        summary["public_policy_receipt"]=receipt;summary["assertions"]=assertions;
+        Console.WriteLine(JsonSerializer.Serialize(summary,options));
+        return faults.Count != 0 || completed != 12000 ? 2 : positive == null || switches.Count == 0 ? 1 : 0;
     }
 
     private static string CanonicalHash(byte[] bytes)

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceContactComposition.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceSoundVmTransport.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/FixedStepBridge.cs" />
+    <Compile Include="../parity/FullKernelInputs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" />
+  <Import Project="../parity/FullKernelSources.props" />
+</Project>

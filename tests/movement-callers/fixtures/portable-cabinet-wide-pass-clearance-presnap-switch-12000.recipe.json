@@ -1,0 +1,34 @@
+{
+  "schema": "source-public-replay-recording/v1",
+  "case": "portable-cabinet-wide-pass-clearance-presnap-switch-12000",
+  "epoch": "OriginalRelease57Hz",
+  "input_profile": "contact272",
+  "c2_profile": "contact282-c2-m1-presnap-switch",
+  "source_compatibility": "portable",
+  "seed": 1,
+  "ai_opponents": {
+    "home": 5,
+    "away": 11
+  },
+  "provider_profile": "source-sound-smoke/raw-vector-v1",
+  "hosts": 12000,
+  "commands_only": true,
+  "native_equivalent": false,
+  "jsonl": {
+    "file": "portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl",
+    "sha256": "556ba823b68767e8c6a302d9d59a231fbb457720723a372bf830d57fc8bdd975",
+    "bytes": 8534581
+  },
+  "gzip": {
+    "file": "portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl.gz",
+    "sha256": "9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40",
+    "bytes": 66288
+  },
+  "recording_generation": "source-defensive-presnap-switch/v4",
+  "policy": "approved-portable-public-policy/v1",
+  "controller_sha256": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+  "source_manifest_sha256": "7b08ba4d5734d1e49a7403c327b0b6cb373052e94b81beeac9c694595d7a9a4d",
+  "stable_profile": "original-teams-contact282-c2-m1-presnap-switch",
+  "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation",
+  "station_layout": 4
+}

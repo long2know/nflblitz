@@ -23,6 +23,8 @@ namespace Blitz.Gameplay
 
     public sealed partial class GameSimulation : ISourcePresentationSimulation, ISourceCameraHeadingInput, ISourceWorldState
     {
+        internal const string SourceDefensivePreSnapSwitchProfile =
+            "OriginalRelease57Hz-C2-M1-PreSnapSwitch-InitSoundBanks-v1";
         private readonly List<GameEvent> stepEvents = new List<GameEvent>();
         private readonly ISourceAnimationLibrary sourceAnimations;
         private readonly ISourceActorGeometry sourceGeometry;
@@ -53,6 +55,10 @@ namespace Blitz.Gameplay
 
         public SimulationProfile Profile { get; }
         public SourceGameplayCompatibility Compatibility { get; }
+        public bool SourceDefensivePreSnapSwitchEnabled
+        {
+            get { return sourceC2Bootstrap != null && sourceC2Bootstrap.Data.Profile == SourceDefensivePreSnapSwitchProfile; }
+        }
         public string ReferenceProfile
         {
             get
@@ -120,22 +126,29 @@ namespace Blitz.Gameplay
             SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
             SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null)
         {
+            sourceC2Bootstrap = c2Bootstrap;
+            bool m1Bootstrap = c2Bootstrap != null &&
+                (c2Bootstrap.Data.Profile == Blitz.AssetImport.SourceC2CallbackData.M1Profile ||
+                    SourceDefensivePreSnapSwitchEnabled);
             if (compatibility != SourceGameplayCompatibility.StrictSource && compatibility != SourceGameplayCompatibility.Portable)
                 throw new ArgumentOutOfRangeException(nameof(compatibility));
-            if (compatibility == SourceGameplayCompatibility.Portable
-                && (c2Bootstrap == null || c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
+            if (compatibility == SourceGameplayCompatibility.Portable && !m1Bootstrap)
                 throw new NotSupportedException("Portable gameplay requires the explicit actual M1 source bootstrap.");
             Compatibility = compatibility;
-            if (fireEffects != null && (c2Bootstrap == null ||
-                c2Bootstrap.Data.Profile != Blitz.AssetImport.SourceC2CallbackData.M1Profile))
+            if (fireEffects != null && !m1Bootstrap)
                 throw new NotSupportedException("Authored source-fire effects require the explicit actual M1 bootstrap.");
+            if (SourceDefensivePreSnapSwitchEnabled && configuration == null)
+                throw new ArgumentException("The pre-snap switch profile requires explicit source station configuration.",
+                    nameof(configuration));
             sourceFireConfiguration = fireEffects;
             sourceAnimations = animations ?? throw new ArgumentNullException(nameof(animations));
+            if (SourceDefensivePreSnapSwitchEnabled) sourceC2Bootstrap.RequireLibrary(animations);
             if (kickMeterMetrics != null)
             {
                 Blitz.AssetImport.SourceAnimationLibrary actual = animations as Blitz.AssetImport.SourceAnimationLibrary;
                 if (actual == null || actual.InventorySha256 != Blitz.AssetImport.SourceTeamResourceProfile.ContactAnimationSha256
-                    && actual.InventorySha256 != Blitz.AssetImport.SourceTeamResourceProfile.C2AnimationSha256)
+                    && actual.InventorySha256 != Blitz.AssetImport.SourceTeamResourceProfile.C2AnimationSha256
+                    && !SourceDefensivePreSnapSwitchEnabled)
                     throw new NotSupportedException("Portable-authored kick meters require the explicit actual C1 or C2/M1 animation library.");
             }
             sourceKickMeterMetrics = kickMeterMetrics;
@@ -146,7 +159,6 @@ namespace Blitz.Gameplay
             sourceMovementData = movementData;
             sourceMovementSettings = movementSettings;
             sourceHandicapSettings = handicapSettings ?? new SourceHandicapSettings();
-            sourceC2Bootstrap = c2Bootstrap;
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
@@ -261,6 +273,8 @@ namespace Blitz.Gameplay
             {
                 Model.SourceCurrentInput = default(PlayerCommand);
                 foreach (ActorState actor in Model.Players)
+                {
+                    actor.SourceFakeBTick = -1;
                     if (actor.SourceControllerStation >= 0)
                     {
                         actor.SourceButtons = actor.SourceOldButtons = actor.SourceNewButtons = SourceDroneButtons.None;
@@ -268,6 +282,7 @@ namespace Blitz.Gameplay
                         Array.Clear(actor.SourceButtonHistory, 0, actor.SourceButtonHistory.Length);
                         actor.NonTurboTicks = actor.SourceNonATicks = actor.SourceNonBTicks = 0;
                     }
+                }
             }
 
         }

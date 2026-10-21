@@ -119,6 +119,18 @@ namespace Blitz.Editor
         public static void VerifyContact281C2M1FromCommandLine() { VerifyContact281C2M1(true); }
         public static void VerifyContact281C2M1BindingsFromCommandLine() { VerifyContact281C2M1(false); }
 
+        public static void VerifyContact282C2M1PreSnapSwitchFromCommandLine() { VerifyContact282C2M1PreSnapSwitch(true); }
+        public static void VerifyContact282C2M1PreSnapSwitchBindingsFromCommandLine() { VerifyContact282C2M1PreSnapSwitch(false); }
+
+        private static void VerifyContact282C2M1PreSnapSwitch(bool pixels)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            SourceInterfacePackagePlan plan = SourceTeamInterfaceImporter.PlanFromContact282C2M1PreSnapSwitchArguments(args);
+            string id = PlayerAssetImporter.RequiredArgument(args, "-interfaceStableId");
+            PlayerImportPlan.ValidateStableId(id);
+            VerifySaved(plan, "Assets/Imported/" + id, pixels);
+        }
+
         private static void VerifyContact281C2M1(bool pixels)
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -182,7 +194,7 @@ namespace Blitz.Editor
                 services.NativeGamepadsEnabled);
             Require(services.Profile.StableId == profile.StableId, "Saved services explicit generation tag differs; old resources are not upgraded.");
             Require(ReferenceEquals(services.Hud, hud), "Saved services refer to a different original HUD.");
-            if (profile.IsContact281C2M1)
+            if (profile.UsesM1Services)
             {
                 SourceTeamInterfaceImporter.RequirePossessionSpeechResource();
                 Require(hud.PossessionSound != null, "Saved M1 HUD must load the pinned canonical CAMBOT speech operands.");
@@ -265,8 +277,10 @@ namespace Blitz.Editor
             if (plan.HasC2)
             {
                 VerifyC2Text(savedServices, "originalC2Callbacks",
+                    profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackResourceKey :
                     profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey : SourceInterfacePackagePlan.C2CallbackResourceKey,
                     plan.CopyC2Callbacks(),
+                    profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 :
                     profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackSha256 : SourceInterfacePackagePlan.C2CallbackSha256);
                 VerifyC2Text(savedServices, "originalC2HitExtension", SourceInterfacePackagePlan.C2HitResourceKey,
                     plan.CopyC2HitExtension(), SourceInterfacePackagePlan.C2HitSha256);

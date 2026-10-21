@@ -33,9 +33,10 @@ public sealed class PlayerData
     public PlayerData(DataCatalog data, Action<string> progress = null)
     {
         Catalog = data ?? throw new ArgumentNullException(nameof(data));
-        progress?.Invoke("Verifying actual281 animation/pose library");
+        data.VerifyRetainedInputs();
+        progress?.Invoke("Verifying " + data.Profile.StableId + " animation/pose library");
         Animations = SourceAnimationLibrary.Read(data.EntryBytes("animations"), path => data.Read("animation/" + path));
-        SourceTeamResourceProfile.Contact281C2M1.RequireLibrary(Animations);
+        data.Profile.RequireLibrary(Animations);
         progress?.Invoke("Loading original roster, rules, input, sound-selection and movement services");
         Rosters = SourceTeamRosterLibrary.Read(data.EntryBytes("rosters"), SourceTeamPresentationData.PinnedRosterSha256);
         using (var reader = new StringReader(DataCatalog.Text(data.EntryBytes("playbook"))))
@@ -52,7 +53,9 @@ public sealed class PlayerData
                 row.Base, row.Range, row.Plow)).ToArray());
         Sound = SourceInterfacePackagePlan.ReadSoundVmFunctions(data.EntryBytes("sound"),
             SourceInterfacePackagePlan.SoundVmFunctionsSha256);
-        Callbacks = SourceInterfacePackagePlan.ReadC2M1Callbacks(data.EntryBytes("callbacks"), data.EntryBytes("hit"));
+        Callbacks = data.Profile.IsContact282C2M1PreSnapSwitch
+            ? SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(data.EntryBytes("callbacks"), data.EntryBytes("hit"))
+            : SourceInterfacePackagePlan.ReadC2M1Callbacks(data.EntryBytes("callbacks"), data.EntryBytes("hit"));
         ReferencePlayer = GeneratedPlayerReader.Read(DataCatalog.Text(data.EntryBytes("model")), "models/plyr266.h",
             DataCatalog.Text(data.EntryBytes("skeleton")), "models/skeleton.h",
             new PlayerSymbolSelection("plyr266_limbs", "fbplyr_skel", "model266_limbs", "plyr266_textures"));
@@ -78,8 +81,9 @@ public sealed class PlayerData
             headers.Add(input.Path, DataCatalog.Text(bytes));
         }
         Hud = SourceInterfaceData.Read(data.EntryBytes("hud"), SourceInterfacePackagePlan.HudSha256);
-        Impact = SourceCinematicLibrary.Read(data.EntryBytes("impact"), SourceTeamResourceProfile.C2M1ImpactSha256);
-        SourceTeamResourceProfile.Contact281C2M1.RequireImpact(Impact);
+        Impact = SourceCinematicLibrary.Read(data.EntryBytes("impact"), data.Profile.IsContact282C2M1PreSnapSwitch
+            ? SourceTeamResourceProfile.PreSnapSwitchImpactSha256 : SourceTeamResourceProfile.C2M1ImpactSha256);
+        data.Profile.RequireImpact(Impact);
         DataCatalog.Require(data.HasEntry("normalCamera"),
             "The explicit source profile requires pinned original normal/kickoff camera data; legacy EMA is not a fallback.");
         NormalCamera = SourceNormalCameraData.Read(data.EntryBytes("normalCamera"));

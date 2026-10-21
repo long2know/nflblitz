@@ -288,11 +288,13 @@ internal static partial class Program
         {
             string c2Inputs = null;
             string c2M1Inputs = null;
+            string c2PreSnapSwitchInputs = null;
             bool compatibilitySpecified = false;
             while (args.Length >= 2 && args[args.Length - 2].StartsWith("--", StringComparison.Ordinal))
             {
                 string flag = args[args.Length - 2], value = args[args.Length - 1];
                 if (flag == "--c2-m1-inputs" && c2M1Inputs == null) c2M1Inputs = value;
+                else if (flag == "--c2-presnap-switch-inputs" && c2PreSnapSwitchInputs == null) c2PreSnapSwitchInputs = value;
                 else if (flag == "--c2-inputs" && c2Inputs == null) c2Inputs = value;
                 else if (flag == "--compatibility-old-inputs" && compatibilityOldInputs == null) compatibilityOldInputs = value;
                 else if (flag == "--source-compatibility" && !compatibilitySpecified)
@@ -305,13 +307,16 @@ internal static partial class Program
             }
             bool canonical = args.Length == 5 && (args[2] == "canonical281" || args[2] == "canonical281-observed");
             bool m1Replay = args.Length == 6 && new[] {
-                "m1-complete", "m1-complete-observed", "historical-canonical-replay", "historical-canonical-replay-observed"
+                "m1-complete", "m1-complete-observed", "presnap-complete", "presnap-complete-observed",
+                "historical-canonical-replay", "historical-canonical-replay-observed"
             }.Contains(args[2]);
             bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
             bool portablePolicy = args.Length == 6 && args[2] == "portable-public-policy";
-            if (portablePolicy && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
+            bool preSnapPolicy = args.Length == 6 && args[2] == "presnap-public-policy";
+            bool preSnapReplay = m1Replay && args[2].StartsWith("presnap-", StringComparison.Ordinal);
+            if ((portablePolicy || preSnapPolicy) && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
                 throw new ArgumentException("Portable public policy requires explicit --source-compatibility portable.");
-            if (!canonical && !m1Replay && !portablePolicy && (args.Length != 3 && args.Length != 4 ||
+            if (!canonical && !m1Replay && !portablePolicy && !preSnapPolicy && (args.Length != 3 && args.Length != 4 ||
                 !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility", "carrierless-switch" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
@@ -321,15 +326,17 @@ internal static partial class Program
             real = FullKernelInputs.Load(args[0], movementLibrary: true, selectedMovementLibrary: args[2] == "bounded",
                 soundFunctionsPath: args.Length >= 4 ? args[3] : null,
                 c2InputsPath: canonical || historicalReplay ? args[4] : c2Inputs,
-                c2M1InputsPath: portablePolicy || m1Replay && !historicalReplay ? args[4] : c2M1Inputs);
+                c2M1InputsPath: portablePolicy || m1Replay && !historicalReplay && !preSnapReplay ? args[4] : c2M1Inputs,
+                c2PreSnapSwitchInputsPath: preSnapPolicy || preSnapReplay ? args[4] : c2PreSnapSwitchInputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
-            if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile)
+            if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile && !real.IsPreSnapSwitchProfile)
                 throw new ArgumentException("Portable gameplay requires --c2-m1-inputs and the actual M1 factory.");
             result["gameplay_compatibility"] = gameplayCompatibility.ToString();
             result["real_input_fixture_sha256"] = real.ManifestSha256;
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
             if (portablePolicy) return AuthorPortablePublicPolicy(args[5], result);
+            if (preSnapPolicy) return AuthorPreSnapPublicPolicy(args[5], result);
             if (args[2] == "compatibility" || args[2] == "carrierless-switch")
             {
                 compatibilitySoundFunctions = args[3];
@@ -465,7 +472,8 @@ internal static partial class Program
         SourceGameplayCompatibility? compatibility = null, SourceHandicapSettings handicapSettings = null)
     {
         var config = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
-            SourceStationLayout.TwoStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            real.IsPreSnapSwitchProfile ? SourceStationLayout.FourStation : SourceStationLayout.TwoStation,
+            new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
             new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
             new[] { new SourceStationConfiguration(0, TeamId.Home) }, TeamId.Away, SourceCaptainSlot.First);
         var presentation = new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0);
@@ -477,7 +485,7 @@ internal static partial class Program
                 compatibility: compatibility ?? gameplayCompatibility, handicapSettings: handicapSettings);
             return activeGame;
         }
-        if (real.IsC2M1Profile)
+        if (real.IsC2M1Profile || real.IsPreSnapSwitchProfile)
             throw new InvalidOperationException("M1 successor cache proof must use actual SourceC2Composition and canonical call-site observation, never a proxy constructor.");
         var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, random, 1,
             real.Rosters, presentation, real.MovementRuntime, movementSettings, handicapSettings: handicapSettings);

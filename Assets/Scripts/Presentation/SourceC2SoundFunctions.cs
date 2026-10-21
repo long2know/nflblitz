@@ -31,7 +31,16 @@ namespace Blitz.Presentation
                         state.CurrentPlayerBank), sameSourceRandom, randomContext);
             }
             var execution = new Execution(data, context, state, sameSourceRandom, randomContext);
-            if (kind == SourceC2SoundFunctionKind.TauntSpeech)
+            if (kind == SourceC2SoundFunctionKind.AttackSoundFixed)
+            {
+                if (data.Profile != SourceC2CallbackData.PreSnapSwitchProfile ||
+                    data.RequireBinding(context.OriginalAnimationCue).FunctionKind != kind)
+                    throw new ArgumentException("Fixed attack sound requires the explicitly trusted pre-snap binding generation.");
+                if (state.ActorPlayerNumber.HasValue && state.ActorPlayerNumber.Value != context.ActorId)
+                    throw new ArgumentException("Fixed attack sound must use its actual destination actor state.");
+                execution.AttackSound();
+            }
+            else if (kind == SourceC2SoundFunctionKind.TauntSpeech)
             {
                 if (!context.HasOriginalAnimationCue || context.FunctionSymbol != "taunt_speech" ||
                     context.OriginalAnimationCue.FunctionSymbol != "taunt_speech" ||
@@ -89,6 +98,20 @@ namespace Blitz.Presentation
                 SourceC2SoundCallTemplate call = data.Call(line);
                 calls.Add(new SourceAudioResolvedOriginalSoundCall(context, call.Site, calls.Count, bank, id,
                     call.Volume, call.Pan, call.Priority, recorder.Draws.Count));
+            }
+
+            internal void AttackSound()
+            {
+                if (!state.ActorStation.HasValue)
+                    throw new SourceAudioMissingInputException("actor.station", Result());
+                int station = state.ActorStation.Value;
+                if (station < -1 || station > 3)
+                    throw new ArgumentException("Fixed attack sound requires an actual original station or drone -1.");
+                SourceC2SoundCallTemplate call = station != -1 ? data.AttackSoundHuman : data.AttackSoundDrone;
+                if (call == null) throw new InvalidOperationException("Missing trusted fixed attack-sound source descriptor.");
+                string bank = Bank(state.CurrentPlayerBank, "plyr_bnk_str");
+                calls.Add(new SourceAudioResolvedOriginalSoundCall(context, call.Site, 0, bank, 127,
+                    call.Volume, call.Pan, call.Priority, 0));
             }
 
             internal void Taunt()

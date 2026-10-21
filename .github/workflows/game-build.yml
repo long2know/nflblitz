@@ -25,6 +25,8 @@ on:
       - 'docs/source-parity.md'
       - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
+      - 'tools/source-player/**'
+      - '.github/workflows/source-player.yml'
   push:
     branches: [main]
     paths:
@@ -50,6 +52,8 @@ on:
       - 'docs/source-parity.md'
       - 'docs/architecture.md'
       - '.github/workflows/game-build.yml'
+      - 'tools/source-player/**'
+      - '.github/workflows/source-player.yml'
   workflow_dispatch:
 
 permissions:
@@ -65,11 +69,16 @@ jobs:
     runs-on: ubuntu-24.04
     # Measured full-chain runtime exceeds 30m on slower runners; keep every campaign required.
     timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: .squad/.scratch/defensive-switch-ci/inherited-workspace
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PYTHONDONTWRITEBYTECODE: '1'
       BLITZ_CI_MUTATION_WORKERS: '2'
+      GIT_DIR: ${{ github.workspace }}/.git
+      GIT_WORK_TREE: ${{ github.workspace }}/.squad/.scratch/defensive-switch-ci/inherited-workspace
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -80,6 +89,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: '10.0.100'
+      - name: Verify additive wiring and isolate the inherited guard view
+        working-directory: .
+        run: python3 -B tests/defensive-presnap-switch/test_ci.py workspace --output .squad/.scratch/defensive-switch-ci/inherited-workspace --inherited
       - name: Select the tested SDK
         run: |
           printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json
@@ -170,7 +182,7 @@ jobs:
       - name: Prepare source-timer public replay input without simulation
         run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-selection-countdown-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl
       - name: Check historical and stale public replay generations
-        run: python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/public-replay-generation-ci --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e --possession-replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
+        run: python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/public-replay-generation-ci --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e --possession-replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --partition archived-four
       - name: Test real-input fixture and ball-runner failure gates
         run: |
           python3 tests/parity/test_inputs.py
@@ -274,3 +286,79 @@ jobs:
         run: |
           bash -n scripts/build-webgl.sh scripts/serve-webgl.sh
           sh -n scripts/verify-webgl.sh hosting/entrypoint.sh
+  defensive-presnap-switch:
+    name: Defensive pre-snap original C and full enabled-profile replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: .squad/.scratch/defensive-switch-ci/new-workspace
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      BLITZ_CI_MUTATION_WORKERS: '1'
+      GIT_DIR: ${{ github.workspace }}/.git
+      GIT_WORK_TREE: ${{ github.workspace }}/.squad/.scratch/defensive-switch-ci/new-workspace
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.11.1'
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: '10.0.100'
+      - name: Create the frozen private new-job workspace
+        working-directory: .
+        run: python3 -B tests/defensive-presnap-switch/test_ci.py workspace --output .squad/.scratch/defensive-switch-ci/new-workspace
+      - name: Select the tested SDK
+        run: |
+          printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json
+      - name: Guard the actual new job and the complete inherited coverage
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py
+          python3 -B tools/source-player/test_ci.py
+      - name: Resolve the exact SDK API targeting pack only after actual missing assets
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py ensure-sdk --output .squad/.scratch/defensive-presnap-switch-ci/sdk-preflight
+      - name: Acquire only the authenticated named original and asset union
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py acquire --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/acquired
+          python3 -B tests/parity/fetch_inputs.py --profile defensive-presnap-switch --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --cache .squad/.scratch/SourceData/defensive-presnap-switch-ci/acquired/nfl --download
+      - name: Reconstruct the exact legacy and Contact272 fixtures and C2 generations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py prepare-kernel --root .squad/.scratch/SourceData/defensive-presnap-switch-ci
+      - name: Reconstruct the unchanged complete558 player and explicit563 successor
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py prepare-player --root .squad/.scratch/SourceData/defensive-presnap-switch-ci
+          python3 -B tools/animation/prepare_player_sequences.py --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --catalog tools/animation/presnap_switch_sequences.json --destination .squad/.scratch/SourceData/defensive-presnap-switch-ci/hop
+          python3 -B tools/animation/prepare_presnap_switch_profile.py profile --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --base-m1-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/m1 --hop-bundle .squad/.scratch/SourceData/defensive-presnap-switch-ci/hop --movement-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs --destination .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile
+          python3 -B tools/animation/prepare_presnap_switch_profile.py impact --base-catalog .squad/.scratch/SourceData/defensive-presnap-switch-ci/impact-m1/impact-presentation.json --callback-data .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile/c2-callback-data.json --animation-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile/animation282/export-inventory.json --movement-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs --destination .squad/.scratch/SourceData/defensive-presnap-switch-ci/impact
+          python3 -B tools/source-player/prepare_presnap_switch.py --input .squad/.scratch/SourceData/defensive-presnap-switch-ci/player558 --input-manifest-sha256 d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134 --profile-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile --impact .squad/.scratch/SourceData/defensive-presnap-switch-ci/impact/impact-presentation.json --settings tools/source-player/match-settings.presnap-switch.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/player563
+          python3 -B tools/animation/tests/test_prepare_presnap_switch_profile.py --systems-output .squad/.scratch/SourceData/defensive-presnap-switch-ci ActualProducerChecks -q
+      - name: Execute actual original C focused VM and raw host with all15 controls
+        run: |
+          python3 -B tests/defensive-presnap-switch/run.py --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --old-c2-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/old9 --c2-m1-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/m1 --presnap-switch-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile --player-data .squad/.scratch/SourceData/defensive-presnap-switch-ci/player563 --output .squad/.scratch/defensive-presnap-switch-ci/focused --sdk-netstandard21 --controls
+      - name: Prepare closed saved public inputs without authoring or simulation
+        run: |
+          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-12000.jsonl
+          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-possession-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
+          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-presnap-switch-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl
+      - name: Execute only the fresh current U2 fifth legacy recording probe
+        run: |
+          python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/m1 --replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/defensive-presnap-switch-ci/current-history --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e --possession-replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --partition u2-current-fifth
+      - name: Execute normal full enabled-profile replay and all11 causal controls
+        run: |
+          python3 -B tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile --replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl --output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable
+      - name: Reject real corrupted result source and saved-recording artifacts
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py failure-guards --root .squad/.scratch/SourceData/defensive-presnap-switch-ci --results .squad/.scratch/defensive-presnap-switch-ci --output .squad/.scratch/defensive-presnap-switch-ci/failure-guards.json
+      - name: Check actual results immutable inputs and closed recording privacy
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py summarize --root .squad/.scratch/SourceData/defensive-presnap-switch-ci --results .squad/.scratch/defensive-presnap-switch-ci --output .squad/.scratch/defensive-presnap-switch-ci/privacy-summary.json

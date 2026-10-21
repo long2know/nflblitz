@@ -8,6 +8,13 @@ on:
       - 'tools/source-player/**'
       - '.github/workflows/game-build.yml'
       - '.github/workflows/source-player.yml'
+      - 'tests/defensive-presnap-switch/**'
+      - 'tools/animation/**'
+      - 'tools/audio/**'
+      - 'tests/parity/**'
+      - 'tests/movement-callers/**'
+      - 'tools/rosters/c_source.py'
+      - 'docs/build.md'
   push:
     branches: [main]
     paths:
@@ -16,6 +23,13 @@ on:
       - 'tools/source-player/**'
       - '.github/workflows/game-build.yml'
       - '.github/workflows/source-player.yml'
+      - 'tests/defensive-presnap-switch/**'
+      - 'tools/animation/**'
+      - 'tools/audio/**'
+      - 'tests/parity/**'
+      - 'tests/movement-callers/**'
+      - 'tools/rosters/c_source.py'
+      - 'docs/build.md'
   workflow_dispatch:
 
 permissions:
@@ -50,6 +64,12 @@ jobs:
           printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json
       - name: Guard workflow coverage and resource boundaries
         run: python3 -B tools/source-player/test_ci.py
+      - name: Guard the enabled pre-snap profile and CI failure boundaries
+        run: |
+          python3 -B tests/defensive-presnap-switch/test_ci.py
+          python3 -B tests/defensive-presnap-switch/test_runner.py -q
+          python3 -B tests/defensive-presnap-switch/test_recording.py -q
+          python3 -B tools/animation/tests/test_prepare_presnap_switch_profile.py MetadataChecks -q
       - name: Compile the actual public host without private inputs
         run: |
           mkdir -p tools/source-player/.runtime/empty-nuget
@@ -63,6 +83,10 @@ jobs:
       - name: Test public preparation failure gates
         working-directory: tools/source-player
         run: python3 -B -m unittest prepare_test.PreparationChecks.test_relative_explicit_input_roots_are_normalized_without_allowing_traversal prepare_test.PreparationChecks.test_real_source_artifact_mutation_is_rejected_by_name prepare_test.PreparationChecks.test_camera_extension_preserves_every_inherited_pin_without_format_migration prepare_test.PreparationChecks.test_camera_extension_rejects_wrong_manifest_camera_and_changed_old_asset
+      - name: Test explicit new profile preparation without original assets
+        working-directory: tools/source-player
+        run: |
+          python3 -B -m unittest prepare_test.PreparationChecks.test_presnap_default_changes_only_existing_station_layout_type prepare_test.PreparationChecks.test_build_rejects_historical_data_under_new_default_before_publish prepare_test.PreparationChecks.test_bundle_persist_default_remains_historical_and_new_profile_is_explicit
       - name: Test standalone hosting configuration without a daemon
         env:
           DOCKER_HOST: unix://${{ github.workspace }}/.source-player-ci-no-daemon.sock

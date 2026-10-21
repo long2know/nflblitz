@@ -5,6 +5,110 @@ operate only on explicit local input with an expected upstream **Git blob** pin.
 Decoded original motion and source WANs stay in ignored `.squad/.scratch/`; only
 tool code, metadata-only pins and original synthetic fixtures belong in publication.
 
+## Explicit pre-snap-switch successor: one authentic clip only
+
+`presnap_switch_sequences.json` adds only `M_HOPCLP`: original
+`anim/misc2.wan` blob `5b3083a71b1a7729d508b804712f5a754afaca5b`,
+chunk6, bytes `[92472,118456)`, authoring name `m_hopclp`, all35 selected
+frames and fifteen joints. Selected ordinals map exactly to authoring0..34.
+The unchanged selected exporter uses the original converter's `0.12898` root
+scale and validates the actual matrices, quaternions and complete frame mapping.
+It does not invent a decoder, pose, numeric SEQ ID or native quantization.
+
+```sh
+python3 -B tools/animation/prepare_player_sequences.py \
+  --source-root "$AUTHORIZED_WAN_ROOT" \
+  --catalog tools/animation/presnap_switch_sequences.json \
+  --destination .squad/.scratch/presnap-switch/hop
+python3 -B tools/animation/prepare_presnap_switch_profile.py profile \
+  --source-root "$AUTHENTICATED_C_SOURCE_ROOT" \
+  --base-m1-inputs "$EXACT_OLD_288_FILE_M1_INPUTS" \
+  --hop-bundle .squad/.scratch/presnap-switch/hop \
+  --movement-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs \
+  --destination .squad/.scratch/presnap-switch/profile
+python3 -B tools/animation/prepare_presnap_switch_profile.py impact \
+  --base-catalog "$EXACT_OLD_M1_482_SITE_IMPACT" \
+  --callback-data .squad/.scratch/presnap-switch/profile/c2-callback-data.json \
+  --animation-manifest .squad/.scratch/presnap-switch/profile/animation282/export-inventory.json \
+  --movement-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs \
+  --destination .squad/.scratch/presnap-switch/impact
+```
+
+All destinations must be new, ignored, regular local roots, disjoint from the
+explicit inputs. Neither subcommand downloads anything or overwrites an old
+generation. The profile producer copies all281 old clip bytes, including the
+qualified R_SKIP and RUSH_C75, without re-exporting them. Its exact289-file
+closure is282 clips, one inventory plus detached pin, callback JSON plus pin,
+and the unchanged hit-extension SAFN/pin/source JSON. It authenticates all six
+named original C/header blobs and the original positive `attack_snd` branch.
+
+| Explicit successor artifact | SHA-256 |
+| --- | --- |
+| One-clip selected inventory | `ec3a334976e0dc0b13accc9b2b9cff098e61c800bd2eba1bf02f831c03f84cef` |
+| Actual decoded `M_HOPCLP35` | `df5e69344d049646e07143c4cbfec0d577e442fe63152099967436fa91c4e2bb` |
+|282-clip /26,265-frame inventory | `50aa432ff9b332ec9087133f5bccb43ae18e1ca7c0bf7830cbdd675d3e024046` |
+|15-binding callback JSON | `e9a2ccbfffda0e83ae9ba409e4fbfd6f6c6f074ebd024aa30367d9d06c29c653` |
+| Rebound482-site impact | `456d525aa75ba343942613793cc437d6732f0b16d972a981537929daece9f3d7` |
+| Separate frozen pre-snap Movement programs | `2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef` |
+| Unchanged C2 programs | `0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc` |
+
+The resource profile is **`original-teams-contact282-c2-m1-presnap-switch`**,
+tool profile `contact282-c2-m1-presnap-switch`, callback profile
+`OriginalRelease57Hz-C2-M1-PreSnapSwitch-InitSoundBanks-v1`.
+Animation uses
+`SourceData/local-plyr266-contact282-c2-m1-presnap-switch-50aa432f`;
+callbacks use `SourceData/source-c2-m1-presnap-switch-callbacks-e9a2ccbf`.
+Team/impact keys use the exact stable ID under `BlitzSourcePlayers/`;
+services use
+`BlitzSourceInterface/original-contact282-c2-m1-presnap-switch-match-services`.
+Old SAFN/hit resource keys are reused unchanged.
+
+The first fourteen bindings, nine call templates, banks and tables are unchanged;
+the sole appended tuple is `m_hopclp_anim:3409 / attack_snd(127,0,0)`.
+The482-site catalog **already contains3409**: only generation metadata, schema
+and qualifications change, not cue/table/camera data or the41 additional speech
+lines. The successor requires both distinct program hashes. Changed/stale
+programs invalidate this release; never patch a trusted constant around them.
+
+`Contact282C2M1PreSnapSwitch`, `ReadPreSnapSwitchCallbacks`,
+`WithContact282C2M1PreSnapSwitch` and
+`InitializeContact282C2M1PreSnapSwitch` are explicit selectors. Old
+`IsContact281C2M1`, readers, factories, data, defaults and recordings remain
+distinct. `UsesM1Services` only preserves existing normal-camera, possession,
+Portable/fire/kick service ancestry; clip presence never enables gameplay.
+Runtime/Editor source routes to the exact **U2-owned**
+`SourceC2Composition.CreatePreSnapSwitchSimulation`. Until U2 implements that
+factory, full runtime/API integration is pending, not a successful old-factory
+fallback. No Editor import/build, scene or renderer change is part of S1.
+The unchanged `SourceCinematicPlayback.ConsumeResolvedSourceSound` is another
+explicit integration dependency: its historical taunt/hit discriminator and
+per-call C2-context guard reject kind5. That file is outside S1's writer list.
+Its minimum narrow ownership expansion must be authorized before changing those
+guards; neither dropping the typed context nor bypassing the cinematic FIFO is
+an acceptable workaround. A passing selector/transport boundary is not a
+passing complete presentation path.
+
+Metadata-only tests need no original data. The opt-in real-output checks
+reproduce the generation, compare every inherited clip and impact section,
+and reject actual missing/changed clips, wrong maps/source hashes, stale
+programs/payloads, mismatched profiles/counts/tuples, extra files and symlinks:
+
+```sh
+python3 -B -m unittest discover -s tools/animation/tests \
+  -p test_prepare_presnap_switch_profile.py
+# Explicit S1 release root contains baseline.json plus hop/profile/impact:
+python3 -B tools/animation/tests/test_prepare_presnap_switch_profile.py \
+  --systems-output "$PRIVATE_S1_SYSTEMS_OUTPUT" -v
+```
+
+All outputs remain private. Existing558-file player data and old receipts are
+not edited; the separately owned U2 producer adds five files to a new563-file
+bundle. Real source-host/default configuration integration, full new-profile
+qualification and genuine World evidence remain U2/later Quality work.
+Selected-export and API evidence is not PCM/DSP/native Unity, performance,
+rights/redistribution or whole-game acceptance; all sixteen whole/native rows
+remain open.
+
 ## Explicit C2 production281 generation
 
 ### Explicit M1 running-taunt successor (not the old-nine default)

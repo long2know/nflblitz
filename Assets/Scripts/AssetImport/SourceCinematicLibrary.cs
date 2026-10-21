@@ -96,11 +96,13 @@ namespace Blitz.AssetImport
         public string ContactAnimationManifestSha256 { get; }
         public string ContactProgramsSha256 { get; }
         public string C2CallbackDataSha256 { get; }
+        public string PreSnapSwitchMovementProgramsSha256 { get; }
         public ReadOnlyCollection<SourceCinematicCameraBinding> CameraOperandBindings { get; }
 
         private SourceCinematicLibrary(string hash, Dictionary<string, ReadOnlyCollection<SourceCinematicEntry>> tables,
             float[] shaker, SourceCinematicCueDefinition[] cues, SourceCinematicCueDefinition[] contacts, string[] qualifications,
-            string contactAnimation, string contactPrograms, SourceCinematicCameraBinding[] cameraBindings, string c2Data)
+            string contactAnimation, string contactPrograms, SourceCinematicCameraBinding[] cameraBindings, string c2Data,
+            string preSnapSwitchMovementPrograms)
         {
             ContentSha256 = hash;
             Tables = new ReadOnlyDictionary<string, ReadOnlyCollection<SourceCinematicEntry>>(tables);
@@ -110,6 +112,7 @@ namespace Blitz.AssetImport
             ContactAnimationManifestSha256 = contactAnimation; ContactProgramsSha256 = contactPrograms;
             CameraOperandBindings = Array.AsReadOnly(cameraBindings);
             C2CallbackDataSha256 = c2Data;
+            PreSnapSwitchMovementProgramsSha256 = preSnapSwitchMovementPrograms;
         }
 
         public SourceCinematicEntry Selected(string originalTable, int actualSelectedOrdinal)
@@ -144,7 +147,8 @@ namespace Blitz.AssetImport
                 RosterGuard.Sha256(json) == expectedSha256, "Original cinematic content pin mismatch.");
             RosterObject root = RosterJson.Object(RosterJson.Parse(json), "original impact presentation");
             string schema = root.Text("schema");
-            bool m1 = schema == "original-impact-contact281-c2-m1/v1";
+            bool preSnap = schema == "original-impact-contact282-c2-m1-presnap-switch/v1";
+            bool m1 = preSnap || schema == "original-impact-contact281-c2-m1/v1";
             bool c2 = m1 || schema == "original-impact-contact281-c2/v1";
             bool contact = c2 || schema == "original-impact-contact272/v1";
             RosterGuard.Require((contact || schema == "original-impact-presentation/v1") &&
@@ -228,7 +232,7 @@ namespace Blitz.AssetImport
                 RosterGuard.Require(tables.ContainsKey(table), "Missing original contact camera table: " + table);
                 contacts.Add(new SourceCinematicCueDefinition(function, line, "contact", new[] { table }));
             }
-            string contactAnimation = null, contactPrograms = null, c2Data = null;
+            string contactAnimation = null, contactPrograms = null, c2Data = null, movementPrograms = null;
             var cameraBindings = new List<SourceCinematicCameraBinding>();
             if (contact)
             {
@@ -243,9 +247,23 @@ namespace Blitz.AssetImport
                         binding.Text("legacy_programs_sha256", 64) == SourceTeamResourceProfile.ContactProgramsSha256,
                         "C2 must retain the qualified C1 source/library lineage.");
                     c2Data = binding.Text("c2_payload_sha256", 64);
-                    RosterGuard.Require(c2Data == (m1 ? SourceInterfacePackagePlan.C2M1CallbackSha256
+                    RosterGuard.Require(c2Data == (preSnap ? SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 :
+                        m1 ? SourceInterfacePackagePlan.C2M1CallbackSha256
                         : SourceInterfacePackagePlan.C2CallbackSha256),
                         "C2 impact must bind its actual frozen callback data.");
+                }
+                if (preSnap)
+                {
+                    movementPrograms = binding.Text("presnap_switch_movement_programs_sha256", 64);
+                    RosterGuard.Require(expectedSha256 == SourceTeamResourceProfile.PreSnapSwitchImpactSha256 &&
+                        contactAnimation == SourceTeamResourceProfile.PreSnapSwitchAnimationSha256 &&
+                        contactPrograms == SourceTeamResourceProfile.C2ProgramsSha256 &&
+                        movementPrograms == SourceTeamResourceProfile.PreSnapSwitchMovementProgramsSha256 &&
+                        binding.Text("base_m1_catalog_sha256", 64) == SourceTeamResourceProfile.C2M1ImpactSha256 &&
+                        binding.Text("base_m1_animation_manifest_sha256", 64) == SourceTeamResourceProfile.C2AnimationSha256 &&
+                        binding.Text("base_m1_callback_payload_sha256", 64) == SourceInterfacePackagePlan.C2M1CallbackSha256 &&
+                        binding.Text("presnap_switch_manifest_sha256", 64) == SourceTeamResourceProfile.PreSnapSwitchHopInventorySha256,
+                        "Pre-snap impact requires its separately frozen base/hop/library/callback and BOTH C2/Movement program generations.");
                 }
                 RosterGuard.Require(binding.Text("base_catalog_sha256", 64) ==
                     "794b1fa2865733677d08d5c465dad6a002966750a7d0523138f61f3a25be1fb3",
@@ -277,7 +295,7 @@ namespace Blitz.AssetImport
             }
             string[] qualifications = root.Strings("qualifications", 1, 32); root.Done();
             return new SourceCinematicLibrary(expectedSha256, tables, shaker, cues.ToArray(), contacts.ToArray(), qualifications,
-                contactAnimation, contactPrograms, cameraBindings.ToArray(), c2Data);
+                contactAnimation, contactPrograms, cameraBindings.ToArray(), c2Data, movementPrograms);
         }
 
         private static bool HasCue(List<SourceCinematicCueDefinition> cues, string script, int line, string kind, string argument)

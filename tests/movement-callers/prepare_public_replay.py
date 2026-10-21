@@ -31,6 +31,9 @@ SOURCE_TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12
 SOURCE_TIMER_FIXTURE = FIXTURE.with_name(SOURCE_TIMER_CASE + ".jsonl.gz")
 SOURCE_TIMER_RECIPE = FIXTURE.with_name(SOURCE_TIMER_CASE + ".recipe.json")
 SOURCE_TIMER_RECIPE_SHA256 = "a1b817e6842ef49be096fb2e34c2977203c6c8280413479021c5ac5acaf7918b"
+PRESNAP_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-12000"
+PRESNAP_FIXTURE = FIXTURE.with_name(PRESNAP_CASE + ".jsonl.gz")
+PRESNAP_RECIPE = FIXTURE.with_name(PRESNAP_CASE + ".recipe.json")
 RECORDINGS = {
     HISTORICAL_CASE: {
         "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
@@ -201,8 +204,53 @@ def encode(rows):
 
 
 def recording(case):
+    if case == PRESNAP_CASE:
+        recipe = presnap_recipe()
+        return dict(fixture=PRESNAP_FIXTURE,public_sha256=recipe["jsonl"]["sha256"],
+                    public_bytes=recipe["jsonl"]["bytes"],fixture_sha256=recipe["gzip"]["sha256"],
+                    fixture_bytes=recipe["gzip"]["bytes"])
     require(case in RECORDINGS, "unknown public recording identity")
     return RECORDINGS[case]
+
+
+def make_presnap_recipe(source_manifest_sha256, jsonl, packed):
+    return {
+        **SOURCE_TIMER_EXPECTED_RECIPE, "case": PRESNAP_CASE,
+        "recording_generation": "source-defensive-presnap-switch/v4",
+        "c2_profile": "contact282-c2-m1-presnap-switch",
+        "stable_profile": "original-teams-contact282-c2-m1-presnap-switch",
+        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation",
+        "station_layout": 4,
+        "source_manifest_sha256": source_manifest_sha256,
+        "jsonl": {"file": PRESNAP_CASE+".jsonl","sha256":sha(jsonl),"bytes":len(jsonl)},
+        "gzip": {"file": PRESNAP_FIXTURE.name,"sha256":sha(packed),"bytes":len(packed)},
+    }
+
+
+def validate_presnap_recipe(value):
+    import re
+    fixed = make_presnap_recipe(value.get("source_manifest_sha256"),b"",b"")
+    fields(value,set(fixed),"pre-snap-switch recipe")
+    for name in set(fixed)-{"source_manifest_sha256","jsonl","gzip"}:
+        exact_metadata(value[name],fixed[name],"pre-snap-switch recipe."+name)
+    require(type(value["source_manifest_sha256"]) is str and
+            re.fullmatch(r"[0-9a-f]{64}",value["source_manifest_sha256"]) is not None,
+            "new recording requires its actual frozen source-manifest SHA256")
+    for name,limit in (("jsonl",32*1024*1024),("gzip",2*1024*1024)):
+        record=value[name]
+        fields(record,{"file","bytes","sha256"},"pre-snap-switch "+name)
+        require(record["file"]==fixed[name]["file"] and type(record["bytes"]) is int and
+                0<record["bytes"]<=limit and type(record["sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}",record["sha256"]) is not None,
+                "new recording requires exact bounded computed "+name+" metadata")
+    return value
+
+
+def presnap_recipe():
+    require(PRESNAP_RECIPE.is_file() and not PRESNAP_RECIPE.is_symlink() and
+            PRESNAP_RECIPE.stat().st_size<=8192,
+            "The new source-frozen pre-snap-switch recording/recipe is missing; no old-vector fallback.")
+    return validate_presnap_recipe(decode(PRESNAP_RECIPE.read_bytes()))
 
 
 def exact_metadata(value, expected, where):
@@ -216,6 +264,13 @@ def exact_metadata(value, expected, where):
 
 
 def load_recipe(path, case=POSITIVE_CASE):
+    if case == PRESNAP_CASE:
+        expected=presnap_recipe()
+        raw=Path(path).read_bytes()
+        require(not Path(path).is_symlink() and len(raw)<=8192 and raw==PRESNAP_RECIPE.read_bytes(),
+                "explicit new recipe differs from the actual separately named tracked recording")
+        exact_metadata(validate_presnap_recipe(decode(raw)),expected,"pre-snap-switch recipe")
+        return
     require(case in RECIPES, "recording has no portable recipe")
     _, expected, digest = RECIPES[case]
     path = Path(path)
@@ -250,8 +305,8 @@ def compress(data):
 
 def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
     identity = recording(case)
-    if case in RECIPES:
-        load_recipe(RECIPES[case][0] if recipe is None else recipe, case)
+    if case in RECIPES or case == PRESNAP_CASE:
+        load_recipe((PRESNAP_RECIPE if case == PRESNAP_CASE else RECIPES[case][0]) if recipe is None else recipe, case)
     else:
         require(recipe is None, "historical unqualified recording has no portable recipe")
     path = Path(path)
@@ -312,7 +367,7 @@ def main():
     author.add_argument("--output", type=Path, action="append")
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
-        command.add_argument("--case", choices=RECORDINGS, action="append")
+        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE,), action="append")
         command.add_argument("--fixture", type=Path, action="append")
         command.add_argument("--recipe", type=Path, action="append")
         if mode == "prepare":
@@ -340,7 +395,8 @@ def main():
         print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
                           "fixture_sha256": identity["fixture_sha256"],
-                          "recipe_sha256": RECIPES[case][2] if case in RECIPES else None,
+                          "recipe_sha256": sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
+                              RECIPES[case][2] if case in RECIPES else None,
                           "historical_unqualified": case == HISTORICAL_CASE,
                           "simulation_executed": False}))
         return 0

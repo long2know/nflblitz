@@ -55,6 +55,7 @@ namespace Blitz.Gameplay
         internal SourceDroneButtons SourceOldButtons;
         internal SourceDroneButtons SourceNewButtons;
         internal SourceDroneButtons SourceReleasedButtons;
+        internal long SourceFakeBTick = -1;
         internal readonly SourceDroneButtons[] SourceButtonHistory = new SourceDroneButtons[5];
         internal int SourceDroneThrowTarget = -1;
         internal int SourceNonATicks;
@@ -288,6 +289,7 @@ namespace Blitz.Gameplay
         internal bool SourceOffenseFlipped;
         internal ISourceTeamRoster SourceRosters;
         internal SourceCaptainSlot SourceCaptain;
+        internal readonly int?[] SourceCaptainPlayers = new int?[2];
         internal bool SourceRequestedOnside;
         internal int SourceHikeCounterAtSnap;
         internal int SourcePuntStrength;

@@ -14,10 +14,12 @@ public static partial class Browser
     public static void Start(byte[] manifest, string url)
     {
         if (host != null) throw new InvalidOperationException("The source player is already initialized.");
-        var options = PreviewOptions.FromUrl(url);
         var catalog = new DataCatalog(manifest, ReadFile);
+        var options = PreviewOptions.FromUrl(url, catalog.Profile.StableId);
         var data = new PlayerData(catalog, Progress);
-        host = new PlayerHost(data, new WebGlSink(), Progress, options);
+        var loaded = new PlayerHost(data, new WebGlSink(), Progress, options);
+        catalog.RequireAllInputsConsumed();
+        host = loaded;
     }
 
     [JSExport]

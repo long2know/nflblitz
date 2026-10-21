@@ -36,10 +36,14 @@ namespace Blitz.Gameplay
 
         internal void RequireLibrary(ISourceAnimationLibrary library)
         {
+            bool preSnapSwitch = Data.Profile == GameSimulation.SourceDefensivePreSnapSwitchProfile;
             SourceAnimationLibrary actual = library as SourceAnimationLibrary;
             if (actual == null || actual.InventorySha256 != Data.AnimationManifestSha256 ||
-                actual.SequenceNames.Count != 281 || actual.FrameCount != 26230)
-                throw new ArgumentException("C2 requires its actual pinned original281 animation union, never the legacy272 alias.");
+                actual.SequenceNames.Count != (preSnapSwitch ? 282 : 281) ||
+                actual.FrameCount != (preSnapSwitch ? 26265 : 26230))
+                throw new ArgumentException(preSnapSwitch
+                    ? "Pre-snap switch requires its actual pinned original282 animation union."
+                    : "C2 requires its actual pinned original281 animation union, never the legacy272 alias.");
         }
     }
 

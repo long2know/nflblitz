@@ -76,9 +76,9 @@ namespace Blitz.Runtime
                 SourceGameplayCompatibility compatibility = SourceGameplayCompatibilityOptions.FromUrl(Application.absoluteURL);
                 bool fireEnabled = SourceFireGameplayOptions.PortableRequested(Application.absoluteURL);
                 SourceKickMeterMode kickMeters = SourceKickMeterOptions.FromUrl(Application.absoluteURL);
-                if (fireEnabled && !profile.IsContact281C2M1)
+                if (fireEnabled && !profile.UsesM1Services)
                     throw new SourceInterfaceException("source-fire=portable requires the explicit actual M1 resource profile.");
-                if (compatibility == SourceGameplayCompatibility.Portable && !profile.IsContact281C2M1)
+                if (compatibility == SourceGameplayCompatibility.Portable && !profile.UsesM1Services)
                     throw new SourceInterfaceException("source-compatibility=portable requires the explicit M1 resource profile.");
                 SourcePlayerRig prefab = SourcePlayerProvider.ResolveActorMode(profile);
                 ISourceAnimationLibrary animations = null;
@@ -117,7 +117,7 @@ namespace Blitz.Runtime
                                 sourceServices.PresentationSettings, identity, side));
                     }
                     simulation = sourceServices.CreateSimulation(prefab, compatibility, fireEffects: fire, kickMeters: kickMeters);
-                    if (profile.IsContact281C2M1)
+                    if (profile.UsesM1Services)
                         simulation.BindSourcePossessionSoundData(sourceServices.Hud.PossessionSound);
                     if (kickMeters == SourceKickMeterMode.PortableAuthored)
                         Debug.LogWarning("Portable-authored human kick meters enabled with the pinned authored HUD dimensions. "

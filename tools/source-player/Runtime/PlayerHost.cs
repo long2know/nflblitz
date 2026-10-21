@@ -20,6 +20,8 @@ public sealed class PlayerHost
     private readonly Queue<object> events = new();
     private readonly Queue<object> contacts = new();
     private readonly Queue<object> dustCues = new();
+    private readonly Queue<object> hopSounds = new();
+    private readonly SourceSoundVmTransport hopSoundTransport = new();
     private readonly Dictionary<string, long> eventCounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> contactCounts = new(StringComparer.Ordinal);
     private readonly int[] lastButtons = new int[4];
@@ -44,6 +46,7 @@ public sealed class PlayerHost
     public long UnqualifiedVisualCallbacks { get; private set; }
     public long DustCallbacks { get; private set; }
     public long BoundDustCallbacks { get; private set; }
+    public long PreSnapSwitchSoundSelections { get; private set; }
     public bool Active { get; private set; } = true;
     public string LastStatus { get; private set; } = "{}";
     private long lastSourceTick;
@@ -52,14 +55,17 @@ public sealed class PlayerHost
     {
         Data = data;
         this.sink = sink;
-        Options = options ?? PreviewOptions.FromUrl("");
+        Options = options ?? PreviewOptions.FromUrl("", data.Catalog.Profile.StableId);
+        DataCatalog.Require(Options.Profile == data.Catalog.Profile.StableId,
+            "Host options must retain the authenticated built profile before asset or kernel construction.");
         if (Options.FireEnabled && data.Fire == null)
             throw new InvalidDataException("The selected fire opt-in has no authenticated original assets.");
         Assets = new RenderAssets(data, sink, progress);
         Fire = new FirePresentation(data.Fire, Options.FireEnabled, sink);
-        progress?.Invoke("Constructing actual production C# M1 simulation, fourteen actors and source camera");
+        progress?.Invoke("Constructing " + KernelBinding.FactoryFor(data.Catalog.Profile) + ", fourteen actors and source camera");
         Game = KernelBinding.Create(data, Options);
         Camera = new PreviewCamera(data, Assets, Game);
+        hopSoundTransport.BindOutput(new HopSoundObservation(this));
         quantizer = new SourceCabinetQuantizer(data.Hud.Input);
         input = new SourceCabinetInputBuffer(data.Configuration.Match);
         selection = new SourceCabinetPlaySelection(data.Hud);
@@ -92,6 +98,13 @@ public sealed class PlayerHost
         };
         Bridge.AfterSimulationStep += ObserveSound;
         Bridge.SourcePresentationCueRaised += cue => {
+            if (Game.SourceDefensivePreSnapSwitchEnabled && cue is SourceCallbackCue sound &&
+                sound.Context.SourcePath == "plyrseq.c" && sound.Context.ExecutingSymbol == "m_hopclp_anim")
+            {
+                SourceSoundVmDispatch dispatch = hopSoundTransport.TakeForCue(sound) ??
+                    throw new InvalidDataException("The enabled hop has no actual synchronous resolved sound/cue pairing.");
+                Camera.Playback.ConsumeResolvedSourceSound(dispatch, hopSoundTransport.DeliverResolved);
+            }
             Camera.Cue(cue);
             if (cue.Kind == SourcePresentationCueKind.DustCallback)
             {
@@ -112,6 +125,7 @@ public sealed class PlayerHost
                 }
             }
         };
+        Bridge.AfterSourcePresentation += hopSoundTransport.CompletePresentationBatch;
         Bridge.AfterHostStep += ObserveStep;
         Bridge.Restarted += ResetPresentation;
         Capture(new double[8], new int[4]);
@@ -138,12 +152,54 @@ public sealed class PlayerHost
                 pan = speech.Pan, priority = speech.PriorityWord, pcmOrDspPlayback = false }, 64);
         }
         SourceSoundVmBatch batch = Game.TakeSourceSoundVmDispatches();
+        var hops = new List<SourceSoundVmDispatch>();
         foreach (SourceSoundVmDispatch dispatch in batch.Dispatches)
         {
             SoundSelections++;
             if (dispatch.Status == SourceSoundVmStatus.MissingInput)
                 throw new InvalidDataException("Required original sound-selection input is missing: " + dispatch.Detail);
             if (dispatch.Result != null) UnqualifiedSoundCalls += dispatch.Result.Calls.Count;
+            if (Game.SourceDefensivePreSnapSwitchEnabled && dispatch.HasOriginalAnimationCue &&
+                dispatch.OriginalCueContext.ExecutingSymbol == "m_hopclp_anim")
+            {
+                DataCatalog.Require(dispatch.C2Context?.Kind == SourceC2SoundFunctionKind.AttackSoundFixed &&
+                    dispatch.Status == SourceSoundVmStatus.Resolved,
+                    "The enabled hop must resolve its exact typed callback, never Unsupported or muted success.");
+                hops.Add(dispatch);
+            }
+        }
+        hopSoundTransport.Drain(new SourceSoundVmBatch(hops));
+    }
+
+    private sealed class HopSoundObservation : ISourceSoundVmOutputConsumer
+    {
+        private readonly PlayerHost host;
+        internal HopSoundObservation(PlayerHost host) { this.host = host; }
+        public void ConsumeResolved(SourceSoundVmDispatch dispatch)
+        {
+            DataCatalog.Require(dispatch.C2Context?.Kind == SourceC2SoundFunctionKind.AttackSoundFixed &&
+                dispatch.Status == SourceSoundVmStatus.Resolved && dispatch.Result?.Calls.Count == 1,
+                "The recording consumer accepts only the actual resolved fixed attack call.");
+            var call = dispatch.Result.Calls[0];
+            host.PreSnapSwitchSoundSelections++;
+            Enqueue(host.hopSounds, new {
+                kind = dispatch.C2Context.Kind.ToString(), sourceTick = dispatch.C2Context.SourceTick,
+                actor = dispatch.C2Context.ActorId, station = dispatch.C2StateAtCall.Value.ActorStation,
+                process = dispatch.C2Context.Process, processOrder = dispatch.C2Context.ProcessOrder,
+                firstCallIndex = dispatch.C2Context.FirstCallIndex,
+                script = dispatch.OriginalCueContext.ExecutingSymbol, instance = dispatch.OriginalCueContext.ScriptInstanceId,
+                path = dispatch.OriginalCueContext.SourcePath, line = dispatch.OriginalCueContext.SourceLine,
+                function = dispatch.OriginalCue.FunctionSymbol, arguments = new[] {
+                    dispatch.OriginalCue.Argument0, dispatch.OriginalCue.Argument1, dispatch.OriginalCue.Argument2 },
+                call.Bank, call.PlaylistId, call.Volume, call.Pan, call.PriorityWord, call.SubcallOrder,
+                randomCalls = dispatch.Result.RandomCalls, callSite = new {
+                    path = call.CalleeSourceSite.SourcePath, function = call.CalleeSourceSite.FunctionSymbol,
+                    line = call.CalleeSourceSite.SourceLine, blob = call.CalleeSourceSite.SourceGitBlob },
+                sameCue = ReferenceEquals(call.OriginalCue, dispatch.OriginalCue),
+                sameContext = ReferenceEquals(call.C2Context, dispatch.C2Context),
+                output = "actual transport/cinematic recording consumer; PCM/DSP playback unqualified",
+                pcmOrDspPlayback = false
+            }, 32);
         }
     }
 
@@ -236,6 +292,9 @@ public sealed class PlayerHost
         contactCounts.Clear();
         SourceWakes = SoundSelections = UnqualifiedSoundCalls = UnqualifiedVisualCallbacks = 0;
         DustCallbacks = BoundDustCallbacks = 0;
+        PreSnapSwitchSoundSelections = 0;
+        hopSounds.Clear();
+        hopSoundTransport.Reset();
         foreach (var pending in commands) pending.Clear();
     }
 
@@ -325,6 +384,12 @@ public sealed class PlayerHost
         LastStatus = JsonSerializer.Serialize(new {
             schema = "blitz-portable-source-player-frame/v1", runtimeFlavor = RuntimeFlavor,
             kernel = KernelBinding.Describe(Game), profile = Data.Animations.InventorySha256,
+            resourceProfile = Data.Catalog.Profile.StableId,
+            animationLibrary = new { sha256 = Data.Animations.InventorySha256,
+                clips = Data.Animations.SequenceNames.Count, frames = Data.Animations.FrameCount },
+            callbacks = new { profile = Data.Callbacks.Profile, sha256 = Data.Callbacks.PayloadSha256,
+                bindings = Data.Callbacks.Bindings.Count },
+            defensivePreSnapSwitchEnabled = Game.SourceDefensivePreSnapSwitchEnabled,
             manifestSha256 = Data.Catalog.ManifestSha256,
             hostTick = state.Tick, sourceTick = Game.SourceTick, sourceTicksPerSecond = source.SourceTicksPerSecond,
             epoch = Epoch,
@@ -425,7 +490,8 @@ public sealed class PlayerHost
                 waitingForNeutral = input.WaitingForNeutral, buttons = lastButtons, axes = lastAxes },
             active = Active, events = events.ToArray(), eventCounts, contacts = contacts.ToArray(), contactCounts,
             audio = new { output = "Audio output unqualified", selections = SoundSelections,
-                unplayedRawCalls = UnqualifiedSoundCalls },
+                unplayedRawCalls = UnqualifiedSoundCalls, preSnapSwitchSelections = PreSnapSwitchSoundSelections,
+                resolvedHopSelections = hopSounds.ToArray() },
             effects = Fire.Describe(),
             visualCallbacks = new { dust = DustCallbacks, boundDust = BoundDustCallbacks,
                 unqualified = UnqualifiedVisualCallbacks,

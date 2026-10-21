@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Four exact source/recording boundaries, never a substitute for current full M1."""
+"""Immutable historical boundaries plus separately pinned U2, never a substitute for full M1."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
@@ -30,6 +30,10 @@ TIMER_RECORDING_SOURCE_SHA256 = replay.SOURCE_TIMER_EXPECTED_RECIPE["source_mani
 # New production source, same immutable recording. No recording/recipe/controller/seed is regenerated.
 CURRENT_SOURCE_SHA256 = "a876fa4b6c286043d9791624904852b6ad7cbfef98f0eaf4d186feb4ac3f20fd"
 HARNESS_SHA256 = "ea910e3039fc8f39b4958c83a535eb5e81c2f3ec29dbfbf15757ece675206b91"
+CURRENT_REF = "c339efcccc7caf82fb1c3533bf952dc4d3f3600e"
+CURRENT_TREE = "c974448da52f2ad7dc74f28e777eee1715ef9dc1"
+U2_CURRENT_SOURCE_SHA256 = "7b08ba4d5734d1e49a7403c327b0b6cb373052e94b81beeac9c694595d7a9a4d"
+U2_HARNESS_SHA256 = "634c9ca7f514b82ab6789f0fac154380f8aa5f7417a68dcc30bf64a446afc501"
 OLD_PUBLIC_SHA256 = replay.RECORDINGS[replay.POSITIVE_CASE]["public_sha256"]
 POSSESSION_PUBLIC_SHA256 = replay.RECORDINGS[replay.SOURCE_CURRENT_CASE]["public_sha256"]
 FIXTURE_SHA256 = "bc4e0fefc0f86ced01c733cf208abb8471b77ad35815c4d31c685e0de1538d75"
@@ -41,7 +45,37 @@ SOURCE_EXTRAS = (
     "Assets/Scripts/Runtime/SourceContactComposition.cs",
     "Assets/Scripts/Runtime/SourceC2Composition.cs",
 )
+PROBE_PARTITIONS = {
+    "archived-four": ("main38-old-positive", "main39-old-stale",
+                      "main39-possession-positive", "current-possession-stale"),
+    "u2-current-fifth": ("u2-current-possession-stale",),
+}
+ALL_PROBES = PROBE_PARTITIONS["archived-four"] + PROBE_PARTITIONS["u2-current-fifth"]
+PROBE_SOURCES = dict(zip(ALL_PROBES, ("historical", "main39", "main39", "current", "u2-current")))
 require = replay.require
+
+
+def probe_inventory(partition="all-five"):
+    require(partition in ("all-five", *PROBE_PARTITIONS), "exact closed generation partition required")
+    return ALL_PROBES if partition == "all-five" else PROBE_PARTITIONS[partition]
+
+
+def validate_probe_inventory(partition, probes):
+    expected = probe_inventory(partition)
+    require(type(probes) is dict and set(probes) == set(expected),
+            "every selected exact named source/recording boundary required; no omissions or duplicates")
+    for name in expected:
+        probe = probes[name]
+        positive = name in ("main38-old-positive", "main39-possession-positive")
+        classification = ("positive-historical-main38-only" if name == "main38-old-positive" else
+                          "positive-pinned-main39-possession-only" if positive else
+                          "rejected-pinned-main39-old-stale-playbook-side" if name == "main39-old-stale" else
+                          "rejected-current-possession-stale-playbook-side")
+        require(type(probe) is dict and probe.get("source_generation") == PROBE_SOURCES[name] and
+                probe.get("compile_zero_diagnostics") is True and
+                type(probe.get("exit_code")) is int and probe["exit_code"] == (0 if positive else 2) and
+                probe.get("classification") == classification,
+                "actual compiled/classified generation probe required: " + name)
 
 
 def hashes(files):
@@ -52,8 +86,10 @@ def manifest(files):
     return replay.sha(json.dumps(hashes(files), sort_keys=True, separators=(",", ":")).encode())
 
 
-def validate_ref(ref, tree, previous=False):
-    expected = (PREVIOUS_REF, PREVIOUS_TREE) if previous else (BASELINE_REF, BASELINE_TREE)
+def validate_ref(ref, tree, previous=False, current=False):
+    require(not (previous and current), "exact historical commit/tree required")
+    expected = ((CURRENT_REF, CURRENT_TREE) if current else
+                (PREVIOUS_REF, PREVIOUS_TREE) if previous else (BASELINE_REF, BASELINE_TREE))
     require((ref, tree) == expected, "exact historical commit/tree required")
 
 
@@ -61,10 +97,10 @@ def git(*args):
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True).stdout
 
 
-def validate_snapshot(files, count, digest):
+def validate_snapshot(files, count, digest, harness_digest=HARNESS_SHA256):
     harness = {name: files[name] for name in canonical.HARNESS if name in files}
     sources = {name: data for name, data in files.items() if name not in canonical.HARNESS}
-    require(len(harness) == 12 and manifest(harness) == HARNESS_SHA256,
+    require(len(harness) == 12 and manifest(harness) == harness_digest,
             "exact unchanged twelve-file harness/project payload required")
     require(len(sources) == count and manifest(sources) == digest,
             "exact pinned pure source payload/hash required")
@@ -96,15 +132,15 @@ def archive_payload(raw, blobs):
     return files
 
 
-def historical_snapshot(ref, previous=False):
-    expected_ref = PREVIOUS_REF if previous else BASELINE_REF
+def historical_snapshot(ref, previous=False, current=False):
+    expected_ref = CURRENT_REF if current else PREVIOUS_REF if previous else BASELINE_REF
     require(ref == expected_ref, "exact historical commit/tree required")
     try:
         git("cat-file", "-e", ref + "^{commit}")
     except subprocess.CalledProcessError:
         git("fetch", "--no-tags", "--depth=1", "origin", expected_ref)
     tree = git("rev-parse", ref + "^{tree}").decode().strip()
-    validate_ref(ref, tree, previous)
+    validate_ref(ref, tree, previous, current)
     selected = ("Assets/Scripts/Contracts", "Assets/Scripts/Gameplay", "Assets/Scripts/AssetImport",
                 *SOURCE_EXTRAS, *canonical.HARNESS)
     blobs = {}
@@ -118,7 +154,8 @@ def historical_snapshot(ref, previous=False):
         if source or name in SOURCE_EXTRAS or name in canonical.HARNESS:
             require(kind == "blob" and mode in ("100644", "100755"), "historical source must be regular Git blobs")
             blobs[name] = blob
-    count, digest = (77, PREVIOUS_SOURCE_SHA256) if previous else (76, BASELINE_SOURCE_SHA256)
+    count, digest = ((78, CURRENT_SOURCE_SHA256) if current else
+                     (77, PREVIOUS_SOURCE_SHA256) if previous else (76, BASELINE_SOURCE_SHA256))
     require(len(blobs) == count + 12 and set(canonical.HARNESS).issubset(blobs),
             "exact historical source/harness archive selection required")
     raw = git("archive", "--format=tar", ref, "--", *sorted(blobs))
@@ -129,9 +166,14 @@ def historical_snapshot(ref, previous=False):
 
 
 def current_snapshot():
+    """The immutable PR41/v3 generation, not the changed U2 working tree."""
+    return historical_snapshot(CURRENT_REF, current=True)
+
+
+def u2_current_snapshot():
     files = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     files.update({name: (ROOT / name).read_bytes() for name in canonical.HARNESS})
-    return files, validate_snapshot(files, 78, CURRENT_SOURCE_SHA256)
+    return files, validate_snapshot(files, 78, U2_CURRENT_SOURCE_SHA256, U2_HARNESS_SHA256)
 
 
 def old_commands(path, case=replay.POSITIVE_CASE):
@@ -266,9 +308,10 @@ def summary_line(stdout):
 
 def execute(label, files, args, old_rows, possession_rows):
     expected = {
-        "historical": (76, BASELINE_SOURCE_SHA256),
-        "main39": (77, PREVIOUS_SOURCE_SHA256),
-        "current": (78, CURRENT_SOURCE_SHA256),
+        "historical": (76, BASELINE_SOURCE_SHA256, HARNESS_SHA256),
+        "main39": (77, PREVIOUS_SOURCE_SHA256, HARNESS_SHA256),
+        "current": (78, CURRENT_SOURCE_SHA256, HARNESS_SHA256),
+        "u2-current": (78, U2_CURRENT_SOURCE_SHA256, U2_HARNESS_SHA256),
     }
     require(label in expected, "exact named source generation execution required")
     validate_snapshot(files, *expected[label])
@@ -311,8 +354,8 @@ def execute(label, files, args, old_rows, possession_rows):
             ("main39-possession-positive", args.possession_replay_commands, main39_positive, None),
         )
     else:
-        require(label == "current", "exact named source generation execution required")
-        probes = (("current-possession-stale", args.possession_replay_commands, current_stale, possession_rows[2835]),)
+        require(label in ("current", "u2-current"), "exact named source generation execution required")
+        probes = ((label + "-possession-stale", args.possession_replay_commands, current_stale, possession_rows[2835]),)
     results = {}
     for name, path, classify, stale_row in probes:
         started = time.monotonic()
@@ -352,6 +395,8 @@ def argument_parser():
         parser.add_argument("--" + name, type=Path, required=True, action="append")
     parser.add_argument("--baseline-ref", required=True, action="append", choices=(BASELINE_REF,))
     parser.add_argument("--previous-ref", required=True, action="append", choices=(PREVIOUS_REF,))
+    parser.add_argument("--partition", action="append", choices=("all-five", *PROBE_PARTITIONS),
+                        help="Closed CI placement only; omission retains all five actual probes.")
     return parser
 
 
@@ -359,12 +404,16 @@ def main(argv=None):
     parser = argument_parser()
     args = parser.parse_args(argv)
     for name, values in vars(args).items():
+        if name == "partition" and values is None:
+            values = ["all-five"]
         if len(values) != 1:
             parser.error("duplicate --" + name.replace("_", "-") + " argument")
         setattr(args, name, values[0].absolute() if isinstance(values[0], Path) else values[0])
     started = time.monotonic()
     result = {"schema": "source-public-replay-generations/v2", "status": "failed",
-              "current_full_M1_qualification": False, "native_or_whole_game_qualified": False}
+              "current_full_M1_qualification": False, "native_or_whole_game_qualified": False,
+              "partition": args.partition, "required_probe_inventory": list(ALL_PROBES),
+              "selected_probe_inventory": list(probe_inventory(args.partition))}
     try:
         args.output = replay.output_path(args.output)
         require(not args.output.exists(), "use a fresh ignored generation-check output; never overwrite")
@@ -374,32 +423,42 @@ def main(argv=None):
         inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
         inputs.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
         require(len(inputs) == 1122, "exact834 plus288 original input closure required")
-        current, current_identity = current_snapshot()
-        historical, historical_identity = historical_snapshot(args.baseline_ref)
-        previous, previous_identity = historical_snapshot(args.previous_ref, previous=True)
+        snapshots = {}
+        if args.partition != "u2-current-fifth":
+            snapshots["historical"] = historical_snapshot(args.baseline_ref)
+            snapshots["main39"] = historical_snapshot(args.previous_ref, previous=True)
+            snapshots["current"] = current_snapshot()
+        if args.partition != "archived-four":
+            snapshots["u2-current"] = u2_current_snapshot()
         args.output.mkdir(parents=True)
-        result.update(sources={"historical": historical_identity, "main39": previous_identity, "current": current_identity},
+        result.update(sources={label: identity for label, (_, identity) in snapshots.items()},
                       inputs_sha256=inputs, old_public_sha256=OLD_PUBLIC_SHA256,
                       possession_public_sha256=POSSESSION_PUBLIC_SHA256, probes={}, commands={})
         with ThreadPoolExecutor(max_workers=2) as workers:
             pending = {label: workers.submit(execute, label, files, args, rows, possession_rows)
-                       for label, files in (("historical", historical), ("main39", previous), ("current", current))}
+                       for label, (files, _) in snapshots.items()}
             errors = []
             for label, future in pending.items():
                 try:
                     executed = future.result()
+                    require(set(executed["probes"]) == {
+                        name for name in probe_inventory(args.partition) if PROBE_SOURCES[name] == label
+                    } and not set(result["probes"]).intersection(executed["probes"]),
+                            "exact nonduplicated probes from every selected source generation required")
                     result["probes"].update(executed["probes"])
                     result["commands"][label] = executed["commands"]
                 except (ValueError, KeyError, TypeError, AttributeError, OSError,
                         RuntimeError, subprocess.SubprocessError) as error:
                     errors.append(label + ": " + str(error))
             require(not errors, "generation probe failed: " + "; ".join(errors))
-        require(set(result["probes"]) == {
-            "main38-old-positive", "main39-old-stale", "main39-possession-positive", "current-possession-stale",
-        }, "all four exact named source/recording boundaries required")
+        validate_probe_inventory(args.partition, result["probes"])
+        result["executed_probe_inventory"] = list(probe_inventory(args.partition))
         after = fixture_hashes(args.fixture_manifest, args.sound_functions)
         after.update(canonical_hashes(args.c2_m1_inputs, "contact281-c2-m1"))
-        require(inputs == after and current_snapshot()[0] == current and
+        readers = {"historical": lambda: historical_snapshot(args.baseline_ref),
+                   "main39": lambda: historical_snapshot(args.previous_ref, previous=True),
+                   "current": current_snapshot, "u2-current": u2_current_snapshot}
+        require(inputs == after and all(readers[label]()[0] == files for label, (files, _) in snapshots.items()) and
                 old_commands(args.replay_commands) == rows and
                 old_commands(args.possession_replay_commands, replay.SOURCE_CURRENT_CASE) == possession_rows,
                 "source/harness/input generation changed during probes")
