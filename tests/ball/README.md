@@ -8,6 +8,28 @@ omits odd source dispatches and must fail the same "ordered raw drain transforms
 exactly once" assertion. The original 20-control inventory, caller counts and
 other semantic mutations are unchanged; a strict guard also checks this binding.
 
+The `raw-new-pressed` control has a separately named
+`defensive-presnap-switch/post-BeginTick/v1` source binding. The historical
+`17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b`
+generation merged `(SourceDroneButtons)(int)station.Pressed` directly. The
+current `SourceMovementIntegration.cs` SHA-256 is
+`9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165`;
+its active merge is
+`state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);`.
+That real helper preserves historical-profile presses and masks B only for the
+enabled defensive-switch profile's same-wake fake-B transfer.
+
+The control removes only that unique **post-`BeginTick` state merge**, before
+`ApplySourceMovement` and the actual movement-mode caller. The earlier
+`actor.SourceNewButtons` acquisition is not a substitute: `BeginTick` recomputes
+fresh buttons and `ApplySourceMovement` overwrites the actor field. The unchanged
+caller assertion must still reject a complete between-wake B press/release with
+Held=0. A compile/start failure, missing anchor or unrelated assertion is not a
+kill. The shared mutation writer rejects stale source hashes and changed control
+metadata; permanent tests inspect its exact emitted mutation, call ordering and
+retained fake-B mask. All original 20 named controls, cases, counts and historical
+pins/recipes remain intact; old receipts are not relabelled as this generation.
+
 ## Source ball orientation lifecycle
 
 The actual `SourceBallDriver.Advance` now retains the original standing kickoff

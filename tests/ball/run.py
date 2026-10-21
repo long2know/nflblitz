@@ -29,6 +29,14 @@ CONTACT272_CALLER_ASSERTIONS = 18018  # 17980 +14 FlipCases +23 RawSnapAndPass +
 FIFO_ADDED_ASSERTIONS = 44
 C2_CALLER_ASSERTIONS = 18062  # 17980 +14 +23 +1 retained inventory +44 NEW compatibility checks.
 GEOMETRY_ADDED_ASSERTIONS = 9
+RAW_NEW_PRESSED_GENERATION = "defensive-presnap-switch/post-BeginTick/v1"
+RAW_NEW_PRESSED_SOURCE_SHA256 = "9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165"
+RAW_NEW_PRESSED_MUTATION = (
+    "raw-new-pressed", "SourceMovementIntegration.cs",
+    "state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);",
+    "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
+    "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1,
+)
 ORIENTATION_MUTATIONS = (
     ("kickoff-standing-phase", "SourceBallDriver.cs",
      "model.Phase == GamePhase.PreSnap && model.SourceRules.PlayType == SourcePlayType.Kickoff",
@@ -76,9 +84,7 @@ MUTATIONS = (
     ("focus-edge-flush", "GameSimulation.cs", "pendingSourceActions.Clear();", "/* isolated mutation: queue not cleared */", "geometry", "focus flush actually removes", 1),
     ("raw-released-latch", "GameSimulation.cs", "released[input.StationId] |= input.Released;",
      "/* isolated mutation: queued release discarded */", "caller", "complete between-wake press/release", 1),
-    ("raw-new-pressed", "SourceMovementIntegration.cs", "state.NewButtons |= (SourceDroneButtons)(int)station.Pressed;",
-     "/* isolated mutation: discard active post-BeginTick fresh press */", "caller",
-     "active M1 post-BeginTick latched fresh B survives complete between-wake tap", 1),
+    RAW_NEW_PRESSED_MUTATION,
     ("source-transform-wake", "GameSimulation.Source.cs", "if (SourceStationInputTransform == null) return command;",
      "if (SourceStationInputTransform == null || Model.SourceTick % 2 != 0) return command;",
      "caller", "ordered raw drain transforms exactly once", 1),
@@ -177,6 +183,17 @@ def require_mutant(code, summary, expected_field):
             or summary.get("full_gameplay_parity_claimed") is not False
             or expected_field not in summary.get("failed_assertion", "")):
         raise RuntimeError("Actual mutant did not fail its required offending-field assertion: " + expected_field)
+
+
+def mutation_source(case, data):
+    if case not in MUTATIONS + ORIENTATION_MUTATIONS + FIFO_MUTATIONS + GEOMETRY_MUTATIONS:
+        raise RuntimeError("Actual mutation binding changed: " + case[0])
+    name, _, anchor, replacement, _, _, occurrences = case
+    if name == "raw-new-pressed" and hashlib.sha256(data).hexdigest() != RAW_NEW_PRESSED_SOURCE_SHA256:
+        raise RuntimeError("Actual raw-new-pressed source SHA256 changed for " + RAW_NEW_PRESSED_GENERATION)
+    if data.count(anchor.encode()) != occurrences:
+        raise RuntimeError("Actual mutation anchor count changed: " + name)
+    return data.replace(anchor.encode(), replacement.encode())
 
 
 def main():
@@ -296,9 +313,7 @@ def main():
                 relative = "Assets/Scripts/Gameplay/" + filename
                 target = source_root / relative
                 data = target.read_bytes()
-                if data.count(anchor.encode()) != occurrences:
-                    raise RuntimeError("Actual mutation anchor count changed: " + name)
-                mutated = data.replace(anchor.encode(), replacement.encode())
+                mutated = mutation_source(case, data)
                 target.write_bytes(mutated)
                 code, summary, text = execute(name, section, source_root)
                 row = {"id": name, "source": relative, "before": anchor, "after": replacement,

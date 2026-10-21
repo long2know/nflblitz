@@ -28,10 +28,11 @@ INCLUDE_SHA = SOUND_INCLUDE_SHA
 EXPECTED_SHORT = 142
 EXPECTED_ASSERTIONS = 800735
 EXPECTED_CASES = 15912
+POST_HOST_SELECTION_BINDING = "defensive-presnap-switch/binding-required/v1"
+POST_HOST_SELECTION_SOURCE_SHA256 = "4e41f3c0ecb3f002374090fbfddb92dcbaf51bc79ded50659a1fa1b2c2345ce3"
 POST_HOST_SELECTION_ANCHOR = """        private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
         {
-            RequireSourceSoundVmBinding();
-            if (SourceC2Enabled)"""
+            RequireSourceSoundVmBinding();"""
 POST_HOST_SELECTION_DEFERRED = POST_HOST_SELECTION_ANCHOR.replace(
     "RequireSourceSoundVmBinding();",
     "RequireSourceSoundVmBinding(); if (!deliveringDeferred) { deferred.Add(Tuple.Create(actor,cue)); return; }")
@@ -76,6 +77,54 @@ def require_mutant(code, summary, field):
             or not isinstance(summary.get("assertions"), int) or summary["assertions"] <= 0
             or field not in summary.get("failed_assertion", "")):
         raise RuntimeError("Sound mutation must compile then fail its named offending-field assertion: " + field)
+
+
+def mutation_specs():
+    return [
+        ("double-consume", "SourceSoundVm.cs", [
+            ("Model.SourceRandomDraws += result.RandomCalls;",
+             'Model.SourceRandomDraws += result.RandomCalls; for (int i=0;i<result.RandomCalls;i++) SourceDraw(997, "isolated-double-consume");')]),
+        ("wrong-stream", "SourceSoundVm.cs", [
+            ("sourceRandom, context);",
+             "new SourceInjectedRandom(site => 0, sourceRandom.Provenance), context);")]),
+        ("wrong-process-order", "SourceSoundVm.cs", [
+            ("sourceRandom, context);",
+             "sourceRandom, new SourceRandomContext(context.SourceTick, context.ActorId, context.Process, cue.Context.ProcessOrder, context.Profile, context.FirstCallIndex));")]),
+        ("cursor-offset-reset", "SourceSoundVm.cs", [
+            ("checked(context.FirstCallIndex + result.RandomCalls)", "context.FirstCallIndex")]),
+        ("raw-flags-as-role", "SourceSoundVm.cs", [
+            ("GameSnapshot.SourceActorFlags(actor), (int)actor.SourceMode,", "(int)actor.Role, (int)actor.SourceMode,")]),
+        ("mode-as-role", "SourceSoundVm.cs", [
+            ("GameSnapshot.SourceActorFlags(actor), (int)actor.SourceMode,", "GameSnapshot.SourceActorFlags(actor), (int)actor.Role,")]),
+        ("wrong-script-tuple", "SourceSoundVm.cs", [
+            ("candidate.ScriptSymbol == cue.Context.ExecutingSymbol\n                    && ", "")]),
+        ("unknown-is-null", "SourceSoundVm.cs", [
+            ("SourceAudioHitPartner hit = default(SourceAudioHitPartner);", "SourceAudioHitPartner hit = SourceAudioHitPartner.Absent;")]),
+        ("partial-offset-rollback", "SourceSoundVm.cs", [
+            ("AdvanceSourceSoundRandom(context, error.PartialResult);", "/* isolated rollback: partial cursor not accounted */")]),
+        ("duplicate-delivery", "SourceSoundVm.cs", [
+            ("var batch = new SourceSoundVmBatch(sourceSoundVmPending);\n            sourceSoundVmPending.Clear();",
+             "var batch = new SourceSoundVmBatch(sourceSoundVmPending);")]),
+        ("post-host-selection", "SourceSoundVm.cs", [
+            ("private bool sourceSoundVmFailed;", "private bool sourceSoundVmFailed;\n        private bool deliveringDeferred;\n        private readonly List<Tuple<ActorState, SourceCallbackCue>> deferred = new List<Tuple<ActorState, SourceCallbackCue>>();"),
+            ("var batch = new SourceSoundVmBatch(sourceSoundVmPending);",
+             "deliveringDeferred = true; foreach (var item in deferred) ExecuteSourceSoundVm(item.Item1,item.Item2); deferred.Clear(); deliveringDeferred = false;\n            var batch = new SourceSoundVmBatch(sourceSoundVmPending);"),
+            (POST_HOST_SELECTION_ANCHOR, POST_HOST_SELECTION_DEFERRED)]),
+    ]
+
+
+def mutated_source(current, name, edits):
+    if name == "post-host-selection":
+        if (hashlib.sha256(current.encode()).hexdigest() != POST_HOST_SELECTION_SOURCE_SHA256
+                or len(edits) != 3
+                or edits[-1] != (POST_HOST_SELECTION_ANCHOR, POST_HOST_SELECTION_DEFERRED)):
+            raise RuntimeError("Post-host selection requires the current source and binding-required boundary.")
+    value = current
+    for old, new in edits:
+        if value.count(old) != 1:
+            raise RuntimeError("Actual mutation anchor changed: " + name)
+        value = value.replace(old, new, 1)
+    return value
 
 
 def main():
@@ -217,37 +266,7 @@ def main():
                                  "output_sha256": sha(oracle)}
 
         if args.mutations:
-            specs = [
-                ("double-consume", "SourceSoundVm.cs", [
-                    ("Model.SourceRandomDraws += result.RandomCalls;",
-                     'Model.SourceRandomDraws += result.RandomCalls; for (int i=0;i<result.RandomCalls;i++) SourceDraw(997, "isolated-double-consume");')]),
-                ("wrong-stream", "SourceSoundVm.cs", [
-                    ("sourceRandom, context);",
-                     "new SourceInjectedRandom(site => 0, sourceRandom.Provenance), context);")]),
-                ("wrong-process-order", "SourceSoundVm.cs", [
-                    ("sourceRandom, context);",
-                     "sourceRandom, new SourceRandomContext(context.SourceTick, context.ActorId, context.Process, cue.Context.ProcessOrder, context.Profile, context.FirstCallIndex));")]),
-                ("cursor-offset-reset", "SourceSoundVm.cs", [
-                    ("checked(context.FirstCallIndex + result.RandomCalls)", "context.FirstCallIndex")]),
-                ("raw-flags-as-role", "SourceSoundVm.cs", [
-                    ("GameSnapshot.SourceActorFlags(actor), (int)actor.SourceMode,", "(int)actor.Role, (int)actor.SourceMode,")]),
-                ("mode-as-role", "SourceSoundVm.cs", [
-                    ("GameSnapshot.SourceActorFlags(actor), (int)actor.SourceMode,", "GameSnapshot.SourceActorFlags(actor), (int)actor.Role,")]),
-                ("wrong-script-tuple", "SourceSoundVm.cs", [
-                    ("candidate.ScriptSymbol == cue.Context.ExecutingSymbol\n                    && ", "")]),
-                ("unknown-is-null", "SourceSoundVm.cs", [
-                    ("SourceAudioHitPartner hit = default(SourceAudioHitPartner);", "SourceAudioHitPartner hit = SourceAudioHitPartner.Absent;")]),
-                ("partial-offset-rollback", "SourceSoundVm.cs", [
-                    ("AdvanceSourceSoundRandom(context, error.PartialResult);", "/* isolated rollback: partial cursor not accounted */")]),
-                ("duplicate-delivery", "SourceSoundVm.cs", [
-                    ("var batch = new SourceSoundVmBatch(sourceSoundVmPending);\n            sourceSoundVmPending.Clear();",
-                     "var batch = new SourceSoundVmBatch(sourceSoundVmPending);")]),
-                ("post-host-selection", "SourceSoundVm.cs", [
-                    ("private bool sourceSoundVmFailed;", "private bool sourceSoundVmFailed;\n        private bool deliveringDeferred;\n        private readonly List<Tuple<ActorState, SourceCallbackCue>> deferred = new List<Tuple<ActorState, SourceCallbackCue>>();"),
-                    ("var batch = new SourceSoundVmBatch(sourceSoundVmPending);",
-                     "deliveringDeferred = true; foreach (var item in deferred) ExecuteSourceSoundVm(item.Item1,item.Item2); deferred.Clear(); deliveringDeferred = false;\n            var batch = new SourceSoundVmBatch(sourceSoundVmPending);"),
-                    (POST_HOST_SELECTION_ANCHOR, POST_HOST_SELECTION_DEFERRED)]),
-            ]
+            specs = mutation_specs()
             snapshot = {p.relative_to(ROOT): p.read_bytes() for p in files}
             if {str(p): hashlib.sha256(data).hexdigest() for p, data in snapshot.items()} != before:
                 raise RuntimeError("Actual sound source inventory changed while capturing the isolated copies.")
@@ -259,12 +278,7 @@ def main():
                 for relative, data in snapshot.items():
                     p = source_root / relative; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
                 target = source_root / "Assets/Scripts/Gameplay" / filename
-                value = target.read_text()
-                for old, new in edits:
-                    if value.count(old) != 1:
-                        raise RuntimeError("Actual mutation anchor changed: " + name)
-                    value = value.replace(old, new)
-                target.write_text(value)
+                target.write_text(mutated_source(target.read_bytes().decode("utf-8"), name, edits))
                 mutant = build(source_root, name)
                 code, summary, text = execute(mutant, name)
                 require_mutant(code, summary, MUTATION_FIELDS[name])
@@ -273,6 +287,11 @@ def main():
                        "source_sha256": before[relative], "mutated_source_sha256": sha(target),
                        "required_assertion": MUTATION_FIELDS[name],
                        "offending_assertion": summary["failed_assertion"]}
+                if name == "post-host-selection":
+                    row.update(binding=POST_HOST_SELECTION_BINDING,
+                               source_identity=POST_HOST_SELECTION_SOURCE_SHA256,
+                               original_anchor=POST_HOST_SELECTION_ANCHOR,
+                               mutated_anchor=POST_HOST_SELECTION_DEFERRED)
                 if before != {p.relative_to(ROOT).as_posix(): sha(p) for p in source_files()}:
                     raise RuntimeError("Live production changed during isolated sound mutation proof.")
                 if inputs != {p: sha(p) for p in inputs}:
