@@ -6,6 +6,7 @@ import base64
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import time
 import unittest
 import uuid
@@ -75,10 +77,6 @@ PLAYER_STEPS = {
 }
 LEGACY_DEFAULTS = (
     "    defaults:\n      run:\n        working-directory: " + LEGACY_WORKSPACE + "\n"
-)
-LEGACY_ENV = (
-    "      GIT_DIR: ${{ github.workspace }}/.git\n"
-    "      GIT_WORK_TREE: ${{ github.workspace }}/" + LEGACY_WORKSPACE + "\n"
 )
 LEGACY_BOOTSTRAP = (
     "      - name: Verify additive wiring and isolate the inherited guard view\n"
@@ -191,8 +189,6 @@ def new_job():
         "      DOTNET_NOLOGO: '1'\n"
         "      PYTHONDONTWRITEBYTECODE: '1'\n"
         "      BLITZ_CI_MUTATION_WORKERS: '1'\n"
-        "      GIT_DIR: ${{ github.workspace }}/.git\n"
-        "      GIT_WORK_TREE: ${{ github.workspace }}/" + WORKSPACE + "\n"
         "    steps:\n"
         "      - uses: " + CHECKOUT + " # v7\n"
         "        with:\n          persist-credentials: false\n"
@@ -215,7 +211,6 @@ def remove_once(text, addition, replacement=""):
 def inherited_game(text):
     text = remove_once(text, new_job())
     text = remove_once(text, LEGACY_DEFAULTS)
-    text = remove_once(text, LEGACY_ENV)
     text = remove_once(text, LEGACY_BOOTSTRAP)
     text = remove_once(text, " --partition archived-four\n", "\n")
     for path in GAME_PATH_ADDITIONS:
@@ -306,8 +301,19 @@ def code_paths():
     return names
 
 
+def source_git_identity():
+    process = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+                             cwd=ROOT, capture_output=True, text=True, check=True)
+    paths = process.stdout.splitlines()
+    require(len(paths) == 2 and Path(paths[0]) == ROOT and
+            Path(paths[1]).is_absolute() and Path(paths[1]).is_dir(),
+            "Bootstrap requires the actual checked-out source root and its existing Git metadata")
+    return paths
+
+
 def workspace(output, inherited=False):
     started = time.monotonic()
+    source_root, git_dir = source_git_identity()
     actual_game, actual_player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
     old_game = validate_workflows(actual_game, actual_player)
     output = new_output(output)
@@ -334,19 +340,29 @@ def workspace(output, inherited=False):
         "TMPDIR": str(runtime / "temp"), "TMP": str(runtime / "temp"), "TEMP": str(runtime / "temp"),
         "DOTNET_CLI_HOME": str(runtime / "home"), "NUGET_PACKAGES": str(runtime / "nuget"),
         "MSBUILDDISABLENODEREUSE": "1", "DOTNET_CLI_USE_MSBUILD_SERVER": "0",
-        "GIT_WORK_TREE": str(output),
+        "GIT_DIR": git_dir, "GIT_WORK_TREE": str(output),
     }
     if not inherited:
         environment["UseSharedCompilation"] = "false"
-    if "GITHUB_ENV" in os.environ:
-        with Path(os.environ["GITHUB_ENV"]).open("a") as stream:
-            stream.write("".join(key + "=" + value + "\n" for key, value in environment.items()))
+    process = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+                             cwd=output, env=dict(os.environ, **environment),
+                             capture_output=True, text=True, check=True)
+    runtime_git = process.stdout.splitlines()
+    require(runtime_git == [str(output), git_dir],
+            "The prepared runtime view must use its own working tree and the checked-out Git metadata")
+    require(all("\n" not in value and "\r" not in value for value in environment.values()),
+            "Only single-line verified paths may be exported to subsequent steps")
     receipt = dict(schema="defensive-switch-ci-workspace/v1", status="passed",
                    input_game_sha256=sha(actual_game.encode()), input_player_sha256=sha(actual_player.encode()),
                    inherited_game_sha256=INHERITED_GAME_SHA256, inherited_view=inherited,
+                   source_git_root=source_root, source_git_dir=git_dir,
+                   runtime_git_root=runtime_git[0], runtime_git_dir=runtime_git[1],
                    source_sha256=records, environment=environment,
                    production_and_harness_bytes_unchanged=True, seconds=round(time.monotonic() - started, 3))
     (output / ".squad/.scratch/ci-workspace.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    if "GITHUB_ENV" in os.environ:
+        with Path(os.environ["GITHUB_ENV"]).open("a") as stream:
+            stream.write("".join(key + "=" + value + "\n" for key, value in environment.items()))
     print(json.dumps(dict(status="passed", files=len(records), inherited_view=inherited, seconds=receipt["seconds"])))
     return receipt
 
@@ -1147,6 +1163,203 @@ def failure_guards(root, results, output):
     output.write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(dict(status="passed", actual_artifact_mutations=len(rejected), actual_cli_rejections=len(commands))))
     return receipt
+
+
+def workflow_environment(text, indent):
+    lines = text.splitlines()
+    header = " " * indent + "env:"
+    require(not any(line.startswith(header) and line != header for line in lines),
+            "Checkout regression requires an explicit scalar environment mapping")
+    offsets = [index for index, line in enumerate(lines) if line == header]
+    require(len(offsets) <= 1, "Duplicate environment mappings are forbidden")
+    environment = {}
+    if offsets:
+        for line in lines[offsets[0] + 1:]:
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            if len(line) - len(line.lstrip()) <= indent:
+                break
+            match = re.fullmatch(" " * (indent + 2) + r"([A-Z][A-Z0-9_]*): (.+)", line)
+            require(match is not None and match[1] not in environment,
+                    "Checkout regression must not ignore an environment binding: " + line)
+            value = ast.literal_eval(match[2]) if match[2].startswith(("'", '"')) else match[2]
+            require(isinstance(value, str), "Environment values must remain explicit strings")
+            environment[match[1]] = value
+    return environment
+
+
+def checkout_context(text, job):
+    match = re.search(r"^  " + re.escape(job) + r":\n(.*?)(?=^  [^ ]|\Z)", text, re.M | re.S)
+    require(match is not None, "Actual workflow job missing: " + job)
+    header, separator, body = match[1].partition("    steps:\n")
+    require(separator, "Actual checkout steps are required")
+    steps = re.split(r"(?=^      - )", body, flags=re.M)[1:]
+    require(steps and steps[0].startswith("      - uses: " + CHECKOUT + " # v7\n") and
+            "        with:\n          persist-credentials: false\n" in steps[0] and
+            not re.search(r"^          path:", steps[0], re.M),
+            "Pinned checkout must initialize the physical workspace first, without an alternate path")
+    environment = dict(workflow_environment(text, 0), **workflow_environment(header, 4))
+    environment.update(workflow_environment(steps[0], 8))
+    directories = re.findall(r"^        working-directory: (.+)$", header, re.M)
+    require(len(directories) <= 1, "One explicit run default is allowed")
+    return dict(environment=environment, run_directory=directories[0] if directories else ".",
+                steps=steps)
+
+
+def empty_runner_checkout(text, job, directory):
+    directory = new_output(directory)
+    directory.mkdir(parents=True)
+    checkout = directory / "github-workspace"
+    checkout.mkdir()
+    home, temporary = directory / "home", directory / "runner-temp"
+    home.mkdir()
+    temporary.mkdir()
+    command_file = directory / "github-env"
+    command_file.touch()
+    context = checkout_context(text, job)
+    environment = dict(PATH=os.environ["PATH"], HOME=str(home), XDG_CONFIG_HOME=str(home),
+        TMPDIR=str(temporary), TMP=str(temporary), TEMP=str(temporary), RUNNER_TEMP=str(temporary),
+        GITHUB_WORKSPACE=str(checkout), GITHUB_ENV=str(command_file), LC_ALL="C",
+        GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_SYSTEM=os.devnull,
+        GIT_TERMINAL_PROMPT="0", GIT_CEILING_DIRECTORIES=str(directory))
+    for key, value in context["environment"].items():
+        value = value.replace("${{ github.workspace }}", str(checkout))
+        require("${{" not in value, "Checkout regression cannot silently default an unresolved expression")
+        environment[key] = value
+    require(not list(checkout.iterdir()) and not (checkout / ".squad").exists(),
+            "The checkout boundary must start genuinely empty, without .squad or an ancestor Git view")
+    command = [shutil.which("git"), "init", str(checkout)]
+    process = subprocess.run(command, cwd=checkout, env=environment, capture_output=True, text=True, timeout=30)
+    return dict(context=context, workspace=checkout, environment=environment, command=command,
+                exit=process.returncode, stdout=process.stdout, stderr=process.stderr)
+
+
+def populate_checkout(probe):
+    checkout, environment = probe["workspace"], probe["environment"]
+    _, git_dir = source_git_identity()
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    # Only this newly initialized fixture gets an index/ref; the source checkout is read-only.
+    for command in (["git", "fetch", "--no-tags", "--depth=1", git_dir, head],
+                    ["git", "update-ref", "HEAD", head], ["git", "read-tree", head]):
+        subprocess.run(command, cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)
+    archive = subprocess.run(["git", "archive", "--format=tar", head], cwd=checkout, env=environment,
+                             capture_output=True, check=True).stdout
+    names = set()
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
+        for member in source:
+            path = Path(member.name)
+            require(not path.is_absolute() and ".." not in path.parts and
+                    not any(part == ".env" or part.startswith(".env.") for part in path.parts) and
+                    (member.isfile() or member.isdir()), "Only committed regular nonsecret fixture files are allowed")
+            target = checkout / path
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.extractfile(member).read())
+                target.chmod(stat.S_IMODE(member.mode))
+                names.add(member.name)
+    for name in code_paths():
+        if name == "global.json" and name not in names:
+            require((ROOT / name).read_bytes() == shlex.split(SDK_COMMAND)[1].replace("\\n", "\n").encode(),
+                    "Only the exact workflow-generated SDK selection may be absent from the checkout")
+            continue
+        require(name in names, "The clean fixture must not borrow an uncommitted/ignored dependency: " + name)
+        (checkout / name).write_bytes((ROOT / name).read_bytes())
+    return head
+
+
+class CheckoutBootstrapCI(unittest.TestCase):
+    def setUp(self):
+        self.directory = ROOT / ".squad/.scratch" / ("ci-checkout-bootstrap-" + uuid.uuid4().hex)
+        self.directory.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.directory)
+
+    def test_real_empty_runner_checkout_ignores_later_run_defaults_for_all_three_jobs(self):
+        for workflow, jobs in ((GAME, ("core-and-tooling", "defensive-presnap-switch")),
+                               (PLAYER, ("asset-free",))):
+            for job in jobs:
+                with self.subTest(job=job):
+                    probe = empty_runner_checkout((ROOT / workflow).read_text(), job, self.directory / job)
+                    self.assertEqual(probe["exit"], 0, probe["stderr"])
+                    checkout = probe["workspace"]
+                    self.assertTrue((checkout / ".git").is_dir())
+                    self.assertFalse((checkout / ".squad").exists())
+                    process = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+                        cwd=checkout, env=probe["environment"], capture_output=True, text=True, check=True)
+                    self.assertEqual(process.stdout.splitlines(), [str(checkout), str(checkout / ".git")])
+
+    def test_restoring_actual_precheckout_job_or_global_git_bindings_reproduces_exit128(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        for job, workspace_path in (("core-and-tooling", LEGACY_WORKSPACE),
+                                     ("defensive-presnap-switch", WORKSPACE)):
+            for scope in ("job", "workflow"):
+                with self.subTest(job=job, scope=scope):
+                    indent = "      " if scope == "job" else "  "
+                    binding = (indent + "GIT_DIR: ${{ github.workspace }}/.git\n" +
+                               indent + "GIT_WORK_TREE: ${{ github.workspace }}/" + workspace_path + "\n")
+                    if scope == "job":
+                        start = game.index("  " + job + ":\n")
+                        mutant = game[:start] + game[start:].replace("    env:\n", "    env:\n" + binding, 1)
+                    else:
+                        mutant = game.replace("jobs:\n", "env:\n" + binding + "\njobs:\n", 1)
+                    probe = empty_runner_checkout(mutant, job, self.directory / (job + "-" + scope))
+                    self.assertEqual(probe["exit"], 128, probe["stderr"])
+                    self.assertIn("fatal: Invalid path '" + str(probe["workspace"] / ".squad") +
+                                  "': No such file or directory", probe["stderr"])
+                    self.assertFalse((probe["workspace"] / ".squad").exists())
+                    with self.assertRaises(AssertionError):
+                        validate_workflows(mutant, player)
+
+    def test_both_actual_postcheckout_bootstraps_export_verified_source_and_runtime_git_views(self):
+        game = (ROOT / GAME).read_text()
+        for job, inherited in (("core-and-tooling", True), ("defensive-presnap-switch", False)):
+            with self.subTest(job=job):
+                probe = empty_runner_checkout(game, job, self.directory / job)
+                self.assertEqual(probe["exit"], 0, probe["stderr"])
+                populate_checkout(probe)
+                context, checkout, environment = probe["context"], probe["workspace"], probe["environment"]
+                bootstrap = [step for step in context["steps"] if CI + " workspace --output " in step]
+                self.assertEqual(len(bootstrap), 1)
+                step = bootstrap[0]
+                self.assertFalse(any(re.search(r"^        run:", earlier, re.M)
+                                     for earlier in context["steps"][:context["steps"].index(step)]))
+                self.assertIn("        working-directory: .\n", step)
+                command = re.search(r"^        run: (.+)$", step, re.M)[1]
+                process = subprocess.run(shlex.split(command), cwd=checkout, env=environment,
+                                         capture_output=True, text=True, timeout=120)
+                self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                runtime = checkout / context["run_directory"]
+                receipt = json.loads((runtime / ".squad/.scratch/ci-workspace.json").read_bytes())
+                exported = dict(line.split("=", 1) for line in Path(environment["GITHUB_ENV"]).read_text().splitlines())
+                self.assertEqual(exported, receipt["environment"])
+                self.assertEqual(receipt["source_git_root"], str(checkout))
+                self.assertEqual(receipt["source_git_dir"], str(checkout / ".git"))
+                self.assertEqual(receipt["runtime_git_root"], str(runtime))
+                self.assertEqual(receipt["runtime_git_dir"], str(checkout / ".git"))
+                self.assertEqual(exported["GIT_DIR"], str(checkout / ".git"))
+                self.assertEqual(exported["GIT_WORK_TREE"], str(runtime))
+                self.assertEqual(receipt["inherited_view"], inherited)
+                for name, pin in receipt["source_sha256"].items():
+                    self.assertEqual(sha((checkout / name).read_bytes()), pin, name)
+                    expected = INHERITED_GAME_SHA256 if inherited and name == GAME else pin
+                    self.assertEqual(sha((runtime / name).read_bytes()), expected, name)
+                for key in ("TMPDIR", "TMP", "TEMP", "DOTNET_CLI_HOME", "NUGET_PACKAGES"):
+                    self.assertIn(runtime, Path(exported[key]).parents)
+                    self.assertTrue(Path(exported[key]).is_dir())
+                for cwd, env, expected_root in ((checkout, environment, checkout),
+                                               (runtime, dict(environment, **exported), runtime)):
+                    process = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+                        cwd=cwd, env=env, capture_output=True, text=True, check=True)
+                    self.assertEqual(process.stdout.splitlines(), [str(expected_root), str(checkout / ".git")])
+                    projects = ["tests/defensive-presnap-switch/PreSnapSwitch.Checks.csproj",
+                                "tests/defensive-presnap-switch/PreSnapSwitch.Production.csproj"]
+                    process = subprocess.run(["git", "ls-files", "--", *projects], cwd=cwd, env=env,
+                                             capture_output=True, text=True, check=True)
+                    self.assertEqual(process.stdout.splitlines(), projects)
 
 
 class DefensiveCI(unittest.TestCase):

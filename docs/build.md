@@ -70,6 +70,18 @@ regeneration.
 
 ### Historical partitions and frozen guard compatibility
 
+Checkout first initializes the physical `github.workspace`, with no job-wide
+`GIT_DIR` or `GIT_WORK_TREE` override. The later run-directory defaults do not
+apply to the checkout action. Pointing its Git process at a not-yet-created
+`.squad` work tree makes `git init` fail before any test can run. Only after
+checkout, additive-wiring validation and the private workspace copy succeed
+does bootstrap export the resolved source Git directory and the existing
+isolated work tree through `GITHUB_ENV`. Both Git views are verified before
+export. The regression starts with genuinely empty runners, exercises real
+`git init` for both Game jobs and Source player, restores the bad binding to
+prove exit128, and runs both actual post-checkout bootstrap commands against
+committed-only fixtures.
+
 `check_replay_generations.py` defaults to **all five actual probes**, as before.
 Its only CI partitions are `--partition archived-four` in the core job and
 `--partition u2-current-fifth` in the new job. Their closed inventories are
@@ -84,7 +96,7 @@ Before the core job executes, the new guard validates the **submitted** two-job
 workflow and the player workflow, then copies actual current code into a private
 compatibility workspace. Every production/harness byte is verified identical.
 Only its workflow file receives the explicitly reversible CI projection:
-remove this new job/bootstrap/default-directory/environment/trigger wiring and
+remove this new job/bootstrap/default-directory/trigger wiring and
 the archived partition argument. The result must retain the original workflow
 SHA-256 `b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241`
 and pass the untouched inherited sound, possession and timer guards, including

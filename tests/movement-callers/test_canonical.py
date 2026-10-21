@@ -311,16 +311,18 @@ class CanonicalObservationGuards(unittest.TestCase):
 
     def test_exact_frozen_unique_call_site_and_byte_normalization(self):
         original = (canonical.ROOT / canonical.CACHE_SOURCE).read_bytes()
-        self.assertEqual(hashlib.sha256(original).hexdigest(), canonical.CACHE_SOURCE_SHA)
-        observed = canonical.inject(original)
+        self.assertEqual(hashlib.sha256(original).hexdigest(), canonical.U1_CACHE_SOURCE_SHA)
+        with self.assertRaisesRegex(ValueError, "exact frozen original production hash"):
+            canonical.inject(original)
+        observed = canonical.inject_current(original)
         self.assertEqual(observed.count(b"geometry.CameraJoints("), original.count(b"geometry.CameraJoints("))
         self.assertEqual(observed.count(b"CanonicalCacheCapture.Record("), 1)
         self.assertEqual(observed.replace(canonical.OBSERVED_CALL.encode(), canonical.CALL.encode()), original)
 
     def test_hash_change_cannot_be_observed_as_same_generation(self):
         original = (canonical.ROOT / canonical.CACHE_SOURCE).read_bytes()
-        with self.assertRaisesRegex(ValueError, "exact frozen original production hash"):
-            canonical.inject(original + b"\n")
+        with self.assertRaisesRegex(ValueError, "explicitly frozen historical or U1 generation"):
+            canonical.inject_current(original + b"\n")
 
     def test_canonical_factory_and_entry_are_actual(self):
         inputs = (canonical.ROOT / "tests/parity/FullKernelInputs.cs").read_text()

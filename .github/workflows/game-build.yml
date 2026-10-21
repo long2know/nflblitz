@@ -77,8 +77,6 @@ jobs:
       DOTNET_NOLOGO: '1'
       PYTHONDONTWRITEBYTECODE: '1'
       BLITZ_CI_MUTATION_WORKERS: '2'
-      GIT_DIR: ${{ github.workspace }}/.git
-      GIT_WORK_TREE: ${{ github.workspace }}/.squad/.scratch/defensive-switch-ci/inherited-workspace
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -298,8 +296,6 @@ jobs:
       DOTNET_NOLOGO: '1'
       PYTHONDONTWRITEBYTECODE: '1'
       BLITZ_CI_MUTATION_WORKERS: '1'
-      GIT_DIR: ${{ github.workspace }}/.git
-      GIT_WORK_TREE: ${{ github.workspace }}/.squad/.scratch/defensive-switch-ci/new-workspace
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
