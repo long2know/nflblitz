@@ -520,6 +520,72 @@ class SelectionCI(unittest.TestCase):
         finally:
             os.chdir(previous)
 
+    def test_default_compatibility_compiles_each_trees_own_fixture_loader(self):
+        compatibility = run.compatibility
+        name = "Assets/Production.cs"
+        production = {name: b"current production"}
+        baseline = {name: b"pinned production", compatibility.FIXTURE_LOADER: b"pinned fixture loader"}
+        loaders = {"main40": baseline[compatibility.FIXTURE_LOADER],
+                   "current": (ROOT / compatibility.FIXTURE_LOADER).read_bytes()}
+        calls = []
+        summary = dict(status="passed", hosts=1200, SourceTick=1140, rawCalls=491,
+                       selections=4, defaultSeed=1, rawVectorFiltered=False)
+        args = argparse.Namespace(**{n: self.output / n for n in
+            ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")})
+
+        def execute(command, **kwargs):
+            if command[-1].startswith("@"):
+                response = Path(command[-1][1:])
+                label = response.parent.name
+                options = [json.loads(line) for line in response.read_text().splitlines()]
+                sources = {Path(p).relative_to(response.parent).as_posix(): Path(p).read_bytes()
+                           for p in options if p.endswith(".cs")}
+                self.assertEqual(sources, {
+                    name: baseline[name] if label == "main40" else production[name],
+                    "FullKernelInputs.cs": loaders[label],
+                    "DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes(),
+                })
+                calls.append("compile-" + label)
+                return subprocess.CompletedProcess(command, 0, "", "")
+            destination = Path(command[-1])
+            calls.append("execute-" + destination.name)
+            for trace in ("default-host.jsonl", "default-rng.json", "default-menu.json"):
+                (destination / trace).write_bytes(b"identical unfiltered trace")
+            return subprocess.CompletedProcess(command, 0, json.dumps(summary), "")
+
+        with patch.object(compatibility, "source_baseline", return_value=dict(baseline)) as selected, \
+                patch.object(compatibility.subprocess, "run", side_effect=execute):
+            receipt = compatibility.generate(args, self.output / "default-loaders", production,
+                                             self.output / "compiler.dll", [])
+        selected.assert_called_once_with(sorted([name, compatibility.FIXTURE_LOADER]))
+        self.assertEqual(calls, ["compile-main40", "execute-main40", "compile-current", "execute-current"])
+        self.assertEqual(set(receipt["harnessSha256"]), {"DefaultChecks.cs"})
+        self.assertEqual(receipt["fixtureLoaderPath"], compatibility.FIXTURE_LOADER)
+        for row in receipt["runs"]:
+            self.assertEqual(row["harnessSha256"]["FullKernelInputs.cs"],
+                             hashlib.sha256(loaders[row["name"]]).hexdigest())
+            self.assertEqual(set(row["sources"]), {name})
+        run.validate_default_compatibility(receipt)
+
+    def test_default_compiler_failures_expose_status_and_both_diagnostic_streams(self):
+        compatibility = run.compatibility
+        for index, (code, stdout, stderr) in enumerate((
+                (1, "", ""), (1, "error CS0117: missing source API\n", "compiler stderr\n"),
+                (0, "unexpected compiler stdout\n", ""), (0, "", "unexpected compiler stderr\n"))):
+            output = self.output / ("default-diagnostics-" + str(index))
+            with self.subTest(code=code, stdout=stdout, stderr=stderr), \
+                    patch.object(compatibility, "source_baseline",
+                                 return_value={compatibility.FIXTURE_LOADER: b"pinned fixture loader"}), \
+                    patch.object(compatibility.subprocess, "run",
+                                 return_value=subprocess.CompletedProcess([], code, stdout, stderr)), \
+                    self.assertRaises(AssertionError) as failure:
+                compatibility.generate(None, output, {}, self.output / "compiler.dll", [])
+            log = output / "main40/compile.log"
+            self.assertEqual(log.read_text(), stdout + stderr)
+            self.assertEqual(str(failure.exception),
+                "Default compatibility compilation must have zero diagnostics (main40, exit " +
+                str(code) + ", log " + str(log) + "):\n" + stdout + stderr)
+
     def test_default_compatibility_cannot_be_empty_filtered_regenerated_or_unpinned(self):
         summary = dict(hosts=1200, SourceTick=1140, rawCalls=491, selections=4, defaultSeed=1, rawVectorFiltered=False)
         receipt = dict(status="passed", base=run.compatibility.BASE, tree=run.compatibility.TREE,

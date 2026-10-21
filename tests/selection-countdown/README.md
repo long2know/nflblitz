@@ -116,7 +116,13 @@ inventory/playbook/always-QB/receiver powerups; original custom-page record conv
 remains explicitly unsupported, not replaced by a random fallback.
 
 `compatibility.py` authenticates main40 commit/tree and separately compiles it and
-current production. The same authored untriggered seed1 script runs1,200 host steps
+current production. Each tree uses its own `FullKernelInputs.cs`: the baseline
+loader is authenticated from that same pinned Git tree, while current production
+uses the current loader. This keeps later opt-in APIs out of the older compile
+closure without removing either generation's production sources. Receipts retain
+each loader's hash. Both builds require exit zero and empty compiler stdout/stderr;
+failures report the tree label, exit status, log path and full diagnostics.
+The same authored untriggered seed1 script runs1,200 host steps
 through actual kickoff, menus and live play. Host/player/process/HUD bytes, menu
 events and **every** shared RNG call must be byte-identical. This is neither a
 new public replay recording nor full M1 qualification. All three existing public
