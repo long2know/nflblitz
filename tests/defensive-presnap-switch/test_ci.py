@@ -83,6 +83,20 @@ LEGACY_BOOTSTRAP = (
     "        working-directory: .\n"
     "        run: " + CI + " workspace --output " + LEGACY_WORKSPACE + " --inherited\n"
 )
+HISTORICAL_CORE_BUDGET = (
+    "  core-and-tooling:\n"
+    "    name: Core inventory and build-tool units (no Unity)\n"
+    "    runs-on: ubuntu-24.04\n"
+    "    # Measured full-chain runtime exceeds 30m on slower runners; keep every campaign required.\n"
+    "    timeout-minutes: 40\n"
+)
+CURRENT_CORE_BUDGET = (
+    "  core-and-tooling:\n"
+    "    name: Core inventory and build-tool units (no Unity)\n"
+    "    runs-on: ubuntu-24.04\n"
+    "    # Accumulated full-chain campaigns exhausted 40m; retain every campaign within a finite 90m budget.\n"
+    "    timeout-minutes: 90\n"
+)
 BROWSER_NAME = "Test browser assertions and isolated runtime"
 BROWSER_COMMAND = "node --test tests/browser/lib.test.mjs tests/browser/runtime.test.mjs tests/viewport/gpu.test.mjs"
 ORIGINAL_BROWSER_STEP = "      - name: " + BROWSER_NAME + "\n        run: " + BROWSER_COMMAND + "\n"
@@ -244,6 +258,8 @@ def remove_once(text, addition, replacement=""):
 
 
 def inherited_game(text):
+    # Keep historical guards byte-faithful while reversing only the approved current core budget.
+    text = remove_once(text, CURRENT_CORE_BUDGET, HISTORICAL_CORE_BUDGET)
     text = remove_once(text, new_job())
     text = remove_once(text, LEGACY_DEFAULTS)
     text = remove_once(text, LEGACY_BOOTSTRAP)
@@ -278,8 +294,8 @@ def validate_workflows(game, player):
             ["core-and-tooling", "defensive-presnap-switch"], "Both independent required Game jobs must exist exactly once")
     require(not re.search(r"^\s*(?:needs|if|continue-on-error|services|container):", game, re.M),
             "Required jobs must be concurrent, unconditional and fail closed")
-    require(re.findall(r"^    timeout-minutes: (\d+)$", game, re.M) == ["40", "40"],
-            "Both exact40 budgets, never an eighty-minute dependency chain")
+    require(re.findall(r"^    timeout-minutes: (\d+)$", game, re.M) == ["90", "40"],
+            "Only core-and-tooling has exact90 headroom; the independent pre-snap job retains exact40")
     require(re.findall(r"^    timeout-minutes: (\d+)$", player, re.M) == ["10"],
             "The asset-free job retains its exact10 budget")
     for forbidden in ("upload-artifact", "gh release upload", "--author-presnap-switch",
@@ -1587,6 +1603,32 @@ class DefensiveCI(unittest.TestCase):
     def test_actual_workflows_have_exact_required_parallel_job_and_reversible_old_hashes(self):
         inherited = validate_workflows((ROOT / GAME).read_text(), (ROOT / PLAYER).read_text())
         self.assertEqual(sha(inherited.encode()), INHERITED_GAME_SHA256)
+
+    def test_only_exact_core90_budget_adjustment_is_reversible(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        inherited = validate_workflows(game, player)
+        self.assertIn(CURRENT_CORE_BUDGET, game)
+        self.assertIn(HISTORICAL_CORE_BUDGET, inherited)
+        self.assertEqual(re.findall(r"^    timeout-minutes: (\d+)$", game, re.M), ["90", "40"])
+        self.assertEqual(re.findall(r"^    timeout-minutes: (\d+)$", inherited, re.M), ["40"])
+        changes = [
+            ("    timeout-minutes: 90\n", ""),
+            ("    timeout-minutes: 90\n", "    timeout-minutes: 90\n" * 2),
+            (CURRENT_CORE_BUDGET, CURRENT_CORE_BUDGET.replace(
+                "Accumulated full-chain campaigns exhausted 40m; retain every campaign within a finite 90m budget.",
+                "Measured full-chain runtime exceeds 30m on slower runners; keep every campaign required.")),
+            ("    timeout-minutes: 40\n", "    timeout-minutes: 90\n"),
+            ("      BLITZ_CI_MUTATION_WORKERS: '2'\n", "      BLITZ_CI_MUTATION_WORKERS: '3'\n"),
+            ("        run: python3 tests/run-core.py\n", "        run: true\n"),
+            ("  contents: read\n", "  contents: write\n"),
+            ("  cancel-in-progress: true\n", "  cancel-in-progress: false\n"),
+        ] + [("    timeout-minutes: 90\n", f"    timeout-minutes: {value}\n")
+             for value in ("0", "40", "89", "91", "360")]
+        for old, new in changes:
+            with self.subTest(mutation=old, replacement=new):
+                self.assertEqual(game.count(old), 1)
+                with self.assertRaises(AssertionError):
+                    validate_workflows(game.replace(old, new, 1), player)
 
     def test_removing_or_misbinding_actual_new_job_inputs_controls_flags_and_budget_is_red(self):
         game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()

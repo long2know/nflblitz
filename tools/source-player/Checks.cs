@@ -31,6 +31,12 @@ static class Checks
             }
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
+            if (args.Contains("--arm-rendering-only"))
+            {
+                int index = Array.IndexOf(args, "--proof-output");
+                ArmRenderingChecks.Run(data, index >= 0 ? args[index + 1] : null);
+                return 0;
+            }
             if (args.Contains("--defensive-presnap-switch-only"))
             {
                 int index = Array.IndexOf(args, "--proof-output");

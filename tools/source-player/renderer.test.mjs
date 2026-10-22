@@ -25,6 +25,89 @@ function recordedGl() {
   return { gl, calls };
 }
 
+function playerScene(modelId, hiddenJoint = -1) {
+  const { gl, calls } = recordedGl(), draws = [];
+  const target = {
+    gl, scene: 'scene', sceneUniforms: Object.fromEntries(
+      ['model', 'viewProjection', 'cutoff', 'constantAlpha', 'textureTimesAlpha', 'playerFlashAdd']
+        .map(name => [name, name])),
+    fx: { flashAlpha: Array.from({ length: 14 }, (_, actor) => actor % 3 ? 0 : 192 / 255), helmets: [] },
+    current: { camera: projection, joints: new Float32Array(14 * 15 * 16),
+      models: Array(14).fill(modelId), appearances: Array.from({ length: 14 }, (_, i) => i), ball: [0] },
+    models: new Map([[modelId, Array.from({ length: 15 }, (_, joint) => ({
+      drawEnabled: joint !== hiddenJoint, parts: [
+        { mesh: `joint/${joint}`, slot: joint >= 2 && joint <= 7 ? 0 : joint === 8 ? 1 : 2 },
+        ...([2, 5].includes(joint) ? [{ mesh: `sleeve/${joint}`, slot: 4 }] : []),
+      ],
+    }))]]),
+    appearances: new Map(Array.from({ length: 14 }, (_, actor) => [actor, {
+      textures: [actor % 2 ? 'ARMHND' : 'ARMHND2', 'HEDSHU', 'JERSF', 'LEGHEL', 'SLVMSK', 'JNUM', 'BALL'],
+      headJoint: 8, numberMatrix: 1,
+      numberMesh: 'numbers', numberTexture: 'JNUM',
+    }])),
+    world: [{ mesh: 'world', texture: 'world-cutout', state: {
+      depthFunction: 'GR_CMP_LESS', alphaFunction: 'GR_CMP_GREATER', alphaValue: 100,
+      alphaSource: 'GR_ALPHASOURCE_TEXTURE_ALPHA', colorFunction: 'GR_COLORCOMBINE_DECAL_TEXTURE',
+      rgbSource: 'GR_BLEND_ONE', rgbDestination: 'GR_BLEND_ZERO',
+      alphaSourceBlend: 'GR_BLEND_ONE', alphaDestinationBlend: 'GR_BLEND_ZERO',
+    } }],
+    blend: SourceRenderer.prototype.blend,
+    draw(mesh, texture, matrix, idColor) {
+      draws.push({ mesh, texture, matrix, idColor,
+        cutoff: calls.findLast(c => c[0] === 'uniform1f' && c[1] === 'cutoff')?.[2],
+        flash: calls.findLast(c => c[0] === 'uniform1f' && c[1] === 'playerFlashAdd')?.[2],
+        constantAlpha: calls.findLast(c => c[0] === 'uniform1i' && c[1] === 'constantAlpha')?.[2],
+        blend: calls.findLast(c => ['enable', 'disable'].includes(c[0]) && c[1] === gl.BLEND)?.[0],
+        cull: calls.findLast(c => ['enable', 'disable'].includes(c[0]) && c[1] === gl.CULL_FACE)?.[0],
+        depth: calls.findLast(c => c[0] === 'depthFunc')?.[1],
+        winding: calls.findLast(c => c[0] === 'frontFace')?.[1] });
+    },
+  };
+  return { target, draws };
+}
+
+test('original skin draws retain zero-alpha ARMHND2 RGB for every model, team and arm segment', () => {
+  // Skin is original slot0. ARMHND2's entire authored alpha0 is not an exposure mask.
+  // Other original runtime uniform slots contain real cutouts and stay alpha-tested.
+  for (let model = 0; model < 32; model++) for (const identityPass of [false, true]) {
+    const { target, draws } = playerScene(model);
+    SourceRenderer.prototype.drawScene.call(target, identityPass);
+    const arms = draws.filter(draw => /^joint\/[2-7]$/.test(draw.mesh));
+    assert.equal(arms.length, 14 * 6);
+    for (const draw of arms) {
+      const alpha = draw.texture === 'ARMHND2' ? 0 : 1;
+      assert(alpha > draw.cutoff,
+        `${draw.texture} ${draw.mesh} model${model}: opaque original RGB must survive the actual player cutoff`);
+      assert.equal(draw.blend, 'disable', 'Texture alpha must not blend away opaque original skin.');
+      assert.equal(draw.constantAlpha, false, 'Do not rewrite authored texture alpha to repair a draw-state error.');
+      assert.equal(draw.cull, 'enable', 'Keep actual back-face culling; no double-sided arm workaround.');
+      assert.equal(draw.depth, 'LESS');
+      assert.equal(draw.winding, 'CW');
+      const actor = draw.matrix.byteOffset / (15 * 16 * Float32Array.BYTES_PER_ELEMENT) | 0;
+      assert.equal(draw.flash, target.fx.flashAlpha[actor], 'Retain source white-flash addition on the restored skin.');
+    }
+    assert.equal(draws.find(draw => draw.mesh === 'world').cutoff, 100 / 255,
+      'The player correction must not disable a genuine original world alpha test.');
+    for (const draw of draws.filter(draw => ['SLVMSK', 'JNUM', 'HEDSHU', 'JERSF'].includes(draw.texture))) {
+      assert.equal(draw.cutoff, 1 / 255,
+        `Retain the actual ${draw.texture} cutout, including the reset before jersey numbers.`);
+      assert(!(0 > draw.cutoff), 'Alpha0 genuine uniform/facemask/number pixels must remain excluded.');
+    }
+  }
+});
+
+test('opaque player correction preserves explicit source nodraw exclusions and selected joint matrices', () => {
+  const { target, draws } = playerScene(4, 6);
+  for (let i = 0; i < target.current.joints.length; i++) target.current.joints[i] = i / 16;
+  SourceRenderer.prototype.drawScene.call(target, false);
+  assert(!draws.some(draw => draw.mesh === 'joint/6'), 'SN_NODRAW must remain an actual draw exclusion.');
+  for (let actor = 0; actor < 14; actor++) for (const joint of [2, 3, 4, 5, 7]) {
+    const draw = draws.filter(value => value.mesh === `joint/${joint}`)[actor];
+    assert.deepEqual(draw.matrix, target.current.joints.subarray((actor * 15 + joint) * 16,
+      (actor * 15 + joint + 1) * 16), 'The selected actual pose, not a replacement arm pose, must reach the GPU.');
+  }
+});
+
 test('adapter-only: actual effects receiver preserves selected originals and raw0x400, rejecting substitutes', () => {
   const flags = Array(14).fill(0); flags[6] = 0x1400;
   const target = effects(true, [7, 16], flags, [2]);

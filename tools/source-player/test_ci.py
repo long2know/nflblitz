@@ -194,7 +194,7 @@ class SourcePlayerCI(unittest.TestCase):
         self.assertIn("./artifacts/portable-player/evidence.json", (HERE / "assertions.test.mjs").read_text())
         self.assertEqual(4, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
         renderer = (HERE / "renderer.test.mjs").read_text()
-        self.assertEqual(5, len(re.findall(r"^test\(", renderer, re.M)))
+        self.assertEqual(7, len(re.findall(r"^test\(", renderer, re.M)))
         self.assertNotIn("artifacts/", renderer)
         head_renderer = (HERE / "popped-head.renderer.test.mjs").read_text()
         self.assertEqual(2, len(re.findall(r"^test\(", head_renderer, re.M)))
