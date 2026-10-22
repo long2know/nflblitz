@@ -67,8 +67,8 @@ jobs:
   core-and-tooling:
     name: Core inventory and build-tool units (no Unity)
     runs-on: ubuntu-24.04
-    # Measured full-chain runtime exceeds 30m on slower runners; keep every campaign required.
-    timeout-minutes: 40
+    # Accumulated full-chain campaigns exhausted 40m; retain every campaign within a finite 90m budget.
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: .squad/.scratch/defensive-switch-ci/inherited-workspace
