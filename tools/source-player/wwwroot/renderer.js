@@ -412,10 +412,16 @@ export class SourceRenderer {
         const matrix = frame.joints.subarray((actor * 15 + joint) * 16, (actor * 15 + joint + 1) * 16);
         const identity = poppedHeadIdentityPass ?
           joint === appearance.headJoint && appearance.headVariant === 'original-phead-source-authored' ? actor + 1 : 0 : actor + 1;
-        for (const part of parts) this.draw(part.mesh, appearance.textures[part.slot], matrix, identityPass ? identity : null);
+        for (const part of parts) {
+          // Source skin slot0 supplies opaque RGB even when ARMHND2's authored alpha is zero.
+          // Keep the real uniform/facemask/number cutouts on every other slot.
+          gl.uniform1f(this.sceneUniforms.cutoff, part.slot === 0 ? -1 : 1 / 255);
+          this.draw(part.mesh, appearance.textures[part.slot], matrix, identityPass ? identity : null);
+        }
       }
       const torso = frame.joints.subarray((actor * 15 + appearance.numberMatrix) * 16,
         (actor * 15 + appearance.numberMatrix + 1) * 16);
+      gl.uniform1f(this.sceneUniforms.cutoff, 1 / 255);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, -1);
       this.draw(appearance.numberMesh, appearance.numberTexture, torso, identityPass ? poppedHeadIdentityPass ? 0 : actor + 1 : null);
       gl.disable(gl.POLYGON_OFFSET_FILL);

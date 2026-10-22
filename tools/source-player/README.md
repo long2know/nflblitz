@@ -1,5 +1,61 @@
 # Portable C# browser preview (not a Unity player build)
 
+## Source skin RGB and missing-arm regression
+
+The original `PC_BLACK` uniform binds `ARMHND2.WMS` to logical material slot0.
+Its authenticated, byte-identical authoring TGA contains skin RGB but alpha0
+in all4096 texels. Applying the preview's generic alpha cutoff to this slot
+discarded exposed upper-arm geometry, forearms and hands. The geometry, UVs,
+roster selection and joint matrices were still present.
+
+Only **skin slot0** bypasses that cutoff. Original texture bytes/alpha are not
+rewritten. Uniform, facemask, jersey-number and world alpha exclusions remain;
+so do source `SN_NODRAW`, selected held-ball models, poses, depth and back-face
+culling. This is a portable authoring-texture material correction, not a claim
+to reconstruct missing native WMS/Texus quantization or native arcade pixels.
+
+Focused regressions:
+
+```sh
+node --test tools/source-player/renderer.test.mjs
+dotnet build tools/source-player/SourcePlayer.Checks.csproj -c Release
+dotnet tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$EXPLICIT_PRIVATE_PLAYER563" --arm-rendering-only \
+  --proof-output "$OWNED_EXISTING_OUTPUT/managed-arm-proof.json"
+```
+
+The managed check reads actual pinned data and all32 original model selectors,
+checks skin triangles/UVs delivered to `IRenderSink`, and compares both arm
+branches in24 standing/running pose cases against an independent row-major
+implementation of the pinned original `pipe3D.c` pivot/quaternion formulas.
+It advances no gameplay host. The recorded-GL tests fail the old renderer,
+exercise both skins/teams and all six arm joints, and preserve other alpha
+cutouts, `SN_NODRAW`, matrices, culling and the existing material consumers.
+
+For genuine pixels, serve an **owned ignored copy** of an approved bundle on
+a free loopback port above8096, with its unchanged old `renderer.js` and the
+corrected production renderer copied to a separately named module. Never edit
+a protected live bundle. Run:
+
+```sh
+bash tools/source-player/with-browser-runtime.sh \
+  tools/source-player/arm-rendering.browser.mjs \
+  --url "$OWNED_REPRO_URL" \
+  --before-renderer "${OWNED_REPRO_URL%/}/renderer.js" \
+  --after-renderer "${OWNED_REPRO_URL%/}/renderer-after.js" \
+  --output .squad/.scratch/arm-rendering/browser
+```
+
+This uses ordinary World startup/next-possession controls and real Escape
+pause, then the two actual `drawScene` implementations on an identical
+C#-supplied GPU packet. Genuine canvas/page PNGs, packet hashes, source-tick
+brackets, real GPU state and non-MSAA per-limb identity counts are private
+local outputs. No pose/camera/gameplay setters or substituted screenshots
+are used. The scoped inspection allows a180-second managed-startup bound;
+neither a30-second debugger timeout nor a missing general READY marker is arm
+evidence. The owned browser closes on completion; the caller owns and stops
+its repro server.
+
 ## Explicit pre-snap-switch public default
 
 `build.py --data "$PLAYER563"` now defaults to the closed stable profile
