@@ -301,8 +301,12 @@ namespace Blitz.Gameplay
 
         private float Fraction()
         {
-            return (Mode & SourceAnimationModes.Streaming) == 0 ? 0f
-                : Math.Max(0f, floatingFrame - FrameOrdinal);
+            if ((Mode & SourceAnimationModes.Streaming) == 0)
+                return 0f;
+            // ANIM.C _stream_frame (862-881) reuses the selected pose/root here,
+            // without rounding the accumulated floating frame.
+            float fraction = floatingFrame - FrameOrdinal;
+            return Math.Abs(fraction) < 0.05f ? 0f : Math.Max(0f, fraction);
         }
 
         private float TransitionFraction()
@@ -705,13 +709,17 @@ namespace Blitz.Gameplay
             FrameOrdinal = (int)floatingFrame;
             hold = 1;
             SourceAnimationFrame from = Frame(FrameOrdinal);
-            int next = Math.Min(FrameOrdinal + 1, clip.SelectedSourceFrames.Count - 1);
-            SourceAnimationFrame to = Frame(next);
-            float t = floatingFrame - FrameOrdinal;
-            SourceVector3 root = new SourceVector3(
-                from.ScaledRoot.X + (to.ScaledRoot.X - from.ScaledRoot.X) * t,
-                from.ScaledRoot.Y + (to.ScaledRoot.Y - from.ScaledRoot.Y) * t,
-                from.ScaledRoot.Z + (to.ScaledRoot.Z - from.ScaledRoot.Z) * t);
+            float t = Fraction();
+            SourceVector3 root = from.ScaledRoot;
+            if (t > 0f)
+            {
+                int next = Math.Min(FrameOrdinal + 1, clip.SelectedSourceFrames.Count - 1);
+                SourceAnimationFrame to = Frame(next);
+                root = new SourceVector3(
+                    from.ScaledRoot.X + (to.ScaledRoot.X - from.ScaledRoot.X) * t,
+                    from.ScaledRoot.Y + (to.ScaledRoot.Y - from.ScaledRoot.Y) * t,
+                    from.ScaledRoot.Z + (to.ScaledRoot.Z - from.ScaledRoot.Z) * t);
+            }
             ApplyRoot(actor, root, from.ScaledRoot.Y);
         }
 

@@ -1,5 +1,45 @@
 # Original-source differential and synthetic contract checks
 
+## Focused stream-frame component regression
+
+```sh
+dotnet run --project tests/parity/ParityChecks.csproj --configuration Release -- \
+  --stream-component
+# Optional: only an already admitted decoded PSDLINE1 clip with the pinned hash:
+dotnet run --project tests/parity/ParityChecks.csproj --configuration Release -- \
+  --stream-component path/to/existing/PSDLINE1.json
+```
+
+This selector uses actual `SourceAnimationLayerState.Change/Advance` and standalone
+`ActorState`, never game/host construction, source wakes, original-C/native execution,
+or an original-C corpus. Synthetic checks also run in the existing default runner,
+reported separately from the unchanged host-adapter contract count.
+
+The source authority is `historicalsource/nflblitz2000` revision
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`, `lib/ani3d/ANIM.C` blob
+`97d7856d67a432937e249be274ef67a9ad354dc1`: `_stream_frame` 766-1001,
+especially its strict `fabs(t) < 0.05f` frame-data **and** root selection at
+862-881, plus stream-entry adjustment at 1790-1823. The branch does not round
+the accumulated frame or snap fractions near one.
+
+Toy mathematical roots/rotations check below/at/above the threshold, ordinary
+and near-one interpolation, subsequent progress, duplicate ticks, initial
+negative frames, final frames/completion, compressed/uncompressed flags, and
+primary/secondary anchor behavior. They assert VM roots/poses and public
+sample metadata/poses with an absolute `1e-6` portable tolerance, not native proof.
+
+The optional clip must retain decoded SHA256
+`486f4fe78f13bc2a6c316df521ee6f46b2359e47e5e76ea08f90ed0f1378468e`
+and source WAN blob `5376f528be8489f8e19bec0082fc0fd1ad954769`. It exercises
+only ticks 0-24 of the actual `lm_set1_anim` first `INTSTREAM 50,70` segment.
+The independent source-derived cursor reaches selected ordinal 17 / authoring
+frame 34 at tick 24; expected roots/poses come directly from that authenticated
+clip, never generated numeric goldens or a production sampler. No clip data is
+stored in Git; this optional private-input proof is separate from synthetic
+public test coverage and is not whole-VM/game/Unity/native acceptance.
+
+## Original-source differential runner
+
 ```sh
 python3 tests/source-oracles/run.py --source-root path/to/verified/original/source --full-matrix
 python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json
