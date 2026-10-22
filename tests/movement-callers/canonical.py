@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -19,7 +20,7 @@ from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from contact_inputs import fixture_profile
 from prepare_inputs import fixture_hashes
-from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA,
+from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA, C2_M1_DATA_SHA,
                             PRESNAP_ANIMATION_SHA, PRESNAP_DATA_SHA, successor_hashes)
 from compare_physics import compare
 
@@ -232,6 +233,251 @@ def require_m1_replay(code, summary, receipt, compatibility="strict", presnap_sw
     raise RuntimeError("M1 replay must pass its real R_SKIP gate or report that exact unmet criterion, never relabel a different failure.")
 
 
+_M1_SIDE_SCHEMA = "source-M1-side-guard/v1"
+_M1_SIDE_ISSUES = {
+    "malformed_receipt", "malformed_fault", "missing_guard", "malformed_guard", "conflicting_guard",
+    "conflicting_label", "conflicting_observed", "conflicting_profile", "conflicting_source_data",
+    "conflicting_replay_hash", "missing_source_row", "oversized_source_row", "malformed_source_row",
+    "conflicting_host", "conflicting_tick", "conflicting_raw_command", "malformed_raw_stations",
+    "malformed_applied_stations", "missing_current_rules", "malformed_current_rules",
+    "missing_published", "malformed_published", "conflicting_guard_applied", "malformed_projection",
+    "conflicting_projection_hash", "conflicting_fault_identity",
+}
+
+
+def _m1_side_stations(command):
+    frame = command["StationInputs"]
+    if frame is None:
+        return []
+    stations = frame["Stations"]
+    if not isinstance(stations, list) or len(stations) > 4:
+        raise ValueError("station inventory")
+    result, seen = [], set()
+    for station in stations:
+        identity, source = station["StationId"], station["Command"]
+        if type(identity) is not int or identity not in range(4) or identity in seen:
+            raise ValueError("station identity")
+        seen.add(identity)
+        specified, action, play = source["IsSpecified"], source["Action"], source["Play"]
+        selected, kind, symbol = play["IsSpecified"], play["Playbook"], play["PlaySymbol"]
+        if (type(specified) is not bool or type(action) is not int or action not in range(22)
+                or type(selected) is not bool or type(kind) is not int or kind not in (0, 1)
+                or (selected and (not isinstance(symbol, str) or
+                    re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", symbol) is None))
+                or (not selected and symbol is not None)):
+            raise ValueError("selection metadata")
+        result.append({"station": identity, "specified": specified, "action": action,
+                       "play_specified": selected, "playbook": kind if selected else None,
+                       "symbol": symbol if selected else None})
+    return result
+
+
+def _m1_side_evidence(destination, label, receipt_bytes, expected):
+    evidence = {
+        "schema": _M1_SIDE_SCHEMA, "status": "missing-evidence", "run": label,
+        "host": None, "before": None, "SourceTick": None,
+        "receipt_sha256": sha(receipt_bytes), "source_row_sha256": None,
+        "replay_sha256": None, "profile": None, "guard_error_json_sha256": None,
+        "guard": None, "raw_stations": [], "applied_stations": [],
+        "current_rules": None, "published": None, "issues": [],
+    }
+    issues = evidence["issues"]
+    try:
+        receipt = json.loads(receipt_bytes)
+        failure = receipt["failure"]
+        if not isinstance(failure, dict):
+            raise ValueError("fault")
+        for key in ("host", "before", "SourceTick"):
+            value = failure[key]
+            if type(value) is not int or not 0 <= value <= (1 << 63) - 1:
+                raise ValueError("fault identity")
+            evidence[key] = value
+        error = failure["error"]
+        if not isinstance(error, str):
+            raise ValueError("fault error")
+    except (ValueError, KeyError, TypeError):
+        issues.append("malformed_receipt")
+        return _finish_m1_side_evidence(evidence)
+    evidence["guard_error_json_sha256"] = sha(json.dumps(error).encode("ascii"))
+    prefix = "System.ArgumentException: The selected original playbook does not belong to the submitting source side."
+    context = [line for line in error.splitlines() if line.startswith("SOURCE_SIDE_GUARD_V1 ")]
+    match = re.fullmatch(
+        r"SOURCE_SIDE_GUARD_V1 possession=(-?[0-9]+) phase=(-?[0-9]+) selectingSide=(-?[0-9]+) "
+        r"playbook=(-?[0-9]+) selectingOffense=([01]) requestingTeam=(null|-?[0-9]+)",
+        context[0]) if len(context) == 1 and len(context[0]) <= 256 and error.splitlines()[0:1] == [prefix] else None
+    if match is None:
+        issues.append("missing_guard" if not context else "malformed_guard")
+    else:
+        values = [int(value) if value != "null" else None for value in match.groups()]
+        if any(value is not None and not -(1 << 31) <= value < (1 << 31) for value in values):
+            issues.append("malformed_guard")
+        else:
+            possession, phase, side, kind, offense, requesting = values
+            evidence["guard"] = {"possession": possession, "phase": phase, "selecting_side": side,
+                                 "playbook": kind, "selecting_offense": bool(offense),
+                                 "requesting_team": requesting}
+            if (possession not in (0, 1) or phase not in range(5) or side not in (0, 1) or kind not in (0, 1)
+                    or (requesting is not None and requesting != side)
+                    or bool(offense) != (side == possession) or (kind == 0) == bool(offense)):
+                issues.append("conflicting_guard")
+    try:
+        same_destination = destination.name == label and destination.resolve() == destination.absolute()
+    except (OSError, RuntimeError):
+        same_destination = False
+    if not same_destination:
+        issues.append("conflicting_label")
+        return _finish_m1_side_evidence(evidence)
+    for field, issue in (("observed", "conflicting_observed"), ("profile", "conflicting_profile"),
+                         ("sourceData", "conflicting_source_data"), ("replayFileSha256", "conflicting_replay_hash")):
+        if type(receipt.get(field)) is not type(expected[field]) or receipt.get(field) != expected[field]:
+            issues.append(issue)
+    if isinstance(receipt.get("replayFileSha256"), str) and re.fullmatch(r"[0-9a-f]{64}", receipt["replayFileSha256"]):
+        evidence["replay_sha256"] = receipt["replayFileSha256"]
+    if receipt.get("profile") in ("original-teams-contact281-c2-m1", "original-teams-contact282-c2-m1-presnap-switch"):
+        evidence["profile"] = receipt["profile"]
+    try:
+        rules = failure["actual"]["SourceRules"]["OffenseSide"]
+        if type(rules) is not int or rules not in (0, 1):
+            raise ValueError("rules")
+        evidence["current_rules"] = {"offense_side": rules}
+    except (KeyError, TypeError, ValueError):
+        issues.append("missing_current_rules")
+    try:
+        state = failure["actual"]["State"]
+        tick, phase, possession = state["Tick"], state["Phase"], state["Possession"]
+        if (type(tick) is not int or not 0 <= tick <= (1 << 63) - 1 or type(phase) is not int
+                or phase not in range(5) or type(possession) is not int or possession not in (0, 1)):
+            raise ValueError("published")
+        evidence["published"] = {"tick": tick, "phase": phase, "possession": possession}
+    except (KeyError, TypeError, ValueError):
+        issues.append("missing_published")
+    row_path = destination / "m1-public-replay.jsonl"
+    try:
+        if row_path.is_symlink() or not row_path.is_file() or destination.resolve() != destination.absolute():
+            raise OSError("source row unavailable")
+        with row_path.open("rb") as stream:
+            end = stream.seek(0, os.SEEK_END)
+            start = max(0, end - (2 * 1024 * 1024 + 1))
+            stream.seek(start)
+            tail = stream.read(2 * 1024 * 1024 + 1)
+        if not tail.endswith(b"\n"):
+            raise ValueError("incomplete source row")
+        if start and b"\n" not in tail[:-1]:
+            issues.append("oversized_source_row")
+            return _finish_m1_side_evidence(evidence)
+        row_bytes = tail[:-1].rsplit(b"\n", 1)[-1] + b"\n"
+        if len(row_bytes) > 2 * 1024 * 1024:
+            issues.append("oversized_source_row")
+            return _finish_m1_side_evidence(evidence)
+        evidence["source_row_sha256"] = sha(row_bytes)
+        row = json.loads(row_bytes)
+        if not isinstance(row, dict):
+            raise ValueError("source row object")
+        if type(row.get("host")) is not int or row["host"] != failure["host"]:
+            issues.append("conflicting_host")
+        if (type(row.get("beforeSourceTick")) is not int or row["beforeSourceTick"] != failure["before"]
+                or type(row.get("SourceTick")) is not int or row["SourceTick"] != failure["SourceTick"]
+                or type(receipt.get("SourceTick")) is not int or receipt["SourceTick"] != failure["SourceTick"]):
+            issues.append("conflicting_tick")
+        if row.get("command") != failure.get("command"):
+            issues.append("conflicting_raw_command")
+        try:
+            evidence["raw_stations"] = _m1_side_stations(row["command"])
+        except (KeyError, TypeError, ValueError):
+            issues.append("malformed_raw_stations")
+        try:
+            evidence["applied_stations"] = _m1_side_stations(row["applied"])
+        except (KeyError, TypeError, ValueError):
+            issues.append("malformed_applied_stations")
+        guard = evidence["guard"]
+        if guard is not None and not any(
+                station["specified"] and station["action"] == 1 and station["play_specified"]
+                and station["playbook"] == guard["playbook"] for station in evidence["applied_stations"]):
+            issues.append("conflicting_guard_applied")
+    except (OSError, RuntimeError):
+        issues.append("missing_source_row")
+    except (ValueError, KeyError, TypeError):
+        issues.append("malformed_source_row")
+    return _finish_m1_side_evidence(evidence)
+
+
+def _finish_m1_side_evidence(evidence):
+    issues = evidence["issues"]
+    evidence["status"] = ("conflicting-evidence" if any(issue.startswith("conflicting_") for issue in issues)
+                          else "missing-evidence" if issues else "captured-context")
+    evidence["projection_sha256"] = sha(json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode())
+    return evidence
+
+
+def _m1_side_diagnostic_view(value, label, fault):
+    invalid = {"schema": _M1_SIDE_SCHEMA, "status": "missing-evidence", "issues": ["malformed_projection"]}
+    keys = {"schema", "status", "run", "host", "before", "SourceTick", "receipt_sha256",
+            "source_row_sha256", "replay_sha256", "profile", "guard_error_json_sha256",
+            "guard", "raw_stations", "applied_stations", "current_rules", "published", "issues",
+            "projection_sha256"}
+    if not isinstance(value, dict) or set(value) != keys or value["schema"] != _M1_SIDE_SCHEMA:
+        return invalid
+    if (value["status"] not in ("captured-context", "missing-evidence", "conflicting-evidence")
+            or not isinstance(value["issues"], list) or len(value["issues"]) > 32
+            or any(not isinstance(issue, str) or issue not in _M1_SIDE_ISSUES for issue in value["issues"])):
+        return invalid
+    def scalar(item):
+        return (item is None or type(item) is bool or type(item) is int and -(1 << 63) <= item < (1 << 63)
+                or isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_.:/-]{1,128}", item) is not None)
+    for key in keys - {"guard", "raw_stations", "applied_stations", "current_rules", "published", "issues"}:
+        if not scalar(value[key]):
+            return invalid
+    for key in ("receipt_sha256", "source_row_sha256", "replay_sha256",
+                "guard_error_json_sha256", "projection_sha256"):
+        if value[key] is not None and (not isinstance(value[key], str)
+                                      or re.fullmatch(r"[0-9a-f]{64}", value[key]) is None):
+            return invalid
+    for key in ("host", "before", "SourceTick"):
+        if value[key] is not None and (type(value[key]) is not int or value[key] < 0):
+            return invalid
+    groups = {"guard": {"possession", "phase", "selecting_side", "playbook", "selecting_offense", "requesting_team"},
+              "current_rules": {"offense_side"}, "published": {"tick", "phase", "possession"}}
+    for name, fields in groups.items():
+        group = value[name]
+        if group is not None and (not isinstance(group, dict) or set(group) != fields
+                                  or not all(scalar(item) for item in group.values())):
+            return invalid
+    guard = value["guard"]
+    if guard is not None and (any(type(guard[key]) is not int for key in
+                                 ("possession", "phase", "selecting_side", "playbook"))
+                              or type(guard["selecting_offense"]) is not bool
+                              or (guard["requesting_team"] is not None
+                                  and type(guard["requesting_team"]) is not int)):
+        return invalid
+    for name in ("current_rules", "published"):
+        if value[name] is not None and any(type(part) is not int for part in value[name].values()):
+            return invalid
+    station_fields = {"station", "specified", "action", "play_specified", "playbook", "symbol"}
+    for name in ("raw_stations", "applied_stations"):
+        if (not isinstance(value[name], list) or len(value[name]) > 4
+                or any(not isinstance(item, dict) or set(item) != station_fields
+                       or not all(scalar(part) for part in item.values()) for item in value[name])):
+            return invalid
+        if any(type(item["station"]) is not int or item["station"] not in range(4)
+               or type(item["specified"]) is not bool or type(item["play_specified"]) is not bool
+               or type(item["action"]) is not int or item["action"] not in range(22)
+               or (item["playbook"] is not None
+                   and (type(item["playbook"]) is not int or item["playbook"] not in (0, 1)))
+               for item in value[name]):
+            return invalid
+    if value["status"] == "captured-context" and (value["issues"] or any(value[key] is None for key in
+            ("run", "host", "before", "SourceTick", "receipt_sha256", "source_row_sha256",
+             "replay_sha256", "profile", "guard_error_json_sha256", "guard", "published", "current_rules"))):
+        return invalid
+    core = {key: part for key, part in value.items() if key != "projection_sha256"}
+    if value["projection_sha256"] != sha(json.dumps(core, sort_keys=True, separators=(",", ":")).encode()):
+        return dict(invalid, status="conflicting-evidence", issues=["conflicting_projection_hash"])
+    if (value["run"] != label or any(value[key] != fault.get(key) for key in ("host", "before", "SourceTick"))
+            or value["guard_error_json_sha256"] != sha(json.dumps(fault.get("error")).encode("ascii"))):
+        return dict(invalid, status="conflicting-evidence", issues=["conflicting_fault_identity"])
+    return value
+
+
 def _write_m1_fault_diagnostics(path, result):
     production = result.get("production_before")
     valid_production = (isinstance(production, dict) and bool(production) and all(
@@ -275,6 +521,8 @@ def _write_m1_fault_diagnostics(path, result):
         diagnostic["status"] = "missing-evidence" if missing else "captured-fault"
         if missing:
             diagnostic["missing_fields"] = missing
+        if "source_side" in fault:
+            diagnostic["source_side"] = _m1_side_diagnostic_view(fault["source_side"], label, fault)
         print(json.dumps(diagnostic, sort_keys=True), file=sys.stderr)
     if len(faults) > 8:
         print(json.dumps(dict(binding, status="missing-evidence",
@@ -516,13 +764,22 @@ def m1_main(argv):
                   or summary.get("actual_Core_post_VM_physics_cases") != 664):
                 raise RuntimeError("Retained M1 caller/physics inventory failed.")
         else:
-            receipt = json.loads((destination / "m1-replay-result.json").read_bytes())
+            receipt_bytes = (destination / "m1-replay-result.json").read_bytes()
+            receipt = json.loads(receipt_bytes)
             run["receipt_metadata"] = {key: receipt.get(key) for key in (
                 "completedHosts", "SourceTick", "gameplayCompatibility", "compatibilityRepairCount",
                 "compatibilityRepairs", "rawHandicap", "effectiveHandicap", "rSkipFrames", "positive")}
             if receipt.get("failure"):
                 failure = receipt["failure"]
                 run["fault_metadata"] = {key: failure.get(key) for key in ("host", "before", "SourceTick", "error")}
+                run["fault_metadata"]["source_side"] = _m1_side_evidence(
+                    destination, label, receipt_bytes, {
+                        "observed": observed,
+                        "profile": ("original-teams-contact282-c2-m1-presnap-switch" if presnap_switch
+                                    else "original-teams-contact281-c2-m1"),
+                        "sourceData": PRESNAP_DATA_SHA if presnap_switch else C2_M1_DATA_SHA,
+                        "replayFileSha256": inputs[str(args.replay_commands.absolute())],
+                    })
                 if args.source_compatibility == "portable":
                     result["status"] = "failed-portable-source-fault"
             run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility, presnap_switch)

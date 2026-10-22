@@ -1,6 +1,8 @@
+import copy
 import hashlib
 import io
 import json
+import re
 import tempfile
 import unittest
 import uuid
@@ -385,6 +387,200 @@ class CanonicalObservationGuards(unittest.TestCase):
             self.assertEqual(diagnostics[-1]["omitted_fault_runs"], 2)
             self.assertIn("additional_fault_metadata_runs", diagnostics[-1]["missing_fields"])
             self.assertEqual(diagnostics[-1]["report_sha256"], report_hash)
+
+    @staticmethod
+    def side_attempt(work, label="isolated-observer"):
+        destination = Path(work) / label
+        destination.mkdir(mode=0o700)
+        source = (canonical.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Source.cs").read_text()
+        template = json.loads(re.search(r'"\\nSOURCE_SIDE_GUARD_V1[^"]*"', source).group(0))
+        error = ("System.ArgumentException: The selected original playbook does not belong to the submitting source side."
+                 + template.format(0, 0, 0, 1, 1, 0) + "\n   at SyntheticSource.SelectSourcePlay()")
+        def packet(kind, symbol):
+            return {"StationInputs": {"Stations": [{
+                "StationId": 0, "Command": {"IsSpecified": True, "Action": 1, "Play": {
+                    "IsSpecified": True, "Playbook": kind, "PlaySymbol": symbol}},
+                "StickX": "synthetic-private-not-for-console",
+            }]}, "actual": "synthetic-private-not-for-console"}
+        raw = packet(0, "play_hail_mary")
+        applied = packet(1, "play_suicide_blitz")
+        receipt = {
+            "observed": label == "isolated-observer",
+            "profile": "original-teams-contact281-c2-m1", "sourceData": canonical.C2_M1_DATA_SHA,
+            "replayFileSha256": "d" * 64, "SourceTick": 11,
+            "failure": {"host": 7, "before": 10, "SourceTick": 11, "error": error, "command": raw,
+                        "actual": {"SourceRules": {"OffenseSide": 0},
+                                   "State": {"Tick": 6, "Phase": 2, "Possession": 1},
+                                   "poses": "synthetic-private-not-for-console"}},
+        }
+        row = {"host": 7, "beforeSourceTick": 10, "SourceTick": 11,
+               "command": raw, "applied": applied, "actors": "synthetic-private-not-for-console"}
+        expected = {key: receipt[key] for key in ("observed", "profile", "sourceData", "replayFileSha256")}
+        return destination, receipt, row, expected
+
+    def test_source_side_guard_operands_survive_transport_without_snapshot_inference(self):
+        for label in ("uninstrumented", "isolated-observer", "final-uninstrumented"):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as work:
+                destination, receipt, row, expected = self.side_attempt(work, label)
+                if label == "final-uninstrumented":
+                    receipt["failure"]["error"] += "\n" + "   at SyntheticSource.LongStack()\n" * 1000
+                receipt_bytes = json.dumps(receipt).encode()
+                row_bytes = (json.dumps(row) + "\n").encode()
+                (destination / "m1-public-replay.jsonl").write_bytes(row_bytes)
+                evidence = canonical._m1_side_evidence(destination, label, receipt_bytes, expected)
+                self.assertEqual(evidence["status"], "captured-context")
+                self.assertEqual(evidence["issues"], [])
+                self.assertEqual(evidence["guard"], {
+                    "possession": 0, "phase": 0, "selecting_side": 0, "playbook": 1,
+                    "selecting_offense": True, "requesting_team": 0})
+                self.assertEqual(evidence["raw_stations"][0]["playbook"], 0)
+                self.assertEqual(evidence["applied_stations"][0]["playbook"], 1)
+                self.assertEqual(evidence["published"], {"tick": 6, "phase": 2, "possession": 1})
+                self.assertEqual(evidence["current_rules"], {"offense_side": 0})
+                self.assertEqual(evidence["receipt_sha256"], hashlib.sha256(receipt_bytes).hexdigest())
+                self.assertEqual(evidence["source_row_sha256"], hashlib.sha256(row_bytes).hexdigest())
+                original_receipt = copy.deepcopy(receipt)
+                fault = {key: receipt["failure"][key] for key in ("host", "before", "SourceTick", "error")}
+                fault["source_side"] = evidence
+                result = {"status": "failed-portable-source-fault",
+                          "production_before": {"synthetic-input": "a" * 64},
+                          "runs": {label: {"fault_metadata": fault}}}
+                original = json.dumps(result, indent=2) + "\n"
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    canonical._write_m1_result(Path(work), result)
+                diagnostic = json.loads(next(line for line in stderr.getvalue().splitlines()
+                                             if line.startswith("{")))
+                self.assertEqual(diagnostic["source_side"], evidence)
+                self.assertEqual(diagnostic["error_truncated"], label == "final-uninstrumented")
+                self.assertEqual(diagnostic["report_sha256"], hashlib.sha256(
+                    (Path(work) / "result.json").read_bytes()).hexdigest())
+                self.assertEqual((Path(work) / "result.json").read_text(), original)
+                self.assertEqual(json.dumps(result, indent=2) + "\n", original)
+                self.assertEqual(receipt, original_receipt)
+                self.assertEqual(stdout.getvalue(), "")
+                self.assertNotIn("synthetic-private-not-for-console", stderr.getvalue())
+                self.assertIn("M1 REGRESSION FAILED: failed-portable-source-fault", stderr.getvalue())
+                receipt["failure"]["actual"]["SourceRules"]["OffenseSide"] = 1
+                different_rules = canonical._m1_side_evidence(
+                    destination, label, json.dumps(receipt).encode(), expected)
+                self.assertEqual(different_rules["status"], "captured-context")
+                self.assertEqual(different_rules["guard"]["possession"], 0)
+                self.assertEqual(different_rules["current_rules"]["offense_side"], 1)
+
+    def test_source_side_evidence_rejects_missing_malformed_and_conflicting_bindings(self):
+        mutations = [
+            ("conflicting_host", lambda r, row, e: row.update(host=8)),
+            ("conflicting_tick", lambda r, row, e: row.update(beforeSourceTick=9)),
+            ("conflicting_tick", lambda r, row, e: r.update(SourceTick=True)),
+            ("conflicting_replay_hash", lambda r, row, e: r.update(replayFileSha256="e" * 64)),
+            ("conflicting_profile", lambda r, row, e: r.update(profile="unrelated-profile")),
+            ("conflicting_source_data", lambda r, row, e: r.update(sourceData="f" * 64)),
+            ("conflicting_observed", lambda r, row, e: r.update(observed=False)),
+            ("conflicting_raw_command", lambda r, row, e: row.update(command=None)),
+            ("malformed_applied_stations", lambda r, row, e: row.update(applied={"StationInputs": 1})),
+            ("missing_current_rules", lambda r, row, e: r["failure"]["actual"].pop("SourceRules")),
+            ("missing_published", lambda r, row, e: r["failure"]["actual"].pop("State")),
+            ("missing_guard", lambda r, row, e: r["failure"].update(error="synthetic generic fault")),
+            ("malformed_guard", lambda r, row, e: r["failure"].update(
+                error=r["failure"]["error"].replace("possession=0", "possession=" + "1" * 300))),
+            ("conflicting_guard", lambda r, row, e: r["failure"].update(
+                error=r["failure"]["error"].replace("selectingOffense=1", "selectingOffense=0"))),
+            ("conflicting_guard", lambda r, row, e: r["failure"].update(
+                error=r["failure"]["error"].replace("possession=0", "possession=2"))),
+            ("conflicting_guard", lambda r, row, e: r["failure"].update(
+                error=r["failure"]["error"].replace("phase=0", "phase=5"))),
+            ("conflicting_guard_applied", lambda r, row, e: row["applied"]["StationInputs"]["Stations"][0]
+             ["Command"]["Play"].update(Playbook=0)),
+        ]
+        for issue, mutate in mutations:
+            with self.subTest(issue=issue), tempfile.TemporaryDirectory() as work:
+                destination, receipt, row, expected = self.side_attempt(work)
+                mutate(receipt, row, expected)
+                (destination / "m1-public-replay.jsonl").write_text(json.dumps(row) + "\n")
+                evidence = canonical._m1_side_evidence(
+                    destination, destination.name, json.dumps(receipt).encode(), expected)
+                self.assertIn(issue, evidence["issues"])
+                self.assertNotEqual(evidence["status"], "captured-context")
+                self.assertNotIn("synthetic-private-not-for-console", json.dumps(evidence))
+        for payload, issue in ((None, "missing_source_row"), (b"[]\n", "malformed_source_row"),
+                               (b"{}\n", "conflicting_host"), (b"{}", "malformed_source_row"),
+                               (b"x" * (2 * 1024 * 1024 + 1) + b"\n", "oversized_source_row")):
+            with self.subTest(issue=issue), tempfile.TemporaryDirectory() as work:
+                destination, receipt, row, expected = self.side_attempt(work)
+                if payload is not None:
+                    (destination / "m1-public-replay.jsonl").write_bytes(payload)
+                evidence = canonical._m1_side_evidence(
+                    destination, destination.name, json.dumps(receipt).encode(), expected)
+                self.assertIn(issue, evidence["issues"])
+                self.assertNotEqual(evidence["status"], "captured-context")
+        with tempfile.TemporaryDirectory() as work:
+            destination, receipt, row, expected = self.side_attempt(work)
+            with patch.object(Path, "open", side_effect=AssertionError("wrong-label artifact read")):
+                evidence = canonical._m1_side_evidence(
+                    destination, "final-uninstrumented", json.dumps(receipt).encode(), expected)
+            self.assertIn("conflicting_label", evidence["issues"])
+            with patch.object(Path, "resolve", side_effect=OSError("synthetic inaccessible attempt")):
+                evidence = canonical._m1_side_evidence(
+                    destination, destination.name, json.dumps(receipt).encode(), expected)
+            self.assertIn("conflicting_label", evidence["issues"])
+            for payload in (b"null", b"[]", b"{}", b'{"failure":null}'):
+                evidence = canonical._m1_side_evidence(destination, destination.name, payload, expected)
+                self.assertIn("malformed_receipt", evidence["issues"])
+                self.assertEqual(evidence["status"], "missing-evidence")
+
+    def test_source_side_diagnostic_hash_identity_and_privacy_fail_closed(self):
+        with tempfile.TemporaryDirectory() as work:
+            destination, receipt, row, expected = self.side_attempt(work)
+            (destination / "m1-public-replay.jsonl").write_text(json.dumps(row) + "\n")
+            evidence = canonical._m1_side_evidence(
+                destination, destination.name, json.dumps(receipt).encode(), expected)
+            fault = {key: receipt["failure"][key] for key in ("host", "before", "SourceTick", "error")}
+            for key, value in (("source_row_sha256", "e" * 64), ("receipt_sha256", "e" * 64),
+                               ("actual", {"poses": "synthetic-private-not-for-console"})):
+                with self.subTest(key=key):
+                    changed = dict(evidence, **{key: value})
+                    view = canonical._m1_side_diagnostic_view(changed, destination.name, fault)
+                    self.assertNotEqual(view["status"], "captured-context")
+                    self.assertNotIn("synthetic-private-not-for-console", json.dumps(view))
+            view = canonical._m1_side_diagnostic_view(evidence, "final-uninstrumented", fault)
+            self.assertIn("conflicting_fault_identity", view["issues"])
+            view = canonical._m1_side_diagnostic_view(evidence, destination.name, dict(fault, host=8))
+            self.assertIn("conflicting_fault_identity", view["issues"])
+            self.assertEqual(canonical._m1_side_diagnostic_view(evidence, destination.name, fault), evidence)
+
+    def test_source_side_csharp_prefix_predicate_and_direct_operand_contract(self):
+        source = (canonical.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Source.cs").read_text()
+        method = source[source.index("        private void SelectSourcePlay("):
+                        source.index("            SourcePlayDefinition chosen =")]
+        predicate = "if (original.IsSpecified && (original.Playbook == SourcePlaybookKind.Offense) != selectingOffense)"
+        prefix = "The selected original playbook does not belong to the submitting source side."
+        self.assertEqual(method.count(predicate), 1)
+        self.assertEqual(method.count('throw new ArgumentException("' + prefix + '"'), 1)
+        self.assertLess(method.index(predicate), method.index("SOURCE_SIDE_GUARD_V1"))
+        self.assertLess(method.index("SOURCE_SIDE_GUARD_V1"), method.index("RequireSourcePlaybook();"))
+        self.assertIn("(int)Model.Possession, (int)Model.Phase, (int)selectingSide, (int)original.Playbook", method)
+        self.assertIn("selectingOffense ? 1 : 0, requestingTeam.HasValue", method)
+        self.assertIn("System.Globalization.CultureInfo.InvariantCulture", method)
+        with tempfile.TemporaryDirectory() as work:
+            _, receipt, _, _ = self.side_attempt(work)
+            import check_replay_generations as generations
+            self.assertEqual(receipt["failure"]["error"].splitlines()[0], generations.SIDE_ERROR)
+
+    def test_source_side_live_binding_retains_harness_and_one_byte_negative_guards(self):
+        import check_replay_generations as generations
+        files, identity = generations.u2_current_snapshot()
+        self.assertEqual(identity["source_count"], 78)
+        self.assertEqual(identity["harness_count"], 12)
+        self.assertEqual(identity["source_manifest_sha256"], generations.U2_CURRENT_SOURCE_SHA256)
+        self.assertEqual(identity["harness_manifest_sha256"],
+                         "634c9ca7f514b82ab6789f0fac154380f8aa5f7417a68dcc30bf64a446afc501")
+        for name in ("Assets/Scripts/Gameplay/GameSimulation.Source.cs", "tests/movement-callers/Canonical.cs"):
+            altered = dict(files)
+            altered[name] += b"\n"
+            with self.assertRaisesRegex(ValueError, "payload"):
+                generations.validate_snapshot(altered, 78, generations.U2_CURRENT_SOURCE_SHA256,
+                                              generations.U2_HARNESS_SHA256)
 
     def test_snap_hike_root_is_explicit_and_controls_target_actual_producer_context(self):
         source = (canonical.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Source.cs").read_text()
