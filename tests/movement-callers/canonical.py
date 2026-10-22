@@ -232,6 +232,56 @@ def require_m1_replay(code, summary, receipt, compatibility="strict", presnap_sw
     raise RuntimeError("M1 replay must pass its real R_SKIP gate or report that exact unmet criterion, never relabel a different failure.")
 
 
+def _write_m1_fault_diagnostics(path, result):
+    production = result.get("production_before")
+    valid_production = (isinstance(production, dict) and bool(production) and all(
+        isinstance(name, str) and bool(name) and isinstance(pin, str) and len(pin) == 64
+        and all(c in "0123456789abcdef" for c in pin) for name, pin in production.items()))
+    binding = {
+        "schema": "source-M1-fault-diagnostic/v1",
+        "report_sha256": sha(path.read_bytes()),
+        "production_manifest_sha256": sha(json.dumps(
+            production, sort_keys=True, separators=(",", ":")).encode()) if valid_production else None,
+    }
+    runs = result.get("runs")
+    faults = [(label, run["fault_metadata"]) for label, run in runs.items()
+              if isinstance(run, dict) and "fault_metadata" in run] if isinstance(runs, dict) else []
+
+    for label, fault in (faults or [(None, None)])[:8]:
+        diagnostic = dict(binding)
+        missing = [] if valid_production else ["production_before"]
+        if not isinstance(fault, dict):
+            missing.append("fault_metadata")
+            fault = {}
+        for name in ("host", "before", "SourceTick"):
+            value = fault.get(name)
+            if type(value) is int and 0 <= value <= (1 << 63) - 1:
+                diagnostic[name] = value
+            else:
+                missing.append(name)
+        for name, value, limit in (("run", label, 128), ("error", fault.get("error"), 8192)):
+            if not isinstance(value, str) or not value.strip():
+                missing.append("run_label" if name == "run" else name)
+                continue
+            diagnostic[name + "_json_sha256"] = sha(json.dumps(value).encode("ascii"))
+            diagnostic[name + "_chars"] = len(value)
+            diagnostic[name + "_truncated"] = len(value) > limit
+            if len(value) > limit:
+                marker = "\n... [truncated] ...\n"
+                first = (limit - len(marker)) * 3 // 4
+                last = limit - len(marker) - first
+                value = value[:first] + marker + value[-last:]
+            diagnostic[name] = value
+        diagnostic["status"] = "missing-evidence" if missing else "captured-fault"
+        if missing:
+            diagnostic["missing_fields"] = missing
+        print(json.dumps(diagnostic, sort_keys=True), file=sys.stderr)
+    if len(faults) > 8:
+        print(json.dumps(dict(binding, status="missing-evidence",
+                              missing_fields=["additional_fault_metadata_runs"],
+                              omitted_fault_runs=len(faults) - 8), sort_keys=True), file=sys.stderr)
+
+
 def _write_m1_result(output, result):
     path = output / "result.json"
     path.write_text(json.dumps(result, indent=2) + "\n")
@@ -246,6 +296,8 @@ def _write_m1_result(output, result):
         if status == "UNMET-public-R_SKIP":
             print("Unmet required assertion:", M1_COVERAGE_ASSERTION, file=sys.stderr)
         print("M1 report:", path, file=sys.stderr)
+        if status == "failed-portable-source-fault":
+            _write_m1_fault_diagnostics(path, result)
 
 
 def post_vm_output(output, presnap_switch=False):

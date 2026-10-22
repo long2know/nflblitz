@@ -233,9 +233,28 @@ class CanonicalObservationGuards(unittest.TestCase):
             with self.subTest(status=status), tempfile.TemporaryDirectory() as work:
                 output = Path(work)
                 result = {"status": status, "runs": {"unlogged-proof": "not-for-console"}}
+                faults = {}
+                if status == "failed-portable-source-fault":
+                    result["production_before"] = {"synthetic-input-not-for-console": "a" * 64}
+                    for index, label in enumerate(("isolated-observer", "final-uninstrumented")):
+                        faults[label] = {
+                            "host": index + 7, "before": index + 10, "SourceTick": index + 11,
+                            "error": "System.InvalidOperationException: synthetic " + label +
+                                     "\n   at SyntheticSource.Step()",
+                        }
+                    result["runs"].update({
+                        "uninstrumented": {"exit_code": 0, "summary": {"status": "passed"}},
+                        **{label: {"fault_metadata": dict(fault, actual="not-for-console"),
+                                   "commands": ["not-for-console"], "poses": ["not-for-console"],
+                                   "allSharedRawDraws": ["not-for-console"]}
+                           for label, fault in faults.items()},
+                    })
+                original = json.dumps(result, indent=2) + "\n"
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with redirect_stdout(stdout), redirect_stderr(stderr):
                     canonical._write_m1_result(output, result)
+                self.assertEqual((output / "result.json").read_text(), original)
+                self.assertEqual(json.dumps(result, indent=2) + "\n", original)
                 self.assertEqual(json.loads((output / "result.json").read_text()), result)
                 success = status in ("passed-full-M1-public-caller-gate", "passed-portable-M1-public-caller-gate")
                 visible, empty = (stdout, stderr) if success else (stderr, stdout)
@@ -247,6 +266,125 @@ class CanonicalObservationGuards(unittest.TestCase):
                     self.assertIn("M1 REGRESSION FAILED:", visible.getvalue())
                 if status == "UNMET-public-R_SKIP":
                     self.assertIn(canonical.M1_COVERAGE_ASSERTION, visible.getvalue())
+                diagnostics = [json.loads(line) for line in visible.getvalue().splitlines()
+                               if line.startswith("{")]
+                if status != "failed-portable-source-fault":
+                    self.assertEqual(diagnostics, [])
+                    continue
+                self.assertEqual(len(diagnostics), 2, "each actual fault label needs structured evidence")
+                expected_production_hash = hashlib.sha256(json.dumps(
+                    result["production_before"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                expected_report_hash = hashlib.sha256((output / "result.json").read_bytes()).hexdigest()
+                self.assertEqual({entry["run"] for entry in diagnostics}, set(faults))
+                for entry in diagnostics:
+                    self.assertEqual(entry["schema"], "source-M1-fault-diagnostic/v1")
+                    self.assertEqual(entry["status"], "captured-fault")
+                    self.assertEqual(entry["report_sha256"], expected_report_hash)
+                    self.assertEqual(entry["production_manifest_sha256"], expected_production_hash)
+                    for key, value in faults[entry["run"]].items():
+                        self.assertEqual(entry[key], value)
+                    self.assertFalse(entry["run_truncated"])
+                    self.assertFalse(entry["error_truncated"])
+                    self.assertEqual(entry["error_json_sha256"], hashlib.sha256(
+                        json.dumps(entry["error"]).encode("ascii")).hexdigest())
+                    self.assertNotIn("missing_fields", entry)
+                self.assertNotIn("synthetic-input-not-for-console", stderr.getvalue())
+                self.assertEqual(result["status"], "failed-portable-source-fault")
+
+    def test_m1_fault_diagnostics_make_missing_or_malformed_evidence_explicit(self):
+        hidden = "synthetic-private-value-not-for-console"
+        valid = {"host": 0, "before": 0, "SourceTick": 1, "error": "synthetic fault"}
+        cases = [
+            ({"runs": None}, "fault_metadata"),
+            ({"runs": {}}, "fault_metadata"),
+            ({"runs": {"unlogged-proof": hidden}}, "fault_metadata"),
+            ({"runs": {"isolated-observer": {"fault_metadata": None}}}, "fault_metadata"),
+        ]
+        for field, value in (("host", True), ("before", -1), ("SourceTick", "not-an-int"),
+                             ("error", {"actual": hidden}), ("error", " \n"),
+                             ("host", 1 << 100)):
+            cases.append(({"runs": {"final-uninstrumented": {
+                "fault_metadata": {**valid, field: value}, "actual": hidden}}}, field))
+        cases.append(({"runs": {"isolated-observer": {"fault_metadata": valid}},
+                       "production_before": {"synthetic-input": {"commands": hidden}}},
+                      "production_before"))
+        for changes, missing in cases:
+            with self.subTest(missing=missing, changes=changes), tempfile.TemporaryDirectory() as work:
+                output = Path(work)
+                result = {"status": "failed-portable-source-fault",
+                          "production_before": {"synthetic-input": "b" * 64}, **changes}
+                original = json.dumps(result, indent=2) + "\n"
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    canonical._write_m1_result(output, result)
+                diagnostics = [json.loads(line) for line in stderr.getvalue().splitlines()
+                               if line.startswith("{")]
+                self.assertTrue(diagnostics, "missing evidence must be explicit, not silent")
+                self.assertEqual(stdout.getvalue(), "")
+                self.assertNotIn(hidden, stderr.getvalue())
+                self.assertIn("M1 REGRESSION FAILED: failed-portable-source-fault", stderr.getvalue())
+                self.assertEqual((output / "result.json").read_text(), original)
+                self.assertEqual(json.dumps(result, indent=2) + "\n", original)
+                for entry in diagnostics:
+                    self.assertEqual(entry["status"], "missing-evidence")
+                    self.assertIn(missing, entry["missing_fields"])
+                    self.assertEqual(entry["report_sha256"], hashlib.sha256(
+                        (output / "result.json").read_bytes()).hexdigest())
+                    if missing == "production_before":
+                        self.assertIsNone(entry["production_manifest_sha256"])
+
+    def test_m1_fault_diagnostics_are_bounded_and_bind_untruncated_evidence(self):
+        hidden = "synthetic-private-value-not-for-console"
+        error = ("System.InvalidOperationException: synthetic underlying cause\n" +
+                 "\U0001f642\n\x00" * 10000 + "\n   at SyntheticSource.LastFrame()")
+        labels = ["isolated-observer-" + str(i) + "-" + "\U0001f642" * 1000 for i in range(10)]
+        result = {
+            "status": "failed-portable-source-fault",
+            "production_before": {"synthetic-input": "c" * 64},
+            "runs": {label: {"fault_metadata": {"host": 7, "before": 10, "SourceTick": 11,
+                                              "error": error, "actual": hidden},
+                             "commands": hidden, "poses": hidden, "allSharedRawDraws": hidden}
+                     for label in labels},
+        }
+        original = json.dumps(result, indent=2) + "\n"
+        with tempfile.TemporaryDirectory() as work:
+            output = Path(work)
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                canonical._write_m1_result(output, result)
+            text = stderr.getvalue()
+            diagnostics = [json.loads(line) for line in text.splitlines() if line.startswith("{")]
+            self.assertEqual(len(diagnostics), 9, "eight bounded faults plus explicit omission evidence")
+            self.assertLess(len(text.encode()), 1024 * 1024)
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertNotIn(hidden, text)
+            self.assertNotIn("\x00", text)
+            self.assertEqual((output / "result.json").read_text(), original)
+            self.assertEqual(json.dumps(result, indent=2) + "\n", original)
+            report_hash = hashlib.sha256((output / "result.json").read_bytes()).hexdigest()
+            production_hash = hashlib.sha256(json.dumps(
+                result["production_before"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            for entry, label in zip(diagnostics[:8], labels):
+                self.assertEqual(entry["status"], "captured-fault")
+                self.assertTrue(entry["run_truncated"])
+                self.assertTrue(entry["error_truncated"])
+                self.assertLessEqual(len(entry["run"]), 128)
+                self.assertLessEqual(len(entry["error"]), 8192)
+                self.assertTrue(entry["run"].startswith(label[:20]))
+                self.assertTrue(entry["error"].startswith(
+                    "System.InvalidOperationException: synthetic underlying cause"))
+                self.assertTrue(entry["error"].endswith("at SyntheticSource.LastFrame()"))
+                self.assertIn("[truncated]", entry["error"])
+                self.assertEqual(entry["error_json_sha256"], hashlib.sha256(
+                    json.dumps(error).encode("ascii")).hexdigest())
+                self.assertEqual(entry["run_json_sha256"], hashlib.sha256(
+                    json.dumps(label).encode("ascii")).hexdigest())
+                self.assertEqual(entry["report_sha256"], report_hash)
+                self.assertEqual(entry["production_manifest_sha256"], production_hash)
+            self.assertEqual(diagnostics[-1]["status"], "missing-evidence")
+            self.assertEqual(diagnostics[-1]["omitted_fault_runs"], 2)
+            self.assertIn("additional_fault_metadata_runs", diagnostics[-1]["missing_fields"])
+            self.assertEqual(diagnostics[-1]["report_sha256"], report_hash)
 
     def test_snap_hike_root_is_explicit_and_controls_target_actual_producer_context(self):
         source = (canonical.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Source.cs").read_text()
