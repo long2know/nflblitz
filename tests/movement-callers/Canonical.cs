@@ -331,6 +331,9 @@ internal static partial class Program
             for (int host = 0; host < commands.Length; host++)
             {
                 long before = game.SourceTick;
+                var prePublished = new { game.State.Tick, game.State.Phase, game.State.Possession };
+                var preModel = new { game.Model.Phase, game.Model.Possession };
+                var preRules = new { game.Model.SourceRules.OffenseSide };
                 PlayerCommand command = commands[host];
                 if (real.IsPreSnapSwitchProfile)
                     pendingPublicB = CapturePublicB(host, game, command, pendingPublicB);
@@ -343,6 +346,10 @@ internal static partial class Program
                     File.WriteAllText(Path.Combine(outputRoot, "first-m1-kernel-fault.json"),
                         JsonSerializer.Serialize(failure, options));
                 }
+                var postAttemptPublished = new { game.State.Tick, game.State.Phase, game.State.Possession };
+                var postAttemptModel = new { game.Model.Phase, game.Model.Possession };
+                var postAttemptRules = new { game.Model.SourceRules.OffenseSide };
+                string stepSucceededOrFaulted = firstFailure == null ? "succeeded" : "faulted";
                 SourceSoundVmDispatch[] dispatches = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
                 if (real.IsPreSnapSwitchProfile)
                     foreach (SourceSoundVmDispatch dispatch in dispatches.Where(d =>
@@ -434,6 +441,8 @@ internal static partial class Program
                         a.AnimationState.Primary.ScriptSymbol, a.AnimationState.Primary.SequenceName,
                         a.AnimationState.Primary.FrameOrdinal }).ToArray(), cache = JointBits(game) };
                 stream.WriteLine(JsonSerializer.Serialize(new { host, beforeSourceTick = before, game.SourceTick,
+                    prePublished, preModel, preRules, postAttemptPublished, postAttemptModel, postAttemptRules,
+                    stepSucceededOrFaulted,
                     command, applied = game.Model.SourceCurrentInput, game.State.Phase, game.State.PlayNumber,
                     state.Match, game.State.Ball, actors = game.State.Players,
                     game.SourceEvents, game.C2Events, sounds, rawCursor,

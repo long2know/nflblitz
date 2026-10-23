@@ -312,6 +312,39 @@ silently exiting after the independent physics comparison passes. Other
 failures and changed-generation outcomes also remain nonzero. The console
 summary does not dump the recorded model, RNG or pose observations.
 
+### Bounded current-trajectory diagnostics
+
+The ordinary `uninstrumented` attempt also retains literal pre-Step h0 and
+per-host published Tick/Phase/Possession, direct Model Phase/Possession and rules
+OffenseSide, with separately labelled post-attempt values. No extra wake, input,
+sampling or RNG call is introduced. Raw and FIFO-applied station menus stay
+distinct; absent station frames and nullable event teams remain JSON null.
+
+After `result.json` is finalized, `safe-current-trajectory/trajectory.jsonl` and
+`attempt.json` bind the attempted prefix through the fault to exact input/generated
+line hashes, receipt, current source/harness inventories, immutable recipe/gzip/
+controller, checkout commit/tree and workflow/job. Only closed scalar fields,
+selected play symbols and event IDs are public. Bounds are12000 hosts,4 stations,
+128-character symbols,128 events,16KiB per line and16MiB total. Invalid or missing
+bindings, gaps and overflow explicitly mark capture incomplete without replacing
+the original terminal outcome. No raw replay, receipt, model, poses or RNG bundle
+is uploaded. The existing runner's `finally` path emits only prefixed
+`SOURCE_CURRENT_TRAJECTORY_ROW_V1` rows and a `SOURCE_CURRENT_TRAJECTORY_SEAL_V1`
+envelope to the same job log, including on a failed mandatory positive replay.
+The workflow remains byte-identical: its frozen inherited guard disallows adding
+upload steps. Intake only these prefixes from the exact Core or defensive job's
+retained log, not arbitrary artifacts or raw bundles. `read_m1_trajectory_log`
+validates their scalar schema, contiguous prefix, seals and explicitly supplied
+workflow/job/checkout/profile bindings; it returns the same two safe projections.
+Existing repository job-log retention applies; intake promptly after the one
+authorized cycle rather than assuming permanent artifact storage.
+
+`first_m1_trajectory_difference` aligns finite original pre-visible projections
+with literal current pre-published rows and retains the earliest differing pair
+and predecessor/event IDs. It does not authenticate an original parent seal:
+Core comparisons remain provisional; defensive comparisons require their separate
+original seal. Neither diagnostic capture nor a green cycle proves a causal fix.
+
 ## Current281 canonical entry and honest coverage boundary
 
 The retained component commands/results below keep their recorded
