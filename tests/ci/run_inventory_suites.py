@@ -46,6 +46,23 @@ CASE_SHA256 = (
     "dd4e1dd46d246e333f78b6cd74bcdda9629b09956f04ece23afe9e3e841f6323",
     None, None,
 )
+CURRENT_CASE_ADDITIONS = {
+    4: (
+        "tests/movement-callers/test_public_replay.py::CurrentNearFrameRecordingTests.test_actual_cli_selects_current_and_archived_generations_without_execution_or_fallback",
+        "tests/movement-callers/test_public_replay.py::CurrentNearFrameRecordingTests.test_both_real_current_inputs_have_distinct_generation_source_and_closed_hash_seals",
+        "tests/movement-callers/test_public_replay.py::CurrentNearFrameRecordingTests.test_current_recipes_reject_profile_factory_layout_source_policy_and_private_mutations",
+        "tests/movement-callers/test_public_replay.py::CurrentNearFrameRecordingTests.test_real_current_rows_reject_all_nine_private_boundaries_and_canonical_input_mutations",
+    ),
+    5: (
+        "tests/movement-callers/test_replay_generations.py::CurrentOldBoundaryTests.test_current_boundaries_require_named_first_fault_exact_old_row_counts_and_factory",
+        "tests/movement-callers/test_replay_generations.py::CurrentOldBoundaryTests.test_separate_current_boundaries_do_not_relabel_or_replace_any_of_the_historical_five",
+        "tests/movement-callers/test_replay_generations.py::RecordingGenerationTests.test_new_current_harness_and_archived_fifth_boundary_are_separately_source_pinned",
+    ),
+    6: (
+        "tests/movement-callers/test_export_portable_public.py::ExporterRevisionGuards.test_current_export_rejects_unsealed_or_archived_policy_before_output_and_never_authors",
+        "tests/movement-callers/test_export_portable_public.py::ExporterRevisionGuards.test_current_export_selectors_use_only_current_authority_without_legacy_fallback",
+    ),
+}
 REPORT_SCHEMAS = {
     7: "source-host-lifecycle-managed/v1",
     9: "source-impact-dust-asset-free/v1",
@@ -106,7 +123,11 @@ def source_inventory(index):
                     for item in node.body if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"))
     identifiers.sort()
     if CASE_SHA256[index] is not None:
-        require(sha(json.dumps(identifiers, separators=(",", ":")).encode()) == CASE_SHA256[index],
+        additions = CURRENT_CASE_ADDITIONS.get(index, ())
+        require(all(identifiers.count(name) == 1 for name in additions),
+                "The exact current-generation added named unittest inventory changed: " + COMMANDS[index])
+        original = [name for name in identifiers if name not in additions]
+        require(sha(json.dumps(original, separators=(",", ":")).encode()) == CASE_SHA256[index],
                 "The exact original named unittest inventory changed: " + COMMANDS[index])
     return identifiers, {path.relative_to(ROOT).as_posix(): sha(path.read_bytes()) for path in files}
 
