@@ -652,5 +652,120 @@ class SourceTimerRecordingTests(unittest.TestCase):
         self.assertEqual(preserved.read_bytes(), b"immutable earlier evidence")
 
 
+class CurrentNearFrameRecordingTests(unittest.TestCase):
+    pins = {
+        replay.CORE_CURRENT_CASE: (
+            "source-selection-countdown/v4", 2,
+            "5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa",
+            "a577887ebfc958aeb2ed68db4cfc72ebe58565ab0755e6e41774d41640582569",
+            "a3a9b52744c12bbc89c9aa8d4729c7c49dfeca5457868a7bee37f5e0a873a68e"),
+        replay.PRESNAP_CURRENT_CASE: (
+            "source-defensive-presnap-switch/v5", 4,
+            "3ff126291e7d0e8a8dedf58ba3222a89a04567ae393f42e8168e2c77bf5e270e",
+            "610ee038927a4a9e40efbd1b5fcb6903c8afc569da0e0f2593255843daa8ba12",
+            "2091456af6b5fed3e6e8123f34058ba637e884cc1bcefddba91427bbe4639c47"),
+    }
+
+    def setUp(self):
+        self.work = ARTIFACT_ROOT / ("current-recording-" + uuid.uuid4().hex)
+        self.work.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.work)
+
+    def command(self, case, output, *extra):
+        return [sys.executable, "-B", str(Path(replay.__file__)), "prepare",
+                "--case", case, "--output", str(output), *extra]
+
+    def test_both_real_current_inputs_have_distinct_generation_source_and_closed_hash_seals(self):
+        self.assertEqual(replay.sha(replay.CURRENT_METADATA.read_bytes()),
+                         "e44ee27419806730527c1d95547b35b1ab287f60694abb083d26057412d69dc8")
+        self.assertEqual(set(replay.current_recipe_hashes()), set(self.pins))
+        for case, (generation, layout, public_sha, gzip_sha, recipe_sha) in self.pins.items():
+            with self.subTest(case=case):
+                recipe = replay.current_recipe(case)
+                identity = replay.recording(case)
+                data = replay.load_fixture(identity["fixture"], case)
+                self.assertEqual((recipe["recording_generation"], recipe["station_layout"]), (generation, layout))
+                self.assertEqual(recipe["source_manifest_sha256"], replay.CURRENT_SOURCE_SHA256)
+                self.assertEqual((replay.sha(data), replay.sha(identity["fixture"].read_bytes()),
+                                  replay.current_recipe_hashes()[case]), (public_sha, gzip_sha, recipe_sha))
+                self.assertEqual(replay.compress(data), identity["fixture"].read_bytes())
+                self.assertEqual(len(replay.audit_public(data, case)), 12000)
+                self.assertTrue(recipe["commands_only"])
+                self.assertFalse(recipe["native_equivalent"])
+                self.assertEqual(recipe["controller_sha256"],
+                                 "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d")
+        self.assertEqual(replay.sha(replay.PRESNAP_FIXTURE.read_bytes()),
+                         "9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40")
+        self.assertEqual(replay.sha(replay.PRESNAP_RECIPE.read_bytes()),
+                         "33ad526af04fe567f3f9523510c6f394b939a6496f03167e82a87bedd5416fbf")
+
+    def test_actual_cli_selects_current_and_archived_generations_without_execution_or_fallback(self):
+        for case in (*self.pins, replay.SOURCE_TIMER_CASE, replay.PRESNAP_CASE):
+            output = self.work / (case + ".jsonl")
+            result = subprocess.run(self.command(case, output), capture_output=True, text=True)
+            with self.subTest(case=case):
+                self.assertEqual(result.returncode, 0, result.stderr)
+                report = replay.decode(result.stdout)
+                self.assertEqual((report["case"], report["hosts"]), (case, 12000))
+                self.assertFalse(report["simulation_executed"])
+                self.assertEqual(replay.sha(output.read_bytes()), replay.recording(case)["public_sha256"])
+        for case in self.pins:
+            other = replay.PRESNAP_CURRENT_CASE if case == replay.CORE_CURRENT_CASE else replay.CORE_CURRENT_CASE
+            for extra in (
+                ["--fixture", str(replay.recording(other)["fixture"])],
+                ["--recipe", str(replay.FIXTURE.with_name(other + ".recipe.json"))],
+                ["--case", case], ["--case", "unsupported-current-generation"],
+            ):
+                output = self.work / "must-not-exist.jsonl"
+                result = subprocess.run(self.command(case, output, *extra), capture_output=True, text=True)
+                with self.subTest(case=case, extra=extra):
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(output.exists())
+                    self.assertNotIn("verified-public-input-only", result.stdout)
+
+    def test_current_recipes_reject_profile_factory_layout_source_policy_and_private_mutations(self):
+        for case in self.pins:
+            recipe = replay.current_recipe(case)
+            for field, value in (
+                ("case", replay.PRESNAP_CASE), ("recording_generation", "source-selection-countdown/v3"),
+                ("source_manifest_sha256", replay.SOURCE_TIMER_EXPECTED_RECIPE["source_manifest_sha256"]),
+                ("factory", "proxy"), ("station_layout", 3), ("c2_profile", "contact272"),
+                ("seed", 2), ("seed", True), ("controller_sha256", "0" * 64),
+                ("commands_only", False), ("native_equivalent", True), ("rawVector", [1]),
+                ("world", {}), ("poses", []),
+            ):
+                with self.subTest(case=case, field=field), self.assertRaises(ValueError):
+                    replay.validate_current_recipe(dict(recipe, **{field: value}), case)
+            changed = self.work / (case + ".recipe.json")
+            changed.write_bytes(replay.FIXTURE.with_name(case + ".recipe.json").read_bytes() + b"\n")
+            with self.assertRaisesRegex(ValueError, "recipe SHA256"):
+                replay.load_recipe(changed, case)
+
+    def test_real_current_rows_reject_all_nine_private_boundaries_and_canonical_input_mutations(self):
+        for case in self.pins:
+            identity = replay.recording(case)
+            data = replay.load_fixture(identity["fixture"], case)
+            original = replay.decode(data.splitlines()[0])
+            for boundary in range(9):
+                row = copy.deepcopy(original)
+                command = row["command"]
+                station = command["StationInputs"]["Stations"][0]
+                objects = (row, command, command["Move"], command["Source"], command["Source"]["Play"],
+                           command["StationInputs"], station, station["Command"], station["Command"]["Play"])
+                objects[boundary]["privateObservation"] = {}
+                with self.subTest(case=case, boundary=boundary), self.assertRaisesRegex(ValueError, "privateObservation"):
+                    replay.public_row(row, 0)
+            with self.assertRaisesRegex(ValueError, "command identity SHA256"):
+                replay.audit_public(data.replace(b'"X":0', b'"X":1', 1), case)
+            packed = bytearray(identity["fixture"].read_bytes())
+            packed[4] ^= 1
+            path = self.work / (case + ".gz")
+            path.write_bytes(packed)
+            with self.assertRaisesRegex(ValueError, "container SHA256"):
+                replay.load_fixture(path, case)
+
+
 if __name__ == "__main__":
     unittest.main()

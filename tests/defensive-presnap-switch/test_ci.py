@@ -26,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.extend(str(ROOT / name) for name in ("tests/parity", "tools/rosters", "tools/assets"))
 GAME = ".github/workflows/game-build.yml"
 PLAYER = ".github/workflows/source-player.yml"
-INHERITED_GAME_SHA256 = "b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241"
+INHERITED_GAME_SHA256 = "94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8"
 INHERITED_PLAYER_SHA256 = "4c36ba39d722b1395d61d2be55140faeec4db7dfe17d361a94e7c7f846ebaa3c"
 SDK_COMMAND = r"""printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json"""
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
@@ -37,15 +37,15 @@ WORKSPACE = ".squad/.scratch/defensive-switch-ci/new-workspace"
 LEGACY_WORKSPACE = ".squad/.scratch/defensive-switch-ci/inherited-workspace"
 D = ".squad/.scratch/SourceData/defensive-presnap-switch-ci"
 O = ".squad/.scratch/defensive-presnap-switch-ci"
-CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-12000"
+CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
 OLD_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 BASE558_SHA256 = "d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134"
 PLAYER563_SHA256 = "150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6"
-PUBLIC_SHA256 = "556ba823b68767e8c6a302d9d59a231fbb457720723a372bf830d57fc8bdd975"
-GZIP_SHA256 = "9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40"
-RECIPE_SHA256 = "33ad526af04fe567f3f9523510c6f394b939a6496f03167e82a87bedd5416fbf"
+PUBLIC_SHA256 = "3ff126291e7d0e8a8dedf58ba3222a89a04567ae393f42e8168e2c77bf5e270e"
+GZIP_SHA256 = "610ee038927a4a9e40efbd1b5fcb6903c8afc569da0e0f2593255843daa8ba12"
+RECIPE_SHA256 = "2091456af6b5fed3e6e8123f34058ba637e884cc1bcefddba91427bbe4639c47"
 FOCUSED_CONTROLS = (
     "strict-counter-boundary", "cyclic-not-nearest", "occupied-skip",
     "ten-loop-unconditional-assignment", "fake-B-external-edge-reinjection",
@@ -962,7 +962,7 @@ def validate_full(directory, full):
                 "Actual full replay receipt differs or is absent: " + name)
         require(canonical.require_m1_replay(row["exit_code"], row["summary"], actual, "portable", True) == "positive" and
                 actual.get("replayFileSha256") == PUBLIC_SHA256 and actual.get("preSnapSwitchWitnesses") == 15 and
-                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22781 and
+                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22463 and
                 row["summary"].get("mode") == ("presnap-complete-observed" if name == "isolated-observer" else "presnap-complete") and
                 row["summary"].get("actual_animation_library_manifest") == canonical.PRESNAP_ANIMATION_SHA and
                 row["summary"].get("assertions", 0) > 0,
@@ -1723,7 +1723,7 @@ class DefensiveCI(unittest.TestCase):
         for field, value in (("rawVector", [1]), ("poses", []), ("state", {}), ("sourceprofile", "old")):
             recipe = json.loads((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes())
             with self.subTest(field=field), self.assertRaises(ValueError):
-                replay.validate_presnap_recipe(dict(recipe, **{field: value}))
+                replay.validate_current_recipe(dict(recipe, **{field: value}), CASE)
 
     def test_actual_helper_compile_and_metadata_closures_are_present(self):
         self.assertTrue((HERE / "oracle.py").is_file())

@@ -505,9 +505,9 @@ _M1_TRAJECTORY_ISSUES = {
 }
 _M1_TRAJECTORY_PROFILES = {
     "original-teams-contact281-c2-m1": (
-        C2_M1_DATA_SHA, "REAL SourceC2Composition.CreateM1Simulation", public_replay.SOURCE_TIMER_CASE),
+        C2_M1_DATA_SHA, "REAL SourceC2Composition.CreateM1Simulation", public_replay.CORE_CURRENT_CASE),
     "original-teams-contact282-c2-m1-presnap-switch": (
-        PRESNAP_DATA_SHA, "REAL SourceC2Composition.CreatePreSnapSwitchSimulation", public_replay.PRESNAP_CASE),
+        PRESNAP_DATA_SHA, "REAL SourceC2Composition.CreatePreSnapSwitchSimulation", public_replay.PRESNAP_CURRENT_CASE),
 }
 _M1_TRAJECTORY_STATES = {
     "prePublished": {"Tick", "Phase", "Possession"},
@@ -983,7 +983,8 @@ def read_m1_trajectory_log(lines, expected_attempt):
     rows, envelope, digest, size, transport_bytes = [], None, hashlib.sha256(), 0, 0
     for line in lines:
         _m1_trajectory_require(isinstance(line, str), "malformed_projection")
-        message = re.sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ", "", line.rstrip("\r\n"), count=1)
+        message = re.sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ", "",
+                         line.removeprefix("\ufeff").rstrip("\r\n"), count=1)
         prefix = next((part for part in (_M1_TRAJECTORY_ROW_PREFIX, _M1_TRAJECTORY_SEAL_PREFIX)
                        if message.startswith(part)), None)
         if prefix is None:

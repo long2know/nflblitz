@@ -97,13 +97,20 @@ workflow and the player workflow, then copies actual current code into a private
 compatibility workspace. Every production/harness byte is verified identical.
 Only its workflow file receives the explicitly reversible CI projection:
 remove this new job/bootstrap/default-directory/trigger wiring and
-the archived partition argument. The result must retain the original workflow
-SHA-256 `b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241`
-and pass the untouched inherited sound, possession and timer guards, including
-the timer's `1016fb32…` baseline. No original guard, inventory hash, case ID,
-control, failure rule or recipe is rebased or relaxed. Original commands execute
-unchanged in that isolated workspace; the actual submitted workflow is never
-rewritten. Both workspaces have private outputs, temporary directories, NuGet
+the archived partition argument. After the October 23 current-input-only
+reference update, the result must have SHA-256
+`94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8`.
+The submitted full workflow is
+`3eea58bb2c6115879d632f704ff2e3211dffeeedd3806f5406d9f69bfd76af11`.
+Its sole structural delta is four current fixture/recipe/input-reference lines:
+Core `selection-countdown-v4-12000` and defensive `presnap-switch-v5-12000`.
+The historical `b84fe340…` projection and all historical source, fixture,
+recipe and harness pins keep their dated meanings. Current sound, possession
+and timer guards recognize only the new exact current references; the timer's
+`1016fb32…` baseline, all inventories, controls, failure rules and budgets
+remain unchanged. The existing projection itself is unchanged, not a broad
+legacy normalizer. Commands execute in that isolated workspace; the submitted
+workflow is never rewritten. Both workspaces have private outputs, temporary directories, NuGet
 packages and SDK homes, with nonnested worker limits of at most two.
 The API preflight first attempts the actual build and an offline restore. Only
 an observed missing `NETStandard.Library.Ref` pack permits restoring the exact
@@ -117,6 +124,15 @@ recording/runner/CI mutation guards and compile closure checks, without original
 assets, a browser, services, credentials or a Unity installation. Both workflows
 cover their own/cross-workflow changes and the new runner, shared parity,
 animation/audio preparation and roster parser dependencies.
+
+The current source-versioned recordings and actual bounded local full
+qualification are documented in
+[`tests/movement-callers/README.md`](../tests/movement-callers/README.md#current-near-frame-input-generations--october-23-2026).
+The asset-free workflow bytes are unchanged. Testing the full/inherited exact
+Git bindings before publication uses an isolated synthetic proposed-source Git
+fixture; its commit is not the actual uncommitted worktree HEAD. Local replay
+proof and focused guard tests are not a hosted three-job CI result or native
+qualification, and do not authorize publication.
 
 ### Budget evidence is not hosted acceptance
 

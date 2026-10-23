@@ -92,6 +92,23 @@ class RecordingGenerationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "source payload"):
             generations.validate_snapshot(self.live, 77, generations.PREVIOUS_SOURCE_SHA256)
 
+    def test_new_current_harness_and_archived_fifth_boundary_are_separately_source_pinned(self):
+        current, identity = generations.near_frame_snapshot()
+        archived, old = generations.u2_current_snapshot()
+        self.assertEqual(identity["source_manifest_sha256"], replay.CURRENT_SOURCE_SHA256)
+        self.assertEqual(identity["harness_manifest_sha256"], generations.NEAR_FRAME_HARNESS_SHA256)
+        self.assertEqual(old["harness_manifest_sha256"], generations.U2_HARNESS_SHA256)
+        self.assertEqual((old["commit"], old["tree"]), (generations.U2_ARCHIVE_REF, generations.U2_ARCHIVE_TREE))
+        self.assertNotEqual(current["tests/movement-callers/Canonical.cs"], archived["tests/movement-callers/Canonical.cs"])
+        self.assertEqual(current["tests/movement-callers/PortablePublicPolicy.cs"],
+                         archived["tests/movement-callers/PortablePublicPolicy.cs"])
+        changed = dict(current)
+        changed["tests/movement-callers/Program.cs"] += b"\n"
+        with self.assertRaisesRegex(ValueError, "harness/project payload"):
+            generations.validate_snapshot(changed, 78, replay.CURRENT_SOURCE_SHA256,
+                                          generations.NEAR_FRAME_HARNESS_SHA256)
+        self.assertEqual(len(generations.ALL_PROBES), 5)
+
     def test_both_archived_sources_are_exact_git_authenticated_named_generations(self):
         for ref, previous, count, digest in (
             (generations.BASELINE_REF, False, 76, generations.BASELINE_SOURCE_SHA256),
@@ -464,6 +481,73 @@ class RecordingGenerationTests(unittest.TestCase):
             self.assertEqual(process.returncode, 2)
             self.assertIn(message, process.stderr)
             self.assertFalse((self.work / "output").exists())
+
+
+class CurrentOldBoundaryTests(unittest.TestCase):
+    def case(self, name):
+        spec = generations.CURRENT_OLD_BOUNDARIES[name]
+        case, presnap = spec["case"], spec["presnap"]
+        rows = replay.audit_public(replay.load_fixture(replay.recording(case)["fixture"], case), case)
+        command = copy.deepcopy(rows[spec["hosts"] - 1]["command"])
+        for station in command["StationInputs"]["Stations"]:
+            station["IsSpecified"] = True
+        error = generations.SIDE_ERROR + "\nSOURCE_SIDE_GUARD_V1 " + spec["guard"]
+        fault = dict(host=spec["hosts"] - 1, before=spec["tick"] - 1, SourceTick=spec["tick"], command=command,
+                     error=error + "\n   at GameSimulation.SelectSourcePlay("
+                                   "\n   at GameSimulation.ApplySourceStationMenuCommands(")
+        receipt = dict(schema="source-C2-M1-real-factory-public-replay/v1", observed=False, historical=False,
+            gameplayCompatibility="Portable",
+            profile="original-teams-contact282-c2-m1-presnap-switch" if presnap else "original-teams-contact281-c2-m1",
+            sourceData=generations.canonical.PRESNAP_DATA_SHA if presnap else generations.C2_M1_DATA_SHA,
+            factory="REAL SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap else
+                    "REAL SourceC2Composition.CreateM1Simulation",
+            completedHosts=spec["hosts"], SourceTick=spec["tick"], rawCursor=spec["raw"],
+            rSkipFrames=spec["rskip"], replayFileSha256=replay.recording(case)["public_sha256"],
+            originalPublicVectorRetainedWithoutStateConditionedRegeneration=True,
+            sourceAudioDSPOrTargetRngOrFullGameAccepted=False, failure=fault)
+        summary = dict(schema="source-movement-caller-checks/v1", status="error", gameplay_compatibility="Portable",
+            actual_animation_library_manifest=generations.canonical.PRESNAP_ANIMATION_SHA if presnap else
+                                              generations.C2_ANIMATION_SHA,
+            error=error + "\n   at Program.M1CompleteReplay(")
+        counts = dict(schema="movement-driver-execution-counts/v1", gameConstructors=1, hostStepCalls=spec["hosts"],
+            directAnimationAdvanceCalls=0, hostOrAdvanceCalls=spec["hosts"], unfilteredRawNextValues=spec["raw"],
+            randomDispatches=spec["raw"], withinPerDriverBudget=True, noAdditionalRandomDrawsOrSourceWakes=True)
+        return summary, receipt, fault, counts, rows
+
+    def test_separate_current_boundaries_do_not_relabel_or_replace_any_of_the_historical_five(self):
+        self.assertEqual(len(generations.ALL_PROBES), 5)
+        self.assertEqual(len(generations.CURRENT_OLD_BOUNDARIES), 2)
+        self.assertFalse(set(generations.CURRENT_OLD_BOUNDARIES).intersection(generations.ALL_PROBES))
+        for name in generations.CURRENT_OLD_BOUNDARIES:
+            args = self.case(name)
+            self.assertEqual(generations.current_old_boundary(name, 2, *args),
+                             "rejected-" + name + "-playbook-side")
+            for code in (0, 1, -25, 134):
+                with self.subTest(name=name, code=code), self.assertRaises(ValueError):
+                    generations.current_old_boundary(name, code, *args)
+
+    def test_current_boundaries_require_named_first_fault_exact_old_row_counts_and_factory(self):
+        for name in generations.CURRENT_OLD_BOUNDARIES:
+            original = self.case(name)
+            changes = (
+                lambda a: a[0].update(status="passed"),
+                lambda a: a[0].update(error="generic error"),
+                lambda a: a[1].update(completedHosts=12000),
+                lambda a: a[1].update(factory="proxy"),
+                lambda a: a[1].update(sourceData="0" * 64),
+                lambda a: a[2].update(error="budget exhausted"),
+                lambda a: a[2].update(host=0),
+                lambda a: a[3].update(unfilteredRawNextValues=0),
+                lambda a: a[4][0].update(host=1),
+            )
+            for mutate in changes:
+                changed = copy.deepcopy(original)
+                mutate(changed)
+                if mutate is changes[-1]:
+                    command = changed[4][generations.CURRENT_OLD_BOUNDARIES[name]["hosts"] - 1]["command"]
+                    command["Turbo"] = not command["Turbo"]
+                with self.subTest(name=name, mutation=changes.index(mutate)), self.assertRaises(ValueError):
+                    generations.current_old_boundary(name, 2, *changed)
 
 
 if __name__ == "__main__":

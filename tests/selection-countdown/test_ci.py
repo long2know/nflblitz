@@ -36,7 +36,7 @@ RUN_COMMAND = ("python3 -B tests/selection-countdown/run.py "
 TIMER_STEP = ("      - name: Compare original selection countdown and actual cabinet timeout\n"
     "        run: |\n          " + GUARD_COMMAND + "\n          " + RUN_COMMAND + "\n")
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
-TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000"
 TIMER_PREPARE_STEP = ("      - name: Prepare source-timer public replay input without simulation\n"
     "        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare "
     f"--case {TIMER_CASE} --fixture tests/movement-callers/fixtures/{TIMER_CASE}.jsonl.gz "

@@ -725,13 +725,13 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
         return {"Move": {"X": 0.25, "Z": -0.5}, "Turbo": False, "Action": 0, "Play": 0,
                 "TargetPlayerId": -1, "Source": source, "StationInputs": {"Stations": [station]}}
 
-    def attempt(self, profile="original-teams-contact281-c2-m1"):
+    def attempt(self, profile="original-teams-contact281-c2-m1", hosts=2):
         output = self.work / uuid.uuid4().hex
         destination = output / "uninstrumented"
         destination.mkdir(parents=True)
         source_data, factory, _ = canonical._M1_TRAJECTORY_PROFILES[profile]
         inputs, sources = [], []
-        for host in range(2):
+        for host in range(hosts):
             pre = ({"Tick": 9, "Phase": 2, "Possession": 1} if host == 0
                    else copy.deepcopy(sources[-1]["postAttemptPublished"]))
             pre_model = ({"Phase": 0, "Possession": 0} if host == 0
@@ -744,7 +744,8 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                 prePublished=pre, preModel=pre_model, preRules=pre_rules,
                 postAttemptPublished=({"Tick": 10, "Phase": 0, "Possession": 1} if host == 0 else dict(pre)),
                 postAttemptModel={"Phase": 1 if host == 0 else 0, "Possession": 0},
-                postAttemptRules={"OffenseSide": 0}, stepSucceededOrFaulted="succeeded" if host == 0 else "faulted",
+                postAttemptRules={"OffenseSide": 0},
+                stepSucceededOrFaulted="succeeded" if host < hosts - 1 else "faulted",
                 command=self.packet(generated=True),
                 applied=self.packet(1, "play_suicide_blitz", True), Phase=0,
                 actors=self.private, sounds=self.private, Ball=self.private, Match=self.private,
@@ -759,8 +760,8 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                  "\n   at SyntheticSource.SelectSourcePlay()")
         receipt = {
             "observed": False, "historical": False, "profile": profile, "sourceData": source_data,
-            "factory": factory, "gameplayCompatibility": "Portable", "completedHosts": 2, "SourceTick": 7,
-            "failure": {"host": 1, "before": 6, "SourceTick": 7, "error": error,
+            "factory": factory, "gameplayCompatibility": "Portable", "completedHosts": hosts, "SourceTick": 5 + hosts,
+            "failure": {"host": hosts - 1, "before": 4 + hosts, "SourceTick": 5 + hosts, "error": error,
                         "command": sources[-1]["command"],
                         "actual": {"State": sources[-1]["postAttemptPublished"],
                                    "SourceRules": sources[-1]["postAttemptRules"], "poses": self.private}},
@@ -1094,13 +1095,106 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
         self.assertIn('firstFailure == null ? "succeeded" : "faulted"', method)
         self.assertIn("if (firstFailure != null) throw firstFailure;", method)
 
+    @staticmethod
+    def workflow_ci():
+        spec = canonical.importlib.util.spec_from_file_location(
+            "current_trajectory_ci", canonical.ROOT / "tests/defensive-presnap-switch/test_ci.py")
+        ci = canonical.importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ci)
+        return ci
+
     def test_existing_workflow_jobs_gates_budgets_and_retention_transport_remain_unchanged(self):
-        text = (canonical.ROOT / ".github/workflows/game-build.yml").read_text()
-        self.assertEqual(canonical.sha(text.encode()),
-                         "3803af8675168fa48a6e4f3e85b8d7fd86f53fe7236002324d29562679a91f69",
-                         "every original job, gate, input and budget must remain byte-identical")
-        self.assertIn("--output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable", text)
-        self.assertIn("--output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable", text)
+        ci = self.workflow_ci()
+        runtime_root, git_dir = ci.source_git_identity()
+        self.assertEqual(runtime_root, str(canonical.ROOT))
+        receipt_path = canonical.ROOT / ".squad/.scratch/ci-workspace.json"
+        receipt = json.loads(receipt_path.read_bytes()) if receipt_path.exists() else None
+        source_root = Path(receipt["source_git_root"]) if receipt is not None else canonical.ROOT
+        environment = dict(canonical.os.environ)
+        for name in ("GIT_DIR", "GIT_WORK_TREE"):
+            environment.pop(name, None)
+        identity = canonical.subprocess.run(
+            ["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+            cwd=source_root, env=environment, capture_output=True, text=True, check=True).stdout.splitlines()
+        self.assertEqual(identity, [str(source_root), git_dir], "bind the actual outer checkout, not a claimed view")
+        full = (source_root / ci.GAME).read_bytes()
+        committed = canonical.subprocess.run(
+            ["git", "show", "HEAD:" + ci.GAME], cwd=source_root, env=environment,
+            capture_output=True, check=True).stdout
+        self.assertEqual(full, committed, "full workflow must match the actual checked-out Git source")
+        self.assertEqual(canonical.sha(full),
+                         "3eea58bb2c6115879d632f704ff2e3211dffeeedd3806f5406d9f69bfd76af11",
+                         "every job, gate and budget is retained with only sealed current input references")
+        inherited = ci.inherited_game(full.decode("utf-8")).encode("utf-8")
+        actual = (canonical.ROOT / ci.GAME).read_bytes()
+        if receipt is not None:
+            self.assertEqual((receipt["schema"], receipt["status"]), ("defensive-switch-ci-workspace/v1", "passed"))
+            self.assertIs(type(receipt["inherited_view"]), bool)
+            self.assertEqual((receipt["runtime_git_root"], receipt["runtime_git_dir"]),
+                             (runtime_root, git_dir))
+            self.assertEqual(receipt["source_git_dir"], git_dir)
+            self.assertEqual(receipt["input_game_sha256"], canonical.sha(full))
+            self.assertEqual(receipt["source_sha256"][ci.GAME], canonical.sha(full))
+            self.assertEqual(receipt["inherited_game_sha256"], ci.INHERITED_GAME_SHA256)
+        if receipt is not None and receipt["inherited_view"]:
+            self.assertEqual(actual, inherited, "inherited workflow must be the exact existing reversible projection")
+            self.assertEqual(canonical.sha(actual), ci.INHERITED_GAME_SHA256)
+        else:
+            self.assertEqual(actual, full, "full checkout workflow must retain its frozen binding")
+        core = b"--output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable"
+        defensive = b"--output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable"
+        self.assertIn(core, full)
+        self.assertIn(defensive, full)
+        self.assertIn(core, inherited)
+        self.assertNotIn(defensive, inherited, "the defensive job intentionally exists only in the full workflow")
+        self.assertIn(core, actual)
+
+    def test_workflow_retention_runs_in_full_and_inherited_cwds_and_rejects_modified_views(self):
+        ci = self.workflow_ci()
+        _, git_dir = ci.source_git_identity()
+        current_receipt = canonical.ROOT / ".squad/.scratch/ci-workspace.json"
+        source_root = (Path(json.loads(current_receipt.read_bytes())["source_git_root"])
+                       if current_receipt.exists() else canonical.ROOT)
+        full = (source_root / ci.GAME).read_bytes()
+        inherited = ci.inherited_game(full.decode("utf-8")).encode("utf-8")
+        for inherited_view in (False, True):
+            with self.subTest(inherited_view=inherited_view):
+                runtime = self.work / ("inherited" if inherited_view else "full")
+                for name in ("tests/movement-callers/canonical.py", "tests/movement-callers/test_canonical.py",
+                             "tests/defensive-presnap-switch/test_ci.py"):
+                    target = runtime / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(canonical.ROOT / name, target)
+                workflow = runtime / ci.GAME
+                workflow.parent.mkdir(parents=True)
+                workflow.write_bytes(inherited if inherited_view else full)
+                receipt = {
+                    "schema": "defensive-switch-ci-workspace/v1", "status": "passed",
+                    "input_game_sha256": canonical.sha(full), "inherited_game_sha256": ci.INHERITED_GAME_SHA256,
+                    "inherited_view": inherited_view, "source_git_root": str(source_root), "source_git_dir": git_dir,
+                    "runtime_git_root": str(runtime), "runtime_git_dir": git_dir,
+                    "source_sha256": {ci.GAME: canonical.sha(full)},
+                }
+                receipt_path = runtime / ".squad/.scratch/ci-workspace.json"
+                receipt_path.parent.mkdir(parents=True)
+                receipt_path.write_text(json.dumps(receipt))
+                environment = dict(canonical.os.environ, GIT_DIR=git_dir, GIT_WORK_TREE=str(runtime),
+                    GIT_OPTIONAL_LOCKS="0", PYTHONDONTWRITEBYTECODE="1",
+                    PYTHONPATH=canonical.os.pathsep.join(str(source_root / name) for name in
+                        ("tests/ci", "tests/parity", "tests/movement-callers")))
+                command = [canonical.sys.executable, "-B", "tests/movement-callers/test_canonical.py",
+                    "CurrentTrajectoryCaptureTests."
+                    "test_existing_workflow_jobs_gates_budgets_and_retention_transport_remain_unchanged", "-q"]
+                healthy = canonical.subprocess.run(command, cwd=runtime, env=environment,
+                                                   capture_output=True, text=True, timeout=30)
+                self.assertEqual(healthy.returncode, 0, healthy.stdout + healthy.stderr)
+                workflow.write_bytes(workflow.read_bytes() + b"# modified workflow\n")
+                changed = canonical.subprocess.run(command, cwd=runtime, env=environment,
+                                                   capture_output=True, text=True, timeout=30)
+                self.assertEqual(changed.returncode, 1, changed.stdout + changed.stderr)
+                self.assertIn("AssertionError", changed.stderr)
+                self.assertIn("inherited workflow must be the exact existing reversible projection" if inherited_view
+                              else "full checkout workflow must retain its frozen binding", changed.stderr)
 
     @staticmethod
     def log_bindings(envelope):
@@ -1124,6 +1218,60 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                 (canonical._M1_TRAJECTORY_ROW_PREFIX, canonical._M1_TRAJECTORY_SEAL_PREFIX))]
             self.assertLessEqual(sum(len(line.encode("ascii")) for line in records), 16777216)
             self.assertTrue(all(len(line.encode("ascii")) <= 16384 for line in records))
+
+    def test_provider_bom_at_physical_h0_middle_last_and_seal_preserves_exact_payload_bytes(self):
+        for profile in canonical._M1_TRAJECTORY_PROFILES:
+            case = self.attempt(profile, hosts=3)
+            safe, envelope, expected_rows = self.publish(case, self.capture(case))
+            records = [line.rstrip("\r\n") for line in case["log"].splitlines(keepends=True) if line.startswith(
+                (canonical._M1_TRAJECTORY_ROW_PREFIX, canonical._M1_TRAJECTORY_SEAL_PREFIX))]
+            for timestamp in ("", "2026-10-23T16:53:37.1933040Z "):
+                for origins in ({0}, {1}, {2}, {3}, {0, 1, 2, 3}):
+                    with self.subTest(profile=profile, timestamp=timestamp, origins=origins):
+                        lines = [timestamp + "##[group]synthetic job output\r\n"]
+                        lines += [("\ufeff" if index in origins else "") + timestamp + line + "\r\n"
+                                  for index, line in enumerate(records)]
+                        lines += [timestamp + "##[endgroup]\r\n"]
+                        rows, receipt = canonical.read_m1_trajectory_log(lines, self.log_bindings(envelope))
+                        self.assertEqual(rows, expected_rows)
+                        self.assertEqual(receipt, envelope)
+                        self.assertEqual(b"".join(canonical._m1_trajectory_json(row) + b"\n" for row in rows),
+                                         (safe / "trajectory.jsonl").read_bytes())
+                        self.assertEqual(canonical._m1_trajectory_json(receipt) + b"\n",
+                                         (safe / "attempt.json").read_bytes())
+
+    def test_provider_normalization_rejects_malformed_multiple_interior_boms_and_payload_changes(self):
+        case = self.attempt(hosts=3)
+        _, envelope, _ = self.publish(case, self.capture(case))
+        records = [line for line in case["log"].splitlines(keepends=True) if line.startswith(
+            (canonical._M1_TRAJECTORY_ROW_PREFIX, canonical._M1_TRAJECTORY_SEAL_PREFIX))]
+        timestamp = "2026-10-23T16:53:37.1933040Z "
+        malformed = (
+            lambda line: "\ufeff\ufeff" + timestamp + line,
+            lambda line: timestamp + "\ufeff" + line,
+            lambda line: " \ufeff" + timestamp + line,
+            lambda line: "\ufeff2026-10-23T16:53:37.1933040Z\t" + line,
+            lambda line: "\ufeff" + timestamp + timestamp + line,
+            lambda line: timestamp + line.replace("_V1 ", "_V1\ufeff ", 1),
+            lambda line: timestamp + line.replace("{", "{\ufeff", 1),
+            lambda line: timestamp + line.rstrip("\n") + "\ufeff\n",
+            lambda line: timestamp + line.replace("play_hail_mary", "play_\\ufeffhail_mary"),
+        )
+        for index in range(len(records)):
+            for mutation, change in enumerate(malformed):
+                if mutation == len(malformed) - 1 and "play_hail_mary" not in records[index]:
+                    continue
+                with self.subTest(index=index, mutation=mutation), self.assertRaises(ValueError):
+                    changed = list(records)
+                    changed[index] = change(changed[index])
+                    canonical.read_m1_trajectory_log(changed, self.log_bindings(envelope))
+        framed = ["\ufeff" + timestamp + line for line in records]
+        for changed in (framed[1:], framed[:1] + framed, framed[:1] + framed[2:],
+                        framed[:2] + framed[3:], framed[:-1], framed + framed[-1:],
+                        [line.replace('"Tick":9', '"Tick":8') if index == 0 else line
+                         for index, line in enumerate(framed)]):
+            with self.assertRaises(ValueError):
+                canonical.read_m1_trajectory_log(changed, self.log_bindings(envelope))
 
     def test_log_intake_rejects_wrong_jobs_missing_or_duplicate_rows_seals_and_unknown_payloads(self):
         case = self.attempt()
@@ -1224,6 +1372,20 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
         self.assertLessEqual(sum(len(line.encode("ascii")) + 1 for line in stderr.getvalue().splitlines()
                                  if line.startswith((canonical._M1_TRAJECTORY_ROW_PREFIX,
                                                      canonical._M1_TRAJECTORY_SEAL_PREFIX))), 16777216)
+        boundaries = {
+            2228: "2026-10-23T16:53:37.1933040Z ", 4510: "2026-10-23T16:53:38.1712614Z ",
+            6793: "2026-10-23T16:53:39.1468793Z ", 9075: "2026-10-23T16:53:40.1217660Z ",
+            11349: "2026-10-23T16:53:41.1006184Z ",
+        }
+        records = [line for line in stderr.getvalue().splitlines() if line.startswith(
+            (canonical._M1_TRAJECTORY_ROW_PREFIX, canonical._M1_TRAJECTORY_SEAL_PREFIX))]
+        framed = [("\ufeff" + boundaries[host] if host in boundaries else "2026-10-23T16:53:37.0000000Z ")
+                  + line + "\r\n" for host, line in enumerate(records)]
+        chunk_rows, chunk_envelope = canonical.read_m1_trajectory_log(framed, self.log_bindings(envelope))
+        self.assertEqual(chunk_rows, rows)
+        self.assertEqual(chunk_envelope, envelope)
+        self.assertEqual(canonical.sha(b"".join(canonical._m1_trajectory_json(row) + b"\n" for row in chunk_rows)),
+                         envelope["trajectory"]["sha256"])
 
 
 if __name__ == "__main__":

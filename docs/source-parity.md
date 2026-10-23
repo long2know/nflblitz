@@ -1,5 +1,34 @@
 # Source parity and port evidence
 
+## Current near-frame input compatibility — October 23, 2026
+
+The intended current-frame/root near-frame sampling is retained. Older
+state-dependent public menus are not native expected outputs and are not
+rewritten to disguise incompatibility. New explicit Core
+`source-selection-countdown/v4` and defensive
+`source-defensive-presnap-switch/v5` recordings use that same unchanged
+78-source production generation, manifest
+`bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2`.
+Exactly one unchanged seed1, unfiltered-provider/controller authoring per
+profile completed all 12,000 hosts / 11,400 source wakes.
+
+Both full normal qualifications passed all three complete positive replay
+jobs, observer/final byte equality, three cache/eight caller named compiled
+controls, controlled baseline/final and 664 actual post-VM inputs / 5,312
+independent unchanged original-C assertions per profile. Current old-v3 and
+old-v4 negative inputs actually fail their named playbook-side guard at
+zero-based hosts 2878 and 11868 respectively. These are additional current
+compatibility boundaries, not replacements for or reruns of the five immutable
+historical positive/stale boundaries described below.
+
+The [current input identities, operation counts, preparation and qualification
+limits](../tests/movement-callers/README.md#current-near-frame-input-generations--october-23-2026)
+separate public input data from private numerical proof. This repair changes
+no gameplay source, controller policy, physics or independent expected output.
+Local replay/guard evidence is not hosted CI, Unity entitlement, generated HUD
+metrics, DSP/bootstrap, genuine WholeWorld, sourceAll16, native or full 100%
+qualification. Fresh Quality review precedes any publication.
+
 ## Defensive pre-snap fresh-B integration — October 20, 2026
 
 The explicit new portable profile `original-teams-contact282-c2-m1-presnap-switch`
