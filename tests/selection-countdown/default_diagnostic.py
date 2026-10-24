@@ -1,4 +1,4 @@
-"""Bounded three-way evidence on the existing ordinary CI host; never acceptance."""
+"""Bounded three-way execution and exact comparison, with no current-host golden."""
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import hashlib
@@ -28,6 +28,12 @@ OLD_BODY = "189bc419161b118e471c83877bcee7a872db0eb65f4bc609b3ffb0f8b2ba519f"
 CURRENT_BODY = "4f7fac4740f09e070709748beb8a1deb8f56a6902b55dc5f8e3512dcc8674380"
 DRIVER_SHA = "fef927d3703a2e12dca051a3d99a77e810dfd592a46a6b1e43ffc03d8c19daed"
 IMAGE_CAP = 16 * 1024 * 1024
+PURE_CONTRACT = "ANIM.C:862-881/compiled-Fraction-scalars/v1"
+PURE_CASES = (
+    "nonstreaming", "selected-frame-zero", "positive-near-binary-fraction",
+    "immediately-below-threshold", "strict-threshold", "ordinary-binary-fraction",
+    "negative-near", "negative-clamp",
+)
 PRODUCTION_MAPS = (
     "631de24752a8b7657a71d77bf75241955291dd99c4009573f41e461f9ba35048",
     "0edf7ab158facf5c8f8cb2f89d0fa9c7819084e9c457070efb1d26c7e035d405",
@@ -165,6 +171,7 @@ def guarded_driver(original):
     changes = (
         (b"            FullKernelInputs inputs = FullKernelInputs.Load(",
          b"            var budget = new DefaultDiagnosticBudget(args[7]);\n"
+         b"            budget.VerifyCompiledNearFrameContract();\n"
          b"            FullKernelInputs inputs = FullKernelInputs.Load("),
         (b"            GameSimulation game = inputs.Create(configuration: configuration,",
          b"            GameSimulation game = budget.Construct(() => inputs.Create(configuration: configuration,"),
@@ -195,7 +202,7 @@ def guarded_driver(original):
     for before, after in reversed(changes):
         require(restored.count(after) == 1, "reversible driver wrapper")
         restored = restored.replace(after, before, 1)
-    require(restored == original, "I/O/counting-only driver delta")
+    require(restored == original, "exact counting/I/O and pure pre-Game check driver delta")
     return result
 
 
@@ -230,6 +237,12 @@ def verify_random_source(source, client):
 
 @dataclass
 class Window:
+    pure_reserved: int = 0
+    pure_invocations: int = 0
+    pure_cases: int = 0
+    source_matches: int = 0
+    legacy_matches: int = 0
+    unrounded: int = 0
     reservation: int = 0
     constructors: int = 0
     constructed: bool = False
@@ -279,8 +292,23 @@ class Graph:
         numbers = tuple(int(p) for p in parts[2:])
         w = self.windows[label]
         self.check(not w.finished, "finished window reused")
-        if operation == "construct":
-            self.check(not numbers and w.reservation == 0, "constructor cap before factory")
+        if operation == "pure-start":
+            self.check(numbers == (8,) and w.pure_reserved == 0 and w.reservation == 0,
+                       "one finite pure scalar set before any invocation")
+            w.pure_reserved = 8
+        elif operation == "pure-case":
+            self.check(w.pure_reserved == 8 and w.pure_cases == 0 and w.pure_invocations < 8
+                       and numbers == (w.pure_invocations,), "pure invocation cap/order before actual method")
+            w.pure_invocations += 1
+        elif operation == "pure":
+            expected = (8, 8, 6, 8) if label == "B" else (8, 6, 8, 8)
+            self.check(numbers == expected and w.pure_reserved == w.pure_invocations == 8
+                       and w.pure_cases == 0 and w.reservation == 0,
+                       "actual compiled source/legacy Fraction proof before Game")
+            w.pure_cases, w.source_matches, w.legacy_matches, w.unrounded = numbers
+        elif operation == "construct":
+            self.check(not numbers and w.reservation == 0 and w.pure_cases == 8,
+                       "constructor cap and compiled pure proof before factory")
             w.reservation = 1
         elif operation == "stream":
             self.check(numbers == (1,) and w.reservation == 1 and w.constructors == 0
@@ -539,7 +567,33 @@ def all_comparisons(blobs):
     reproduced = any(not row["byteIdentical"] for row in pairs["AB"].values())
     return dict(comparisons=pairs, baselineDifferenceReproduced=reproduced,
                 controlMatchesBaselineAllThree=all(row["byteIdentical"] for row in pairs["AC"].values()),
-                controlIsEvidenceOnlyNeverAcceptance=True, originalTargetNumericOrNativeQualification=False)
+                comparisonBytesUnfiltered=True, originalTargetNumericOrNativeQualification=False)
+
+
+def source_correct_projection(blobs, report):
+    """Historical projection plus independent current execution, never a B golden."""
+    require(set(blobs) == set(LABELS), "all actual variants required")
+    shape = {}
+    for label in LABELS:
+        require(set(blobs[label]) == set(OUTPUTS) and all(blobs[label].values()), "complete nonempty files")
+        host_rows = len(blobs[label]["default-host.jsonl"].splitlines())
+        random = json.loads(blobs[label]["default-rng.json"])
+        menu = json.loads(blobs[label]["default-menu.json"])
+        require(host_rows == 1200 and isinstance(random, list) and len(random) == 491
+                and all(isinstance(row, dict) for row in random)
+                and isinstance(menu, list) and len(menu) > 0, "complete host/RNG/menu shapes")
+        shape[label] = dict(hostRows=host_rows, rngRecords=len(random), menuRecords=len(menu))
+    for name in OUTPUTS:
+        require(blobs["A"][name] == blobs["C"][name],
+                "complete historical counterfactual projection differs: " + name)
+    for name in OUTPUTS[1:]:
+        require(blobs["A"][name] == blobs["B"][name],
+                "complete actual current ordered RNG/menu differs: " + name)
+    return dict(policy="source-correct-Fraction/legacy-counterfactual/v1",
+                legacyCounterfactualProjection=report["comparisons"]["AC"],
+                actualCurrentOrderedRandomAndMenu={name: report["comparisons"]["AB"][name] for name in OUTPUTS[1:]},
+                actualHistoricalVsCurrentHost=report["comparisons"]["AB"]["default-host.jsonl"],
+                outputShape=shape, currentHostGoldenUsed=False)
 
 
 @contextmanager
@@ -648,8 +702,9 @@ def execute_three(args, variants, loaders, compiler, references, common_driver, 
                     and summary.get("originalTargetRandomQualified") is False
                     and summary.get("rawCalls") == window.requests and window.finished,
                     "actual driver summary/counters")
-            if label == "A":
-                require(summary["rawCalls"] == 491 and summary["selections"] == 4, "unchanged main40 anchor")
+            require(summary["rawCalls"] == 491 and summary["selections"] == 4
+                    and window.requests == window.callbacks == window.values == 491,
+                    "unchanged default491/four-manual-selection anchor")
             for index, name in enumerate(OUTPUTS):
                 path = directory / name
                 require(path.stat().st_size == window.bytes[index] <= OUTPUT_CAPS[index], "unfiltered output byte seal")
@@ -658,9 +713,12 @@ def execute_three(args, variants, loaders, compiler, references, common_driver, 
         image_barrier()
         blobs = {label: {name: (programs[label].parent / name).read_bytes() for name in OUTPUTS} for label in LABELS}
         report = all_comparisons(blobs)
-        report.update(schema="default-three-way-causal-diagnostic/v1", status="diagnostic-only",
+        report.update(schema="default-three-way-source-contract-comparisons/v2", status="comparisons-not-acceptance",
                       sourceControl=provenance, windows={label: vars(window) for label, window in graph.windows.items()},
                       images={label: row[2] for label, row in images.items()},
+                      compiledPureContract=dict(id=PURE_CONTRACT, cases=list(PURE_CASES),
+                                                casesPerVariant=8, totalInvocations=24,
+                                                currentVariant="B", noGameStepsWakesRandomOrExtraCompiler=True),
                       inputsSha256=sha(canonical(inputs)), inputFiles=len(inputs),
                       toolsAndReferencesSha256=sha(canonical(tools)), helperSha256=helpers,
                       originalWindowsReusedNotRepeated=True,
@@ -680,7 +738,9 @@ def execute_three(args, variants, loaders, compiler, references, common_driver, 
                       commonGuardedDriverSha256=sha(common_driver), commonClientSha256=sha(client),
                       exactCommands=commands, baseEnvironment=env,
                       completeInputSeals=inputs, completeToolAndReferenceSeals=tools,
-                      completeCompiledSourceSeals={label: row[3] for label, row in images.items()})
+                      completeCompiledSourceSeals={label: row[3] for label, row in images.items()},
+                      referenceFiles=[str(path) for path in references],
+                      compilerPath=str(compiler), dotnetPath=str(executable))
         yield dict(rows=rows, commands=commands, report=report, blobs=blobs)
     except BaseException:
         graph.failed = True

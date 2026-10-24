@@ -115,8 +115,10 @@ The existing portable configuration has four ordinary offensive pages and no cus
 inventory/playbook/always-QB/receiver powerups; original custom-page record conversion
 remains explicitly unsupported, not replaced by a random fallback.
 
-`compatibility.py` authenticates main40 commit/tree and separately compiles it and
-current production. Each tree uses its own `FullKernelInputs.cs`: the baseline
+`compatibility.py` retains main40 commit
+`e3157c42df9a5f09d534f689339495429e778768` and tree
+`7793a6257537fb165e97f7316cc8e6d97b2e72fe`. Each tree uses its own
+`FullKernelInputs.cs`: the baseline
 loader is authenticated from that same pinned Git tree, while current production
 uses the current loader. This keeps later opt-in APIs out of the older compile
 closure without removing either generation's production sources. Receipts retain
@@ -124,15 +126,23 @@ each loader's hash. Both builds require exit zero and empty compiler stdout/stde
 Diagnostic failures expose only the phase/label, exit status, private log path,
 length and SHA256 of each stream, never source, state or RNG values.
 The same authored untriggered seed1 script runs1,200 host steps
-through actual kickoff, menus and live play. Host/player/process/HUD bytes, menu
-events and **every** shared RNG call must be byte-identical. This is neither a
-new public replay recording nor full M1 qualification. All three existing public
+through actual kickoff, menus and live play. Compatibility now requires the
+source-correct legacy projection described below, not equality to an old
+animation bug. This is neither a new public replay recording nor full M1
+qualification. All three existing public
 recordings, gzip/recipes, controller, seed and unfiltered vector remain immutable.
 The inherited generation helper separately pins the new78-file production source
 and retains the timer recording's original source pin; its four probes and full
 current M1 stage are not removed or relabelled.
 
-### Default three-way diagnostic, not a compatibility repair
+### Source-correct Fraction and authenticated legacy-counterfactual projection
+
+The completed hosted993f comparison measured that changing only the old
+`Fraction` body restored all three legacy files, while actual current RNG/menu
+bytes already matched. This evidence is specific to this default driver and
+input/tool/source graph; it is not whole-game or native qualification. Correct
+ANIM.C862–881 near-frame behavior remains in production. No observed current
+host hash, position, new fixture or regenerated recording is an expected value.
 
 The same existing compatibility invocation now proposes exactly three serial
 compilations, followed by three serial actual default windows:
@@ -152,10 +162,29 @@ seed1 stream capped at1,024 actual raw callbacks including construction
 Python authority rejects before the guarded constructor/factory, host step,
 predicted source wake, raw callback or excess result byte. It counts constructor
 entry at the public RNG factory inside `Restart`, before initialization draws.
-The common copied driver differs only by exact reversible counting/I/O wrappers.
+The common copied driver has exact reversible counting/I/O wrappers and one
+explicit pure pre-Game check call.
 The public raw factory returns the same concrete `SourceInjectedRandom` instance,
 with identical source-derived seed, `NextInt` statements and preview provenance.
 No extra observation step, retry, new seed or fourth driver is permitted.
+
+Before input loading or any Game, each of the same three compiled drivers invokes
+the actual private `SourceAnimationLayerState.Fraction` through its reflected
+MethodInfo in that assembly. An uninitialized scalar-only layer avoids its
+library constructor; no animation VM, clip, pose, Game or random provider is
+used. Eight authored float32 cases cover nonstreaming, zero, positive near-frame,
+immediately below the strict threshold, the exact threshold, ordinary
+interpolation, negative near-frame and negative clamping. Expectations are
+analytically source-derived, also grounded in the existing closed
+`StreamChecks.RunSynthetic` branch/unrounded-cursor regression; they are not
+copied original or default-output vectors. Every call must preserve cursor,
+ordinal and mode. A/C must match all eight legacy expectations and six current
+ones; B must match all eight current expectations and six legacy ones. Only
+case IDs and aggregate counts are reported, never results. The shared authority
+grants this one eight-case set, then each ordinal before its invocation, and
+requires its correct proof before a constructor grant. The added cost is24 pure method invocations,
+**zero additional compilers, Games, host steps, source wakes, seeds or draws**
+relative to the existing three-way capture.
 
 Every actual PE/PDB and all97 compiled source documents are sealed and parsed
 without CLR/reflection before the first Game; all three compilations must pass
@@ -166,11 +195,32 @@ both explicit prepared input roots and all four remaining input paths are
 byte-sealed. No extra original input is acquired or copied.
 
 All nine AB/AC/BC file byte comparisons complete before field explanations.
-Only lengths/hashes/counts, host ordinal, JSON field path and byte offset enter
-the public diagnostic. `diagnostic.json` is sanitized metadata, and a compact
-metadata projection is printed **before** the unchanged final strict A/B equality
-guard. C matching A cannot pass acceptance; the existing491-raw/four-selection
-validator and main40 baseline/tree remain unchanged.
+Only lengths/hashes/counts/seals, host ordinal, JSON field path and byte offset
+enter the public diagnostic. `diagnostic.json` is sanitized metadata, and a
+compact metadata projection is printed **before** the qualification guard.
+Receipt schema `source-correct-default-legacy-projection/v2` explicitly requires:
+
+- Complete **A–C host, ordered RNG and menu** byte equality, with the authenticated
+  one-body nonshipping control and no other source changes.
+- Complete **A–B ordered RNG and menu** byte equality, without filtering,
+  reordering or site pruning.
+- All three actual completed windows,491 raw requests/callbacks/values and four
+  manual selections each, and independent actual compiled-current B proof.
+- Actual source/loader/driver/input/tool/reference/PE/PDB/Main/counter bindings.
+- Unequal host comparisons require bounded integer byte/row/host coordinates,
+  host ordinal = row + 1, an escaped rooted field path and both distinct row
+  SHA256 seals. Reversed A–B/B–C explanations must agree on coordinates and
+  swap row seals; two-sided missing object keys may name different siblings.
+  Equal comparisons carry no difference explanation. A missing final newline
+  may put the byte offset at the shorter file's EOF while both complete host
+  windows still have1200 rows; a missing host row cannot qualify.
+
+The observed A–B host difference is reported truthfully as `byteIdentical=false`;
+it is not converted into an equality assertion or a new golden. C matching A
+alone cannot qualify. `compatibility.generate` and `run.validate_default_compatibility`
+use the same full receipt validator, including refusal of v1/thin receipts,
+missing B proof, partial files, dishonest comparison metadata or unrelated drift.
+The immutable main40 baseline/tree and existing491/four-selection anchors remain.
 
 The boundary is the **existing ordinary hosted Core job**, not the failed private
 host experiment: no new Landlock policy, `RLIMIT_FSIZE`, W^X toggle, SDK query,
@@ -190,11 +240,19 @@ failure. Directory/ownership/symlink refusal has no workspace/FUSE privacy
 fallback. Existing workflow commands,90/40/10 job budgets, original100 frozen
 test names and nine required generation guards are not changed.
 
-Seventeen explicitly enumerated Python/static diagnostic witnesses are added to
-the existing `test_ci.py` suite. They exercise synthetic callbacks/bytes and the
-actual wrapper/acceptance path without compiling or constructing Game. A
-successful implementation test is not default-driver or causal CI evidence;
-material Quality review and separately authorized ordinary CI are still required.
+The original seventeen explicitly enumerated Python/static diagnostic witnesses
+remain, with six additive repair witnesses and three receipt-contract revision
+witnesses covering persisted receipts, both consumers and malformed emitted
+reports through the actual generator. The retained
+`test_c_matches_a_never_bypasses_final_ab_acceptance` name now tests the intentional
+v2 policy: C=A without independent actual B proof still fails. The50-case static
+selection suite exercises synthetic callbacks/bytes and the actual
+wrapper/qualification path without compiling or constructing Game. Synthetic
+source bindings and authority fixtures are explicitly test-only, never original
+authority or runtime qualification. Both authenticated outer/inherited workflow
+views and the full frozen workflow validator remain intact. A successful local
+static test is not proof that the new pure checks compiled or ran; material
+Quality review and separately authorized ordinary CI are still required.
 
 The real prepared `SourcePlayer.Checks` also supports `--random-selection-only`:
 ordinary `PlayerHost.Capture`/Continue reach and perform the gesture, validating the

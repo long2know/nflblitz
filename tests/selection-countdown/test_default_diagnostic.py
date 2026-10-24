@@ -1,6 +1,7 @@
 """Additive static/Python-only diagnostic gates. Never invokes compiler or Game."""
 from contextlib import contextmanager, redirect_stdout
 import ast
+import copy
 import hashlib
 import importlib.util
 import io
@@ -108,6 +109,19 @@ REQUIRED_CASES = (
     "test_real_python_pipeline_compiles_all_three_before_reused_windows",
     "test_real_python_pipeline_failure_stops_before_third_compile_or_any_driver",
 )
+REPAIR_CASES = (
+    "test_compiled_pure_fraction_contract_and_preconstruction_proof",
+    "test_projection_requires_actual_b_and_all_execution_bindings",
+    "test_complete_projection_refuses_rng_menu_and_partial_outputs",
+    "test_projection_receipt_refuses_dishonest_or_missing_comparisons",
+    "test_projection_seals_reject_wrong_method_control_or_second_source_change",
+    "test_compiled_sources_inputs_and_tool_commands_are_jointly_bound",
+)
+REVISION_CASES = (
+    "test_host_difference_positive_shapes_survive_persisted_receipt_consumers",
+    "test_host_difference_receipts_reject_malformed_explanations_at_both_consumers",
+    "test_generator_rejects_malformed_emitted_host_difference_explanations",
+)
 
 
 def production():
@@ -207,7 +221,100 @@ def pe_fixture(owner="DefaultCabinetChecks"):
     return bytes(data), pdb, {source: checksum}
 
 
-def mock_generate(case, output, different=False, bad_loader=False, bad_production=False):
+@contextmanager
+def synthetic_source_bindings(module):
+    """Synthetic A source/loader only: no historical compilation/authority claim."""
+    current = production()
+    source_hash = diagnostic.sha(diagnostic.canonical({name: diagnostic.sha(raw) for name, raw in current.items()}))
+    loaders = dict(main40=diagnostic.sha(b"static-test-own-historical-loader"),
+                   current=diagnostic.sha((ROOT / compatibility.FIXTURE_LOADER).read_bytes()))
+    with patch.object(module, "diagnostic_module", return_value=diagnostic), \
+         patch.object(module, "LOADER_SHA256", loaders), \
+         patch.object(diagnostic, "PRODUCTION_MAPS", (source_hash, source_hash)):
+        yield
+
+
+def synthetic_blobs(different=True):
+    baseline = {
+        "default-host.jsonl": b'{"synthetic":"baseline"}\n' * 1200,
+        "default-rng.json": json.dumps([dict(syntheticOrdinal=i) for i in range(491)]).encode(),
+        "default-menu.json": b'[{"syntheticMenu":"manual"}]',
+    }
+    blobs = {label: dict(baseline) for label in diagnostic.LABELS}
+    if different:
+        blobs["B"]["default-host.jsonl"] = b'{"synthetic":"do-not-log-this-state-value"}\n' * 1200
+    return blobs
+
+
+def synthetic_evidence(args, variants, loaders, driver, client, provenance, different):
+    """Complete-shaped metadata; every compiler/PE/Game result here is synthetic."""
+    private = args.fixture.parent / "not-created-synthetic-runtime"
+    compiler, dotnet = private / "tool/csc.dll", private / "tool/dotnet"
+    references = [private / ("refs/ref-%03d.dll" % index) for index in range(167)]
+    seal = lambda path: dict(path=str(path), bytes=1, sha256=diagnostic.sha(b"synthetic-file-" + path.name.encode()))
+    tools = {str(path): seal(path) for path in (compiler, dotnet, *references)}
+    inputs = {str(getattr(args, name)): seal(getattr(args, name))
+              for name in ("fixture", "sound", "impact", "normal", "speech", "hud")}
+    m1_file = args.m1 / "synthetic-input.json"
+    inputs[str(m1_file)] = seal(m1_file)
+    blobs = synthetic_blobs(different)
+    rows, windows, images, maps = {}, {}, {}, {}
+    helper = {name: diagnostic.sha((HERE / name).read_bytes()) for name in
+              ("compatibility.py", "default_diagnostic.py", "default_pe.py", "DefaultBudget.cs")}
+    for label, name in zip(diagnostic.LABELS, diagnostic.NAMES):
+        root = private / label
+        harness = {"DefaultChecks.cs": diagnostic.sha(driver), "DefaultBudget.cs": diagnostic.sha(client),
+                   "FullKernelInputs.cs": diagnostic.sha(loaders[label])}
+        sources = {path: diagnostic.sha(raw) for path, raw in variants[label].items()}
+        maps[label] = {str(root / path): value for path, value in {**sources, **harness}.items()}
+        windows[label] = dict(vars(diagnostic.Window()), pure_reserved=8, pure_invocations=8, pure_cases=8,
+                             source_matches=8 if label == "B" else 6, legacy_matches=6 if label == "B" else 8,
+                             unrounded=8, reservation=1, constructors=1, constructed=True, advances=1200,
+                             hosts=1200, wakes=1140, callbacks=491, values=491, requests=491, finished=True,
+                             bytes=[len(blobs[label][path]) for path in diagnostic.OUTPUTS])
+        images[label] = dict(declaringType="DefaultCabinetChecks", method="Main",
+                             signature="static int32 Main(string[])", documents=97, entryPointToken="0x06000001",
+                             peSha256=diagnostic.sha(("synthetic-pe-" + label).encode()),
+                             pdbSha256=diagnostic.sha(("synthetic-pdb-" + label).encode()),
+                             sourceMapSha256=diagnostic.sha(diagnostic.canonical(maps[label])))
+        rows[label] = dict(name=name, compile=0, diagnostics="", exit=0, buildRoot=str(root), runtimeRoot=str(root),
+                           summary=dict(status="passed", hosts=1200, SourceTick=1140, rawCalls=491, selections=4,
+                                        defaultSeed=1, rawVectorFiltered=False, originalTargetRandomQualified=False),
+                           harnessSha256=harness, sources=sources)
+    commands = [[str(dotnet), str(compiler), "-noconfig", "@" + str(private / label / "compile.rsp")]
+                for label in diagnostic.LABELS] + [
+                    [str(dotnet), str(private / label / "Default.Checks.dll")] +
+                    [str(getattr(args, name)) for name in ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")] +
+                    [str(private / label)] for label in diagnostic.LABELS]
+    report = diagnostic.all_comparisons(blobs)
+    report.update(schema="default-three-way-source-contract-comparisons/v2", status="comparisons-not-acceptance",
+                  sourceControl=provenance, windows=windows, images=images,
+                  compiledPureContract=dict(id=diagnostic.PURE_CONTRACT, cases=list(diagnostic.PURE_CASES),
+                                            casesPerVariant=8, totalInvocations=24, currentVariant="B",
+                                            noGameStepsWakesRandomOrExtraCompiler=True),
+                  inputFiles=len(inputs), inputsSha256=diagnostic.sha(diagnostic.canonical(inputs)),
+                  toolsAndReferencesSha256=diagnostic.sha(diagnostic.canonical(tools)), helperSha256=helper,
+                  completeInputSeals=inputs, completeToolAndReferenceSeals=tools, completeCompiledSourceSeals=maps,
+                  referenceFiles=list(map(str, references)), compilerPath=str(compiler), dotnetPath=str(dotnet),
+                  ownLoaderSha256={label: diagnostic.sha(raw) for label, raw in loaders.items()},
+                  commonGuardedDriverSha256=diagnostic.sha(driver), commonClientSha256=diagnostic.sha(client),
+                  exactCommands=commands, originalWindowsReusedNotRepeated=True,
+                  incremental=dict(compilations=1, constructors=1, hosts=1200, wakes=1140, rawMaximum=1024),
+                  prospectiveTotal=dict(compilations=3, constructors=3, hosts=3600, wakes=3420, rawMaximum=3072),
+                  baseEnvironment=dict(PATH="synthetic-no-execution", HOME=str(private / "home"),
+                                       DOTNET_CLI_HOME=str(private / "home"), TMPDIR=str(private / "tmp"),
+                                       TMP=str(private / "tmp"), TEMP=str(private / "tmp"),
+                                       DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_EnableDiagnostics="0",
+                                       DOTNET_GENERATE_ASPNET_CERTIFICATE="false", DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1",
+                                       MSBUILDDISABLENODEREUSE="1", DOTNET_CLI_USE_MSBUILD_SERVER="0"),
+                  inputArgv=[dict(name=name, **inputs[str(getattr(args, name))]) if name != "m1" else dict(
+                      name=name, path=str(args.m1), sha256=diagnostic.sha(diagnostic.canonical({str(m1_file): seal(m1_file)})))
+                      for name in ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")])
+    return dict(rows=rows, commands=commands, report=report, blobs=blobs)
+
+
+def mock_generate(case, output, different=False, bad_loader=False, bad_production=False,
+                  mutate=None, expected_error=None):
     source = production()
     historical = historical_fixture(source[diagnostic.BODY_PATH])
     original_loader = b"static-test-own-historical-loader"
@@ -218,8 +325,6 @@ def mock_generate(case, output, different=False, bad_loader=False, bad_productio
     args = type("Args", (), {name: output / name for name in
                             ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")})()
     calls = []
-    summary = dict(status="passed", hosts=1200, SourceTick=1140, rawCalls=491, selections=4,
-                   defaultSeed=1, rawVectorFiltered=False, originalTargetRandomQualified=False)
     common = (HERE / "DefaultChecks.cs").read_bytes()
     @contextmanager
     def execute(args, variants, loaders, compiler, references, driver, client, provenance):
@@ -230,32 +335,159 @@ def mock_generate(case, output, different=False, bad_loader=False, bad_productio
         case.assertTrue(changed == [diagnostic.BODY_PATH])
         case.assertTrue(provenance["oldBodySha256"] == diagnostic.OLD_BODY)
         calls.extend(("compile-A", "compile-B", "compile-C", "execute-A", "execute-B", "execute-C"))
-        blobs = {label: {name: b'{"fixed":"baseline"}\n' for name in diagnostic.OUTPUTS}
-                 for label in diagnostic.LABELS}
-        if different:
-            blobs["B"]["default-host.jsonl"] = b'{"fixed":"do-not-log-this-state-value"}\n'
-        rows = {label: dict(name=name, compile=0, diagnostics="", exit=0, summary=dict(summary),
-                           harnessSha256={"DefaultChecks.cs": diagnostic.sha(driver),
-                                          "DefaultBudget.cs": diagnostic.sha(client),
-                                          "FullKernelInputs.cs": diagnostic.sha(loaders[label])},
-                           sources={name: diagnostic.sha(data) for name, data in variants[label].items()})
-                for label, name in zip(diagnostic.LABELS, diagnostic.NAMES)}
-        yield dict(rows=rows, commands=[], report=diagnostic.all_comparisons(blobs), blobs=blobs)
+        evidence = synthetic_evidence(args, variants, loaders, driver, client, provenance, different)
+        if mutate:
+            mutate(evidence)
+        yield evidence
     buffer = io.StringIO()
     with patch.object(compatibility, "source_baseline", return_value=baseline) as selected, \
          patch.object(compatibility, "LOADER_SHA256", expected_loaders), \
          patch.object(compatibility, "diagnostic_module", return_value=diagnostic), \
          patch.object(diagnostic, "PRODUCTION_MAPS", (source_hash, "0" * 64 if bad_production else source_hash)), \
-         patch.object(diagnostic, "historical_fraction", return_value=(historical, "fixed-public-blob")), \
+         patch.object(diagnostic, "historical_fraction",
+                      return_value=(historical, "0f10e77c5ba2240e641464d027339f1250b9cc54")), \
          patch.object(diagnostic, "execute_three", side_effect=execute), redirect_stdout(buffer):
-        if different:
-            with case.assertRaisesRegex(AssertionError, "^Untriggered actual Core/ordered RNG/HUD bytes changed: default-host.jsonl$"):
+        if expected_error:
+            with case.assertRaisesRegex(AssertionError, expected_error):
                 compatibility.generate(args, output, source, output / "compiler.dll", [])
             receipt = None
         else:
             receipt = compatibility.generate(args, output, source, output / "compiler.dll", [])
     selected.assert_called_once_with(sorted([*source, compatibility.FIXTURE_LOADER]))
     return receipt, calls, buffer.getvalue()
+
+
+def coherent_projection(receipt):
+    comparisons = receipt["threeWayDiagnostic"]["comparisons"]
+    obligations = receipt["compatibilityObligations"]
+    obligations["legacyCounterfactualProjection"] = copy.deepcopy(comparisons["AC"])
+    obligations["actualCurrentOrderedRandomAndMenu"] = {
+        name: copy.deepcopy(comparisons["AB"][name]) for name in diagnostic.OUTPUTS[1:]}
+    obligations["actualHistoricalVsCurrentHost"] = copy.deepcopy(comparisons["AB"]["default-host.jsonl"])
+
+
+@contextmanager
+def receipt_consumers():
+    run = load("default_diagnostic_revision_normal_run", HERE / "run.py")
+    with synthetic_source_bindings(compatibility), synthetic_source_bindings(run.compatibility):
+        yield {"compatibility.validate_receipt": compatibility.validate_receipt,
+               "run.validate_default_compatibility": run.validate_default_compatibility}
+
+
+def host_explanation_mutations():
+    fields = ("firstByteOffsetZeroBased", "firstRowZeroBased", "firstHostOrdinalOneBased",
+              "firstField", "leftRowSha256", "rightRowSha256")
+    missing = object()
+
+    def alter(targets, value=missing):
+        def mutate(evidence):
+            for pair, field in targets:
+                result = evidence["report"]["comparisons"][pair]["default-host.jsonl"]
+                if value is missing:
+                    del result[field]
+                else:
+                    result[field] = value
+        return mutate
+
+    for pair in ("AB", "BC"):
+        for field in fields:
+            yield pair + "-" + field + "-missing", alter(((pair, field),))
+    yield "AB-BC-all-explanation-missing", alter(tuple((pair, field) for pair in ("AB", "BC") for field in fields))
+    wrong_types = (("null", None), ("false", False), ("true", True), ("string", "0"),
+                   ("float", 0.0), ("list", []), ("object", {}))
+    for field in fields[:3]:
+        targets = tuple((pair, field) for pair in ("AB", "BC"))
+        for name, value in wrong_types:
+            yield field + "-type-" + name, alter(targets, value)
+        yield field + "-negative", alter(targets, -1)
+    for name, value in (("null", None), ("false", False), ("integer", 0), ("list", []), ("object", {}),
+                        ("empty", ""), ("unrooted", "synthetic"), ("bad-root", "$synthetic"),
+                        ("bad-escape", "$/~2"), ("dangling-escape", "$/synthetic~")):
+        yield "firstField-" + name, alter((("AB", "firstField"), ("BC", "firstField")), value)
+    for field, reverse in (("leftRowSha256", "rightRowSha256"), ("rightRowSha256", "leftRowSha256")):
+        for name, value in (("null", None), ("false", False), ("integer", 0), ("list", []), ("object", {}),
+                            ("empty", ""), ("short", "a" * 63), ("nonhex", "g" * 64), ("uppercase", "A" * 64)):
+            yield field + "-" + name, alter((("AB", field), ("BC", reverse)), value)
+        yield field + "-counterpart-drift", alter((("AB", field),), "0" * 64)
+    for field, value in (("firstRowZeroBased", 1200), ("firstHostOrdinalOneBased", 0),
+                         ("firstHostOrdinalOneBased", 1201), ("firstHostOrdinalOneBased", 2)):
+        yield field + "-invalid-bound-or-ordinal-" + str(value), alter(
+            (("AB", field), ("BC", field)), value)
+
+    def byte_bound(evidence, longest):
+        for pair in ("AB", "BC"):
+            result = evidence["report"]["comparisons"][pair]["default-host.jsonl"]
+            bound = (max if longest else min)(result["leftBytes"], result["rightBytes"])
+            result["firstByteOffsetZeroBased"] = bound if longest else bound + 1
+
+    yield "offset-at-longer-eof", lambda evidence: byte_bound(evidence, True)
+    yield "offset-past-shorter-eof", lambda evidence: byte_bound(evidence, False)
+
+    def same_length_eof(evidence):
+        blobs = synthetic_blobs()
+        for label in diagnostic.LABELS:
+            blobs[label]["default-host.jsonl"] = (b'{"synthetic":"b"}\n' if label == "B" else
+                                                   b'{"synthetic":"a"}\n') * 1200
+        if "blobs" in evidence:
+            evidence["blobs"] = blobs
+        evidence["report"].update(diagnostic.all_comparisons(blobs))
+        for label in diagnostic.LABELS:
+            evidence["report"]["windows"][label]["bytes"] = [len(blobs[label][name]) for name in diagnostic.OUTPUTS]
+        for pair in ("AB", "BC"):
+            result = evidence["report"]["comparisons"][pair]["default-host.jsonl"]
+            result["firstByteOffsetZeroBased"] = result["leftBytes"]
+
+    yield "equal-length-files-offset-at-eof", same_length_eof
+
+    def coherent_row(evidence, row):
+        for pair in ("AB", "BC"):
+            result = evidence["report"]["comparisons"][pair]["default-host.jsonl"]
+            result.update(firstRowZeroBased=row, firstHostOrdinalOneBased=row + 1,
+                          firstByteOffsetZeroBased=max(row, result["firstByteOffsetZeroBased"]))
+
+    for row in (-1, 1200):
+        yield "coherent-out-of-window-row-" + str(row), lambda evidence, row=row: coherent_row(evidence, row)
+
+    def impossible(evidence):
+        evidence["report"]["comparisons"]["AB"]["default-host.jsonl"].update(
+            firstByteOffsetZeroBased=-1, firstRowZeroBased=1200, firstHostOrdinalOneBased=0, firstField=None)
+
+    yield "original-Q1-impossible-coordinates-and-null-field", impossible
+
+    def row_after_offset(evidence):
+        for pair in ("AB", "BC"):
+            evidence["report"]["comparisons"][pair]["default-host.jsonl"].update(
+                firstByteOffsetZeroBased=0, firstRowZeroBased=1, firstHostOrdinalOneBased=2)
+
+    yield "row-precedes-no-bytes", row_after_offset
+
+    def equal_row_seals(evidence):
+        ab, bc = (evidence["report"]["comparisons"][pair]["default-host.jsonl"] for pair in ("AB", "BC"))
+        ab["leftRowSha256"] = bc["rightRowSha256"] = ab["rightRowSha256"]
+
+    yield "unequal-row-with-equal-seals", equal_row_seals
+    yield "AB-BC-field-parent-drift", alter((("BC", "firstField"),), "$/unrelated/synthetic")
+    yield "AB-BC-field-root-drift", alter((("BC", "firstField"),), "$")
+    yield "unknown-explanation-field", alter((("AB", "firstUnknown"),), "unexpected")
+
+    def coordinate_drift(evidence, field):
+        result = evidence["report"]["comparisons"]["BC"]["default-host.jsonl"]
+        result[field] += 1
+        if field == "firstRowZeroBased":
+            result["firstHostOrdinalOneBased"] += 1
+
+    for field in fields[:2]:
+        yield "AB-BC-" + field + "-drift", lambda evidence, field=field: coordinate_drift(evidence, field)
+    for pair in ("AB", "AC", "BC"):
+        for name in diagnostic.OUTPUTS:
+            if pair != "AC" and name == "default-host.jsonl":
+                continue
+
+            def explain_equal(evidence, pair=pair, name=name):
+                explanation = evidence["report"]["comparisons"]["AB"]["default-host.jsonl"]
+                evidence["report"]["comparisons"][pair][name].update({field: explanation[field] for field in fields})
+
+            yield pair + "-" + name + "-equal-with-explanation", explain_equal
 
 
 class DefaultDiagnosticTests(unittest.TestCase):
@@ -272,8 +504,15 @@ class DefaultDiagnosticTests(unittest.TestCase):
 
     def initialized(self, graph, label):
         graph.driver_claim(label)
+        self.pure(graph, label)
         for operation in ("construct", "stream 1", "constructed 0 0"):
             graph.line(label + " " + operation + "\n")
+
+    def pure(self, graph, label):
+        graph.line(label + " pure-start 8\n")
+        for index in range(8):
+            graph.line(label + " pure-case " + str(index) + "\n")
+        graph.line(label + (" pure 8 8 6 8\n" if label == "B" else " pure 8 6 8 8\n"))
 
     def host(self, graph, label, index):
         before = str(index) + " " + str(index * 57 // 60)
@@ -297,6 +536,8 @@ class DefaultDiagnosticTests(unittest.TestCase):
         self.assertTrue(result.count(b"inputs.Create(") == result.count(b"budget.Construct(") == 1)
         self.assertTrue(result.count(b"bridge.AdvanceSource(") == result.count(b"budget.BeforeAdvance(") == 1)
         self.assertTrue(b"host < 1200" in result and b"randomFactory: budget.CreateRandom" in result)
+        self.assertEqual(result.count(b"budget.VerifyCompiledNearFrameContract();"), 1)
+        self.assertLess(result.index(b"budget.VerifyCompiledNearFrameContract();"), result.index(b"FullKernelInputs.Load("))
         with self.assertRaisesRegex(AssertionError, "exact actual DefaultChecks"):
             diagnostic.guarded_driver(original.replace(b"host < 1200", b"host < 1201", 1))
 
@@ -338,6 +579,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
             graph.driver_claim("A")
         graph = self.graph()
         graph.driver_claim("A")
+        self.pure(graph, "A")
         graph.line("A construct\n")
         with self.assertRaises(AssertionError):
             graph.line("A stream 2\n")
@@ -349,6 +591,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
     def test_host_and_raw_overrun_refuse_before_consumption(self):
         graph = self.graph()
         graph.driver_claim("A")
+        self.pure(graph, "A")
         graph.line("A construct\n")
         graph.line("A stream 1\n")
         consumed = []
@@ -408,13 +651,328 @@ class DefaultDiagnosticTests(unittest.TestCase):
         self.assertTrue(result["firstHostOrdinalOneBased"] == 1)
 
     def test_c_matches_a_never_bypasses_final_ab_acceptance(self):
-        receipt, calls, text = mock_generate(self, self.output / "different", True)
+        """Retained witness name: AC alone still cannot bypass actual B proof."""
+        receipt, calls, text = mock_generate(self, self.output / "different", True,
+            mutate=lambda evidence: evidence["report"]["windows"].pop("B"),
+            expected_error="Actual B window and actual Main image")
         self.assertIsNone(receipt)
         self.assertTrue(calls == ["compile-A", "compile-B", "compile-C", "execute-A", "execute-B", "execute-C"])
         report = json.loads((self.output / "different/diagnostic.json").read_text())
         self.assertTrue(report["controlMatchesBaselineAllThree"] and report["baselineDifferenceReproduced"])
         self.assertIn("DEFAULT COMPATIBILITY DIAGNOSTIC ", text)
         self.assertNotIn("do-not-log-this-state-value", text)
+
+    def test_compiled_pure_fraction_contract_and_preconstruction_proof(self):
+        client = (HERE / "DefaultBudget.cs").read_bytes()
+        start = client.index(b"    internal void VerifyCompiledNearFrameContract()")
+        end = client.index(b"\n    internal T Construct<T>", start)
+        body = client[start:end]
+        for seam in (b'typeof(SourceAnimationLayerState)', b'type.GetMethod("Fraction", flags)',
+                     b'RuntimeHelpers.GetUninitializedObject(type)', b'fraction.Invoke(layer, new object[0])',
+                     b'int[] ordinals = { 0, 0, 1, 0, 0, 1, 1, 1 };',
+                     b'float[] frames = { 1f / 16f, 0f, 1f + 1f / 64f, below, threshold,\n'
+                     b'            1f + 1f / 16f, 1f - 1f / 64f, 1f - 1f / 16f };',
+                     b'float[] sourceExpected = { 0f, 0f, 0f, 0f, threshold, 1f / 16f, 0f, 0f };',
+                     b'float[] legacyExpected = { 0f, 0f, 1f / 64f, below, threshold, 1f / 16f, 0f, 0f };',
+                     b'Call("pure", frames.Length, sourceMatches, legacyMatches, unrounded);'):
+            self.assertIn(seam, body)
+        self.assertLess(body.index(b'Call("pure-start", 8);'), body.index(b'fraction.Invoke('))
+        self.assertLess(body.index(b'Call("pure-case", index);'), body.index(b'fraction.Invoke('))
+        self.assertEqual(body.count(b"fraction.Invoke("), 1)
+        self.assertNotIn(b"GameSimulation", body)
+        self.assertNotIn(b"AdvanceSource", body)
+        self.assertNotIn(b"CreateRandom", body)
+        self.assertEqual(len(diagnostic.PURE_CASES), 8)
+        # These are authored float32 scalar units, not observed Game vectors.
+        f32 = lambda value: struct.unpack("<f", struct.pack("<f", value))[0]
+        threshold = f32(0.05)
+        below = struct.unpack("<f", struct.pack("<I", struct.unpack("<I", struct.pack("<f", threshold))[0] - 1))[0]
+        ordinals = [0, 0, 1, 0, 0, 1, 1, 1]
+        frames = [1 / 16, 0, 1 + 1 / 64, below, threshold, 1 + 1 / 16, 1 - 1 / 64, 1 - 1 / 16]
+        raw = [f32(frame - ordinal) for frame, ordinal in zip(frames, ordinals)]
+        source = [0 if index == 0 or abs(value) < threshold else max(0, value) for index, value in enumerate(raw)]
+        old = [0 if index == 0 else max(0, value) for index, value in enumerate(raw)]
+        self.assertEqual(source, [0, 0, 0, 0, threshold, 1 / 16, 0, 0])
+        self.assertEqual(old, [0, 0, 1 / 64, below, threshold, 1 / 16, 0, 0])
+        self.assertEqual(sum(a == b for a, b in zip(source, old)), 6)
+        for operation in ("construct", "pure 8 8 6 8", "pure-start 9", "pure-case 0"):
+            graph = self.graph()
+            graph.driver_claim("A")
+            with self.subTest(missing_or_bad=operation), self.assertRaises(AssertionError):
+                graph.line("A " + operation + "\n")
+            self.assertEqual(graph.windows["A"].constructors, 0)
+        for label in diagnostic.LABELS:
+            for wrong in ("pure 8 7 8 8", "pure 8 8 8 8", "pure 9 8 6 8", "pure 8 8 6 7", "pure-start 8"):
+                graph = self.graph()
+                for previous in diagnostic.LABELS[:diagnostic.LABELS.index(label)]:
+                    graph.driver_claim(previous)
+                    graph.active = None  # Synthetic unit positioning; no constructor.
+                graph.driver_claim(label)
+                graph.line(label + " pure-start 8\n")
+                for index in range(8):
+                    graph.line(label + " pure-case " + str(index) + "\n")
+                with self.subTest(variant=label, wrong=wrong), self.assertRaises(AssertionError):
+                    graph.line(label + " " + wrong + "\n")
+                self.assertEqual(graph.windows[label].constructors, 0)
+                with self.assertRaises(AssertionError):
+                    graph.line(label + " construct\n")
+        graph = self.graph()
+        graph.driver_claim("A")
+        graph.line("A pure-start 8\n")
+        for index in range(8):
+            graph.line("A pure-case " + str(index) + "\n")
+        with self.assertRaisesRegex(AssertionError, "pure invocation cap"):
+            graph.line("A pure-case 8\n")
+        self.assertEqual(graph.windows["A"].pure_invocations, 8)
+
+    def test_projection_requires_actual_b_and_all_execution_bindings(self):
+        receipt, _, text = mock_generate(self, self.output / "source-correct", True)
+        self.assertFalse(receipt["compatibilityObligations"]["actualHistoricalVsCurrentHost"]["byteIdentical"])
+        self.assertFalse(receipt["threeWayDiagnostic"]["comparisons"]["AB"]["default-host.jsonl"]["byteIdentical"])
+        self.assertTrue(receipt["threeWayDiagnostic"]["controlMatchesBaselineAllThree"])
+        self.assertNotIn("do-not-log-this-state-value", text)
+        with synthetic_source_bindings(compatibility):
+            compatibility.validate_receipt(receipt)
+            for key in ("windows", "images", "compiledPureContract", "sourceControl", "completeCompiledSourceSeals",
+                        "completeInputSeals", "completeToolAndReferenceSeals", "helperSha256", "exactCommands",
+                        "baseEnvironment"):
+                changed = copy.deepcopy(receipt)
+                del changed["threeWayDiagnostic"][key]
+                with self.subTest(missing=key), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for field, value in (("source_matches", 6), ("legacy_matches", 8), ("pure_cases", 0),
+                                 ("pure_invocations", 9), ("unrounded", 7), ("constructors", 0), ("constructors", 2),
+                                 ("callbacks", 1025), ("advances", 1201), ("wakes", 1141), ("finished", False)):
+                changed = copy.deepcopy(receipt)
+                changed["threeWayDiagnostic"]["windows"]["B"][field] = value
+                with self.subTest(current_field=field, value=value), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for summary_field, value in (("defaultSeed", 2), ("rawCalls", 490), ("selections", 3),
+                                         ("rawVectorFiltered", True)):
+                changed = copy.deepcopy(receipt)
+                changed["runs"][1]["summary"][summary_field] = value
+                with self.subTest(summary=summary_field), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for field, value in (("base", "HEAD"), ("tree", "0" * 40), ("schema", "untriggered-cabinet-byte-compatibility/v1")):
+                changed = copy.deepcopy(receipt)
+                changed[field] = value
+                with self.subTest(reference=field), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+
+    def test_complete_projection_refuses_rng_menu_and_partial_outputs(self):
+        blobs = synthetic_blobs()
+        report = diagnostic.all_comparisons(blobs)
+        policy = diagnostic.source_correct_projection(blobs, report)
+        self.assertFalse(policy["actualHistoricalVsCurrentHost"]["byteIdentical"])
+        cases = [
+            ("B", "default-rng.json", b"[]"),
+            ("B", "default-rng.json", json.dumps(list(reversed(json.loads(blobs["B"]["default-rng.json"])))).encode()),
+            ("B", "default-rng.json", b"[{}]" ),
+            ("B", "default-rng.json", json.dumps([{}] * 491).encode()),
+            ("B", "default-menu.json", b'[{"syntheticMenu":"changed"}]'),
+            ("C", "default-host.jsonl", blobs["B"]["default-host.jsonl"]),
+            ("A", "default-host.jsonl", b""),
+            ("B", "default-host.jsonl", b'{"synthetic":"partial"}\n' * 1199),
+            ("C", "default-menu.json", b"[]"),
+        ]
+        for label, name, value in cases:
+            changed = copy.deepcopy(blobs)
+            changed[label][name] = value
+            with self.subTest(variant=label, output=name, bytes=len(value)), self.assertRaises(AssertionError):
+                diagnostic.source_correct_projection(changed, diagnostic.all_comparisons(changed))
+        changed = {label: {**row, "default-rng.json": b"[]"} for label, row in blobs.items()}
+        with self.assertRaisesRegex(AssertionError, "complete host/RNG/menu"):
+            diagnostic.source_correct_projection(changed, diagnostic.all_comparisons(changed))
+
+    def test_projection_receipt_refuses_dishonest_or_missing_comparisons(self):
+        receipt, _, _ = mock_generate(self, self.output / "honesty", True)
+        with synthetic_source_bindings(compatibility):
+            for pair in ("AB", "AC", "BC"):
+                for name in diagnostic.OUTPUTS:
+                    for field, value in (("leftBytes", 0), ("leftSha256", "invalid"),
+                                         ("byteIdentical", not receipt["threeWayDiagnostic"]["comparisons"][pair][name]["byteIdentical"])):
+                        changed = copy.deepcopy(receipt)
+                        changed["threeWayDiagnostic"]["comparisons"][pair][name][field] = value
+                        with self.subTest(pair=pair, output=name, field=field), self.assertRaises(AssertionError):
+                            compatibility.validate_receipt(changed)
+                    changed = copy.deepcopy(receipt)
+                    del changed["threeWayDiagnostic"]["comparisons"][pair][name]
+                    with self.subTest(missing=name, pair=pair), self.assertRaises(AssertionError):
+                        compatibility.validate_receipt(changed)
+            changed = copy.deepcopy(receipt)
+            changed["compatibilityObligations"]["actualHistoricalVsCurrentHost"]["byteIdentical"] = True
+            with self.assertRaises(AssertionError):
+                compatibility.validate_receipt(changed)
+            changed = copy.deepcopy(receipt)
+            changed["compatibilityObligations"]["outputShape"]["B"]["rngRecords"] = 490
+            with self.assertRaises(AssertionError):
+                compatibility.validate_receipt(changed)
+
+    def test_host_difference_positive_shapes_survive_persisted_receipt_consumers(self):
+        base_fields = {"byteIdentical", "leftBytes", "rightBytes", "leftSha256", "rightSha256"}
+        output = self.output / "equal-control"
+        mock_generate(self, output)
+        equal = json.loads((output / "receipt.json").read_bytes())
+        with receipt_consumers() as consumers:
+            for name, validate in consumers.items():
+                with self.subTest(consumer=name, shape="equal"):
+                    validate(equal)
+            for files in equal["threeWayDiagnostic"]["comparisons"].values():
+                for result in files.values():
+                    self.assertEqual(set(result), base_fields)
+        rows = b'{"synthetic":"unchanged"}\n'
+        cases = (
+            ("scalar", 0, b'{"synthetic":1}\n', b'{"synthetic":2}\n', "$/synthetic", "$/synthetic"),
+            ("number-spelling", 1, b'{"synthetic":1}\n', b'{"synthetic":1.0}\n', "$/synthetic", "$/synthetic"),
+            ("encoding", 0, b'{"synthetic":1}\n', b'{ "synthetic":1}\n', "$/@json-encoding", "$/@json-encoding"),
+            ("property-order", 0, b'{"a":1,"b":2}\n', b'{"b":2,"a":1}\n', "$/@property-order", "$/@property-order"),
+            ("root-type", 0, b'{}\n', b'[]\n', "$", "$"),
+            ("escaped-key", 0, b'{"a/b":{"~key":1}}\n', b'{"a/b":{"~key":2}}\n', "$/a~1b/~0key", "$/a~1b/~0key"),
+            ("empty-key", 0, b'{"":1}\n', b'{"":2}\n', "$/", "$/"),
+            ("reversed-missing-keys", 0, b'{"legacy":1}\n', b'{"current":1}\n', "$/legacy", "$/current"),
+            ("final-newline-eof", 1199, b'{"synthetic":1}\n', b'{"synthetic":1}', "$/@json-encoding", "$/@json-encoding"),
+        )
+        for case, row, left, right, ab_field, bc_field in cases:
+            def outputs(evidence):
+                for label in diagnostic.LABELS:
+                    selected = right if label == "B" else left
+                    evidence["blobs"][label]["default-host.jsonl"] = rows * row + selected + rows * (1199 - row)
+                evidence["report"].update(diagnostic.all_comparisons(evidence["blobs"]))
+                for label in diagnostic.LABELS:
+                    evidence["report"]["windows"][label]["bytes"] = [
+                        len(evidence["blobs"][label][name]) for name in diagnostic.OUTPUTS]
+            output = self.output / case
+            mock_generate(self, output, True, mutate=outputs)
+            receipt = json.loads((output / "receipt.json").read_bytes())
+            comparisons = receipt["threeWayDiagnostic"]["comparisons"]
+            ab, bc = (comparisons[pair]["default-host.jsonl"] for pair in ("AB", "BC"))
+            self.assertFalse(ab["byteIdentical"])
+            self.assertEqual((ab["firstField"], bc["firstField"]), (ab_field, bc_field))
+            self.assertEqual(ab["firstRowZeroBased"], row)
+            self.assertEqual(ab["firstHostOrdinalOneBased"], row + 1)
+            self.assertEqual(ab["leftRowSha256"], diagnostic.sha(left))
+            self.assertEqual(ab["rightRowSha256"], diagnostic.sha(right))
+            self.assertEqual(ab["leftRowSha256"], bc["rightRowSha256"])
+            if case == "final-newline-eof":
+                self.assertEqual(ab["firstByteOffsetZeroBased"], min(ab["leftBytes"], ab["rightBytes"]))
+            with receipt_consumers() as consumers:
+                for name, validate in consumers.items():
+                    with self.subTest(consumer=name, shape=case):
+                        validate(receipt)
+        output = self.output / "short-window-eof"
+
+        def truncated(evidence):
+            for label in diagnostic.LABELS:
+                evidence["blobs"][label]["default-host.jsonl"] = rows * (1199 if label == "B" else 1200)
+            evidence["report"].update(diagnostic.all_comparisons(evidence["blobs"]))
+
+        mock_generate(self, output, True, mutate=truncated, expected_error="complete host/RNG/menu shapes")
+        eof = json.loads((output / "diagnostic.json").read_bytes())["comparisons"]["AB"]["default-host.jsonl"]
+        self.assertEqual(eof["firstField"], "$/@end-of-file")
+        self.assertNotIn("leftRowSha256", eof)
+        self.assertNotIn("rightRowSha256", eof)
+        self.assertFalse((output / "receipt.json").exists())
+
+    def test_host_difference_receipts_reject_malformed_explanations_at_both_consumers(self):
+        output = self.output / "persisted-control"
+        mock_generate(self, output, True)
+        receipt = json.loads((output / "receipt.json").read_bytes())
+        with receipt_consumers() as consumers:
+            for validate in consumers.values():
+                validate(receipt)
+            for index, (case, mutate) in enumerate(host_explanation_mutations()):
+                changed = copy.deepcopy(receipt)
+                mutate({"report": changed["threeWayDiagnostic"]})
+                coherent_projection(changed)
+                path = self.output / ("malformed-%03d.json" % index)
+                path.write_text(json.dumps(changed) + "\n")
+                changed = json.loads(path.read_bytes())
+                self.assertEqual(changed["compatibilityObligations"]["actualHistoricalVsCurrentHost"],
+                                 changed["threeWayDiagnostic"]["comparisons"]["AB"]["default-host.jsonl"])
+                for name, validate in consumers.items():
+                    with self.subTest(mutation=case, consumer=name), self.assertRaisesRegex(
+                            AssertionError, "First-difference"):
+                        validate(changed)
+
+    def test_generator_rejects_malformed_emitted_host_difference_explanations(self):
+        output = self.output / "generator-control"
+        mock_generate(self, output, True)
+        control = json.loads((output / "receipt.json").read_bytes())
+        for index, (case, mutate) in enumerate(host_explanation_mutations()):
+            expected = copy.deepcopy(control["threeWayDiagnostic"])
+            mutate({"report": expected})
+            output = self.output / ("generator-malformed-%03d" % index)
+            with self.subTest(mutation=case), patch.object(
+                    compatibility, "validate_receipt", wraps=compatibility.validate_receipt) as validation:
+                receipt, calls, _ = mock_generate(self, output, True, mutate=mutate, expected_error="First-difference")
+                self.assertIsNone(receipt)
+                self.assertEqual(calls, ["compile-A", "compile-B", "compile-C", "execute-A", "execute-B", "execute-C"])
+                validation.assert_called_once()
+                emitted = json.loads((output / "diagnostic.json").read_bytes())
+                self.assertEqual(emitted["comparisons"], expected["comparisons"])
+                self.assertEqual(validation.call_args.args[0]["threeWayDiagnostic"]["comparisons"], emitted["comparisons"])
+                self.assertFalse((output / "receipt.json").exists())
+
+    def test_projection_seals_reject_wrong_method_control_or_second_source_change(self):
+        receipt, _, _ = mock_generate(self, self.output / "source-seals", True)
+        with synthetic_source_bindings(compatibility):
+            for field, value in (("historicalCommit", "HEAD"), ("historicalBlob", "0" * 40),
+                                 ("oldBodySha256", "0" * 64), ("currentBodySha256", "0" * 64),
+                                 ("currentFileSha256", "0" * 64), ("controlFileSha256", "0" * 64),
+                                 ("onlyFractionBodyChanged", False), ("StreamFrameRemainsCurrent", False)):
+                changed = copy.deepcopy(receipt)
+                changed["threeWayDiagnostic"]["sourceControl"][field] = value
+                with self.subTest(control=field), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for label in (0, 1, 2):
+                changed = copy.deepcopy(receipt)
+                path = next(name for name in changed["runs"][label]["sources"] if name != diagnostic.BODY_PATH)
+                changed["runs"][label]["sources"][path] = "0" * 64
+                with self.subTest(second_source_variant=label), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for field, value in (("defaultSeed", 2), ("nextIntSha256", "0" * 64), ("provenance", "changed"),
+                                 ("concreteIdentityPreserved", False), ("clientSha256", "0" * 64)):
+                changed = copy.deepcopy(receipt)
+                changed["threeWayDiagnostic"]["sourceControl"]["randomSourceSeals"][1][field] = value
+                with self.subTest(random_binding=field), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+
+    def test_compiled_sources_inputs_and_tool_commands_are_jointly_bound(self):
+        receipt, _, _ = mock_generate(self, self.output / "all-bindings", True)
+        with synthetic_source_bindings(compatibility):
+            for field, value in (("method", "NotMain"), ("documents", 96), ("entryPointToken", "0x00000001"),
+                                 ("declaringType", "OtherType"), ("signature", "static void Main()"),
+                                 ("sourceMapSha256", "0" * 64), ("peSha256", ""), ("pdbSha256", "")):
+                changed = copy.deepcopy(receipt)
+                changed["threeWayDiagnostic"]["images"]["B"][field] = value
+                with self.subTest(image=field), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for key in ("completeCompiledSourceSeals", "completeToolAndReferenceSeals", "completeInputSeals"):
+                changed = copy.deepcopy(receipt)
+                mapping = changed["threeWayDiagnostic"][key]
+                if key == "completeCompiledSourceSeals":
+                    mapping = mapping["B"]
+                del mapping[next(iter(mapping))]
+                with self.subTest(missing=key), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            for key, value in (("commonGuardedDriverSha256", "0" * 64), ("commonClientSha256", "0" * 64),
+                               ("referenceFiles", []), ("inputArgv", []), ("dotnetPath", "/unknown-dotnet")):
+                changed = copy.deepcopy(receipt)
+                changed["threeWayDiagnostic"][key] = value
+                with self.subTest(binding=key), self.assertRaises(AssertionError):
+                    compatibility.validate_receipt(changed)
+            changed = copy.deepcopy(receipt)
+            changed["threeWayDiagnostic"]["baseEnvironment"]["DOTNET_EnableWriteXorExecute"] = "0"
+            with self.assertRaisesRegex(AssertionError, "unreviewed policy toggles"):
+                compatibility.validate_receipt(changed)
+            changed = copy.deepcopy(receipt)
+            changed["runs"].append(copy.deepcopy(changed["runs"][1]))
+            with self.assertRaises(AssertionError):
+                compatibility.validate_receipt(changed)
+            changed = copy.deepcopy(receipt)
+            changed["commands"].append(list(changed["commands"][-1]))
+            with self.assertRaises(AssertionError):
+                compatibility.validate_receipt(changed)
 
     def test_loader_or_production_seal_mismatch_precedes_any_native_work(self):
         with self.assertRaisesRegex(AssertionError, "own authenticated fixture loader"):
@@ -487,6 +1045,8 @@ class DefaultDiagnosticTests(unittest.TestCase):
                                                  for name in ("stdout", "stderr")})
             self.assertTrue(events[:3] == ["compile-A", "compile-B", "compile-C"])
             w = counter.graph.windows[label]
+            w.pure_reserved, w.pure_invocations, w.pure_cases, w.unrounded = 8, 8, 8, 8
+            w.source_matches, w.legacy_matches = (8, 6) if label == "B" else (6, 8)
             w.reservation = w.constructors = 1
             w.constructed = w.finished = True
             w.advances = w.hosts = 1200
@@ -557,7 +1117,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
         self.assertNotIn("RLIMIT_FSIZE", (HERE / "default_diagnostic.py").read_text().replace(
             'hostBoundary="ordinary pinned hosted-job permissions; no new Landlock/RLIMIT_FSIZE/W^X policy"', ""))
         actual = sorted(unittest.defaultTestLoader.getTestCaseNames(DefaultDiagnosticTests))
-        self.assertTrue(actual == sorted(REQUIRED_CASES))
+        self.assertTrue(actual == sorted(REQUIRED_CASES + REPAIR_CASES + REVISION_CASES))
 
     def test_existing_normal_core_projection_preserves_frozen_workflow_guard(self):
         projection = load("default_diagnostic_existing_projection",
@@ -609,7 +1169,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
 
 def required_suite():
     actual = sorted(unittest.defaultTestLoader.getTestCaseNames(DefaultDiagnosticTests))
-    if actual != sorted(REQUIRED_CASES):
+    if actual != sorted(REQUIRED_CASES + REPAIR_CASES + REVISION_CASES):
         raise AssertionError("Exact additive default-diagnostic test inventory changed.")
     return unittest.defaultTestLoader.loadTestsFromTestCase(DefaultDiagnosticTests)
 

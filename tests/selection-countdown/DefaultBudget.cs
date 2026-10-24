@@ -2,6 +2,8 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Net.Sockets;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Blitz.Gameplay;
 
@@ -52,6 +54,60 @@ internal sealed class DefaultDiagnosticBudget
                 throw new InvalidOperationException("DEFAULT DIAGNOSTIC: authority refused");
         }
         catch { failed = true; throw; }
+    }
+
+    private static bool SameFloat(float left, float right)
+    {
+        return BitConverter.ToInt32(BitConverter.GetBytes(left), 0) ==
+            BitConverter.ToInt32(BitConverter.GetBytes(right), 0);
+    }
+
+    internal void VerifyCompiledNearFrameContract()
+    {
+        Call("pure-start", 8);
+        // Pure scalar probes of the actual compiled Fraction method, not a VM,
+        // clip, Game, source wake, random provider or recorded host expectation.
+        Type type = typeof(SourceAnimationLayerState);
+        BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        MethodInfo fraction = type.GetMethod("Fraction", flags);
+        FieldInfo cursor = type.GetField("floatingFrame", flags);
+        PropertyInfo ordinal = type.GetProperty("FrameOrdinal", flags);
+        PropertyInfo mode = type.GetProperty("Mode", flags);
+        if (fraction == null || fraction.DeclaringType != type || fraction.ReturnType != typeof(float)
+            || !fraction.IsPrivate || fraction.IsStatic || fraction.GetParameters().Length != 0
+            || type.Assembly != typeof(DefaultDiagnosticBudget).Assembly
+            || cursor == null || cursor.FieldType != typeof(float)
+            || ordinal == null || ordinal.PropertyType != typeof(int)
+            || mode == null || mode.PropertyType != typeof(uint))
+            throw new InvalidOperationException("DEFAULT SOURCE CHECK: exact compiled Fraction seam missing");
+        object layer = RuntimeHelpers.GetUninitializedObject(type);
+        float threshold = 0.05f;
+        float below = BitConverter.ToSingle(BitConverter.GetBytes(
+            BitConverter.ToInt32(BitConverter.GetBytes(threshold), 0) - 1), 0);
+        uint streaming = SourceAnimationModes.Streaming;
+        uint[] modes = { 0u, streaming, streaming, streaming, streaming, streaming, streaming, streaming };
+        int[] ordinals = { 0, 0, 1, 0, 0, 1, 1, 1 };
+        float[] frames = { 1f / 16f, 0f, 1f + 1f / 64f, below, threshold,
+            1f + 1f / 16f, 1f - 1f / 64f, 1f - 1f / 16f };
+        // ANIM.C862..881 strict near-frame selection: keep the accumulator,
+        // select zero only below the threshold; normal interpolation survives.
+        float[] sourceExpected = { 0f, 0f, 0f, 0f, threshold, 1f / 16f, 0f, 0f };
+        float[] legacyExpected = { 0f, 0f, 1f / 64f, below, threshold, 1f / 16f, 0f, 0f };
+        int sourceMatches = 0, legacyMatches = 0, unrounded = 0;
+        for (int index = 0; index < frames.Length; index++)
+        {
+            mode.SetValue(layer, modes[index], null);
+            ordinal.SetValue(layer, ordinals[index], null);
+            cursor.SetValue(layer, frames[index]);
+            Call("pure-case", index);
+            float actual = (float)fraction.Invoke(layer, new object[0]);
+            if (SameFloat(actual, sourceExpected[index])) sourceMatches++;
+            if (SameFloat(actual, legacyExpected[index])) legacyMatches++;
+            if (SameFloat((float)cursor.GetValue(layer), frames[index])
+                && (int)ordinal.GetValue(layer, null) == ordinals[index]
+                && (uint)mode.GetValue(layer, null) == modes[index]) unrounded++;
+        }
+        Call("pure", frames.Length, sourceMatches, legacyMatches, unrounded);
     }
 
     internal T Construct<T>(Func<T> factory)
