@@ -5,9 +5,11 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
+import subprocess
 import sys
 import types
 import unittest
@@ -17,6 +19,8 @@ import xml.etree.ElementTree as ET
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+OUTER_WORKFLOW_SHA256 = "ccf82aba97e84aa168d60fbcebe40402d5efbb1aeabc40b473c93a55addb0697"
+INHERITED_WORKFLOW_SHA256 = "94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8"
 
 
 def load(name, path):
@@ -25,6 +29,61 @@ def load(name, path):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def workflow_context(projection):
+    """Authenticate the live caller bytes, not just Git HEAD or a view hint."""
+    def require(value, message):
+        if not value:
+            raise AssertionError("Default diagnostic workflow context: " + message)
+    def read(path):
+        require(path.is_file() and path.resolve() == path, "canonical working workflow required")
+        return path.read_bytes()
+    working_path = ROOT / projection.GAME
+    working = read(working_path)
+    digest = hashlib.sha256(working).hexdigest()
+    if digest == OUTER_WORKFLOW_SHA256:
+        outer_root, outer, kind = ROOT, working, "outer"
+        inherited = projection.inherited_game(working.decode()).encode()
+        require(hashlib.sha256(inherited).hexdigest() == INHERITED_WORKFLOW_SHA256,
+                "declared outer projection changed")
+    else:
+        require(digest == INHERITED_WORKFLOW_SHA256, "unknown or changed working workflow")
+        receipt = json.loads((ROOT / ".squad/.scratch/ci-workspace.json").read_bytes())
+        outer_root = Path(receipt["source_git_root"])
+        git_dir = Path(receipt["source_git_dir"])
+        require(outer_root.is_absolute() and outer_root.resolve() == outer_root and outer_root != ROOT,
+                "actual outer source root required")
+        require(receipt["schema"] == "defensive-switch-ci-workspace/v1"
+                and receipt["status"] == "passed" and receipt["inherited_view"] is True
+                and receipt["production_and_harness_bytes_unchanged"] is True
+                and receipt["input_game_sha256"] == OUTER_WORKFLOW_SHA256
+                and receipt["inherited_game_sha256"] == INHERITED_WORKFLOW_SHA256
+                and receipt["source_sha256"][projection.GAME] == OUTER_WORKFLOW_SHA256,
+                "existing inherited bootstrap receipt required")
+        require(receipt["runtime_git_root"] == str(ROOT)
+                and receipt["runtime_git_dir"] == str(git_dir)
+                and receipt["environment"]["GIT_DIR"] == str(git_dir)
+                and receipt["environment"]["GIT_WORK_TREE"] == str(ROOT)
+                and os.environ.get("GIT_DIR") == str(git_dir)
+                and os.environ.get("GIT_WORK_TREE") == str(ROOT),
+                "actual inherited caller exports must match its receipt")
+        view = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+                              cwd=ROOT, capture_output=True, text=True, check=True)
+        require(view.stdout.splitlines() == [str(ROOT), str(git_dir)], "actual runtime Git view changed")
+        source_view = subprocess.run(["git", "rev-parse", "--show-toplevel", "--absolute-git-dir"],
+            cwd=outer_root, env=dict(os.environ, GIT_DIR=str(git_dir), GIT_WORK_TREE=str(outer_root)),
+            capture_output=True, text=True, check=True)
+        require(source_view.stdout.splitlines() == [str(outer_root), str(git_dir)],
+                "actual outer source Git view changed")
+        outer = read(outer_root / projection.GAME)
+        require(hashlib.sha256(outer).hexdigest() == OUTER_WORKFLOW_SHA256,
+                "outer working source bytes changed")
+        inherited, kind = working, "inherited"
+    require(projection.INHERITED_GAME_SHA256 == INHERITED_WORKFLOW_SHA256,
+            "existing inherited workflow pin changed")
+    return dict(kind=kind, outer=outer.decode(), inherited=inherited.decode(),
+                outerRoot=outer_root, workingPath=working_path)
 
 
 diagnostic = load("default_diagnostic_static_tests", HERE / "default_diagnostic.py")
@@ -478,8 +537,14 @@ class DefaultDiagnosticTests(unittest.TestCase):
         self.assertTrue(self.pipeline("B") == ["compile-A", "compile-B"])
 
     def test_existing_workflow_timeouts_and_commands_are_unchanged(self):
-        workflow = (ROOT / ".github/workflows/game-build.yml").read_text()
+        projection = load("default_diagnostic_budget_projection",
+                          ROOT / "tests/defensive-presnap-switch/test_ci.py")
+        context = workflow_context(projection)
+        workflow = context["outer"]
         self.assertTrue(workflow.count("timeout-minutes: 90") == 1 and workflow.count("timeout-minutes: 40") == 1)
+        player = (context["outerRoot"] / projection.PLAYER).read_text()
+        projection.inherited_player(player)
+        self.assertTrue(player.count("timeout-minutes: 10") == 1)
         self.assertTrue("tests/selection-countdown/test_ci.py --authority" in workflow)
         self.assertTrue("tests/selection-countdown/run.py --fixture" in workflow)
         self.assertNotIn("default_diagnostic.py", workflow)
@@ -498,11 +563,48 @@ class DefaultDiagnosticTests(unittest.TestCase):
         projection = load("default_diagnostic_existing_projection",
                           ROOT / "tests/defensive-presnap-switch/test_ci.py")
         selection = load("default_diagnostic_inherited_selection", HERE / "test_ci.py")
-        text = projection.inherited_game((ROOT / projection.GAME).read_text())
+        with patch.object(projection, "inherited_game", wraps=projection.inherited_game) as transform:
+            context = workflow_context(projection)
+        self.assertEqual(transform.call_count, 1 if context["kind"] == "outer" else 0)
+        text = context["inherited"]
         selection.validate_workflow(text)
         self.assertTrue(diagnostic.sha(text.encode()) == projection.INHERITED_GAME_SHA256)
         self.assertTrue(selection.BASE_WORKFLOW_SHA256 ==
                         "1016fb32a3a24b2f020c1cd75bb8e348dd92c789bf70378f85afffd992681e06")
+        # Mutate actual complete input bytes; no hand-authored workflow or repin.
+        real_read = Path.read_bytes
+        for label, path, before, after in (
+            ("working", context["workingPath"], b"timeout-minutes:", b"timeout-minutes: "),
+            ("outer", context["outerRoot"] / projection.GAME,
+             b"timeout-minutes: 90", b"timeout-minutes: 91"),
+        ):
+            original = real_read(path)
+            self.assertIn(before, original)
+            changed = original.replace(before, after, 1)
+            def mutated_read(candidate):
+                return changed if candidate == path else real_read(candidate)
+            with self.subTest(tampered=label), patch.object(Path, "read_bytes", mutated_read):
+                with self.assertRaisesRegex(AssertionError, "workflow context"):
+                    workflow_context(projection)
+        if context["kind"] == "outer":
+            bad = text.replace("timeout-minutes: 40", "timeout-minutes: 41", 1)
+            with patch.object(projection, "inherited_game", return_value=bad):
+                with self.assertRaisesRegex(AssertionError, "projection changed"):
+                    workflow_context(projection)
+        else:
+            with patch.object(projection, "inherited_game", side_effect=AssertionError("projected twice")):
+                self.assertEqual(workflow_context(projection)["inherited"], text)
+            with patch.dict(os.environ, GIT_WORK_TREE=str(context["outerRoot"])):
+                with self.assertRaisesRegex(AssertionError, "caller exports"):
+                    workflow_context(projection)
+            receipt_path = ROOT / ".squad/.scratch/ci-workspace.json"
+            receipt = json.loads(real_read(receipt_path))
+            receipt["input_game_sha256"] = "0" * 64
+            changed_receipt = json.dumps(receipt).encode()
+            with patch.object(Path, "read_bytes", lambda path:
+                              changed_receipt if path == receipt_path else real_read(path)):
+                with self.assertRaisesRegex(AssertionError, "bootstrap receipt"):
+                    workflow_context(projection)
 
 
 def required_suite():
