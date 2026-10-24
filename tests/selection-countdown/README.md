@@ -48,8 +48,8 @@ compiler diagnostics. It does not override the runtime's tiered-JIT defaults.
 The final full baseline reexecutes this invocation's verified unchanged baseline
 assembly in a new output root; it never reuses a previous run or an acceptance
 receipt. Every mutated control still compiles separately. After controls finish,
-the final full baseline and the independent, internally serial main40/current
-default-compatibility builds share the same explicit one/two-worker bound.
+the final full baseline and the independent, internally serial default-compatibility
+diagnostic share the same explicit one/two-worker bound.
 There are never three concurrent managed build/execution children.
 
 Negative controls use a fixed, explicit 42-control scope contract in both Python
@@ -120,8 +120,9 @@ current production. Each tree uses its own `FullKernelInputs.cs`: the baseline
 loader is authenticated from that same pinned Git tree, while current production
 uses the current loader. This keeps later opt-in APIs out of the older compile
 closure without removing either generation's production sources. Receipts retain
-each loader's hash. Both builds require exit zero and empty compiler stdout/stderr;
-failures report the tree label, exit status, log path and full diagnostics.
+each loader's hash. Both builds require exit zero and empty compiler stdout/stderr.
+Diagnostic failures expose only the phase/label, exit status, private log path,
+length and SHA256 of each stream, never source, state or RNG values.
 The same authored untriggered seed1 script runs1,200 host steps
 through actual kickoff, menus and live play. Host/player/process/HUD bytes, menu
 events and **every** shared RNG call must be byte-identical. This is neither a
@@ -130,6 +131,70 @@ recordings, gzip/recipes, controller, seed and unfiltered vector remain immutabl
 The inherited generation helper separately pins the new78-file production source
 and retains the timer recording's original source pin; its four probes and full
 current M1 stage are not removed or relabelled.
+
+### Default three-way diagnostic, not a compatibility repair
+
+The same existing compatibility invocation now proposes exactly three serial
+compilations, followed by three serial actual default windows:
+
+- **A:** pinned main40 production and its own loader.
+- **B:** the unchanged current94-file production closure and its own loader.
+- **C:** B with only the authenticated historical `Fraction` body from commit
+  `6816d64440ac83e4228247a8a571ab930850b5a5`, recovered from its regular Git blob.
+  `StreamFrame` and every other production byte remain current. C exists only
+  in a private runtime copy, never in a shipping source or reference.
+
+The original A/B windows are reused, not followed by a second campaign. The
+increment is one compilation and one window. Each window has one authenticated
+M1 constructor, 1,200 `AdvanceSource` calls, 1,140 source wakes, and one unfiltered
+seed1 stream capped at1,024 actual raw callbacks including construction
+(totals3 constructors/3,600 hosts/3,420 wakes/3,072 raw callbacks). One shared
+Python authority rejects before the guarded constructor/factory, host step,
+predicted source wake, raw callback or excess result byte. It counts constructor
+entry at the public RNG factory inside `Restart`, before initialization draws.
+The common copied driver differs only by exact reversible counting/I/O wrappers.
+The public raw factory returns the same concrete `SourceInjectedRandom` instance,
+with identical source-derived seed, `NextInt` statements and preview provenance.
+No extra observation step, retry, new seed or fourth driver is permitted.
+
+Every actual PE/PDB and all97 compiled source documents are sealed and parsed
+without CLR/reflection before the first Game; all three compilations must pass
+first. The CLI MethodDef token must resolve to the actual static
+`DefaultCabinetChecks.Main(string[])` returning int32, not merely contain its
+name. Actual SDK/compiler,167 references and manifest-named compiler companions,
+both explicit prepared input roots and all four remaining input paths are
+byte-sealed. No extra original input is acquired or copied.
+
+All nine AB/AC/BC file byte comparisons complete before field explanations.
+Only lengths/hashes/counts, host ordinal, JSON field path and byte offset enter
+the public diagnostic. `diagnostic.json` is sanitized metadata, and a compact
+metadata projection is printed **before** the unchanged final strict A/B equality
+guard. C matching A cannot pass acceptance; the existing491-raw/four-selection
+validator and main40 baseline/tree remain unchanged.
+
+The boundary is the **existing ordinary hosted Core job**, not the failed private
+host experiment: no new Landlock policy, `RLIMIT_FSIZE`, W^X toggle, SDK query,
+runtime startup probe or claim of shared-host startup sufficiency is introduced.
+The trusted pinned compiler retains normal job permissions. PE/PDB are capped
+at16MiB **after compilation and before any Game**; this is not a kernel pre-write
+quota for compiler/CLR internal files. This distinction requires review, not a
+claim of general filesystem isolation.
+
+Source/control/data copies use a fresh exclusive owner-private0700 directory in
+Linux shared memory, outside the workspace artifact tree; files and raw outputs
+are0600. Original prepared inputs are read in place. Captured child stdout/stderr
+are each capped at128KiB before a log write. Guarded host/RNG/menu writes are
+capped before consumption at64MiB/1MiB/256KiB per window. Raw files are neither
+logged nor uploaded; only the exact owned private root is removed on return or
+failure. Directory/ownership/symlink refusal has no workspace/FUSE privacy
+fallback. Existing workflow commands,90/40/10 job budgets, original100 frozen
+test names and nine required generation guards are not changed.
+
+Seventeen explicitly enumerated Python/static diagnostic witnesses are added to
+the existing `test_ci.py` suite. They exercise synthetic callbacks/bytes and the
+actual wrapper/acceptance path without compiling or constructing Game. A
+successful implementation test is not default-driver or causal CI evidence;
+material Quality review and separately authorized ordinary CI are still required.
 
 The real prepared `SourcePlayer.Checks` also supports `--random-selection-only`:
 ordinary `PlayerHost.Capture`/Continue reach and perform the gesture, validating the

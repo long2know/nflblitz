@@ -1,8 +1,8 @@
 """Byte-compare real untriggered Core/cabinet/bridge/HUD and every raw RNG call with pinned main40."""
 import hashlib
+import importlib.util
 import io
 import json
-import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -13,6 +13,20 @@ HERE = Path(__file__).resolve().parent
 BASE = "e3157c42df9a5f09d534f689339495429e778768"
 TREE = "7793a6257537fb165e97f7316cc8e6d97b2e72fe"
 FIXTURE_LOADER = "tests/parity/FullKernelInputs.cs"
+LOADER_SHA256 = {
+    "main40": "c0c6b4dcd84e8780dfffc66b29671af3d656ee59f01efd33e6746cf58e08c745",
+    "current": "2f6ed6c7bd4bc844f7c31ae9c9e2a249f274edcbd665857eff216adfba5a0ea6",
+}
+
+
+def diagnostic_module():
+    spec = importlib.util.spec_from_file_location("source_default_diagnostic", HERE / "default_diagnostic.py")
+    module = importlib.util.module_from_spec(spec)
+    # Dataclass metadata must resolve the actual, uniquely named imported module.
+    import sys
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def require(value, message):
@@ -58,60 +72,50 @@ def generate(args, output, production, compiler, references):
     baseline = source_baseline(sorted([*production, FIXTURE_LOADER]))
     loaders = {"main40": baseline.pop(FIXTURE_LOADER),
                "current": (ROOT / FIXTURE_LOADER).read_bytes()}
+    require({name: hashlib.sha256(raw).hexdigest() for name, raw in loaders.items()} == LOADER_SHA256,
+        "Each exact source tree must retain its own authenticated fixture loader.")
     common = {"DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes()}
     receipt = dict(schema="untriggered-cabinet-byte-compatibility/v1", base=BASE, tree=TREE,
                    commands=[], runs=[], compared={}, originalTargetRandomQualified=False,
                    fullPublicReplayRegenerated=False, hostedOrFullM1Campaign=False,
                    harnessSha256={n: hashlib.sha256(b).hexdigest() for n, b in common.items()},
                    fixtureLoaderPath=FIXTURE_LOADER)
-    for label, source in (("main40", baseline), ("current", production)):
-        destination = output / label
-        destination.mkdir()
-        paths = []
-        harness = dict(common, **{"FullKernelInputs.cs": loaders[label]})
-        for name, data in dict(source, **harness).items():
-            path = destination / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-            paths.append(path)
-        assembly = destination / "Default.Checks.dll"
-        options = ["-nologo", "-nostdlib+", "-target:exe", "-langversion:7.3", "-warnaserror+", "-deterministic+",
-                   "-optimize+", "-out:" + str(assembly), "-main:DefaultCabinetChecks"]
-        options += ["-r:" + str(p) for p in references] + [str(p) for p in paths]
-        response = destination / "compile.rsp"
-        response.write_text("\n".join(json.dumps(v) for v in options) + "\n")
-        env = dict(os.environ, TMPDIR=str(destination), TMP=str(destination), TEMP=str(destination),
-                   DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1")
-        command = ["dotnet", str(compiler), "-noconfig", "@" + str(response)]
-        compile_start = time.monotonic()
-        build = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
-        compile_seconds = round(time.monotonic() - compile_start, 3)
-        receipt["commands"].append(command)
-        (destination / "compile.log").write_text(build.stdout + build.stderr)
-        require(build.returncode == 0 and not build.stdout + build.stderr,
-                "Default compatibility compilation must have zero diagnostics (" + label +
-                ", exit " + str(build.returncode) + ", log " + str(destination / "compile.log") + "):\n" +
-                build.stdout + build.stderr)
-        assembly.with_suffix(".runtimeconfig.json").write_text(json.dumps({"runtimeOptions": {
-            "tfm": "net10.0", "framework": {"name": "Microsoft.NETCore.App", "version": "10.0.0"}}}))
-        command = ["dotnet", str(assembly)] + [str(getattr(args, n).absolute()) for n in
-            ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")] + [str(destination)]
-        run_start = time.monotonic()
-        run = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
-        receipt["commands"].append(command)
-        (destination / "run.log").write_text(run.stdout + run.stderr)
-        require(run.returncode == 0 and not run.stderr,
-                "Actual default Core/cabinet compatibility execution failed: " + run.stdout + run.stderr)
-        receipt["runs"].append(dict(name=label, compile=build.returncode, diagnostics=build.stdout + build.stderr,
-            exit=run.returncode, summary=json.loads(run.stdout),
-            compileSeconds=compile_seconds, executeSeconds=round(time.monotonic() - run_start, 3),
-            buildRoot=str(destination), runtimeRoot=str(destination),
-            harnessSha256={n: hashlib.sha256(b).hexdigest() for n, b in harness.items()},
-            sources={n: hashlib.sha256(b).hexdigest() for n, b in source.items()}))
-    for name in ("default-host.jsonl", "default-rng.json", "default-menu.json"):
-        a, b = [(output / label / name).read_bytes() for label in ("main40", "current")]
-        require(a == b, "Untriggered actual Core/ordered RNG/HUD bytes changed: " + name)
-        receipt["compared"][name] = dict(bytes=len(a), sha256=hashlib.sha256(a).hexdigest(), byteIdentical=True)
+    diagnostic = diagnostic_module()
+    historical, historical_blob = diagnostic.historical_fraction()
+    current = dict(production)
+    require(len(baseline) == len(current) == 94, "Exact94-file default production closure required.")
+    require([diagnostic.sha(diagnostic.canonical({name: diagnostic.sha(raw) for name, raw in source.items()}))
+             for source in (baseline, current)] == list(diagnostic.PRODUCTION_MAPS),
+            "Pinned main40/current production behavior must remain unchanged for this diagnostic.")
+    control = dict(current)
+    control[diagnostic.BODY_PATH] = diagnostic.one_body_control(current[diagnostic.BODY_PATH], historical)
+    client = (HERE / "DefaultBudget.cs").read_bytes()
+    rng = [diagnostic.verify_random_source(source, client) for source in (baseline, current)]
+    wrapped = diagnostic.guarded_driver(common["DefaultChecks.cs"])
+    provenance = dict(path=diagnostic.BODY_PATH, historicalCommit=diagnostic.HISTORICAL,
+                      historicalBlob=historical_blob, oldBodySha256=diagnostic.OLD_BODY,
+                      currentBodySha256=diagnostic.CURRENT_BODY,
+                      currentFileSha256=diagnostic.sha(current[diagnostic.BODY_PATH]),
+                      controlFileSha256=diagnostic.sha(control[diagnostic.BODY_PATH]),
+                      onlyFractionBodyChanged=True, StreamFrameRemainsCurrent=True, mustNeverShip=True,
+                      randomSourceSeals=rng)
+    with diagnostic.execute_three(args, dict(A=baseline, B=current, C=control),
+            dict(A=loaders["main40"], B=loaders["current"], C=loaders["current"]),
+            compiler, references, wrapped, client, provenance) as evidence:
+        receipt["commands"] = evidence["commands"]
+        receipt["runs"] = [evidence["rows"]["A"], evidence["rows"]["B"]]
+        receipt["diagnosticControl"] = evidence["rows"]["C"]
+        receipt["threeWayDiagnostic"] = evidence["report"]
+        # Metadata is durable and visible BEFORE the existing final acceptance guard.
+        (output / "diagnostic.json").write_text(json.dumps(evidence["report"], indent=2) + "\n")
+        public = {key: value for key, value in evidence["report"].items()
+                  if key not in ("completeInputSeals", "completeToolAndReferenceSeals", "completeCompiledSourceSeals")}
+        public["completeMetadataSha256"] = diagnostic.sha(diagnostic.canonical(evidence["report"]))
+        print("DEFAULT COMPATIBILITY DIAGNOSTIC " + json.dumps(public, sort_keys=True), flush=True)
+        for name in ("default-host.jsonl", "default-rng.json", "default-menu.json"):
+            a, b = [evidence["blobs"][label][name] for label in ("A", "B")]
+            require(a == b, "Untriggered actual Core/ordered RNG/HUD bytes changed: " + name)
+            receipt["compared"][name] = dict(bytes=len(a), sha256=hashlib.sha256(a).hexdigest(), byteIdentical=True)
     receipt["status"] = "passed"
     receipt["seconds"] = round(time.monotonic() - started, 3)
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
