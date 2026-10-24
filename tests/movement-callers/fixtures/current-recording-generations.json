@@ -1,0 +1,14 @@
+{
+  "schema": "source-current-public-input-generations/v1",
+  "source_manifest_sha256": "bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2",
+  "recordings": {
+    "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000": {
+      "recording_generation": "source-selection-countdown/v4",
+      "recipe_sha256": "a3a9b52744c12bbc89c9aa8d4729c7c49dfeca5457868a7bee37f5e0a873a68e"
+    },
+    "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000": {
+      "recording_generation": "source-defensive-presnap-switch/v5",
+      "recipe_sha256": "2091456af6b5fed3e6e8123f34058ba637e884cc1bcefddba91427bbe4639c47"
+    }
+  }
+}

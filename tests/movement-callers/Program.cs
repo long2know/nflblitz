@@ -34,6 +34,49 @@ internal static partial class Program
     private static bool smokeRSkipAdvanced;
     private static SourceCacheWitness smokeCache;
     private static GameSimulation activeGame;
+    private static readonly List<GameSimulation> executionGames = new List<GameSimulation>();
+    private static readonly List<SourceInjectedRandom> executionRandoms = new List<SourceInjectedRandom>();
+    private static readonly Dictionary<GameSimulation, long> executionInitialTicks = new Dictionary<GameSimulation, long>();
+    private static int executionConstructors, executionAnimationAdvances;
+    private static long executionPreviousHostSteps;
+
+    private static void RetainExecutionRandom(ISourceRandom random)
+    {
+        SourceInjectedRandom injected = random as SourceInjectedRandom;
+        if (injected == null) throw new InvalidOperationException("Execution accounting requires the actual injected trace.");
+        if (!executionRandoms.Contains(injected)) executionRandoms.Add(injected);
+    }
+
+    private static void RetainExecutionGame(GameSimulation game)
+    {
+        executionGames.Add(game);
+        executionInitialTicks.Add(game, game.Model.Tick);
+        RetainExecutionRandom(game.SourceRandomService);
+    }
+
+    private static void RetainExecutionEpoch(GameSimulation game)
+    {
+        executionPreviousHostSteps += game.Model.Tick - executionInitialTicks[game];
+        RetainExecutionRandom(game.SourceRandomService);
+    }
+
+    private static void SaveExecutionCounts()
+    {
+        if (outputRoot == null || executionConstructors == 0) return;
+        foreach (GameSimulation game in executionGames) RetainExecutionRandom(game.SourceRandomService);
+        long hosts = executionPreviousHostSteps + executionGames.Sum(game => game.Model.Tick - executionInitialTicks[game]);
+        long raw = executionRandoms.Sum(random => (long)random.Trace.Count(draw => draw.Raw.HasValue));
+        long dispatches = executionRandoms.Sum(random => (long)random.Trace.Count);
+        bool bounded = hosts >= 0 && hosts + executionAnimationAdvances <= 12000 && raw <= 32768;
+        File.WriteAllText(Path.Combine(outputRoot, "execution-counts.json"), JsonSerializer.Serialize(new {
+            schema = "movement-driver-execution-counts/v1", gameConstructors = executionConstructors,
+            hostStepCalls = hosts, directAnimationAdvanceCalls = executionAnimationAdvances,
+            hostOrAdvanceCalls = hosts + executionAnimationAdvances, unfilteredRawNextValues = raw,
+            randomDispatches = dispatches, withinPerDriverBudget = bounded,
+            noAdditionalRandomDrawsOrSourceWakes = true
+        }));
+        if (!bounded) throw new InvalidOperationException("Actual movement driver host/raw allocation exceeded.");
+    }
 
     private static bool SameBits(SourceVector3 first, SourceVector3 second)
     {
@@ -458,6 +501,10 @@ internal static partial class Program
             Console.WriteLine(JsonSerializer.Serialize(result));
             return 2;
         }
+        finally
+        {
+            SaveExecutionCounts();
+        }
     }
 
     private static void Save(string name, string content)
@@ -471,6 +518,12 @@ internal static partial class Program
         SourceMovementSettings settings = null, SourceCacheWitness cacheWitness = null,
         SourceGameplayCompatibility? compatibility = null, SourceHandicapSettings handicapSettings = null)
     {
+        executionConstructors++;
+        Func<int, ISourceRandom> countedRandom = random == null ? null : new Func<int, ISourceRandom>(seed => {
+            ISourceRandom service = random(seed);
+            RetainExecutionRandom(service);
+            return service;
+        });
         var config = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
             real.IsPreSnapSwitchProfile ? SourceStationLayout.FourStation : SourceStationLayout.TwoStation,
             new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
@@ -480,17 +533,19 @@ internal static partial class Program
         SourceMovementSettings movementSettings = settings ?? new SourceMovementSettings(0, 0, false, 0, 0, false);
         if (cacheWitness == null)
         {
-            activeGame = real.Create(configuration: config, randomFactory: random,
+            activeGame = real.Create(configuration: config, randomFactory: countedRandom,
                 presentation: presentation, movementSettings: movementSettings, camera: camera,
                 compatibility: compatibility ?? gameplayCompatibility, handicapSettings: handicapSettings);
+            RetainExecutionGame(activeGame);
             return activeGame;
         }
         if (real.IsC2M1Profile || real.IsPreSnapSwitchProfile)
             throw new InvalidOperationException("M1 successor cache proof must use actual SourceC2Composition and canonical call-site observation, never a proxy constructor.");
-        var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, random, 1,
+        var game = new GameSimulation(real.Animations, cacheWitness, real.Playbook, config, countedRandom, 1,
             real.Rosters, presentation, real.MovementRuntime, movementSettings, handicapSettings: handicapSettings);
         game.BindSourceSoundVmData(real.SoundFunctions);
         activeGame = game;
+        RetainExecutionGame(game);
         cacheWitness.Bind(game);
         if (camera)
             game.SourceCameraHeadingProvider = (snapshot, tick) =>

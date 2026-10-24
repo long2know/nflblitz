@@ -16,6 +16,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="ContractChecks.cs" />
+    <Compile Include="StreamChecks.cs" />
     <Compile Include="HostAdapterChecks.cs" />
     <Compile Include="FullKernelInputs.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Link="Production/Presentation/SourceCinematicModel.cs" />

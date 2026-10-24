@@ -26,10 +26,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.extend(str(ROOT / name) for name in ("tests/parity", "tools/rosters", "tools/assets"))
 GAME = ".github/workflows/game-build.yml"
 PLAYER = ".github/workflows/source-player.yml"
-INHERITED_GAME_SHA256 = "b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241"
+INHERITED_GAME_SHA256 = "94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8"
 INHERITED_PLAYER_SHA256 = "4c36ba39d722b1395d61d2be55140faeec4db7dfe17d361a94e7c7f846ebaa3c"
 SDK_COMMAND = r"""printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json"""
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+ORIGINAL_CHECKOUT_STEP = (
+    "      - uses: " + CHECKOUT + " # v7\n"
+    "        with:\n          persist-credentials: false\n"
+)
+FULL_HISTORY_CHECKOUT_STEP = ORIGINAL_CHECKOUT_STEP + "          fetch-depth: 0\n"
 NODE = "actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38"
 DOTNET = "actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68"
 CI = "python3 -B tests/defensive-presnap-switch/test_ci.py"
@@ -37,15 +42,15 @@ WORKSPACE = ".squad/.scratch/defensive-switch-ci/new-workspace"
 LEGACY_WORKSPACE = ".squad/.scratch/defensive-switch-ci/inherited-workspace"
 D = ".squad/.scratch/SourceData/defensive-presnap-switch-ci"
 O = ".squad/.scratch/defensive-presnap-switch-ci"
-CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-12000"
+CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
 OLD_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 BASE558_SHA256 = "d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134"
 PLAYER563_SHA256 = "150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6"
-PUBLIC_SHA256 = "556ba823b68767e8c6a302d9d59a231fbb457720723a372bf830d57fc8bdd975"
-GZIP_SHA256 = "9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40"
-RECIPE_SHA256 = "33ad526af04fe567f3f9523510c6f394b939a6496f03167e82a87bedd5416fbf"
+PUBLIC_SHA256 = "3ff126291e7d0e8a8dedf58ba3222a89a04567ae393f42e8168e2c77bf5e270e"
+GZIP_SHA256 = "610ee038927a4a9e40efbd1b5fcb6903c8afc569da0e0f2593255843daa8ba12"
+RECIPE_SHA256 = "2091456af6b5fed3e6e8123f34058ba637e884cc1bcefddba91427bbe4639c47"
 FOCUSED_CONTROLS = (
     "strict-counter-boundary", "cyclic-not-nearest", "occupied-skip",
     "ten-loop-unconditional-assignment", "fake-B-external-edge-reinjection",
@@ -241,6 +246,7 @@ def new_job():
         "    steps:\n"
         "      - uses: " + CHECKOUT + " # v7\n"
         "        with:\n          persist-credentials: false\n"
+        "          fetch-depth: 0\n"
         "      - uses: " + NODE + " # v6\n"
         "        with:\n          node-version: '24.11.1'\n"
         "      - uses: " + DOTNET + " # v6\n"
@@ -261,6 +267,7 @@ def inherited_game(text):
     # Keep historical guards byte-faithful while reversing only the approved current core budget.
     text = remove_once(text, CURRENT_CORE_BUDGET, HISTORICAL_CORE_BUDGET)
     text = remove_once(text, new_job())
+    text = remove_once(text, FULL_HISTORY_CHECKOUT_STEP, ORIGINAL_CHECKOUT_STEP)
     text = remove_once(text, LEGACY_DEFAULTS)
     text = remove_once(text, LEGACY_BOOTSTRAP)
     text = remove_once(text, BROWSER_STEP, ORIGINAL_BROWSER_STEP)
@@ -275,6 +282,7 @@ def inherited_game(text):
 
 
 def inherited_player(text):
+    text = remove_once(text, FULL_HISTORY_CHECKOUT_STEP, ORIGINAL_CHECKOUT_STEP)
     for path in PLAYER_PATH_ADDITIONS:
         addition = "      - '" + path + "'\n"
         require(text.count(addition) == 2, "Both player triggers must cover: " + path)
@@ -962,7 +970,7 @@ def validate_full(directory, full):
                 "Actual full replay receipt differs or is absent: " + name)
         require(canonical.require_m1_replay(row["exit_code"], row["summary"], actual, "portable", True) == "positive" and
                 actual.get("replayFileSha256") == PUBLIC_SHA256 and actual.get("preSnapSwitchWitnesses") == 15 and
-                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22781 and
+                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22463 and
                 row["summary"].get("mode") == ("presnap-complete-observed" if name == "isolated-observer" else "presnap-complete") and
                 row["summary"].get("actual_animation_library_manifest") == canonical.PRESNAP_ANIMATION_SHA and
                 row["summary"].get("assertions", 0) > 0,
@@ -1254,8 +1262,10 @@ def checkout_context(text, job):
     environment.update(workflow_environment(steps[0], 8))
     directories = re.findall(r"^        working-directory: (.+)$", header, re.M)
     require(len(directories) <= 1, "One explicit run default is allowed")
+    depths = re.findall(r"^          fetch-depth: (\d+)$", steps[0], re.M)
+    require(len(depths) <= 1, "One explicit checkout history depth is allowed")
     return dict(environment=environment, run_directory=directories[0] if directories else ".",
-                steps=steps)
+                steps=steps, fetch_depth=int(depths[0]) if depths else 1)
 
 
 def empty_runner_checkout(text, job, directory):
@@ -1291,11 +1301,41 @@ def populate_checkout(probe):
     _, git_dir = source_git_identity()
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
                           capture_output=True, text=True, check=True).stdout.strip()
-    # Only this newly initialized fixture gets an index/ref; the source checkout is read-only.
-    for command in (["git", "fetch", "--no-tags", "--depth=1", git_dir, head],
-                    ["git", "update-ref", "HEAD", head], ["git", "read-tree", head]):
+    # Propose current code and a PR merge only inside this isolated source-only fixture.
+    origin = checkout.parent / "source-history.git"
+    subprocess.run(["git", "init", "--bare", str(origin)], env=environment,
+                   capture_output=True, check=True, timeout=30)
+    def fixture_git(*args, raw=None):
+        return subprocess.run(["git", *args], cwd=origin, env=environment, input=raw,
+                              capture_output=True, check=True, timeout=60).stdout
+    fixture_git("fetch", "--no-tags", git_dir, head)
+    fixture_git("read-tree", head)
+    paths = code_paths()
+    changed = subprocess.run(["git", "diff", "--name-only", "-z", "HEAD", "--", *paths], cwd=ROOT,
+                             capture_output=True, check=True).stdout
+    for name in (value.decode() for value in changed.split(b"\0") if value):
+        row = fixture_git("ls-tree", head, "--", name).decode().strip()
+        require(row and row.split()[1] == "blob", "Proposed source must already be tracked: " + name)
+        blob = fixture_git("hash-object", "-w", "--stdin", raw=(ROOT / name).read_bytes()).decode().strip()
+        fixture_git("update-index", "--cacheinfo", row.split()[0] + "," + blob + "," + name)
+    tree = fixture_git("write-tree").decode().strip()
+    environment.update(GIT_AUTHOR_NAME="CI fixture", GIT_AUTHOR_EMAIL="fixture.invalid",
+                       GIT_COMMITTER_NAME="CI fixture", GIT_COMMITTER_EMAIL="fixture.invalid",
+                       GIT_AUTHOR_DATE="2026-10-23T00:00:00Z", GIT_COMMITTER_DATE="2026-10-23T00:00:00Z")
+    proposed = fixture_git("commit-tree", tree, "-p", head, raw=b"Proposed static source fixture\n").decode().strip()
+    parent = fixture_git("rev-parse", head + "^").decode().strip()
+    merge = fixture_git("commit-tree", tree, "-p", parent, "-p", proposed,
+                        raw=b"Synthetic pull-request checkout fixture\n").decode().strip()
+    fixture_git("update-ref", "refs/heads/ci-checkout", merge)
+    subprocess.run(["git", "remote", "add", "origin", str(origin)], cwd=checkout, env=environment,
+                   capture_output=True, check=True)
+    fetch = ["git", "fetch", "--no-tags"]
+    if probe["context"]["fetch_depth"]:
+        fetch.append("--depth=" + str(probe["context"]["fetch_depth"]))
+    for command in (fetch + ["origin", merge],
+                    ["git", "update-ref", "HEAD", merge], ["git", "read-tree", merge]):
         subprocess.run(command, cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)
-    archive = subprocess.run(["git", "archive", "--format=tar", head], cwd=checkout, env=environment,
+    archive = subprocess.run(["git", "archive", "--format=tar", merge], cwd=checkout, env=environment,
                              capture_output=True, check=True).stdout
     names = set()
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
@@ -1312,14 +1352,15 @@ def populate_checkout(probe):
                 target.write_bytes(source.extractfile(member).read())
                 target.chmod(stat.S_IMODE(member.mode))
                 names.add(member.name)
-    for name in code_paths():
+    for name in paths:
         if name == "global.json" and name not in names:
             require((ROOT / name).read_bytes() == shlex.split(SDK_COMMAND)[1].replace("\\n", "\n").encode(),
                     "Only the exact workflow-generated SDK selection may be absent from the checkout")
             continue
         require(name in names, "The clean fixture must not borrow an uncommitted/ignored dependency: " + name)
-        (checkout / name).write_bytes((ROOT / name).read_bytes())
-    return head
+        require((checkout / name).read_bytes() == (ROOT / name).read_bytes(),
+                "The proposed Git tree must bind the actual current source bytes: " + name)
+    return merge
 
 
 def browser_step_body(game):
@@ -1510,10 +1551,56 @@ class BrowserRuntimeCI(unittest.TestCase):
 class CheckoutBootstrapCI(unittest.TestCase):
     def setUp(self):
         self.directory = ROOT / ".squad/.scratch" / ("ci-checkout-bootstrap-" + uuid.uuid4().hex)
-        self.directory.mkdir(parents=True)
+        self.directory.mkdir(parents=True, mode=0o700)
 
     def tearDown(self):
         shutil.rmtree(self.directory)
+
+    def snapshot_history(self, cwd, environment):
+        script = """
+import json
+import sys
+sys.path.insert(0, "tests/movement-callers")
+import check_replay_generations as g
+snapshots = {
+    "u2": g.u2_current_snapshot()[1],
+    "main38": g.historical_snapshot(g.BASELINE_REF)[1],
+    "main39": g.historical_snapshot(g.PREVIOUS_REF, previous=True)[1],
+    "pr41": g.current_snapshot()[1],
+    "near-frame": g.near_frame_snapshot()[1],
+}
+fields = ("commit", "tree", "source_count", "source_manifest_sha256", "harness_count", "harness_manifest_sha256")
+controller = "tests/movement-callers/PortablePublicPolicy.cs"
+print(json.dumps({name: dict({key: identity.get(key) for key in fields},
+    controller_sha256=identity["files_sha256"][controller]) for name, identity in snapshots.items()}))
+"""
+        return subprocess.run([sys.executable, "-B", "-c", script], cwd=cwd, env=environment,
+                              capture_output=True, text=True, timeout=120)
+
+    def assert_snapshot_history(self, cwd, environment):
+        process = self.snapshot_history(cwd, environment)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        generations = load("defensive_ci_checkout_generations", "tests/movement-callers/check_replay_generations.py")
+        expected = {}
+        for name, ref, tree, count, source, harness in (
+            ("u2", generations.U2_ARCHIVE_REF, generations.U2_ARCHIVE_TREE, 78,
+             generations.U2_CURRENT_SOURCE_SHA256, generations.U2_HARNESS_SHA256),
+            ("main38", generations.BASELINE_REF, generations.BASELINE_TREE, 76,
+             generations.BASELINE_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("main39", generations.PREVIOUS_REF, generations.PREVIOUS_TREE, 77,
+             generations.PREVIOUS_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("pr41", generations.CURRENT_REF, generations.CURRENT_TREE, 78,
+             generations.CURRENT_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("near-frame", None, None, 78, generations.U2_CURRENT_SOURCE_SHA256,
+             generations.NEAR_FRAME_HARNESS_SHA256),
+        ):
+            expected[name] = dict(commit=ref, tree=tree, source_count=count, source_manifest_sha256=source,
+                harness_count=12, harness_manifest_sha256=harness,
+                controller_sha256="e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d")
+        self.assertEqual(json.loads(process.stdout), expected)
+        process = subprocess.run(["git", "rev-parse", "--is-shallow-repository"], cwd=cwd, env=environment,
+                                 capture_output=True, text=True, check=True)
+        self.assertEqual(process.stdout.strip(), "false")
 
     def test_real_empty_runner_checkout_ignores_later_run_defaults_for_all_three_jobs(self):
         for workflow, jobs in ((GAME, ("core-and-tooling", "defensive-presnap-switch")),
@@ -1550,6 +1637,52 @@ class CheckoutBootstrapCI(unittest.TestCase):
                     self.assertFalse((probe["workspace"] / ".squad").exists())
                     with self.assertRaises(AssertionError):
                         validate_workflows(mutant, player)
+
+    def test_actual_host_full_history_authenticates_archives_and_rejects_substituted_parent(self):
+        probe = empty_runner_checkout((ROOT / PLAYER).read_text(), "asset-free", self.directory / "asset-free")
+        self.assertEqual(probe["exit"], 0, probe["stderr"])
+        merge = populate_checkout(probe)
+        checkout, environment = probe["workspace"], probe["environment"]
+        self.assertFalse((checkout / ".git/objects/info/alternates").exists())
+        parents = subprocess.run(["git", "rev-list", "--parents", "-n", "1", merge], cwd=checkout,
+                                 env=environment, capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(len(parents), 3, "Exercise an actual two-parent PR merge checkout, not a borrowed live HEAD")
+        self.assert_snapshot_history(checkout, environment)
+        path = checkout / "tests/movement-callers/check_replay_generations.py"
+        source = path.read_text()
+        anchor = 'U2_ARCHIVE_REF = "df75bd647b1b7bc902e0eae8520ee42e8af62d1e"'
+        self.assertEqual(source.count(anchor), 1)
+        path.write_text(source.replace(anchor, 'U2_ARCHIVE_REF = "c339efcccc7caf82fb1c3533bf952dc4d3f3600e"', 1))
+        process = self.snapshot_history(checkout, environment)
+        self.assertEqual(process.returncode, 1, process.stdout + process.stderr)
+        self.assertIn("exact archived U2 source/tree required", process.stderr)
+        self.assertNotIn("CalledProcessError", process.stderr)
+
+    def test_shallow_history_reproduces_exact_missing_parent_in_host_and_both_game_views(self):
+        for workflow, job in ((PLAYER, "asset-free"), (GAME, "core-and-tooling"),
+                              (GAME, "defensive-presnap-switch")):
+            with self.subTest(job=job):
+                probe = empty_runner_checkout((ROOT / workflow).read_text(), job, self.directory / job)
+                self.assertEqual(probe["exit"], 0, probe["stderr"])
+                # Keep submitted code fixed while restoring the hosted depth-one object graph.
+                probe["context"]["fetch_depth"] = 1
+                populate_checkout(probe)
+                checkout, environment = probe["workspace"], probe["environment"]
+                cwd = checkout
+                if job != "asset-free":
+                    step = next(step for step in probe["context"]["steps"] if CI + " workspace --output " in step)
+                    command = re.search(r"^        run: (.+)$", step, re.M)[1]
+                    process = subprocess.run(shlex.split(command), cwd=checkout, env=environment,
+                                             capture_output=True, text=True, timeout=120)
+                    self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                    cwd = checkout / probe["context"]["run_directory"]
+                    exported = dict(line.split("=", 1) for line in Path(environment["GITHUB_ENV"]).read_text().splitlines())
+                    environment = dict(environment, **exported)
+                self.assertFalse((checkout / ".git/objects/info/alternates").exists())
+                process = self.snapshot_history(cwd, environment)
+                self.assertEqual(process.returncode, 1, process.stdout + process.stderr)
+                self.assertIn("'rev-parse', 'df75bd647b1b7bc902e0eae8520ee42e8af62d1e^{tree}'", process.stderr)
+                self.assertIn("exit status 128", process.stderr)
 
     def test_both_actual_postcheckout_bootstraps_export_verified_source_and_runtime_git_views(self):
         game = (ROOT / GAME).read_text()
@@ -1597,12 +1730,34 @@ class CheckoutBootstrapCI(unittest.TestCase):
                     process = subprocess.run(["git", "ls-files", "--", *projects], cwd=cwd, env=env,
                                              capture_output=True, text=True, check=True)
                     self.assertEqual(process.stdout.splitlines(), projects)
+                    self.assert_snapshot_history(cwd, env)
+                    process = subprocess.run(["git", "show", "HEAD:" + GAME], cwd=cwd, env=env,
+                                             capture_output=True, check=True)
+                    self.assertEqual(sha(process.stdout), receipt["input_game_sha256"])
 
 
 class DefensiveCI(unittest.TestCase):
     def test_actual_workflows_have_exact_required_parallel_job_and_reversible_old_hashes(self):
         inherited = validate_workflows((ROOT / GAME).read_text(), (ROOT / PLAYER).read_text())
         self.assertEqual(sha(inherited.encode()), INHERITED_GAME_SHA256)
+
+    def test_every_production_checkout_requires_exact_full_history_and_reversible_old_views(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        self.assertEqual(game.count(FULL_HISTORY_CHECKOUT_STEP), 2)
+        self.assertEqual(player.count(FULL_HISTORY_CHECKOUT_STEP), 1)
+        self.assertEqual(sha(inherited_game(game).encode()), INHERITED_GAME_SHA256)
+        self.assertEqual(sha(inherited_player(player).encode()), INHERITED_PLAYER_SHA256)
+        for workflow, job in ((GAME, "core-and-tooling"), (GAME, "defensive-presnap-switch"), (PLAYER, "asset-free")):
+            text = game if workflow == GAME else player
+            step = checkout_context(text, job)["steps"][0]
+            self.assertEqual(checkout_context(text, job)["fetch_depth"], 0)
+            start = text.index("  " + job + ":\n")
+            for replacement in ("", "          fetch-depth: 1\n", "          fetch-depth: 2\n",
+                                "          fetch-depth: '0'\n", "          fetch-depth: 0\n" * 2):
+                changed = text[:start] + text[start:].replace(step, step.replace("          fetch-depth: 0\n", replacement), 1)
+                with self.subTest(job=job, depth=replacement), self.assertRaises(AssertionError):
+                    validate_workflows(changed if workflow == GAME else game,
+                                       changed if workflow == PLAYER else player)
 
     def test_only_exact_core90_budget_adjustment_is_reversible(self):
         game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
@@ -1723,7 +1878,7 @@ class DefensiveCI(unittest.TestCase):
         for field, value in (("rawVector", [1]), ("poses", []), ("state", {}), ("sourceprofile", "old")):
             recipe = json.loads((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes())
             with self.subTest(field=field), self.assertRaises(ValueError):
-                replay.validate_presnap_recipe(dict(recipe, **{field: value}))
+                replay.validate_current_recipe(dict(recipe, **{field: value}), CASE)
 
     def test_actual_helper_compile_and_metadata_closures_are_present(self):
         self.assertTrue((HERE / "oracle.py").is_file())

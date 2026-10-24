@@ -71,7 +71,7 @@ CURRENT_M1_COMMAND = OLD_M1_COMMAND.replace(OLD_PUBLIC_REPLAY, CURRENT_PUBLIC_RE
 CURRENT_M1_STEP = ("      - name: Compare original movement callers and post-animation physics\n"
                    "        # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.\n"
                    "        run: " + CURRENT_M1_COMMAND + "\n")
-TIMER_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+TIMER_PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000"
 TIMER_M1_COMMAND = CURRENT_M1_COMMAND.replace(CURRENT_PUBLIC_CASE, TIMER_PUBLIC_CASE)
 TIMER_M1_STEP = CURRENT_M1_STEP.replace(CURRENT_M1_COMMAND, TIMER_M1_COMMAND)
 REVISION_GENERATION_COMMAND = (GENERATION_COMMAND +

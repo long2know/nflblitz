@@ -36,7 +36,7 @@ RUN_COMMAND = ("python3 -B tests/selection-countdown/run.py "
 TIMER_STEP = ("      - name: Compare original selection countdown and actual cabinet timeout\n"
     "        run: |\n          " + GUARD_COMMAND + "\n          " + RUN_COMMAND + "\n")
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
-TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+TIMER_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000"
 TIMER_PREPARE_STEP = ("      - name: Prepare source-timer public replay input without simulation\n"
     "        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare "
     f"--case {TIMER_CASE} --fixture tests/movement-callers/fixtures/{TIMER_CASE}.jsonl.gz "
@@ -90,6 +90,7 @@ def load(name, path):
 
 
 run = load("selection_countdown_runner_guards", HERE / "run.py")
+default_diagnostic_tests = load("selection_countdown_default_diagnostic_guards", HERE / "test_default_diagnostic.py")
 
 
 def validate_workflow(text):
@@ -521,78 +522,42 @@ class SelectionCI(unittest.TestCase):
             os.chdir(previous)
 
     def test_default_compatibility_compiles_each_trees_own_fixture_loader(self):
-        compatibility = run.compatibility
-        name = "Assets/Production.cs"
-        production = {name: b"current production"}
-        baseline = {name: b"pinned production", compatibility.FIXTURE_LOADER: b"pinned fixture loader"}
-        loaders = {"main40": baseline[compatibility.FIXTURE_LOADER],
-                   "current": (ROOT / compatibility.FIXTURE_LOADER).read_bytes()}
-        calls = []
-        summary = dict(status="passed", hosts=1200, SourceTick=1140, rawCalls=491,
-                       selections=4, defaultSeed=1, rawVectorFiltered=False)
-        args = argparse.Namespace(**{n: self.output / n for n in
-            ("fixture", "sound", "m1", "impact", "normal", "speech", "hud")})
-
-        def execute(command, **kwargs):
-            if command[-1].startswith("@"):
-                response = Path(command[-1][1:])
-                label = response.parent.name
-                options = [json.loads(line) for line in response.read_text().splitlines()]
-                sources = {Path(p).relative_to(response.parent).as_posix(): Path(p).read_bytes()
-                           for p in options if p.endswith(".cs")}
-                self.assertEqual(sources, {
-                    name: baseline[name] if label == "main40" else production[name],
-                    "FullKernelInputs.cs": loaders[label],
-                    "DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes(),
-                })
-                calls.append("compile-" + label)
-                return subprocess.CompletedProcess(command, 0, "", "")
-            destination = Path(command[-1])
-            calls.append("execute-" + destination.name)
-            for trace in ("default-host.jsonl", "default-rng.json", "default-menu.json"):
-                (destination / trace).write_bytes(b"identical unfiltered trace")
-            return subprocess.CompletedProcess(command, 0, json.dumps(summary), "")
-
-        with patch.object(compatibility, "source_baseline", return_value=dict(baseline)) as selected, \
-                patch.object(compatibility.subprocess, "run", side_effect=execute):
-            receipt = compatibility.generate(args, self.output / "default-loaders", production,
-                                             self.output / "compiler.dll", [])
-        selected.assert_called_once_with(sorted([name, compatibility.FIXTURE_LOADER]))
-        self.assertEqual(calls, ["compile-main40", "execute-main40", "compile-current", "execute-current"])
+        receipt, calls, _ = default_diagnostic_tests.mock_generate(self, self.output / "default-loaders")
+        self.assertEqual(calls, ["compile-A", "compile-B", "compile-C", "execute-A", "execute-B", "execute-C"])
         self.assertEqual(set(receipt["harnessSha256"]), {"DefaultChecks.cs"})
-        self.assertEqual(receipt["fixtureLoaderPath"], compatibility.FIXTURE_LOADER)
+        self.assertEqual(receipt["fixtureLoaderPath"], run.compatibility.FIXTURE_LOADER)
+        loaders = {"main40": b"static-test-own-historical-loader",
+                   "current": (ROOT / run.compatibility.FIXTURE_LOADER).read_bytes(),
+                   "near-frame-control": (ROOT / run.compatibility.FIXTURE_LOADER).read_bytes()}
         for row in receipt["runs"]:
             self.assertEqual(row["harnessSha256"]["FullKernelInputs.cs"],
                              hashlib.sha256(loaders[row["name"]]).hexdigest())
-            self.assertEqual(set(row["sources"]), {name})
-        run.validate_default_compatibility(receipt)
+            self.assertEqual(len(row["sources"]), 94)
+        with default_diagnostic_tests.synthetic_source_bindings(run.compatibility):
+            run.validate_default_compatibility(receipt)
 
     def test_default_compiler_failures_expose_status_and_both_diagnostic_streams(self):
-        compatibility = run.compatibility
         for index, (code, stdout, stderr) in enumerate((
                 (1, "", ""), (1, "error CS0117: missing source API\n", "compiler stderr\n"),
                 (0, "unexpected compiler stdout\n", ""), (0, "", "unexpected compiler stderr\n"))):
-            output = self.output / ("default-diagnostics-" + str(index))
-            with self.subTest(code=code, stdout=stdout, stderr=stderr), \
-                    patch.object(compatibility, "source_baseline",
-                                 return_value={compatibility.FIXTURE_LOADER: b"pinned fixture loader"}), \
-                    patch.object(compatibility.subprocess, "run",
-                                 return_value=subprocess.CompletedProcess([], code, stdout, stderr)), \
-                    self.assertRaises(AssertionError) as failure:
-                compatibility.generate(None, output, {}, self.output / "compiler.dll", [])
-            log = output / "main40/compile.log"
-            self.assertEqual(log.read_text(), stdout + stderr)
-            self.assertEqual(str(failure.exception),
-                "Default compatibility compilation must have zero diagnostics (main40, exit " +
-                str(code) + ", log " + str(log) + "):\n" + stdout + stderr)
+            result = dict(exit=code, diagnostics={
+                name: dict(path="private/" + name, bytes=len(value.encode()),
+                           sha256=hashlib.sha256(value.encode()).hexdigest())
+                for name, value in (("stdout", stdout), ("stderr", stderr))})
+            with self.subTest(code=code), self.assertRaises(AssertionError) as failure:
+                default_diagnostic_tests.diagnostic.child_succeeded(result, "A", True)
+            self.assertIn(str(code), str(failure.exception))
+            self.assertIn("stdout", str(failure.exception))
+            self.assertIn("stderr", str(failure.exception))
+            self.assertIn("sha256", str(failure.exception))
+            self.assertNotIn("missing source API", str(failure.exception))
 
     def test_default_compatibility_cannot_be_empty_filtered_regenerated_or_unpinned(self):
-        summary = dict(hosts=1200, SourceTick=1140, rawCalls=491, selections=4, defaultSeed=1, rawVectorFiltered=False)
-        receipt = dict(status="passed", base=run.compatibility.BASE, tree=run.compatibility.TREE,
-            originalTargetRandomQualified=False, fullPublicReplayRegenerated=False, hostedOrFullM1Campaign=False,
-            runs=[dict(name=n, compile=0, exit=0, diagnostics="", summary=copy.deepcopy(summary)) for n in ("main40", "current")],
-            compared={n: dict(bytes=1, sha256="a" * 64, byteIdentical=True)
-                      for n in ("default-host.jsonl", "default-rng.json", "default-menu.json")})
+        receipt, _, _ = default_diagnostic_tests.mock_generate(self, self.output / "default-projection-policy", True)
+        with default_diagnostic_tests.synthetic_source_bindings(run.compatibility):
+            self.check_default_projection_mutations(receipt)
+
+    def check_default_projection_mutations(self, receipt):
         run.validate_default_compatibility(receipt)
         for key, value in (("base", "HEAD"), ("tree", "0" * 40), ("originalTargetRandomQualified", True),
                            ("fullPublicReplayRegenerated", True), ("hostedOrFullM1Campaign", True)):
@@ -600,7 +565,7 @@ class SelectionCI(unittest.TestCase):
             changed[key] = value
             with self.subTest(field=key), self.assertRaises(AssertionError):
                 run.validate_default_compatibility(changed)
-        for label in (0, 1):
+        for label in (0, 1, 2):
             for field, value in (("hosts", 1199), ("SourceTick", 1139), ("rawCalls", 0), ("rawCalls", 490),
                                  ("selections", 0), ("selections", 3), ("defaultSeed", 2),
                                  ("rawVectorFiltered", True)):
@@ -608,16 +573,18 @@ class SelectionCI(unittest.TestCase):
                 changed["runs"][label]["summary"][field] = value
                 with self.subTest(run=label, field=field), self.assertRaises(AssertionError):
                     run.validate_default_compatibility(changed)
-        for name in receipt["compared"]:
-            for key, value in (("bytes", 0), ("sha256", "0"), ("byteIdentical", False)):
+        for pair, files in receipt["threeWayDiagnostic"]["comparisons"].items():
+            for name in files:
+                for key, value in (("leftBytes", 0), ("leftSha256", "0"),
+                                   ("byteIdentical", not files[name]["byteIdentical"])):
+                    changed = copy.deepcopy(receipt)
+                    changed["threeWayDiagnostic"]["comparisons"][pair][name][key] = value
+                    with self.subTest(pair=pair, trace=name, field=key), self.assertRaises(AssertionError):
+                        run.validate_default_compatibility(changed)
                 changed = copy.deepcopy(receipt)
-                changed["compared"][name][key] = value
-                with self.subTest(trace=name, field=key), self.assertRaises(AssertionError):
+                del changed["threeWayDiagnostic"]["comparisons"][pair][name]
+                with self.subTest(pair=pair, missing=name), self.assertRaises(AssertionError):
                     run.validate_default_compatibility(changed)
-            changed = copy.deepcopy(receipt)
-            del changed["compared"][name]
-            with self.subTest(missing=name), self.assertRaises(AssertionError):
-                run.validate_default_compatibility(changed)
     def test_every_timer_dependency_is_in_the_inherited_pinned_acquisition_union(self):
         fetch = load("selection_inherited_acquisition", ROOT / "tests/presentation/possession-services/fetch_inputs.py")
         recipe, inputs = fetch.catalog()
@@ -663,7 +630,9 @@ def main():
         parser.error("Use a NEW ignored worktree-local guard output.")
     output.mkdir(parents=True)
     SelectionCI.authority, SelectionCI.output = args.authority.absolute(), output
-    return not unittest.TextTestRunner(verbosity=1).run(unittest.defaultTestLoader.loadTestsFromTestCase(SelectionCI)).wasSuccessful()
+    suite = unittest.TestSuite((unittest.defaultTestLoader.loadTestsFromTestCase(SelectionCI),
+                               default_diagnostic_tests.required_suite()))
+    return not unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful()
 
 
 if __name__ == "__main__":

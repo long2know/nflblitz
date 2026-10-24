@@ -26,7 +26,9 @@ internal static partial class Program
         game.Step(Raw(SourceButtons.None));
         Check(calls == 2 && observed.Pressed == SourceButtons.None && observed.Released == SourceButtons.None,
             "M1 raw edges execute once, not per render or repeated source wake");
+        RetainExecutionEpoch(game);
         game.Restart();
+        executionInitialTicks[game] = game.Model.Tick;
         game.Step(Raw(SourceButtons.B, SourceButtons.B));
         ((IPendingSourceInput)game).ClearPendingInput();
         game.Step(default(PlayerCommand));

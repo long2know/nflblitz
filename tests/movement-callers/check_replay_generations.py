@@ -32,8 +32,11 @@ CURRENT_SOURCE_SHA256 = "a876fa4b6c286043d9791624904852b6ad7cbfef98f0eaf4d186feb
 HARNESS_SHA256 = "ea910e3039fc8f39b4958c83a535eb5e81c2f3ec29dbfbf15757ece675206b91"
 CURRENT_REF = "c339efcccc7caf82fb1c3533bf952dc4d3f3600e"
 CURRENT_TREE = "c974448da52f2ad7dc74f28e777eee1715ef9dc1"
-U2_CURRENT_SOURCE_SHA256 = "7b08ba4d5734d1e49a7403c327b0b6cb373052e94b81beeac9c694595d7a9a4d"
-U2_HARNESS_SHA256 = "634c9ca7f514b82ab6789f0fac154380f8aa5f7417a68dcc30bf64a446afc501"
+U2_CURRENT_SOURCE_SHA256 = "bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2"
+U2_HARNESS_SHA256 = "e3816f617b1dbd12251d75ead06d5d455e429d34887a5ee7a1a7b4045ad1af97"
+U2_ARCHIVE_REF = "df75bd647b1b7bc902e0eae8520ee42e8af62d1e"
+U2_ARCHIVE_TREE = "970b6ff8d533c621b8bd8ef561b736b474cf2c40"
+NEAR_FRAME_HARNESS_SHA256 = "6924a80b7df99e62ab65a9af9503c23472b548cfc21d70463e1fc71777168a13"
 OLD_PUBLIC_SHA256 = replay.RECORDINGS[replay.POSITIVE_CASE]["public_sha256"]
 POSSESSION_PUBLIC_SHA256 = replay.RECORDINGS[replay.SOURCE_CURRENT_CASE]["public_sha256"]
 FIXTURE_SHA256 = "bc4e0fefc0f86ced01c733cf208abb8471b77ad35815c4d31c685e0de1538d75"
@@ -52,6 +55,18 @@ PROBE_PARTITIONS = {
 }
 ALL_PROBES = PROBE_PARTITIONS["archived-four"] + PROBE_PARTITIONS["u2-current-fifth"]
 PROBE_SOURCES = dict(zip(ALL_PROBES, ("historical", "main39", "main39", "current", "u2-current")))
+CURRENT_OLD_BOUNDARIES = {
+    "near-frame-current-core-v3-stale": {
+        "driver": "core/old", "case": replay.SOURCE_TIMER_CASE, "presnap": False,
+        "hosts": 2879, "tick": 2735, "raw": 4904, "rskip": 0,
+        "guard": "possession=1 phase=0 selectingSide=0 playbook=0 selectingOffense=0 requestingTeam=0",
+    },
+    "near-frame-current-presnap-v4-stale": {
+        "driver": "def/old", "case": replay.PRESNAP_CASE, "presnap": True,
+        "hosts": 11869, "tick": 11275, "raw": 22153, "rskip": 59,
+        "guard": "possession=0 phase=0 selectingSide=0 playbook=1 selectingOffense=1 requestingTeam=0",
+    },
+}
 require = replay.require
 
 
@@ -171,9 +186,32 @@ def current_snapshot():
 
 
 def u2_current_snapshot():
+    """Retain the fifth boundary's exact harness, not the new authoring/counter harness."""
+    tree = git("rev-parse", U2_ARCHIVE_REF + "^{tree}").decode().strip()
+    require(tree == U2_ARCHIVE_TREE, "exact archived U2 source/tree required")
+    names = [p.relative_to(ROOT).as_posix() for p in production_paths()]
+    names += list(canonical.HARNESS)
+    blobs = {}
+    for row in git("ls-tree", "-r", "-z", U2_ARCHIVE_REF, "--", *names).split(b"\0"):
+        if row:
+            meta, name = row.decode().split("\t")
+            mode, kind, blob = meta.split()
+            require(name in names and mode in ("100644", "100755") and kind == "blob",
+                    "archived U2 payload must remain regular selected Git blobs")
+            blobs[name] = blob
+    require(set(blobs) == set(names), "complete exact archived U2 inventory required")
+    raw = git("archive", "--format=tar", U2_ARCHIVE_REF, "--", *sorted(blobs))
+    files = archive_payload(raw, blobs)
+    identity = validate_snapshot(files, 78, U2_CURRENT_SOURCE_SHA256, U2_HARNESS_SHA256)
+    identity.update(commit=U2_ARCHIVE_REF, tree=tree, selected_git_archive_sha256=replay.sha(raw))
+    return files, identity
+
+
+def near_frame_snapshot():
     files = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     files.update({name: (ROOT / name).read_bytes() for name in canonical.HARNESS})
-    return files, validate_snapshot(files, 78, U2_CURRENT_SOURCE_SHA256, U2_HARNESS_SHA256)
+    identity = validate_snapshot(files, 78, replay.CURRENT_SOURCE_SHA256, NEAR_FRAME_HARNESS_SHA256)
+    return files, identity
 
 
 def old_commands(path, case=replay.POSITIVE_CASE):
@@ -306,6 +344,116 @@ def summary_line(stdout):
     return rows[0]
 
 
+def current_old_boundary(name, code, summary, receipt, fault, counts, rows):
+    require(name in CURRENT_OLD_BOUNDARIES, "exact separately named current old-input boundary required")
+    spec = CURRENT_OLD_BOUNDARIES[name]
+    presnap = spec["presnap"]
+    require(code == 2 and summary.get("schema") == "source-movement-caller-checks/v1" and
+            summary.get("status") == "error" and summary.get("public_R_SKIP_gate_qualified") is not True and
+            "mode" not in summary and summary.get("gameplay_compatibility") == "Portable" and
+            summary.get("actual_animation_library_manifest") ==
+            (canonical.PRESNAP_ANIMATION_SHA if presnap else C2_ANIMATION_SHA),
+            "current old input must actually fail, not become positive/UNMET or a generic crash")
+    replay.exact_metadata({key: receipt.get(key) for key in (
+        "schema", "observed", "historical", "gameplayCompatibility", "profile", "sourceData", "factory",
+        "completedHosts", "SourceTick", "rawCursor", "rSkipFrames", "replayFileSha256",
+        "originalPublicVectorRetainedWithoutStateConditionedRegeneration",
+        "sourceAudioDSPOrTargetRngOrFullGameAccepted")}, {
+        "schema": "source-C2-M1-real-factory-public-replay/v1", "observed": False, "historical": False,
+        "gameplayCompatibility": "Portable",
+        "profile": "original-teams-contact282-c2-m1-presnap-switch" if presnap else "original-teams-contact281-c2-m1",
+        "sourceData": canonical.PRESNAP_DATA_SHA if presnap else C2_M1_DATA_SHA,
+        "factory": "REAL SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap else
+                   "REAL SourceC2Composition.CreateM1Simulation",
+        "completedHosts": spec["hosts"], "SourceTick": spec["tick"], "rawCursor": spec["raw"],
+        "rSkipFrames": spec["rskip"], "replayFileSha256": replay.recording(spec["case"])["public_sha256"],
+        "originalPublicVectorRetainedWithoutStateConditionedRegeneration": True,
+        "sourceAudioDSPOrTargetRngOrFullGameAccepted": False,
+    }, "current-old-boundary")
+    require(type(fault) is dict and fault == receipt.get("failure"), "actual identical first fault required")
+    replay.exact_metadata({key: fault.get(key) for key in ("host", "before", "SourceTick")},
+                          dict(host=spec["hosts"] - 1, before=spec["tick"] - 1, SourceTick=spec["tick"]),
+                          "current-old-first-fault")
+    for error in (summary.get("error"), fault.get("error")):
+        require(type(error) is str and error.splitlines()[0] == SIDE_ERROR and
+                "\nSOURCE_SIDE_GUARD_V1 " + spec["guard"] in error,
+                "current old input must fail its exact source-side assertion, never budget/generic exception")
+    require("Program.M1CompleteReplay(" in summary["error"] and
+            "GameSimulation.SelectSourcePlay(" in fault["error"] and
+            "GameSimulation.ApplySourceStationMenuCommands(" in fault["error"],
+            "actual original source-side validator stack required")
+    command = json.loads(json.dumps(fault["command"]))
+    for station in command["StationInputs"]["Stations"]:
+        require(station.pop("IsSpecified", None) is True, "actual station constructor metadata required")
+    row = {"host": spec["hosts"] - 1, "command": command}
+    replay.public_row(row, row["host"])
+    require(len(rows) == 12000 and row == rows[row["host"]],
+            "first fault must consume the exact archived public input, not a rewritten command")
+    replay.exact_metadata(counts, {
+        "schema": "movement-driver-execution-counts/v1", "gameConstructors": 1,
+        "hostStepCalls": spec["hosts"], "directAnimationAdvanceCalls": 0,
+        "hostOrAdvanceCalls": spec["hosts"], "unfilteredRawNextValues": spec["raw"],
+        "randomDispatches": spec["raw"], "withinPerDriverBudget": True,
+        "noAdditionalRandomDrawsOrSourceWakes": True,
+    }, "current-old-actual-counts")
+    return "rejected-" + name + "-playbook-side"
+
+
+def verify_current_boundaries_main(argv):
+    parser = argparse.ArgumentParser(description="Verify two saved actual current old-input negatives; execute no Game.")
+    parser.add_argument("--ledger", type=Path, required=True, action="append")
+    args = parser.parse_args(argv)
+    if len(args.ledger) != 1:
+        parser.error("duplicate --ledger argument")
+    ledger = args.ledger[0].absolute()
+    try:
+        _, identity = near_frame_snapshot()
+        plan = replay.decode((ledger / "plan.json").read_bytes())
+        require(plan.get("schema") == "source-current-private-execution-ledger/v1" and
+                plan.get("frozenBeforeFirstGame") is True and
+                plan.get("sourceManifestSha256") == identity["source_manifest_sha256"] and
+                plan.get("harnessManifestSha256") == identity["harness_manifest_sha256"],
+                "current source/harness and actual pre-Game ledger must agree")
+        probes = {}
+        for name, spec in CURRENT_OLD_BOUNDARIES.items():
+            selected = [(path, item) for path, item in plan["allowedDrivers"].items() if item["id"] == spec["driver"]]
+            require(len(selected) == 1, "exact single named current negative driver required")
+            destination = Path(selected[0][0])
+            key = spec["driver"].replace("/", "--")
+            started_path, finished_path = ledger / (key + "--started.json"), ledger / (key + "--finished.json")
+            started = replay.decode(started_path.read_bytes())
+            finished = replay.decode(finished_path.read_bytes())
+            require(finished.get("preGameSealSha256") == replay.sha(started_path.read_bytes()) and
+                    started.get("productionManifestSha256") == identity["source_manifest_sha256"] and
+                    started.get("harnessManifestSha256") == identity["harness_manifest_sha256"] and
+                    started.get("actualEntryPoint", {}).get("declaringType") == "Program" and
+                    started.get("actualEntryPoint", {}).get("method") == "Main" and
+                    started.get("assemblySha256") == plan.get("peSha256") and
+                    started.get("pdbSha256") == plan.get("pdbSha256") and
+                    finished.get("overflow") == [],
+                    "actual normal public Main PE/PDB and source-bound negative execution required")
+            receipt_path = destination / "m1-replay-result.json"
+            receipt = replay.decode(receipt_path.read_bytes())
+            fault = replay.decode((destination / "first-m1-kernel-fault.json").read_bytes())
+            counts = replay.decode((destination / "execution-counts.json").read_bytes())
+            require(counts == finished.get("counts"), "actual nested operation counts differ from driver ledger")
+            summary = summary_line((ledger / ("old-" + spec["driver"].split("/")[0] + ".log")).read_text())
+            case = spec["case"]
+            rows = replay.audit_public(replay.load_fixture(replay.recording(case)["fixture"], case), case)
+            classification = current_old_boundary(name, finished.get("exitCode"), summary, receipt, fault, counts, rows)
+            probes[name] = dict(classification=classification, completed_hosts=spec["hosts"],
+                               source_ticks=spec["tick"], raw_values=spec["raw"],
+                               receipt_sha256=replay.sha(receipt_path.read_bytes()))
+        print(json.dumps(dict(schema="current-pre-near-frame-input-boundaries/v1", status="passed",
+            source_manifest_sha256=identity["source_manifest_sha256"],
+            harness_manifest_sha256=identity["harness_manifest_sha256"], probes=probes,
+            historical_five_reexecuted=False, gameplay_executions=0, current_full_qualification=False)))
+        return 0
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError) as error:
+        print("Current recording boundary verification failed: " + str(error), file=sys.stderr)
+        return 1
+
+
 def execute(label, files, args, old_rows, possession_rows):
     expected = {
         "historical": (76, BASELINE_SOURCE_SHA256, HARNESS_SHA256),
@@ -401,6 +549,9 @@ def argument_parser():
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "verify-current-boundaries":
+        return verify_current_boundaries_main(argv[1:])
     parser = argument_parser()
     args = parser.parse_args(argv)
     for name, values in vars(args).items():

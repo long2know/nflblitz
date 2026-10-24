@@ -204,6 +204,8 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--stream-component")
+            return StreamComponent(args);
         string c2Inputs = null;
         if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
         {
@@ -241,6 +243,9 @@ internal static class Program
             }
             foreach (string required in new[] { "classify", "spot", "clock", "clock_pair", "field", "world", "discard", "onside" })
                 Check("nonempty production comparison group " + required, Compared.ContainsKey(required) && Compared[required] > 0);
+            int beforeStream = assertions;
+            StreamChecks.RunSynthetic();
+            int streamAssertions = assertions - beforeStream;
             int beforeContracts = assertions;
             FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2],
                 soundFunctionsPath: args.Length == 4 ? args[3] : null, c2InputsPath: c2Inputs) : null;
@@ -255,6 +260,7 @@ internal static class Program
                 original_c_only_no_production_geometry_seam = OriginalOnly,
                 assertions,
                 contract_assertions = contractAssertions,
+                stream_component_assertions = streamAssertions,
                 full_kernel_host_adapter_exercised = HostAdapterChecks.Enabled,
                 real_input_fixture_sha256 = fullKernelInputs == null ? null : fullKernelInputs.ManifestSha256,
                 real_animation_library_sha256 = fullKernelInputs == null ? null : fullKernelInputs.Animations.InventorySha256,
@@ -264,6 +270,39 @@ internal static class Program
                 browser_or_unity_executed = false
             };
             Console.WriteLine(JsonSerializer.Serialize(summary));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int StreamComponent(string[] args)
+    {
+        if (args.Length > 2)
+        {
+            Console.Error.WriteLine("Usage: ParityChecks --stream-component [explicit-pinned-PSDLINE1.json]");
+            return 2;
+        }
+        try
+        {
+            if (args.Length == 2) StreamChecks.RunAdmittedClip(args[1]);
+            StreamChecks.RunSynthetic();
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                status = failures == 0 ? "passed" : "failed",
+                selector = "stream-component",
+                admitted_PSDLINE1_checked = args.Length == 2,
+                assertions,
+                failures,
+                failure_details = FailureDetails,
+                game_or_host_constructed = false,
+                source_wakes_or_raw_streams_executed = false,
+                original_c_or_native_executed = false,
+                full_gameplay_parity_claimed = false
+            }));
             return failures == 0 ? 0 : 1;
         }
         catch (Exception exception)

@@ -172,6 +172,104 @@ def export_presnap(args, output):
     return 0
 
 
+def export_current(args, output, case):
+    """Seal saved current inputs only; the authoring receipt is not full qualification."""
+    import canonical
+    from kernel_sources import canonical_hashes, successor_hashes
+    from prepare_inputs import fixture_hashes
+
+    generation, presnap = public.CURRENT_GENERATIONS[case]
+    policy_raw = args.policy.read_bytes()
+    policy = public.decode(policy_raw)
+    receipt = public.decode(args.receipt.read_bytes())
+    public.require(policy.get("schema") == "source-current-frozen-first-window/v1" and
+                   policy.get("recordingGeneration") == generation and policy.get("case") == case and
+                   policy.get("maxHosts") == 12000 and policy.get("maximumInitialWindows") == 1 and
+                   policy.get("seed") == 1 and
+                   policy.get("providerProfile") == "source-sound-smoke/raw-vector-v1" and
+                   policy.get("controllerSha256") == public.SOURCE_TIMER_EXPECTED_RECIPE["controller_sha256"] and
+                   sha(json.dumps(policy.get("rawVector"), separators=(",", ":")).encode()) ==
+                   "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827",
+                   "exact current case/generation and unchanged one-shot seed/provider/controller required")
+    public.require(receipt.get("policySha256") == sha(policy_raw) and
+                   receipt.get("maximumInitialWindows") == receipt.get("initialExecutions") == 1 and
+                   receipt.get("attemptedHosts") == 12000 and
+                   receipt.get("fullM1OrCIOrNativeOrWholeGameQualified") is False and
+                   receipt.get("rawVector") == policy["rawVector"],
+                   "actual single complete current window receipt required")
+    require_candidate(receipt, public.decode(args.poses.read_bytes()), presnap)
+    if presnap:
+        public.require(receipt.get("schema") == "presnap-switch-public-policy-first-window/v1" and
+                       receipt.get("recordingGeneration") == generation and receipt.get("faults") == [] and
+                       receipt.get("preSnapSwitchWitnesses", 0) > 0,
+                       "current pre-snap export requires its own authentic fresh-B witness")
+    else:
+        public.require(receipt.get("schema") == "portable-public-policy-first-window/v1" and
+                       receipt.get("name") == "portable-cabinet-wide-pass-clearance" and
+                       receipt.get("version") == "approved-portable-public-policy/v1" and
+                       policy.get("sameApprovedConfiguration") == CONFIGURATION and
+                       policy.get("sourceHandicapPolicy") == HANDICAP,
+                       "current Core export requires unchanged actual public policy/configuration")
+    compiled = {p.relative_to(ROOT).as_posix(): sha(p.read_bytes()) for p in production_paths(ROOT)}
+    harness = {name: sha((ROOT / name).read_bytes()) for name in canonical.HARNESS}
+    public.require(policy.get("productionSourceSha256") == compiled and
+                   policy.get("frozenCodeSha256") == {**compiled, **harness} and
+                   policy.get("sourceManifestSha256") == manifest(compiled) == public.CURRENT_SOURCE_SHA256 and
+                   policy.get("harnessManifestSha256") == manifest(harness) and
+                   harness[CONTROLLER] == policy["controllerSha256"] and
+                   Path(policy.get("worktree", "")) == ROOT,
+                   "current export requires exact actual production/harness/controller closure")
+    inputs = fixture_hashes(Path(policy["fixtureManifest"]), Path(policy["soundFunctions"]))
+    profile = Path(policy["profileInputs"])
+    inputs.update(successor_hashes(profile) if presnap else canonical_hashes(profile, "contact281-c2-m1"))
+    public.require(inputs == policy.get("frozenInputSha256") and
+                   manifest(inputs) == policy.get("inputManifestSha256"),
+                   "current export requires its exact independent data closure")
+    for filename, pin in policy["toolSha256"].items():
+        public.require(not Path(filename).is_absolute() and ".." not in Path(filename).parts and
+                       sha((ROOT / filename).read_bytes()) == pin, "current authoring tool changed")
+    config_raw = json.dumps(policy["configuration"], sort_keys=True, separators=(",", ":")).encode()
+    public.require(policy["configuration"] == current_configuration(presnap) and
+                   sha(config_raw) == policy.get("configurationSha256"),
+                   "current authoring configuration seal differs")
+    entrypoint = Path(policy["entrypoint"])
+    public.require(entrypoint.name == "MovementCallerChecks.dll" and not entrypoint.is_symlink() and
+                   sha(entrypoint.read_bytes()) == policy.get("entrypointSha256") and
+                   sha(entrypoint.with_suffix(".pdb").read_bytes()) == policy.get("pdbSha256") and
+                   policy.get("startupObject") == "Program",
+                   "current export requires the sealed normal public Main PE/PDB, not a helper entrypoint")
+    marker = dict(policySha=sha(policy_raw), maximumInitialWindows=1, maxHosts=12000)
+    if presnap:
+        marker["recordingGeneration"] = generation
+    public.exact_metadata(public.decode((args.policy.parent / "only-public-window-started.json").read_bytes()),
+                          marker, "current one-window marker")
+    capture = args.capture.read_bytes()
+    public.require(sha(capture) == receipt.get("publicInputSha256"), "current capture differs from actual receipt")
+    projected = project_capture(capture)
+    packed = public.compress(projected)
+    public.require(gzip.decompress(packed) == projected, "current gzip roundtrip differs")
+    recipe = public.validate_current_recipe(public.make_current_recipe(case, projected, packed), case)
+    raw = (json.dumps(recipe, indent=2) + "\n").encode("ascii")
+    output.mkdir(parents=True)
+    for suffix, data in ((".jsonl", projected), (".jsonl.gz", packed), (".recipe.json", raw)):
+        public.write_new_or_verify(output / (case + suffix), data)
+    print(json.dumps(dict(schema="portable-public-input-export-result/v1", status="exported-not-full-qualified",
+        case=case, recording_generation=generation, jsonl_sha256=sha(projected), gzip_sha256=sha(packed),
+        recipe_sha256=sha(raw), policy_sha256=sha(policy_raw), source_manifest_sha256=manifest(compiled),
+        harness_manifest_sha256=manifest(harness), input_manifest_sha256=manifest(inputs),
+        configuration_sha256=sha(config_raw), entrypoint_sha256=policy["entrypointSha256"], gameplayExecutions=0)))
+    return 0
+
+
+def current_configuration(presnap):
+    value = dict(stationLayout=4 if presnap else 2, physicalStations=[dict(id=0, team="Home")],
+                 firstPossession="Away", captain="First", opponents=[5, 11], seed=1, teams=[0, 1],
+                 rosters=list(range(7)), neutralMovement=True, neutralPowerups=True)
+    if presnap:
+        value["onlyNewGenerationDelta"] = "StationLayout TwoStation2 -> FourStation4"
+    return value
+
+
 def text(value, where):
     public.require(type(value) is str and 0 < len(value) <= 2048
                    and not value.lstrip().startswith(("{", "["))
@@ -322,7 +420,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("capture", "receipt", "poses", "policy", "output"):
         parser.add_argument("--" + name, type=Path, required=True, action="append")
-    parser.add_argument("--case", choices=(CASE, public.SOURCE_TIMER_CASE, public.PRESNAP_CASE), action="append")
+    parser.add_argument("--case", choices=(CASE, public.SOURCE_TIMER_CASE, public.PRESNAP_CASE,
+                                         *public.CURRENT_GENERATIONS), action="append")
     parser.add_argument("--producer-source", type=Path, action="append",
                         help="Retained original author exporter source; defaults to the frozen policy worktree")
     args = parser.parse_args(argv)
@@ -335,6 +434,9 @@ def main(argv=None):
     output = public.output_path(args.output)
     public.require(not output.exists() and output.is_relative_to(ROOT / ".squad/.scratch"),
                    "export needs a NEW ignored local output; never overwrite a33 or prior proof")
+    if case in public.CURRENT_GENERATIONS:
+        public.require(args.producer_source is None, "current authoring uses its own sealed producer only")
+        return export_current(args, output, case)
     if case == public.PRESNAP_CASE:
         return export_presnap(args,output)
     receipt = public.decode(args.receipt.read_bytes())

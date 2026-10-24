@@ -6,6 +6,7 @@ import io
 import os
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -113,12 +114,18 @@ class InventorySuiteWorkerTests(unittest.TestCase):
     def setUp(self):
         self.output = inventory.ROOT / ".squad/.scratch/ci-inventory-scheduling" / ("unit-" + uuid.uuid4().hex)
         self.output.mkdir(parents=True)
+        self.addCleanup(shutil.rmtree, self.output)
 
     def test_fixed_bindings_and_all100_original_named_cases_are_required(self):
         text = inventory.bindings()
         inventory.validate_bindings(text)
         self.assertEqual(len(inventory.COMMANDS), 14)
-        self.assertEqual(sum(len(inventory.source_inventory(i)[0]) for i in range(14)), 100)
+        cases = {i: inventory.source_inventory(i)[0] for i in range(14)}
+        original = {i: [name for name in names if name not in inventory.CURRENT_CASE_ADDITIONS.get(i, ())]
+                    for i, names in cases.items()}
+        self.assertEqual(sum(map(len, original.values())), 100)
+        self.assertEqual({i: len(names) for i, names in inventory.CURRENT_CASE_ADDITIONS.items()}, {4: 4, 5: 3, 6: 2})
+        self.assertEqual(sum(map(len, cases.values())), 109)
         lines = text.splitlines()
         changes = ["", "\n".join(lines[:-1]) + "\n", text + lines[0] + "\n",
                    text.replace(lines[4], lines[4] + " --workers 2"), text.replace(lines[4], "true"),
@@ -128,6 +135,51 @@ class InventorySuiteWorkerTests(unittest.TestCase):
                 inventory.validate_bindings(changed)
         with patch.object(inventory, "COMMANDS", ()), self.assertRaisesRegex(ValueError, "exactly once"):
             inventory.validate_bindings("\n")
+
+    def test_real_source_rejects_removed_renamed_extra_and_duplicate_original_or_added_cases(self):
+        for index, additions in inventory.CURRENT_CASE_ADDITIONS.items():
+            identities, sources = inventory.source_inventory(index)
+            name, = sources
+            source = (inventory.ROOT / name).read_text()
+            original = next(identity for identity in identities if identity not in additions)
+            probes = []
+            for identity, diagnostic in ((original, "exact original named"),
+                                         (additions[0], "exact current-generation added named")):
+                cls, method = identity.split("::")[1].split(".")
+                anchor = "    def " + method + "("
+                self.assertEqual(source.count(anchor), 1)
+                probes.extend((
+                    (source.replace(anchor, "    def removed_" + method + "(", 1), diagnostic),
+                    (source.replace(anchor, "    def test_unreviewed_replacement(", 1), diagnostic),
+                    (source + "\nclass " + cls + ":\n    def " + method + "(self): pass\n", diagnostic),
+                ))
+            probes.append((source + "\nclass UnreviewedTests:\n    def test_extra(self): pass\n",
+                           "exact original named"))
+            path = self.output / "workspace" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with patch.object(inventory, "ROOT", self.output / "workspace"):
+                path.write_text(source)
+                self.assertEqual(inventory.source_inventory(index)[0], identities)
+                for probe, (changed, diagnostic) in enumerate(probes):
+                    path.write_text(changed)
+                    with self.subTest(index=index, diagnostic=diagnostic), self.assertRaisesRegex(ValueError, diagnostic):
+                        inventory.source_inventory(index)
+                    with patch.object(inventory.subprocess, "Popen", side_effect=AssertionError("Changed inventory launched a child")):
+                        with self.subTest(index=index, caller="execute_child"), self.assertRaisesRegex(ValueError, diagnostic):
+                            inventory.execute_child(index, self.output / ("rejected-" + str(index) + "-" + str(probe)))
+
+    def test_child_summaries_require_all_original_and_exact_added_cases_without_skips(self):
+        for index, additions in inventory.CURRENT_CASE_ADDITIONS.items():
+            identities, _ = inventory.source_inventory(index)
+            text = "Ran " + str(len(identities)) + " tests in 0.01s\n\nOK\n"
+            self.assertIsNone(inventory.validate_child_output(index, text, identities))
+            for count in (len(identities) - len(additions), len(identities) - 1, len(identities) + 1):
+                changed = text.replace("Ran " + str(len(identities)), "Ran " + str(count))
+                with self.subTest(index=index, count=count), self.assertRaisesRegex(ValueError, "incomplete unittest"):
+                    inventory.validate_child_output(index, changed, identities)
+            for changed in (text.replace("\nOK\n", "\nOK (skipped=1)\n"), text + text, ""):
+                with self.subTest(index=index, output=changed), self.assertRaises(ValueError):
+                    inventory.validate_child_output(index, changed, identities)
 
     def test_default_and_one_execute_original_order_on_the_calling_thread(self):
         for value in (None, "1"):
@@ -279,6 +331,15 @@ class InventorySuiteWorkerTests(unittest.TestCase):
                 with self.subTest(field=field, value=value), self.assertRaises(ValueError):
                     inventory.read_results(self.output)
             path.write_bytes(original)
+            for index, additions in inventory.CURRENT_CASE_ADDITIONS.items():
+                added_path = self.output / str(index) / "result.json"
+                raw = added_path.read_bytes()
+                row = json.loads(raw)
+                row["caseIds"] = [name for name in row["caseIds"] if name not in additions]
+                added_path.write_text(json.dumps(row))
+                with self.subTest(omitted_additions=index), self.assertRaisesRegex(ValueError, "case receipt"):
+                    inventory.read_results(self.output)
+                added_path.write_bytes(raw)
             (self.output / "0/run.log").write_text("corrupt")
             with self.assertRaisesRegex(ValueError, "child log"):
                 inventory.read_results(self.output)
@@ -303,6 +364,7 @@ class CampaignResultContractTests(unittest.TestCase):
         self.output = original_root / ".squad/.scratch/ci-result-contract-revision" / ("contract-" + uuid.uuid4().hex)
         self.root = self.output / "workspace"
         self.root.mkdir(parents=True)
+        self.addCleanup(shutil.rmtree, self.output)
         names = {name for i in range(len(inventory.COMMANDS)) for name in inventory.source_inventory(i)[1]}
         for name in names:
             path = self.root / name

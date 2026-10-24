@@ -293,7 +293,12 @@ namespace Blitz.Gameplay
                 : play != PlayId.Cover && play != PlayId.Blitz))
                 return;
             if (original.IsSpecified && (original.Playbook == SourcePlaybookKind.Offense) != selectingOffense)
-                throw new ArgumentException("The selected original playbook does not belong to the submitting source side.");
+                throw new ArgumentException("The selected original playbook does not belong to the submitting source side."
+                    + string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                        "\nSOURCE_SIDE_GUARD_V1 possession={0} phase={1} selectingSide={2} playbook={3} selectingOffense={4} requestingTeam={5}",
+                        (int)Model.Possession, (int)Model.Phase, (int)selectingSide, (int)original.Playbook,
+                        selectingOffense ? 1 : 0, requestingTeam.HasValue
+                            ? ((int)requestingTeam.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : "null"));
             RequireSourcePlaybook();
             BeginSourcePlay();
             if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint && Model.SourcePatStatus != SourcePatStatus.RunTwoPointPlay)

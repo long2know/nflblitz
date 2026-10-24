@@ -102,6 +102,7 @@ internal static partial class Program
                 SetFixtureCamera(game, tick);
                 if (tick > 1)
                     Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", actor.Id, actor.Id + 1);
+                executionAnimationAdvances++;
                 actor.AnimationState.Advance(actor, tick, Bind<Func<int, int>>(game, "SourceDraw"));
                 RecordPhysics(game, actor);
                 top = Math.Max(top, actor.SourceHeight);
@@ -240,6 +241,7 @@ internal static partial class Program
         Check(actor.SourceControllerStation == -1 && target.SourceControllerStation == 0
             && (target.SourceButtons & SourceDroneButtons.B) != 0,
             "actual station identities and new actor's original fake B are repaired immediately");
+        executionAnimationAdvances++;
         actor.AnimationState.Advance(actor, 1, Bind<Func<int, int>>(game, "SourceDraw"));
         RecordPhysics(game, actor);
         Check(actor.AnimationState.Primary.SourceTick == 1, "ReturnFromMode still permits outer animation/physics iteration");
@@ -292,6 +294,7 @@ internal static partial class Program
             game.Model.SourceTick = tick;
             SetFixtureCamera(game, tick);
             Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", attacker.Id, attacker.Id + 1);
+            executionAnimationAdvances++;
             attacker.AnimationState.Advance(attacker, tick, Bind<Func<int, int>>(game, "SourceDraw"));
             RecordPhysics(game, attacker);
             if (attacker.SourceLastLeapBytesConsumed != 0)

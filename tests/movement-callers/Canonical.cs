@@ -331,6 +331,9 @@ internal static partial class Program
             for (int host = 0; host < commands.Length; host++)
             {
                 long before = game.SourceTick;
+                var prePublished = new { game.State.Tick, game.State.Phase, game.State.Possession };
+                var preModel = new { game.Model.Phase, game.Model.Possession };
+                var preRules = new { game.Model.SourceRules.OffenseSide };
                 PlayerCommand command = commands[host];
                 if (real.IsPreSnapSwitchProfile)
                     pendingPublicB = CapturePublicB(host, game, command, pendingPublicB);
@@ -343,6 +346,10 @@ internal static partial class Program
                     File.WriteAllText(Path.Combine(outputRoot, "first-m1-kernel-fault.json"),
                         JsonSerializer.Serialize(failure, options));
                 }
+                var postAttemptPublished = new { game.State.Tick, game.State.Phase, game.State.Possession };
+                var postAttemptModel = new { game.Model.Phase, game.Model.Possession };
+                var postAttemptRules = new { game.Model.SourceRules.OffenseSide };
+                string stepSucceededOrFaulted = firstFailure == null ? "succeeded" : "faulted";
                 SourceSoundVmDispatch[] dispatches = game.TakeSourceSoundVmDispatches().Dispatches.ToArray();
                 if (real.IsPreSnapSwitchProfile)
                     foreach (SourceSoundVmDispatch dispatch in dispatches.Where(d =>
@@ -434,6 +441,8 @@ internal static partial class Program
                         a.AnimationState.Primary.ScriptSymbol, a.AnimationState.Primary.SequenceName,
                         a.AnimationState.Primary.FrameOrdinal }).ToArray(), cache = JointBits(game) };
                 stream.WriteLine(JsonSerializer.Serialize(new { host, beforeSourceTick = before, game.SourceTick,
+                    prePublished, preModel, preRules, postAttemptPublished, postAttemptModel, postAttemptRules,
+                    stepSucceededOrFaulted,
                     command, applied = game.Model.SourceCurrentInput, game.State.Phase, game.State.PlayNumber,
                     state.Match, game.State.Ball, actors = game.State.Players,
                     game.SourceEvents, game.C2Events, sounds, rawCursor,
@@ -487,11 +496,14 @@ internal static partial class Program
             "new authoring generation requires its actual new factory, never an old M1 alias");
         byte[] policyBytes = File.ReadAllBytes(policyPath);
         string policySha = CanonicalHash(policyBytes);
+        string recordingGeneration;
         int[] rawVector;
         using (JsonDocument document = JsonDocument.Parse(policyBytes))
         {
             JsonElement policy = document.RootElement;
-            Check(policy.GetProperty("recordingGeneration").GetString() == "source-defensive-presnap-switch/v4" &&
+            recordingGeneration = policy.GetProperty("recordingGeneration").GetString();
+            Check((recordingGeneration == "source-defensive-presnap-switch/v4" ||
+                recordingGeneration == "source-defensive-presnap-switch/v5") &&
                 policy.GetProperty("maxHosts").GetInt32() == 12000 &&
                 policy.GetProperty("maximumInitialWindows").GetInt32() == 1 &&
                 policy.GetProperty("controllerSha256").GetString() ==
@@ -511,7 +523,7 @@ internal static partial class Program
         using (var marker = new FileStream(markerPath,FileMode.CreateNew))
         {
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new { policySha,maximumInitialWindows=1,maxHosts=12000,
-                recordingGeneration="source-defensive-presnap-switch/v4" });
+                recordingGeneration });
             marker.Write(bytes,0,bytes.Length);
         }
         int rawCursor = 0;
@@ -624,7 +636,7 @@ internal static partial class Program
         }
         Check(shared.Trace.Count == rawCursor,"new one-window recording retains every shared raw draw");
         object receipt = new { schema="presnap-switch-public-policy-first-window/v1",
-            recordingGeneration="source-defensive-presnap-switch/v4",policySha256=policySha,
+            recordingGeneration,policySha256=policySha,
             maximumInitialWindows=1,initialExecutions=1,attemptedHosts=attempted,completedHosts=completed,game.SourceTick,
             rawCursor,rawVector,rSkipFrames,positive,failure=faults.FirstOrDefault(),faults,
             preSnapSwitchWitnesses=switches.Count,profile=SourceTeamResourceProfile.PreSnapSwitchStableId,

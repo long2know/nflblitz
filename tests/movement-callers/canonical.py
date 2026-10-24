@@ -6,7 +6,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -19,9 +21,10 @@ from isolated_mutations import run_mutations
 sys.path.insert(0, str(ROOT / "tests/parity"))
 from contact_inputs import fixture_profile
 from prepare_inputs import fixture_hashes
-from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA,
+from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA, C2_M1_DATA_SHA,
                             PRESNAP_ANIMATION_SHA, PRESNAP_DATA_SHA, successor_hashes)
 from compare_physics import compare
+import prepare_public_replay as public_replay
 
 CACHE_SOURCE = "Assets/Scripts/Gameplay/SourceMovementIntegration.cs"
 CACHE_SOURCE_SHA = "17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b"
@@ -232,6 +235,936 @@ def require_m1_replay(code, summary, receipt, compatibility="strict", presnap_sw
     raise RuntimeError("M1 replay must pass its real R_SKIP gate or report that exact unmet criterion, never relabel a different failure.")
 
 
+_M1_SIDE_SCHEMA = "source-M1-side-guard/v1"
+_M1_SIDE_ISSUES = {
+    "malformed_receipt", "malformed_fault", "missing_guard", "malformed_guard", "conflicting_guard",
+    "conflicting_label", "conflicting_observed", "conflicting_profile", "conflicting_source_data",
+    "conflicting_replay_hash", "missing_source_row", "oversized_source_row", "malformed_source_row",
+    "conflicting_host", "conflicting_tick", "conflicting_raw_command", "malformed_raw_stations",
+    "malformed_applied_stations", "missing_current_rules", "malformed_current_rules",
+    "missing_published", "malformed_published", "conflicting_guard_applied", "malformed_projection",
+    "conflicting_projection_hash", "conflicting_fault_identity",
+}
+
+
+def _m1_side_stations(command):
+    frame = command["StationInputs"]
+    if frame is None:
+        return []
+    stations = frame["Stations"]
+    if not isinstance(stations, list) or len(stations) > 4:
+        raise ValueError("station inventory")
+    result, seen = [], set()
+    for station in stations:
+        identity, source = station["StationId"], station["Command"]
+        if type(identity) is not int or identity not in range(4) or identity in seen:
+            raise ValueError("station identity")
+        seen.add(identity)
+        specified, action, play = source["IsSpecified"], source["Action"], source["Play"]
+        selected, kind, symbol = play["IsSpecified"], play["Playbook"], play["PlaySymbol"]
+        if (type(specified) is not bool or type(action) is not int or action not in range(22)
+                or type(selected) is not bool or type(kind) is not int or kind not in (0, 1)
+                or (selected and (not isinstance(symbol, str) or
+                    re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", symbol) is None))
+                or (not selected and symbol is not None)):
+            raise ValueError("selection metadata")
+        result.append({"station": identity, "specified": specified, "action": action,
+                       "play_specified": selected, "playbook": kind if selected else None,
+                       "symbol": symbol if selected else None})
+    return result
+
+
+def _m1_side_evidence(destination, label, receipt_bytes, expected):
+    evidence = {
+        "schema": _M1_SIDE_SCHEMA, "status": "missing-evidence", "run": label,
+        "host": None, "before": None, "SourceTick": None,
+        "receipt_sha256": sha(receipt_bytes), "source_row_sha256": None,
+        "replay_sha256": None, "profile": None, "guard_error_json_sha256": None,
+        "guard": None, "raw_stations": [], "applied_stations": [],
+        "current_rules": None, "published": None, "issues": [],
+    }
+    issues = evidence["issues"]
+    try:
+        receipt = json.loads(receipt_bytes)
+        failure = receipt["failure"]
+        if not isinstance(failure, dict):
+            raise ValueError("fault")
+        for key in ("host", "before", "SourceTick"):
+            value = failure[key]
+            if type(value) is not int or not 0 <= value <= (1 << 63) - 1:
+                raise ValueError("fault identity")
+            evidence[key] = value
+        error = failure["error"]
+        if not isinstance(error, str):
+            raise ValueError("fault error")
+    except (ValueError, KeyError, TypeError):
+        issues.append("malformed_receipt")
+        return _finish_m1_side_evidence(evidence)
+    evidence["guard_error_json_sha256"] = sha(json.dumps(error).encode("ascii"))
+    prefix = "System.ArgumentException: The selected original playbook does not belong to the submitting source side."
+    context = [line for line in error.splitlines() if line.startswith("SOURCE_SIDE_GUARD_V1 ")]
+    match = re.fullmatch(
+        r"SOURCE_SIDE_GUARD_V1 possession=(-?[0-9]+) phase=(-?[0-9]+) selectingSide=(-?[0-9]+) "
+        r"playbook=(-?[0-9]+) selectingOffense=([01]) requestingTeam=(null|-?[0-9]+)",
+        context[0]) if len(context) == 1 and len(context[0]) <= 256 and error.splitlines()[0:1] == [prefix] else None
+    if match is None:
+        issues.append("missing_guard" if not context else "malformed_guard")
+    else:
+        values = [int(value) if value != "null" else None for value in match.groups()]
+        if any(value is not None and not -(1 << 31) <= value < (1 << 31) for value in values):
+            issues.append("malformed_guard")
+        else:
+            possession, phase, side, kind, offense, requesting = values
+            evidence["guard"] = {"possession": possession, "phase": phase, "selecting_side": side,
+                                 "playbook": kind, "selecting_offense": bool(offense),
+                                 "requesting_team": requesting}
+            if (possession not in (0, 1) or phase not in range(5) or side not in (0, 1) or kind not in (0, 1)
+                    or (requesting is not None and requesting != side)
+                    or bool(offense) != (side == possession) or (kind == 0) == bool(offense)):
+                issues.append("conflicting_guard")
+    try:
+        same_destination = destination.name == label and destination.resolve() == destination.absolute()
+    except (OSError, RuntimeError):
+        same_destination = False
+    if not same_destination:
+        issues.append("conflicting_label")
+        return _finish_m1_side_evidence(evidence)
+    for field, issue in (("observed", "conflicting_observed"), ("profile", "conflicting_profile"),
+                         ("sourceData", "conflicting_source_data"), ("replayFileSha256", "conflicting_replay_hash")):
+        if type(receipt.get(field)) is not type(expected[field]) or receipt.get(field) != expected[field]:
+            issues.append(issue)
+    if isinstance(receipt.get("replayFileSha256"), str) and re.fullmatch(r"[0-9a-f]{64}", receipt["replayFileSha256"]):
+        evidence["replay_sha256"] = receipt["replayFileSha256"]
+    if receipt.get("profile") in ("original-teams-contact281-c2-m1", "original-teams-contact282-c2-m1-presnap-switch"):
+        evidence["profile"] = receipt["profile"]
+    try:
+        rules = failure["actual"]["SourceRules"]["OffenseSide"]
+        if type(rules) is not int or rules not in (0, 1):
+            raise ValueError("rules")
+        evidence["current_rules"] = {"offense_side": rules}
+    except (KeyError, TypeError, ValueError):
+        issues.append("missing_current_rules")
+    try:
+        state = failure["actual"]["State"]
+        tick, phase, possession = state["Tick"], state["Phase"], state["Possession"]
+        if (type(tick) is not int or not 0 <= tick <= (1 << 63) - 1 or type(phase) is not int
+                or phase not in range(5) or type(possession) is not int or possession not in (0, 1)):
+            raise ValueError("published")
+        evidence["published"] = {"tick": tick, "phase": phase, "possession": possession}
+    except (KeyError, TypeError, ValueError):
+        issues.append("missing_published")
+    row_path = destination / "m1-public-replay.jsonl"
+    try:
+        if row_path.is_symlink() or not row_path.is_file() or destination.resolve() != destination.absolute():
+            raise OSError("source row unavailable")
+        with row_path.open("rb") as stream:
+            end = stream.seek(0, os.SEEK_END)
+            start = max(0, end - (2 * 1024 * 1024 + 1))
+            stream.seek(start)
+            tail = stream.read(2 * 1024 * 1024 + 1)
+        if not tail.endswith(b"\n"):
+            raise ValueError("incomplete source row")
+        if start and b"\n" not in tail[:-1]:
+            issues.append("oversized_source_row")
+            return _finish_m1_side_evidence(evidence)
+        row_bytes = tail[:-1].rsplit(b"\n", 1)[-1] + b"\n"
+        if len(row_bytes) > 2 * 1024 * 1024:
+            issues.append("oversized_source_row")
+            return _finish_m1_side_evidence(evidence)
+        evidence["source_row_sha256"] = sha(row_bytes)
+        row = json.loads(row_bytes)
+        if not isinstance(row, dict):
+            raise ValueError("source row object")
+        if type(row.get("host")) is not int or row["host"] != failure["host"]:
+            issues.append("conflicting_host")
+        if (type(row.get("beforeSourceTick")) is not int or row["beforeSourceTick"] != failure["before"]
+                or type(row.get("SourceTick")) is not int or row["SourceTick"] != failure["SourceTick"]
+                or type(receipt.get("SourceTick")) is not int or receipt["SourceTick"] != failure["SourceTick"]):
+            issues.append("conflicting_tick")
+        if row.get("command") != failure.get("command"):
+            issues.append("conflicting_raw_command")
+        try:
+            evidence["raw_stations"] = _m1_side_stations(row["command"])
+        except (KeyError, TypeError, ValueError):
+            issues.append("malformed_raw_stations")
+        try:
+            evidence["applied_stations"] = _m1_side_stations(row["applied"])
+        except (KeyError, TypeError, ValueError):
+            issues.append("malformed_applied_stations")
+        guard = evidence["guard"]
+        if guard is not None and not any(
+                station["specified"] and station["action"] == 1 and station["play_specified"]
+                and station["playbook"] == guard["playbook"] for station in evidence["applied_stations"]):
+            issues.append("conflicting_guard_applied")
+    except (OSError, RuntimeError):
+        issues.append("missing_source_row")
+    except (ValueError, KeyError, TypeError):
+        issues.append("malformed_source_row")
+    return _finish_m1_side_evidence(evidence)
+
+
+def _finish_m1_side_evidence(evidence):
+    issues = evidence["issues"]
+    evidence["status"] = ("conflicting-evidence" if any(issue.startswith("conflicting_") for issue in issues)
+                          else "missing-evidence" if issues else "captured-context")
+    evidence["projection_sha256"] = sha(json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode())
+    return evidence
+
+
+def _m1_side_diagnostic_view(value, label, fault=None):
+    invalid = {"schema": _M1_SIDE_SCHEMA, "status": "missing-evidence", "issues": ["malformed_projection"]}
+    keys = {"schema", "status", "run", "host", "before", "SourceTick", "receipt_sha256",
+            "source_row_sha256", "replay_sha256", "profile", "guard_error_json_sha256",
+            "guard", "raw_stations", "applied_stations", "current_rules", "published", "issues",
+            "projection_sha256"}
+    if not isinstance(value, dict) or set(value) != keys or value["schema"] != _M1_SIDE_SCHEMA:
+        return invalid
+    if (value["status"] not in ("captured-context", "missing-evidence", "conflicting-evidence")
+            or not isinstance(value["issues"], list) or len(value["issues"]) > 32
+            or any(not isinstance(issue, str) or issue not in _M1_SIDE_ISSUES for issue in value["issues"])):
+        return invalid
+    def scalar(item):
+        return (item is None or type(item) is bool or type(item) is int and -(1 << 63) <= item < (1 << 63)
+                or isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_.:/-]{1,128}", item) is not None)
+    for key in keys - {"guard", "raw_stations", "applied_stations", "current_rules", "published", "issues"}:
+        if not scalar(value[key]):
+            return invalid
+    for key in ("receipt_sha256", "source_row_sha256", "replay_sha256",
+                "guard_error_json_sha256", "projection_sha256"):
+        if value[key] is not None and (not isinstance(value[key], str)
+                                      or re.fullmatch(r"[0-9a-f]{64}", value[key]) is None):
+            return invalid
+    for key in ("host", "before", "SourceTick"):
+        if value[key] is not None and (type(value[key]) is not int or value[key] < 0):
+            return invalid
+    groups = {"guard": {"possession", "phase", "selecting_side", "playbook", "selecting_offense", "requesting_team"},
+              "current_rules": {"offense_side"}, "published": {"tick", "phase", "possession"}}
+    for name, fields in groups.items():
+        group = value[name]
+        if group is not None and (not isinstance(group, dict) or set(group) != fields
+                                  or not all(scalar(item) for item in group.values())):
+            return invalid
+    guard = value["guard"]
+    if guard is not None and (any(type(guard[key]) is not int for key in
+                                 ("possession", "phase", "selecting_side", "playbook"))
+                              or type(guard["selecting_offense"]) is not bool
+                              or (guard["requesting_team"] is not None
+                                  and type(guard["requesting_team"]) is not int)):
+        return invalid
+    for name in ("current_rules", "published"):
+        if value[name] is not None and any(type(part) is not int for part in value[name].values()):
+            return invalid
+    station_fields = {"station", "specified", "action", "play_specified", "playbook", "symbol"}
+    for name in ("raw_stations", "applied_stations"):
+        if (not isinstance(value[name], list) or len(value[name]) > 4
+                or any(not isinstance(item, dict) or set(item) != station_fields
+                       or not all(scalar(part) for part in item.values()) for item in value[name])):
+            return invalid
+        if any(type(item["station"]) is not int or item["station"] not in range(4)
+               or type(item["specified"]) is not bool or type(item["play_specified"]) is not bool
+               or type(item["action"]) is not int or item["action"] not in range(22)
+               or (item["playbook"] is not None
+                   and (type(item["playbook"]) is not int or item["playbook"] not in (0, 1)))
+               for item in value[name]):
+            return invalid
+    if value["status"] == "captured-context" and (value["issues"] or any(value[key] is None for key in
+            ("run", "host", "before", "SourceTick", "receipt_sha256", "source_row_sha256",
+             "replay_sha256", "profile", "guard_error_json_sha256", "guard", "published", "current_rules"))):
+        return invalid
+    core = {key: part for key, part in value.items() if key != "projection_sha256"}
+    if value["projection_sha256"] != sha(json.dumps(core, sort_keys=True, separators=(",", ":")).encode()):
+        return dict(invalid, status="conflicting-evidence", issues=["conflicting_projection_hash"])
+    if (value["run"] != label or fault is not None and (
+            any(value[key] != fault.get(key) for key in ("host", "before", "SourceTick"))
+            or value["guard_error_json_sha256"] != sha(json.dumps(fault.get("error")).encode("ascii")))):
+        return dict(invalid, status="conflicting-evidence", issues=["conflicting_fault_identity"])
+    return value
+
+
+_M1_TRAJECTORY_SCHEMA = "source-M1-current-trajectory/v1"
+_M1_TRAJECTORY_MAX_HOSTS = 12000
+_M1_TRAJECTORY_MAX_LINE = 16384
+_M1_TRAJECTORY_MAX_BYTES = 16777216
+_M1_TRAJECTORY_DIRECTORY = "safe-current-trajectory"
+_M1_TRAJECTORY_ROW_PREFIX = "SOURCE_CURRENT_TRAJECTORY_ROW_V1 "
+_M1_TRAJECTORY_SEAL_PREFIX = "SOURCE_CURRENT_TRAJECTORY_SEAL_V1 "
+_M1_TRAJECTORY_RESULT_STATUSES = {
+    "failed", "failed-portable-source-fault", "inconclusive-generation-changed", "UNMET-public-R_SKIP",
+    "passed-full-M1-public-caller-gate", "passed-portable-M1-public-caller-gate",
+    "passed-portable-single-public-gate-not-full-qualification",
+    "passed-strict-single-public-gate-not-full-qualification",
+}
+_M1_TRAJECTORY_ISSUES = {
+    "missing_workflow_binding", "missing_head_binding", "conflicting_label",
+    "conflicting_inventory", "conflicting_input", "conflicting_receipt",
+    "missing_receipt", "missing_generated_replay", "malformed_source_row",
+    "malformed_input_row", "conflicting_host", "conflicting_tick",
+    "conflicting_continuity", "conflicting_packet", "malformed_projection",
+    "conflicting_terminal", "capture_bound", "capture_io", "malformed_binding",
+    "missing_projection", "conflicting_projection_hash", "malformed_terminal_status",
+}
+_M1_TRAJECTORY_PROFILES = {
+    "original-teams-contact281-c2-m1": (
+        C2_M1_DATA_SHA, "REAL SourceC2Composition.CreateM1Simulation", public_replay.CORE_CURRENT_CASE),
+    "original-teams-contact282-c2-m1-presnap-switch": (
+        PRESNAP_DATA_SHA, "REAL SourceC2Composition.CreatePreSnapSwitchSimulation", public_replay.PRESNAP_CURRENT_CASE),
+}
+_M1_TRAJECTORY_STATES = {
+    "prePublished": {"Tick", "Phase", "Possession"},
+    "preModel": {"Phase", "Possession"}, "preRules": {"OffenseSide"},
+    "postAttemptPublished": {"Tick", "Phase", "Possession"},
+    "postAttemptModel": {"Phase", "Possession"}, "postAttemptRules": {"OffenseSide"},
+}
+_M1_TRAJECTORY_EVENT_FIELDS = {"Tick", "SourceTick", "Type", "Team", "StationId"}
+_M1_TRAJECTORY_ROW_FIELDS = {
+    "host", "inputOneBasedLine", "inputRowSha256", "generatedRowOneBasedLine",
+    "generatedRowSha256", "beforeSourceTick", "afterSourceTick",
+    "rawStationMenuIds", "appliedStationMenuIds", "postAttemptSourceEventIds",
+    "stepSucceededOrFaulted", *_M1_TRAJECTORY_STATES,
+}
+_M1_TRAJECTORY_SOURCE_FIELDS = {
+    "host", "beforeSourceTick", "SourceTick", "command", "applied", "Phase",
+    "PlayNumber", "Match", "Ball", "actors", "SourceEvents", "C2Events", "sounds",
+    "rawCursor", "fullActualStateEventCacheHash", "gameplayPrefixHash",
+    "stepSucceededOrFaulted", *_M1_TRAJECTORY_STATES,
+}
+_M1_TRAJECTORY_HASH_FIELDS = {
+    "controllerSha256", "recipeSha256", "publicJsonlSha256", "compressedInputSha256",
+    "actualReceiptSha256", "generatedReplayJsonlSha256",
+}
+_M1_TRAJECTORY_ATTEMPT_FIELDS = {
+    "workflowRunId", "jobId", "headCommit", "headTree", "label", "observed",
+    "actualReceiptProfile", "actualReceiptSourceDataSha256", "actualReceiptFactory",
+    "productionInventoryCountAndSha256", "harnessInventoryCountAndSha256",
+    *_M1_TRAJECTORY_HASH_FIELDS,
+}
+
+
+def _m1_trajectory_require(condition, issue):
+    if not condition:
+        raise ValueError(issue)
+
+
+def _m1_trajectory_integer(value, minimum=0, maximum=(1 << 63) - 1):
+    return type(value) is int and minimum <= value <= maximum
+
+
+def _m1_trajectory_hash(value, length=64):
+    return isinstance(value, str) and re.fullmatch("[0-9a-f]{" + str(length) + "}", value) is not None
+
+
+def _m1_trajectory_json(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+                      allow_nan=False).encode("ascii")
+
+
+def _m1_trajectory_fields(value, fields):
+    _m1_trajectory_require(type(value) is dict and set(value) == fields, "malformed_projection")
+
+
+def _m1_trajectory_events(events):
+    _m1_trajectory_require(type(events) is list and len(events) <= 128, "capture_bound")
+    for event in events:
+        _m1_trajectory_fields(event, _M1_TRAJECTORY_EVENT_FIELDS)
+        _m1_trajectory_require(
+            _m1_trajectory_integer(event["Tick"]) and _m1_trajectory_integer(event["SourceTick"])
+            and _m1_trajectory_integer(event["Type"], 0, 19)
+            and (event["Team"] is None or _m1_trajectory_integer(event["Team"], 0, 1))
+            and _m1_trajectory_integer(event["StationId"], -1, 3), "malformed_projection")
+    return events
+
+
+def _m1_trajectory_row(row, host, previous=None):
+    _m1_trajectory_fields(row, _M1_TRAJECTORY_ROW_FIELDS)
+    _m1_trajectory_require(_m1_trajectory_integer(row["host"], 0, _M1_TRAJECTORY_MAX_HOSTS - 1)
+                           and row["host"] == host, "conflicting_host")
+    for field in ("inputOneBasedLine", "generatedRowOneBasedLine"):
+        _m1_trajectory_require(type(row[field]) is int and row[field] == host + 1, "conflicting_host")
+    for field in ("inputRowSha256", "generatedRowSha256"):
+        _m1_trajectory_require(_m1_trajectory_hash(row[field]), "malformed_projection")
+    before, after = row["beforeSourceTick"], row["afterSourceTick"]
+    _m1_trajectory_require(_m1_trajectory_integer(before) and _m1_trajectory_integer(after)
+                           and after - before in (0, 1), "conflicting_tick")
+    for name, fields in _M1_TRAJECTORY_STATES.items():
+        state = row[name]
+        _m1_trajectory_fields(state, fields)
+        for field in fields:
+            maximum = (1 << 63) - 1 if field == "Tick" else 4 if field == "Phase" else 1
+            _m1_trajectory_require(_m1_trajectory_integer(state[field], 0, maximum),
+                                   "malformed_projection")
+    for name in ("rawStationMenuIds", "appliedStationMenuIds"):
+        stations = row[name]
+        if stations is None:
+            continue
+        _m1_trajectory_require(type(stations) is list and len(stations) <= 4, "capture_bound")
+        seen = set()
+        for station in stations:
+            _m1_trajectory_fields(station, {"station", "specified", "action", "playSpecified",
+                                            "playbook", "symbol"})
+            _m1_trajectory_require(
+                _m1_trajectory_integer(station["station"], 0, 3) and station["station"] not in seen
+                and type(station["specified"]) is bool and type(station["playSpecified"]) is bool
+                and _m1_trajectory_integer(station["action"], 0, 21)
+                and _m1_trajectory_integer(station["playbook"], 0, 1)
+                and (station["specified"] or not station["playSpecified"])
+                and (isinstance(station["symbol"], str) and re.fullmatch(
+                    r"[A-Za-z_][A-Za-z0-9_]{0,127}", station["symbol"]) is not None
+                    if station["playSpecified"] else station["symbol"] is None), "malformed_projection")
+            seen.add(station["station"])
+    _m1_trajectory_events(row["postAttemptSourceEventIds"])
+    _m1_trajectory_require(row["stepSucceededOrFaulted"] in ("succeeded", "faulted"), "malformed_projection")
+    if previous is None:
+        _m1_trajectory_require(host == 0, "conflicting_host")
+    else:
+        _m1_trajectory_require(previous["host"] + 1 == host
+                               and previous["stepSucceededOrFaulted"] == "succeeded", "conflicting_host")
+        _m1_trajectory_require(before == previous["afterSourceTick"], "conflicting_tick")
+        for pre, post in (("prePublished", "postAttemptPublished"), ("preModel", "postAttemptModel"),
+                          ("preRules", "postAttemptRules")):
+            _m1_trajectory_require(row[pre] == previous[post], "conflicting_continuity")
+    return row
+
+
+def _m1_trajectory_packet(command, host, generated=False):
+    if generated:
+        from export_portable_public import project_row
+        command = project_row({"host": host, "command": command}, host)["command"]
+    else:
+        public_replay.public_row({"host": host, "command": command}, host)
+    menus = None
+    if command["StationInputs"] is not None:
+        menus = []
+        for station in command["StationInputs"]["Stations"]:
+            source, play = station["Command"], station["Command"]["Play"]
+            menus.append({"station": station["StationId"], "specified": source["IsSpecified"],
+                          "action": source["Action"], "playSpecified": play["IsSpecified"],
+                          "playbook": play["Playbook"], "symbol": play["PlaySymbol"]})
+    # Equality uses the existing closed command schema and typed IEEE754 float32 axes, never their payload.
+    normalized = dict(command, Move={key: struct.pack(">f", float(value)).hex()
+                                     for key, value in command["Move"].items()})
+    return sha(_m1_trajectory_json(normalized)), menus
+
+
+def _m1_trajectory_project(source_bytes, input_bytes, host, previous):
+    _m1_trajectory_require(source_bytes.endswith(b"\n") and input_bytes.endswith(b"\n"),
+                           "malformed_source_row")
+    source, original = public_replay.decode(source_bytes), public_replay.decode(input_bytes)
+    _m1_trajectory_fields(source, _M1_TRAJECTORY_SOURCE_FIELDS)
+    _m1_trajectory_require(type(source["host"]) is int and source["host"] == host, "conflicting_host")
+    public_replay.public_row(original, host)
+    input_packet, raw = _m1_trajectory_packet(original["command"], host)
+    generated_packet, generated_raw = _m1_trajectory_packet(source["command"], host, True)
+    _, applied = _m1_trajectory_packet(source["applied"], host, True)
+    _m1_trajectory_require(input_packet == generated_packet and raw == generated_raw, "conflicting_packet")
+    events = source["SourceEvents"]
+    _m1_trajectory_require(type(events) is list and len(events) <= 128, "capture_bound")
+    row = {
+        "host": host, "inputOneBasedLine": host + 1, "inputRowSha256": sha(input_bytes),
+        "generatedRowOneBasedLine": host + 1, "generatedRowSha256": sha(source_bytes),
+        "beforeSourceTick": source["beforeSourceTick"], "afterSourceTick": source["SourceTick"],
+        **{name: source[name] for name in _M1_TRAJECTORY_STATES},
+        "rawStationMenuIds": raw, "appliedStationMenuIds": applied,
+        "postAttemptSourceEventIds": [{key: event[key] for key in _M1_TRAJECTORY_EVENT_FIELDS} for event in events],
+        "stepSucceededOrFaulted": source["stepSucceededOrFaulted"],
+    }
+    _m1_trajectory_require(type(source["Phase"]) is int
+                           and source["Phase"] == row["postAttemptPublished"]["Phase"], "conflicting_tick")
+    return _m1_trajectory_row(row, host, previous)
+
+
+def _m1_new_trajectory_capture():
+    return {
+        "schema": _M1_TRAJECTORY_SCHEMA, "status": "incomplete", "issues": [],
+        "attempt": {**{field: None for field in _M1_TRAJECTORY_ATTEMPT_FIELDS},
+                    "label": "uninstrumented", "observed": False},
+        "terminal": {"outcome": None, "host": None, "beforeSourceTick": None,
+                     "afterSourceTick": None, "errorJsonSha256": None},
+        "rows": 0, "bytes": 0, "sha256": sha(b""),
+    }
+
+
+def _m1_trajectory_issue(capture, issue):
+    issue = issue if issue in _M1_TRAJECTORY_ISSUES else "malformed_source_row"
+    if issue not in capture["issues"]:
+        capture["issues"].append(issue)
+    capture["status"] = "incomplete"
+
+
+def _m1_trajectory_regular(path):
+    _m1_trajectory_require(not path.is_symlink() and path.is_file()
+                           and path.resolve() == path.absolute(), "capture_io")
+
+
+def _m1_trajectory_binding(capture, label, expected, production, harness):
+    attempt = capture["attempt"]
+    _m1_trajectory_require(label == "uninstrumented" and expected["observed"] is False, "conflicting_label")
+    for field, environment, pattern in (
+            ("workflowRunId", "GITHUB_RUN_ID", r"[0-9]{1,20}"),
+            ("jobId", "GITHUB_JOB", r"[A-Za-z0-9_-]{1,128}")):
+        value = os.environ.get(environment)
+        if isinstance(value, str) and re.fullmatch(pattern, value):
+            attempt[field] = value
+        else:
+            _m1_trajectory_issue(capture, "missing_workflow_binding")
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD", "HEAD^{tree}"], cwd=ROOT,
+                              text=True, capture_output=True, timeout=15, check=True).stdout.splitlines()
+        _m1_trajectory_require(len(head) == 2 and all(_m1_trajectory_hash(pin, 40) for pin in head),
+                               "missing_head_binding")
+        attempt["headCommit"], attempt["headTree"] = head
+    except (OSError, ValueError, subprocess.SubprocessError):
+        _m1_trajectory_issue(capture, "missing_head_binding")
+    for name, pins, count in (("production", production, 78), ("harness", harness, 12)):
+        _m1_trajectory_require(type(pins) is dict and len(pins) == count
+                               and all(isinstance(path, str) and _m1_trajectory_hash(pin)
+                                       for path, pin in pins.items()), "conflicting_inventory")
+        if name == "harness":
+            _m1_trajectory_require(set(pins) == set(HARNESS), "conflicting_inventory")
+        attempt[name + "InventoryCountAndSha256"] = {"count": count, "sha256": sha(_m1_trajectory_json(pins))}
+    profile = expected["profile"]
+    _m1_trajectory_require(profile in _M1_TRAJECTORY_PROFILES, "conflicting_receipt")
+    source_data, factory, case = _M1_TRAJECTORY_PROFILES[profile]
+    _m1_trajectory_require(expected["sourceData"] == source_data and expected["factory"] == factory,
+                           "conflicting_receipt")
+    recipe_path = HERE / "fixtures" / (case + ".recipe.json")
+    public_replay.load_recipe(recipe_path, case)
+    recipe_bytes = recipe_path.read_bytes()
+    recipe = public_replay.decode(recipe_bytes)
+    compressed = recipe_path.with_name(case + ".jsonl.gz")
+    _m1_trajectory_regular(compressed)
+    _m1_trajectory_require(compressed.stat().st_size <= 2 * 1024 * 1024, "capture_bound")
+    compressed_hash = sha(compressed.read_bytes())
+    controller = harness["tests/movement-callers/PortablePublicPolicy.cs"]
+    _m1_trajectory_require(controller == recipe["controller_sha256"]
+                           and compressed_hash == recipe["gzip"]["sha256"]
+                           and expected["replayFileSha256"] == recipe["jsonl"]["sha256"], "conflicting_input")
+    attempt.update(controllerSha256=controller, recipeSha256=sha(recipe_bytes),
+                   compressedInputSha256=compressed_hash)
+
+
+def _capture_m1_trajectory(destination, label, input_path, receipt_bytes, expected, production, harness):
+    capture = _m1_new_trajectory_capture()
+    attempt, terminal = capture["attempt"], capture["terminal"]
+    candidate = destination.parent / "work/current-trajectory.jsonl"
+    previous = None
+    try:
+        _m1_trajectory_require(destination.name == label and destination.resolve() == destination.absolute(),
+                               "conflicting_label")
+        _m1_trajectory_binding(capture, label, expected, production, harness)
+        _m1_trajectory_require(bool(receipt_bytes), "missing_receipt")
+        receipt = public_replay.decode(receipt_bytes)
+        _m1_trajectory_require(type(receipt) is dict and receipt["observed"] is False
+                               and receipt["historical"] is False, "conflicting_receipt")
+        for key in ("profile", "sourceData", "factory", "replayFileSha256"):
+            _m1_trajectory_require(type(receipt[key]) is type(expected[key])
+                                   and receipt[key] == expected[key], "conflicting_receipt")
+        attempt.update(actualReceiptProfile=receipt["profile"],
+                       actualReceiptSourceDataSha256=receipt["sourceData"],
+                       actualReceiptFactory=receipt["factory"], actualReceiptSha256=sha(receipt_bytes))
+        completed = receipt["completedHosts"]
+        _m1_trajectory_require(_m1_trajectory_integer(completed, 1, _M1_TRAJECTORY_MAX_HOSTS)
+                               and _m1_trajectory_integer(receipt["SourceTick"]), "conflicting_terminal")
+        failure = receipt["failure"]
+        _m1_trajectory_require(failure is None or type(failure) is dict, "conflicting_terminal")
+        terminal.update(outcome="succeeded" if failure is None else "faulted",
+                        host=completed - 1, afterSourceTick=receipt["SourceTick"])
+        if failure is not None:
+            _m1_trajectory_require(
+                _m1_trajectory_integer(failure["host"], 0, _M1_TRAJECTORY_MAX_HOSTS - 1)
+                and failure["host"] == completed - 1 and _m1_trajectory_integer(failure["before"])
+                and type(failure["SourceTick"]) is int and failure["SourceTick"] == receipt["SourceTick"]
+                and isinstance(failure["error"], str) and bool(failure["error"]), "conflicting_terminal")
+            terminal.update(beforeSourceTick=failure["before"],
+                            errorJsonSha256=sha(json.dumps(failure["error"]).encode("ascii")))
+        generated = destination / "m1-public-replay.jsonl"
+        _m1_trajectory_require(generated.is_file(), "missing_generated_replay")
+        _m1_trajectory_regular(generated)
+        _m1_trajectory_regular(input_path)
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        input_hash, generated_hash, projection_hash = hashlib.sha256(), hashlib.sha256(), hashlib.sha256()
+        with input_path.open("rb") as inputs, generated.open("rb") as source, candidate.open("xb") as projected:
+            try:
+                for host in range(_M1_TRAJECTORY_MAX_HOSTS + 1):
+                    source_bytes = source.readline(2 * 1024 * 1024 + 1)
+                    generated_hash.update(source_bytes)
+                    if not source_bytes:
+                        break
+                    input_bytes = inputs.readline(_M1_TRAJECTORY_MAX_LINE + 1)
+                    input_hash.update(input_bytes)
+                    _m1_trajectory_require(host < _M1_TRAJECTORY_MAX_HOSTS
+                                           and len(source_bytes) <= 2 * 1024 * 1024
+                                           and len(input_bytes) <= _M1_TRAJECTORY_MAX_LINE, "capture_bound")
+                    row = _m1_trajectory_project(source_bytes, input_bytes, host, previous)
+                    encoded = _m1_trajectory_json(row) + b"\n"
+                    _m1_trajectory_require(len(encoded) + len(_M1_TRAJECTORY_ROW_PREFIX) <= _M1_TRAJECTORY_MAX_LINE
+                                           and capture["bytes"] + len(encoded)
+                                           + (capture["rows"] + 1) * len(_M1_TRAJECTORY_ROW_PREFIX)
+                                           <= _M1_TRAJECTORY_MAX_BYTES - _M1_TRAJECTORY_MAX_LINE
+                                           - len(_M1_TRAJECTORY_SEAL_PREFIX), "capture_bound")
+                    projected.write(encoded)
+                    projection_hash.update(encoded)
+                    capture["rows"] += 1
+                    capture["bytes"] += len(encoded)
+                    previous = row
+            except (ValueError, KeyError, TypeError, OverflowError, struct.error) as error:
+                _m1_trajectory_issue(capture, str(error))
+            for stream, digest in ((inputs, input_hash), (source, generated_hash)):
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        capture["sha256"] = projection_hash.hexdigest()
+        attempt.update(publicJsonlSha256=input_hash.hexdigest(), generatedReplayJsonlSha256=generated_hash.hexdigest())
+        _m1_trajectory_require(attempt["publicJsonlSha256"] == expected["replayFileSha256"], "conflicting_input")
+        _m1_trajectory_require(previous is not None and capture["rows"] == completed
+                               and previous["afterSourceTick"] == receipt["SourceTick"]
+                               and previous["stepSucceededOrFaulted"] == terminal["outcome"], "conflicting_terminal")
+        terminal["beforeSourceTick"] = previous["beforeSourceTick"]
+        if failure is None:
+            _m1_trajectory_require(completed == 12000 and receipt["SourceTick"] == 11400, "conflicting_terminal")
+        else:
+            _m1_trajectory_require(previous["host"] == failure["host"]
+                                   and previous["beforeSourceTick"] == failure["before"]
+                                   and previous["postAttemptPublished"] == {
+                                       key: failure["actual"]["State"][key] for key in ("Tick", "Phase", "Possession")}
+                                   and previous["postAttemptRules"] == {
+                                       "OffenseSide": failure["actual"]["SourceRules"]["OffenseSide"]},
+                                   "conflicting_terminal")
+        if not capture["issues"]:
+            capture["status"] = "complete"
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, OverflowError) as error:
+        _m1_trajectory_issue(capture, str(error) if isinstance(error, ValueError) else "capture_io")
+    return capture
+
+
+def _m1_trajectory_capture_view(value):
+    _m1_trajectory_fields(value, {"schema", "status", "issues", "attempt", "terminal", "rows", "bytes", "sha256"})
+    _m1_trajectory_require(value["schema"] == _M1_TRAJECTORY_SCHEMA
+                           and value["status"] in ("complete", "incomplete")
+                           and type(value["issues"]) is list and len(value["issues"]) <= 32
+                           and all(type(issue) is str and issue in _M1_TRAJECTORY_ISSUES for issue in value["issues"])
+                           and _m1_trajectory_integer(value["rows"], 0, _M1_TRAJECTORY_MAX_HOSTS)
+                           and _m1_trajectory_integer(value["bytes"], 0, _M1_TRAJECTORY_MAX_BYTES)
+                           and _m1_trajectory_hash(value["sha256"]), "malformed_binding")
+    attempt, terminal = value["attempt"], value["terminal"]
+    _m1_trajectory_fields(attempt, _M1_TRAJECTORY_ATTEMPT_FIELDS)
+    _m1_trajectory_require(attempt["label"] == "uninstrumented" and attempt["observed"] is False,
+                           "conflicting_label")
+    for key in _M1_TRAJECTORY_HASH_FIELDS | {"actualReceiptSourceDataSha256", "headCommit", "headTree"}:
+        _m1_trajectory_require(attempt[key] is None or _m1_trajectory_hash(
+            attempt[key], 40 if key in ("headCommit", "headTree") else 64), "malformed_binding")
+    for key, pattern in (("workflowRunId", r"[0-9]{1,20}"), ("jobId", r"[A-Za-z0-9_-]{1,128}")):
+        _m1_trajectory_require(attempt[key] is None or isinstance(attempt[key], str)
+                               and re.fullmatch(pattern, attempt[key]), "malformed_binding")
+    profile = attempt["actualReceiptProfile"]
+    _m1_trajectory_require(profile is None or profile in _M1_TRAJECTORY_PROFILES, "malformed_binding")
+    if profile is None:
+        _m1_trajectory_require(attempt["actualReceiptFactory"] is None
+                               and attempt["actualReceiptSourceDataSha256"] is None, "malformed_binding")
+    else:
+        source, factory, _ = _M1_TRAJECTORY_PROFILES[profile]
+        _m1_trajectory_require(attempt["actualReceiptFactory"] == factory
+                               and attempt["actualReceiptSourceDataSha256"] == source, "malformed_binding")
+    for key, count in (("productionInventoryCountAndSha256", 78), ("harnessInventoryCountAndSha256", 12)):
+        group = attempt[key]
+        if group is not None:
+            _m1_trajectory_fields(group, {"count", "sha256"})
+            _m1_trajectory_require(type(group["count"]) is int and group["count"] == count
+                                   and _m1_trajectory_hash(group["sha256"]), "malformed_binding")
+    _m1_trajectory_fields(terminal, {"outcome", "host", "beforeSourceTick", "afterSourceTick", "errorJsonSha256"})
+    _m1_trajectory_require(terminal["outcome"] in (None, "succeeded", "faulted"), "malformed_binding")
+    for key in ("host", "beforeSourceTick", "afterSourceTick"):
+        _m1_trajectory_require(terminal[key] is None or _m1_trajectory_integer(
+            terminal[key], 0, _M1_TRAJECTORY_MAX_HOSTS - 1 if key == "host" else (1 << 63) - 1),
+            "malformed_binding")
+    _m1_trajectory_require(terminal["errorJsonSha256"] is None
+                           or _m1_trajectory_hash(terminal["errorJsonSha256"]), "malformed_binding")
+    if value["status"] == "complete":
+        _m1_trajectory_require(not value["issues"] and value["rows"] > 0
+                               and all(part is not None for part in attempt.values())
+                               and terminal["outcome"] is not None
+                               and all(terminal[key] is not None for key in ("host", "beforeSourceTick", "afterSourceTick"))
+                               and (terminal["errorJsonSha256"] is not None) == (terminal["outcome"] == "faulted"),
+                               "malformed_binding")
+    return value
+
+
+def _write_m1_trajectory(output, report, result):
+    runs = result.get("runs")
+    run = runs.get("uninstrumented") if isinstance(runs, dict) else None
+    if not isinstance(run, dict) or "trajectory_capture" not in run:
+        return
+    try:
+        capture = _m1_trajectory_capture_view(run["trajectory_capture"])
+        capture = json.loads(json.dumps(capture))
+    except (ValueError, KeyError, TypeError):
+        capture = _m1_new_trajectory_capture()
+        _m1_trajectory_issue(capture, "malformed_binding")
+    safe = output / _M1_TRAJECTORY_DIRECTORY
+    safe.mkdir(mode=0o700, exist_ok=True)
+    digest, rows, size, previous = hashlib.sha256(), 0, 0, None
+    candidate = output / "work/current-trajectory.jsonl"
+    with (safe / "trajectory.jsonl").open("wb") as destination:
+        try:
+            _m1_trajectory_regular(candidate)
+            with candidate.open("rb") as source:
+                for host in range(_M1_TRAJECTORY_MAX_HOSTS + 1):
+                    line = source.readline(_M1_TRAJECTORY_MAX_LINE + 1)
+                    if not line:
+                        break
+                    _m1_trajectory_require(host < _M1_TRAJECTORY_MAX_HOSTS
+                                           and len(line) + len(_M1_TRAJECTORY_ROW_PREFIX) <= _M1_TRAJECTORY_MAX_LINE
+                                           and line.endswith(b"\n")
+                                           and size + len(line) + (rows + 1) * len(_M1_TRAJECTORY_ROW_PREFIX)
+                                           <= _M1_TRAJECTORY_MAX_BYTES - _M1_TRAJECTORY_MAX_LINE
+                                           - len(_M1_TRAJECTORY_SEAL_PREFIX),
+                                           "capture_bound")
+                    row = _m1_trajectory_row(public_replay.decode(line), host, previous)
+                    _m1_trajectory_require(line == _m1_trajectory_json(row) + b"\n", "malformed_projection")
+                    destination.write(line)
+                    digest.update(line)
+                    rows += 1
+                    size += len(line)
+                    previous = row
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError) as error:
+            _m1_trajectory_issue(capture, str(error) if isinstance(error, ValueError) else "missing_projection")
+    if (rows, size, digest.hexdigest()) != (capture["rows"], capture["bytes"], capture["sha256"]):
+        _m1_trajectory_issue(capture, "conflicting_projection_hash")
+    if capture["attempt"]["actualReceiptSha256"] != run.get("replay_receipt_sha256"):
+        _m1_trajectory_issue(capture, "conflicting_receipt")
+    fault = run.get("fault_metadata")
+    guard = None
+    if isinstance(fault, dict):
+        if (capture["terminal"]["host"] != fault.get("host")
+                or capture["terminal"]["beforeSourceTick"] != fault.get("before")
+                or capture["terminal"]["afterSourceTick"] != fault.get("SourceTick")
+                or capture["terminal"]["errorJsonSha256"] != sha(json.dumps(fault.get("error")).encode("ascii"))):
+            _m1_trajectory_issue(capture, "conflicting_terminal")
+        if "source_side" in fault:
+            guard = _m1_side_diagnostic_view(fault["source_side"], "uninstrumented", fault)
+    status = result.get("status")
+    if status not in _M1_TRAJECTORY_RESULT_STATUSES:
+        status = None
+        _m1_trajectory_issue(capture, "malformed_terminal_status")
+    envelope = {
+        "schema": _M1_TRAJECTORY_SCHEMA, "status": capture["status"], "issues": capture["issues"],
+        "attempt": dict(capture["attempt"], terminalReportFileSha256=sha(report.read_bytes())),
+        "trajectory": {"file": "trajectory.jsonl", "rows": rows, "bytes": size, "sha256": digest.hexdigest(),
+                       "firstHost": 0 if rows else None, "lastHost": previous["host"] if previous else None},
+        "terminal": dict(capture["terminal"], resultStatus=status, sourceSideGuard=guard),
+        "bounds": {"maxHostRows": _M1_TRAJECTORY_MAX_HOSTS, "maxStationCount": 4,
+                   "maxSymbolCharacters": 128, "maxSourceEventIds": 128,
+                   "maxEncodedLineBytes": _M1_TRAJECTORY_MAX_LINE, "maxProjectionBytes": _M1_TRAJECTORY_MAX_BYTES},
+        "packetNormalization": "closed-public-command/ieee754-float32-be-axes/v1",
+        "originalObservationAuthentication": {"Core": "unsealed-provisional", "Defensive": "separate-original-seal-required"},
+    }
+    envelope["sealSha256"] = sha(_m1_trajectory_json(envelope))
+    encoded = _m1_trajectory_json(envelope) + b"\n"
+    _m1_trajectory_require(len(encoded) + len(_M1_TRAJECTORY_SEAL_PREFIX) <= _M1_TRAJECTORY_MAX_LINE
+                           and size + rows * len(_M1_TRAJECTORY_ROW_PREFIX)
+                           + len(encoded) + len(_M1_TRAJECTORY_SEAL_PREFIX) <= _M1_TRAJECTORY_MAX_BYTES, "capture_bound")
+    (safe / "attempt.json").write_bytes(encoded)
+    with (safe / "trajectory.jsonl").open("rb") as source:
+        previous = None
+        for host, line in enumerate(source):
+            previous = _m1_trajectory_row(public_replay.decode(line), host, previous)
+            print(_M1_TRAJECTORY_ROW_PREFIX + line.decode("ascii").rstrip("\n"), file=sys.stderr)
+    print(_M1_TRAJECTORY_SEAL_PREFIX + encoded.decode("ascii").rstrip("\n"), file=sys.stderr)
+    print("SOURCE_CURRENT_TRAJECTORY_V1 " + _m1_trajectory_json({
+        "status": envelope["status"], "issues": envelope["issues"], "rows": rows,
+        "trajectorySha256": digest.hexdigest(), "attemptSha256": sha(encoded),
+        "terminalReportFileSha256": envelope["attempt"]["terminalReportFileSha256"],
+    }).decode("ascii"), file=sys.stderr)
+
+
+def read_m1_trajectory_log(lines, expected_attempt):
+    """Read only this capture's prefixed scalar records from one exact raw job log."""
+    required = {"workflowRunId", "jobId", "headCommit", "headTree", "actualReceiptProfile"}
+    _m1_trajectory_require(type(expected_attempt) is dict and required <= set(expected_attempt)
+                           and set(expected_attempt) <= _M1_TRAJECTORY_ATTEMPT_FIELDS, "malformed_binding")
+    rows, envelope, digest, size, transport_bytes = [], None, hashlib.sha256(), 0, 0
+    for line in lines:
+        _m1_trajectory_require(isinstance(line, str), "malformed_projection")
+        message = re.sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ", "",
+                         line.removeprefix("\ufeff").rstrip("\r\n"), count=1)
+        prefix = next((part for part in (_M1_TRAJECTORY_ROW_PREFIX, _M1_TRAJECTORY_SEAL_PREFIX)
+                       if message.startswith(part)), None)
+        if prefix is None:
+            continue
+        encoded = message[len(prefix):].encode("ascii") + b"\n"
+        transport_bytes += len(encoded) + len(prefix)
+        _m1_trajectory_require(len(encoded) + len(prefix) <= _M1_TRAJECTORY_MAX_LINE
+                               and transport_bytes <= _M1_TRAJECTORY_MAX_BYTES, "capture_bound")
+        value = public_replay.decode(encoded)
+        _m1_trajectory_require(encoded == _m1_trajectory_json(value) + b"\n", "malformed_projection")
+        _m1_trajectory_require(envelope is None, "conflicting_host")
+        if prefix == _M1_TRAJECTORY_ROW_PREFIX:
+            row = _m1_trajectory_row(value, len(rows), rows[-1] if rows else None)
+            rows.append(row)
+            digest.update(encoded)
+            size += len(encoded)
+        else:
+            envelope = value
+    _m1_trajectory_require(envelope is not None, "missing_projection")
+    _m1_trajectory_fields(envelope, {
+        "schema", "status", "issues", "attempt", "trajectory", "terminal", "bounds",
+        "packetNormalization", "originalObservationAuthentication", "sealSha256"})
+    attempt, trajectory, terminal = envelope["attempt"], envelope["trajectory"], envelope["terminal"]
+    _m1_trajectory_fields(attempt, _M1_TRAJECTORY_ATTEMPT_FIELDS | {"terminalReportFileSha256"})
+    _m1_trajectory_fields(trajectory, {"file", "rows", "bytes", "sha256", "firstHost", "lastHost"})
+    _m1_trajectory_fields(terminal, {
+        "outcome", "host", "beforeSourceTick", "afterSourceTick", "errorJsonSha256", "resultStatus", "sourceSideGuard"})
+    capture = {
+        "schema": envelope["schema"], "status": envelope["status"], "issues": envelope["issues"],
+        "attempt": {key: attempt[key] for key in _M1_TRAJECTORY_ATTEMPT_FIELDS},
+        "terminal": {key: terminal[key] for key in (
+            "outcome", "host", "beforeSourceTick", "afterSourceTick", "errorJsonSha256")},
+        "rows": trajectory["rows"], "bytes": trajectory["bytes"], "sha256": trajectory["sha256"],
+    }
+    _m1_trajectory_capture_view(capture)
+    _m1_trajectory_require(
+        trajectory == {"file": "trajectory.jsonl", "rows": len(rows), "bytes": size, "sha256": digest.hexdigest(),
+                       "firstHost": 0 if rows else None, "lastHost": rows[-1]["host"] if rows else None},
+        "conflicting_projection_hash")
+    _m1_trajectory_require(_m1_trajectory_hash(attempt["terminalReportFileSha256"])
+                           and all(type(attempt[key]) is type(value) and attempt[key] == value
+                                   for key, value in expected_attempt.items()), "malformed_binding")
+    _m1_trajectory_require(envelope["bounds"] == {
+        "maxHostRows": _M1_TRAJECTORY_MAX_HOSTS, "maxStationCount": 4, "maxSymbolCharacters": 128,
+        "maxSourceEventIds": 128, "maxEncodedLineBytes": _M1_TRAJECTORY_MAX_LINE,
+        "maxProjectionBytes": _M1_TRAJECTORY_MAX_BYTES}
+        and envelope["packetNormalization"] == "closed-public-command/ieee754-float32-be-axes/v1"
+        and envelope["originalObservationAuthentication"] == {
+            "Core": "unsealed-provisional", "Defensive": "separate-original-seal-required"}
+        and (terminal["resultStatus"] is None or terminal["resultStatus"] in _M1_TRAJECTORY_RESULT_STATUSES),
+        "malformed_binding")
+    guard = terminal["sourceSideGuard"]
+    if guard is not None:
+        _m1_trajectory_require(type(guard) is dict, "malformed_binding")
+        if set(guard) == {"schema", "status", "issues"}:
+            _m1_trajectory_require(guard["schema"] == _M1_SIDE_SCHEMA
+                                   and guard["status"] in ("missing-evidence", "conflicting-evidence")
+                                   and type(guard["issues"]) is list and len(guard["issues"]) <= 32
+                                   and all(type(issue) is str and issue in _M1_SIDE_ISSUES
+                                           for issue in guard["issues"]), "malformed_binding")
+        else:
+            _m1_trajectory_require(_m1_side_diagnostic_view(guard, "uninstrumented") == guard, "malformed_binding")
+            _m1_trajectory_require(guard["host"] == terminal["host"]
+                                   and guard["before"] == terminal["beforeSourceTick"]
+                                   and guard["SourceTick"] == terminal["afterSourceTick"]
+                                   and guard["receipt_sha256"] == attempt["actualReceiptSha256"]
+                                   and guard["guard_error_json_sha256"] == terminal["errorJsonSha256"],
+                                   "conflicting_terminal")
+            if guard["status"] == "captured-context":
+                _m1_trajectory_require(bool(rows) and guard["source_row_sha256"] == rows[-1]["generatedRowSha256"]
+                                       and guard["profile"] == attempt["actualReceiptProfile"]
+                                       and guard["replay_sha256"] == attempt["publicJsonlSha256"],
+                                       "conflicting_terminal")
+    if envelope["status"] == "complete":
+        _m1_trajectory_require(terminal["resultStatus"] is not None and rows[-1]["host"] == terminal["host"]
+                               and rows[-1]["beforeSourceTick"] == terminal["beforeSourceTick"]
+                               and rows[-1]["afterSourceTick"] == terminal["afterSourceTick"]
+                               and rows[-1]["stepSucceededOrFaulted"] == terminal["outcome"],
+                               "conflicting_terminal")
+    core = {key: value for key, value in envelope.items() if key != "sealSha256"}
+    _m1_trajectory_require(envelope["sealSha256"] == sha(_m1_trajectory_json(core)), "conflicting_projection_hash")
+    return rows, envelope
+
+
+def first_m1_trajectory_difference(current_rows, original_rows):
+    """Compare already projected rows; this helper does not authenticate an original parent seal."""
+    previous, original_previous, first = None, None, None
+    current, original = iter(current_rows), iter(original_rows)
+    host = 0
+    while True:
+        row = next(current, None)
+        author = next(original, None)
+        if row is None and author is None:
+            return first
+        _m1_trajectory_require(row is not None and author is not None, "conflicting_host")
+        _m1_trajectory_row(row, host, previous)
+        _m1_trajectory_fields(author, {"host", "beforeSourceTick", "SourceTick", "visible", "sourceEventIds"})
+        _m1_trajectory_require(type(author["host"]) is int and author["host"] == host, "conflicting_host")
+        visible = author["visible"]
+        _m1_trajectory_fields(visible, {"Phase", "Possession"})
+        _m1_trajectory_require(_m1_trajectory_integer(visible["Phase"], 0, 4)
+                               and _m1_trajectory_integer(visible["Possession"], 0, 1), "malformed_projection")
+        _m1_trajectory_events(author["sourceEventIds"])
+        before, after = author["beforeSourceTick"], author["SourceTick"]
+        _m1_trajectory_require(_m1_trajectory_integer(before) and _m1_trajectory_integer(after)
+                               and after - before in (0, 1)
+                               and (original_previous is None or before == original_previous["SourceTick"]),
+                               "conflicting_tick")
+        pairs = [("beforeSourceTick", row["beforeSourceTick"], before),
+                 ("SourceTick", row["afterSourceTick"], after)]
+        pairs += [("prePublished." + field, row["prePublished"][field], visible[field])
+                  for field in ("Phase", "Possession")]
+        for field, actual, expected in pairs:
+            if first is None and actual != expected:
+                first = {
+                    "host": host, "field": field, "current": actual, "original": expected,
+                    "predecessor": None if previous is None else {
+                        "host": previous["host"],
+                        "currentSourceEventIds": previous["postAttemptSourceEventIds"],
+                        "originalSourceEventIds": original_previous["sourceEventIds"]},
+                    "currentPostAttemptSourceEventIds": row["postAttemptSourceEventIds"],
+                    "originalPostAttemptSourceEventIds": author["sourceEventIds"],
+                    "originalAuthentication": "requires-separate-parent-seal; Core-remains-provisional",
+                }
+        previous, original_previous = row, author
+        host += 1
+
+
+def _write_m1_fault_diagnostics(path, result):
+    production = result.get("production_before")
+    valid_production = (isinstance(production, dict) and bool(production) and all(
+        isinstance(name, str) and bool(name) and isinstance(pin, str) and len(pin) == 64
+        and all(c in "0123456789abcdef" for c in pin) for name, pin in production.items()))
+    binding = {
+        "schema": "source-M1-fault-diagnostic/v1",
+        "report_sha256": sha(path.read_bytes()),
+        "production_manifest_sha256": sha(json.dumps(
+            production, sort_keys=True, separators=(",", ":")).encode()) if valid_production else None,
+    }
+    runs = result.get("runs")
+    faults = [(label, run["fault_metadata"]) for label, run in runs.items()
+              if isinstance(run, dict) and "fault_metadata" in run] if isinstance(runs, dict) else []
+
+    for label, fault in (faults or [(None, None)])[:8]:
+        diagnostic = dict(binding)
+        missing = [] if valid_production else ["production_before"]
+        if not isinstance(fault, dict):
+            missing.append("fault_metadata")
+            fault = {}
+        for name in ("host", "before", "SourceTick"):
+            value = fault.get(name)
+            if type(value) is int and 0 <= value <= (1 << 63) - 1:
+                diagnostic[name] = value
+            else:
+                missing.append(name)
+        for name, value, limit in (("run", label, 128), ("error", fault.get("error"), 8192)):
+            if not isinstance(value, str) or not value.strip():
+                missing.append("run_label" if name == "run" else name)
+                continue
+            diagnostic[name + "_json_sha256"] = sha(json.dumps(value).encode("ascii"))
+            diagnostic[name + "_chars"] = len(value)
+            diagnostic[name + "_truncated"] = len(value) > limit
+            if len(value) > limit:
+                marker = "\n... [truncated] ...\n"
+                first = (limit - len(marker)) * 3 // 4
+                last = limit - len(marker) - first
+                value = value[:first] + marker + value[-last:]
+            diagnostic[name] = value
+        diagnostic["status"] = "missing-evidence" if missing else "captured-fault"
+        if missing:
+            diagnostic["missing_fields"] = missing
+        if "source_side" in fault:
+            diagnostic["source_side"] = _m1_side_diagnostic_view(fault["source_side"], label, fault)
+        print(json.dumps(diagnostic, sort_keys=True), file=sys.stderr)
+    if len(faults) > 8:
+        print(json.dumps(dict(binding, status="missing-evidence",
+                              missing_fields=["additional_fault_metadata_runs"],
+                              omitted_fault_runs=len(faults) - 8), sort_keys=True), file=sys.stderr)
+
+
 def _write_m1_result(output, result):
     path = output / "result.json"
     path.write_text(json.dumps(result, indent=2) + "\n")
@@ -246,6 +1179,12 @@ def _write_m1_result(output, result):
         if status == "UNMET-public-R_SKIP":
             print("Unmet required assertion:", M1_COVERAGE_ASSERTION, file=sys.stderr)
         print("M1 report:", path, file=sys.stderr)
+        if status == "failed-portable-source-fault":
+            _write_m1_fault_diagnostics(path, result)
+    try:
+        _write_m1_trajectory(output, path, result)
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError):
+        print('SOURCE_CURRENT_TRAJECTORY_V1 {"status":"incomplete","issues":["capture_io"]}', file=sys.stderr)
 
 
 def post_vm_output(output, presnap_switch=False):
@@ -373,6 +1312,7 @@ def m1_main(argv):
     (work / "empty-feed").mkdir()
     env = dict(os.environ, TMPDIR=str(work), TMP=str(work), TEMP=str(work),
                DOTNET_CLI_TELEMETRY_OPTOUT="1", MSBUILDDISABLENODEREUSE="1",
+               DOTNET_GENERATE_ASPNET_CERTIFICATE="false", DOTNET_EnableDiagnostics="0",
                DOTNET_NOLOGO="1", PYTHONDONTWRITEBYTECODE="1",
                DOTNET_CLI_HOME=str(work / "dotnet-home"), NUGET_PACKAGES=str(work / "nuget"))
     controls_spec = importlib.util.spec_from_file_location("existing_M1_immutable_controls", HERE / "run.py")
@@ -464,17 +1404,34 @@ def m1_main(argv):
                   or summary.get("actual_Core_post_VM_physics_cases") != 664):
                 raise RuntimeError("Retained M1 caller/physics inventory failed.")
         else:
-            receipt = json.loads((destination / "m1-replay-result.json").read_bytes())
+            receipt_path = destination / "m1-replay-result.json"
+            receipt_bytes = receipt_path.read_bytes() if receipt_path.is_file() else b""
+            expected_receipt = {
+                "observed": observed,
+                "profile": ("original-teams-contact282-c2-m1-presnap-switch" if presnap_switch
+                            else "original-teams-contact281-c2-m1"),
+                "sourceData": PRESNAP_DATA_SHA if presnap_switch else C2_M1_DATA_SHA,
+                "factory": ("REAL SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap_switch
+                            else "REAL SourceC2Composition.CreateM1Simulation"),
+                "replayFileSha256": inputs[str(args.replay_commands.absolute())],
+            }
+            if label == "uninstrumented":
+                run["trajectory_capture"] = _capture_m1_trajectory(
+                    destination, label, args.replay_commands.absolute(), receipt_bytes, expected_receipt,
+                    pins, result["harness_sha256"])
+            receipt = json.loads(receipt_bytes)
+            run["replay_receipt_sha256"] = sha(receipt_bytes)
             run["receipt_metadata"] = {key: receipt.get(key) for key in (
                 "completedHosts", "SourceTick", "gameplayCompatibility", "compatibilityRepairCount",
                 "compatibilityRepairs", "rawHandicap", "effectiveHandicap", "rSkipFrames", "positive")}
             if receipt.get("failure"):
                 failure = receipt["failure"]
                 run["fault_metadata"] = {key: failure.get(key) for key in ("host", "before", "SourceTick", "error")}
+                run["fault_metadata"]["source_side"] = _m1_side_evidence(
+                    destination, label, receipt_bytes, expected_receipt)
                 if args.source_compatibility == "portable":
                     result["status"] = "failed-portable-source-fault"
             run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility, presnap_switch)
-            run["replay_receipt_sha256"] = sha((destination / "m1-replay-result.json").read_bytes())
             run["receipt"] = receipt
         shutil.rmtree(copy)
         return run

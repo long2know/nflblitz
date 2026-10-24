@@ -81,6 +81,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.11.1'
@@ -178,7 +179,7 @@ jobs:
       - name: Prepare source-current public replay input without simulation
         run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-possession-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
       - name: Prepare source-timer public replay input without simulation
-        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-selection-countdown-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl
+        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.jsonl
       - name: Check historical and stale public replay generations
         run: python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/public-replay-generation-ci --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e --possession-replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --partition archived-four
       - name: Test real-input fixture and ball-runner failure gates
@@ -202,7 +203,7 @@ jobs:
         run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls
       - name: Compare original movement callers and post-animation physics
         # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
-        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
+        run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable
       - name: Test source-player preparation without original assets
         run: python3 -B -m unittest discover -s tools/assets -p 'test_*.py'
       - name: Test original-animation input reader without original assets
@@ -329,6 +330,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.11.1'
@@ -374,13 +376,13 @@ jobs:
         run: |
           python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-12000.jsonl
           python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-possession-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-possession-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-possession-12000.jsonl
-          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-presnap-switch-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl
+          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000.recipe.json --output .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000.jsonl
       - name: Execute only the fresh current U2 fifth legacy recording probe
         run: |
           python3 -B tests/movement-callers/check_replay_generations.py --baseline-ref cf3f2b5db3cc94ac3f51e01dae94dd74d90ebc02 --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/m1 --replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-12000.jsonl --output .squad/.scratch/defensive-presnap-switch-ci/current-history --previous-ref e539258b6b6160f0dcdc072a05c4887e6946423e --possession-replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-possession-12000.jsonl --partition u2-current-fifth
       - name: Execute normal full enabled-profile replay and all11 causal controls
         run: |
-          python3 -B tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile --replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-12000.jsonl --output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable
+          python3 -B tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/defensive-presnap-switch-ci/original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/fixture.json --sound-functions .squad/.scratch/SourceData/defensive-presnap-switch-ci/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs .squad/.scratch/SourceData/defensive-presnap-switch-ci/profile --replay-commands .squad/.scratch/SourceData/defensive-presnap-switch-ci/portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000.jsonl --output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable
       - name: Reject real corrupted result source and saved-recording artifacts
         run: |
           python3 -B tests/defensive-presnap-switch/test_ci.py failure-guards --root .squad/.scratch/SourceData/defensive-presnap-switch-ci --results .squad/.scratch/defensive-presnap-switch-ci --output .squad/.scratch/defensive-presnap-switch-ci/failure-guards.json

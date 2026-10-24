@@ -503,21 +503,7 @@ def required_random_inventory():
 
 
 def validate_default_compatibility(receipt):
-    require(receipt.get("status") == "passed" and receipt.get("base") == compatibility.BASE and
-            receipt.get("tree") == compatibility.TREE and receipt.get("originalTargetRandomQualified") is False and
-            receipt.get("fullPublicReplayRegenerated") is False and receipt.get("hostedOrFullM1Campaign") is False,
-            "Required byte compatibility is pinned main40/current execution, never a regenerated replay/native claim.")
-    require([r["name"] for r in receipt["runs"]] == ["main40", "current"] and
-            all(r["compile"] == r["exit"] == 0 and not r["diagnostics"] and
-                r["summary"]["hosts"] == 1200 and r["summary"]["rawCalls"] > 0 and
-                r["summary"]["SourceTick"] == 1140 and r["summary"]["rawCalls"] == 491 and
-                r["summary"]["selections"] == 4 and r["summary"]["defaultSeed"] == 1 and
-                r["summary"]["rawVectorFiltered"] is False for r in receipt["runs"]),
-            "Both actual default Core builds must execute the complete unfiltered seed1 input/RNG trace.")
-    require(set(receipt["compared"]) == {"default-host.jsonl", "default-rng.json", "default-menu.json"} and
-            all(r["bytes"] > 0 and re.fullmatch(r"[0-9a-f]{64}", r["sha256"]) and r["byteIdentical"] is True
-                for r in receipt["compared"].values()),
-            "All nonempty actual host/player/process/HUD, menu and raw RNG byte comparisons are required.")
+    compatibility.validate_receipt(receipt)
 
 
 if __name__ == "__main__":
