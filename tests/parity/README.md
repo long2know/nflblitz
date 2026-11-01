@@ -1,5 +1,13 @@
 # Original-source differential and synthetic contract checks
 
+The portable-library regressions in `ContractChecks.cs` exercise independent
+`random()`/`rand()` sequences, zero/high-bit seeds, zero/negative range
+consumption, pregame binding and receiver ties for both teams. The numeric
+sequence vectors come from the separately executed published recovered C
+implementation, not a native arcade binary. Strict-source tie guards remain
+covered. These checks are additional portable behavior evidence, not a
+replacement for the authenticated original-C matrix below.
+
 ## Focused stream-frame component regression
 
 ```sh
@@ -38,6 +46,63 @@ clip, never generated numeric goldens or a production sampler. No clip data is
 stored in Git; this optional private-input proof is separate from synthetic
 public test coverage and is not whole-VM/game/Unity/native acceptance.
 
+## Focused source-pose component checks
+
+After an explicitly authorized build, the compiled executable has a standalone
+entry point:
+
+```sh
+dotnet path/to/ParityChecks.dll --source-pose-math-only
+```
+
+This exact selector is handled before file reads, original-C cases, fixture
+loading or host-adapter selection. Extra arguments are rejected. It exercises
+only pure quaternion/pose operations and immutable Contracts layer values:
+no `GameSimulation`, Host, actor/animation-layer-state construction, VM, source
+wake, `SourceActorPoseSampler`, geometry, browser or Unity execution.
+Its separate receipt reports nonzero assertions and explicitly synthetic scope.
+
+The checks author their own monotone quarter table and fifteen-joint poses.
+Their source-derived expectations use a separate linear table scan, never a
+production expected-value helper or private captured pose. They cover endpoint
+bits, source-sign/tie preparation, adjacent float guard branches, injected table
+dependence, polynomial/floor behavior, the raw antipodal branch, no output
+normalization, nested producer/exported-helper arithmetic, source availability,
+transition reference identity and snapshot serialization visibility. They are
+not original-table, private fixed-case, World or native/ABI qualification.
+Private poses, original quarter rows and private-derived golden bundles must
+never be committed or included in public test output.
+
+### Explicit numerical policy
+
+`LegacyNormalized` remains the default for existing layer constructors and
+`SourceAnimationSampling.Sample/Blend/Slerp` APIs, including unrelated render-time
+smoothing. Source interpolation is not inferred from 57 Hz, Portable mode,
+library/table presence, selection evidence or the root-interpolation flight.
+
+Only the existing defensive-pre-snap-switch bootstrap binds
+`OriginalPortable`, before the first animation execution. A single private
+source kernel reads the existing immutable `SourceDirectionMath.Sin` quarter
+accessor. Its opaque operation instance is shared by both producer layers and
+their readonly exported layer values. The source-policy `SampleLayer` uses that
+same kernel, preserves a selected pose at zero/same-frame sampling, and retains
+the exact captured transition-origin reference. It does not normalize source
+inputs or outputs. The original float `PI_RAD`, `EPSILON`, source
+`HALFPI = PI_RAD * 0.5f`, table angle and polynomial arithmetic are intentional.
+The source-defined inverse-table zero bracket is supported: the original search
+reaches row1 then decrements to row0. Orthogonal source quaternions therefore use
+the original polynomial, without a wrapped index, clamp or host-trig fallback.
+Other invalid inputs, unavailable rows and search-budget guards remain explicit.
+
+Snapshots expose only a small numerical-policy tag, not the private operation,
+lookup delegate or table row. That in-process binding is nonserialized.
+A declared source policy without its binding, or an unknown policy, fails
+before fast-path success; serialized metadata alone does not confer numerical
+execution authority. No general snapshot rehydration transport is introduced.
+The code targets C# 7.3/netstandard2.1; compilation, private conjunction checks
+and independent review remain separate requirements, not implied by source
+edits or this synthetic selector.
+
 ## Original-source differential runner
 
 ```sh
@@ -49,7 +114,9 @@ python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json -
 ```
 
 This C# 7.3 project links the **actual production** contracts, complete pure
-gameplay kernel, and pure `AssetImport/*.cs` dependency in both modes.
+gameplay kernel, pure `AssetImport/*.cs` dependency, and saved-record/custom-play
+`Storage/*.cs` dependencies in both modes. Storage files also participate in the
+isolated mutation snapshot and before/after production hashes.
 The complete source inventory keeps adapter dependencies linked as the source
 profile expands; a hand-maintained subset can omit required production types.
 `--full-kernel` selects the host-adapter **checks**, not
@@ -234,3 +301,33 @@ For independently compiled DTO and pure match checks while the complete kernel
 is being edited, use [`../contracts/README.md`](../contracts/README.md).
 Compiling actual playbook/drone/ball dependencies here does not establish their
 AI, catch, motion, or full-match behavior.
+
+## Integrated affine regression entry points
+
+The actual `tests/parity/ParityChecks.csproj` retains `StreamChecks.cs` and
+adds the frozen authored `SourceAffineChecks.cs`, each exactly once. Its
+statically resolved authored inventory is 84. After a separately authorized
+build and finite validation grant:
+
+```sh
+dotnet path/to/ParityChecks.dll --source-affine-math-only
+dotnet path/to/ParityChecks.dll --source-pose-math-only
+```
+
+Both selectors reject extra arguments before data/fixture loading. The affine
+group covers the full scaled float basis and direct joint positions, deep
+hierarchy/pivots/roots, masks/headings, explicit binding errors and actual pure
+sampler/geometry callers. The source-pose group retains its authored interpolation
+expectations unchanged. The existing `--stream-component` helper, normal-path
+stream assertions and separate stream summary remain intact. Neither new pure
+selector enters that stream-state or the normal Game/Host campaign.
+
+The packet/digest project and eight-test recorded-GL inventory, including both
+arm cases and the full non-TRS affine case, are documented in
+`../../tools/source-player/README.md`. Fresh compilation/reference/artifact
+bindings and focused review of this source union remain pending. Historical
+stream and frozen affine results retain their original source scope, not proof
+of the new combination. No fixture, oracle, f89 tolerance or golden is updated.
+E1 lifetime, E2 ancestry, E3 World numerics, real assets/pivot bits,
+Unity/native/GPU and performance remain unqualified.
+FullWorld is STOP; all16 are OPEN; the whole port remains unfinished.

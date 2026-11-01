@@ -45,6 +45,7 @@ Assets/Imported.meta
 *.VC.db
 __pycache__/
 *.py[cod]
+tests/**/validation-output*/
 
 # Credentials and Unity activation artifacts (inject via external secret storage)
 .env

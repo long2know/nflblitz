@@ -204,6 +204,24 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Contains("--source-affine-math-only"))
+        {
+            if (args.Length != 1)
+            {
+                Console.Error.WriteLine("Usage: ParityChecks --source-affine-math-only");
+                return 2;
+            }
+            return SourceAffineMathOnly();
+        }
+        if (args.Contains("--source-pose-math-only"))
+        {
+            if (args.Length != 1)
+            {
+                Console.Error.WriteLine("Usage: ParityChecks --source-pose-math-only");
+                return 2;
+            }
+            return SourcePoseMathOnly();
+        }
         if (args.Length > 0 && args[0] == "--stream-component")
             return StreamComponent(args);
         string c2Inputs = null;
@@ -270,6 +288,64 @@ internal static class Program
                 browser_or_unity_executed = false
             };
             Console.WriteLine(JsonSerializer.Serialize(summary));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int SourceAffineMathOnly()
+    {
+        try
+        {
+            SourceAffineChecks.Run();
+            Check("nonzero authored affine assertions", assertions > 0);
+            Console.WriteLine(JsonSerializer.Serialize(new {
+                schema = "source-affine-authored-validation-receipt/v1",
+                status = failures == 0 ? "passed-authored-affine-math-only" : "failed-authored-affine-math-only",
+                assertions, failures, failure_details = FailureDetails,
+                synthetic_data_only = true, sampler_and_geometry_executed = true,
+                file_or_source_input_loading = false, game_host_or_vm_executed = false,
+                actor_or_animation_layer_state_constructed = false, browser_or_unity_executed = false,
+                private_reference_executed = false, full_gameplay_parity_claimed = false,
+                all16 = "OPEN", fullWorld = "STOP"
+            }));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int SourcePoseMathOnly()
+    {
+        try
+        {
+            ContractChecks.RunSourcePoseMath();
+            Check("nonzero pure source-pose assertions", assertions > 0);
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                status = failures == 0 ? "passed-synthetic-source-pose-math-only"
+                    : "failed-synthetic-source-pose-math-only",
+                assertions,
+                failures,
+                failure_details = FailureDetails,
+                synthetic_data_only = true,
+                private_fixed_tuple_executed = false,
+                file_or_source_input_loading = false,
+                game_host_or_vm_executed = false,
+                actor_or_animation_layer_state_constructed = false,
+                renderer_sampler_chain_or_geometry_executed = false,
+                full_kernel_host_adapter_exercised = false,
+                full_gameplay_parity_claimed = false,
+                browser_or_unity_executed = false,
+                all16 = "OPEN"
+            }));
             return failures == 0 ? 0 : 1;
         }
         catch (Exception exception)

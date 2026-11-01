@@ -1,5 +1,46 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Admitted action tails — October 29, 2026
+
+The independent `AdmittedActionTailChecks.csproj` references the actual portable
+Core and requires the unchanged approved563 manifest. It exercises original
+dead-ball uniqueness/milling delays, get-up-to-general-run callback timing and
+clear flags, all four late-run selections and the ordered nearby sprint
+override, same-tick idempotence, and precise unsupported TD/reaction guards.
+These are declared production-component fixtures, not a natural-match or native
+qualification. No additional clips or celebration substitutes are enabled.
+
+```sh
+bash tools/source-player/dotnet.sh build tests/movement-callers/AdmittedActionTailChecks.csproj -c Release
+bash tools/source-player/dotnet.sh tests/movement-callers/bin/AdmittedActionTails/Release/net10.0/AdmittedActionTailChecks.dll "$APPROVED563_DATA"
+```
+
+Its isolated outputs do not change the historical caller project or inventories.
+The pure helper project's `SourceMovement*.cs` glob excludes the integrated
+`GameSimulation` partial; this runner checks that actual integrated code instead.
+
+## Complete-original action and sound tails — October 30, 2026
+
+Pass the separately admitted complete-original data as a second argument:
+
+```sh
+bash tools/source-player/dotnet.sh tests/movement-callers/bin/AdmittedActionTails/Release/net10.0/AdmittedActionTailChecks.dll "$APPROVED563_DATA" "$COMPLETE_ORIGINAL_DATA"
+```
+
+The additional cases use the actual 303-clip/30,777-frame library and named
+versus sound-bank bootstrap, never relabel the old282 profile. All21 distinct
+TD/reaction programs execute real frames, callbacks, clear flags and breath
+tails; selected exact transition/stream durations and nine ordered gun-dance
+calls are checked. Actual source callers exercise grounded/SPIN gates, shared
+RNG order, bilateral puppet detachment/H_BSIDER, the first eligible opponent
+within50, and once-only next-wake scoring/statistics. Native speech children
+exercise actual qcreate/5-or10-tick sleep/emission/die, and boot output verifies
+the source cursor-bank replacement and common ordinal/reset lifecycle.
+
+These are explicitly bounded fixtures on the actual kernel/VM/registered
+processes, not a natural drive, PCM delivery, browser, target PRNG or native
+whole-game proof. The first-argument old-profile guards remain tested unchanged.
+
 ## Current near-frame input generations — October 23, 2026
 
 Current qualification uses **new inputs**, not revised original-game expected

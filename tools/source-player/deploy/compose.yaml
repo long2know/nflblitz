@@ -1,0 +1,19 @@
+name: nflblitz-original
+
+services:
+  game:
+    image: "${NFLBLITZ_IMAGE:-nflblitz-original:20261030-original303-amd64}"
+    platform: "${NFLBLITZ_PLATFORM:-linux/amd64}"
+    pull_policy: never
+    user: "101:101"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    stop_signal: SIGQUIT
+    restart: unless-stopped
+    tmpfs:
+      - /var/cache/nginx:rw,nosuid,nodev,noexec,size=16m,uid=101,gid=101,mode=0700
+    ports:
+      - "${NFLBLITZ_BIND_ADDRESS:-127.0.0.1}:${NFLBLITZ_PORT:-18098}:8080"

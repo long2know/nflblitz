@@ -17,12 +17,14 @@
     <Compile Include="Program.cs" />
     <Compile Include="ContractChecks.cs" />
     <Compile Include="StreamChecks.cs" />
+    <Compile Include="SourceAffineChecks.cs" />
     <Compile Include="HostAdapterChecks.cs" />
     <Compile Include="FullKernelInputs.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" Link="Production/Presentation/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" Link="Production/Contracts/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" Link="Production/Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs" Link="Production/Storage/%(Filename)%(Extension)" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
   <Import Project="FullKernelSources.props" />

@@ -1,9 +1,41 @@
 # Original audio preparation (local only)
 
-This is a bounded **compressed-stream extraction**, not a DCS3/DSP/game-audio
+The original `prepare.py`/SAUDv1 path below is a bounded **compressed-stream extraction**, not a DCS3/DSP/game-audio
 engine. It prepares original CURSORS IDs **19/23/60/63/64/67/68** and the exact
 34 PLAYERS candidate IDs reached by the currently supplied impact callbacks.
 No invented audio, silence fallback, inferred tackle event, or sound RNG exists here.
+
+## Separately qualified playlist and global-mixer preparation
+
+`prepare_playlists.py` executes the pinned CPU playlist VM after exact original
+BNK relative-address relocation. SAUDv2 retains raw programmes, real waits,
+finite stops and byte-verified second/third infinite-loop cycles. It does not
+relabel isolated one-shots or admit assigned unsupported opcodes as silence.
+
+`prepare_mixer_playlists.py` extends the immutable49-bank generation with the
+eight finite programmes needed by the complete original menu/known player
+callers: CURSORS20/28/80, INTRO6/7/11/12 and PLAYERS192. The independent original
+2.33 firmware/ISA reference establishes implicit-global13/14, update/transfer
+and genuine00 stops. Source-requested `SND_OPSYS_0223` and the observed `0233`
+runtime are distinct recorded facts, not renamed versions.
+
+Original13/14 target **global stream0**; ordinary local stream0 operands follow
+the programme's actual allocated channel. The helper executes both primary0
+and rebased-primary1 contexts in the pinned CPU VM, lowering13/14 to their
+source-equivalent global09/0B mixing operators. SAUDv3 preserves **both**
+PCM variants and actual global/own mixer frame traces. They must not be
+interchanged, silently discarded or treated as a timer-ID array.
+
+The runtime combines live source-column contributions on their240-sample
+frame clock, retaining fades/final snaps/00 or replacement resets; it rejects
+the unqualified native16-bit overflow domain. The independent original
+fixed1.15 transfer cases are separate from portable allocation, outer
+gain/pan, master headroom and browser resampling. No whole-DSP/native PCM
+equivalence follows from this narrower operator qualification.
+
+All generations use create-new ignored outputs. The compiler/reference paths
+must be the explicitly authenticated prepared roots; no ambient source,
+firmware, bank, credential or license discovery is performed.
 
 ## Reproduce
 
@@ -142,3 +174,25 @@ are volume 160/205/235 and priorities 15/10/5/1 (not Unity's priority scale).
 Binding post-Step callbacks to a selector would move RNG past actors and break
 global ordering. Parent/Core owns that separately routed integration; decoded
 PCM readiness is not caller parity or all-game completion.
+# Executed original playlist successor
+
+`prepare_playlists.py` is an explicit, local-only SAUDv2 preparation path for
+the complete-original303 composition. It authenticates every selected bank
+against the pinned source receipt and the existing decoder dependencies before
+compilation. `render_playlist.cpp` relocates original BNK relative stream
+addresses into a bounded private memory image and executes the pinned CPU
+playlist VM. Finite wait/stop timing is retained. Infinite loops require exact
+second/third decoded cycle agreement; their verified sample range is stored.
+This is not an original arcade DSP result.
+
+V2 does not change `isolated_supported` or admit unknown controls into the old
+v1 reader. It has a distinct package version, original program bytes and
+rendered-frame/loop extents. Cross-channel controls, unknown DCS3 opcodes and
+control-only programs remain explicitly reported, not skipped or replaced by
+clicks/silence. The C# complete-profile factory freezes its manifest and all
+bank/program inputs. Browser PCM uploads are lazy and use the existing real
+WebAudio consumer, source output ordering and source-time clock.
+
+The October30 user authorization permits this local original-resource
+integration; it does not establish public redistribution permission. The old
+extraction/profile bytes and qualification receipts stay unchanged.

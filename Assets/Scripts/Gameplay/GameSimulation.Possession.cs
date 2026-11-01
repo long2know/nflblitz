@@ -37,112 +37,6 @@ namespace Blitz.Gameplay
         }
     }
 
-    // Only declared portable Core continuations are represented. Native list sorting,
-    // stack/ABI restoration and unrelated Goose processes are not qualified here.
-    public sealed class SourcePortableProcessHost
-    {
-        private sealed class Node
-        {
-            internal SourceProcessView Identity;
-            internal ushort Sleep;
-            internal long LastVisit = -1;
-            internal long LastWake = -1;
-        }
-        private readonly List<Node> nodes = new List<Node>();
-        private readonly List<SourcePossessionProcessRecord> records = new List<SourcePossessionProcessRecord>();
-        public long SourceTick { get; private set; }
-        public long Caller { get; private set; }
-        public ReadOnlyCollection<SourceProcessView> Processes
-        {
-            get
-            {
-                var result = new List<SourceProcessView>();
-                foreach (Node n in nodes)
-                    result.Add(new SourceProcessView(n.Identity.Serial, n.Identity.Id, n.Identity.Function,
-                        n.Identity.RunLevel, n.Identity.BirthTick, n.Sleep, n.LastWake));
-                return result.AsReadOnly();
-            }
-        }
-        public ReadOnlyCollection<SourcePossessionProcessRecord> Records { get { return Array.AsReadOnly(records.ToArray()); } }
-        public void BeginTick(long tick)
-        {
-            if (tick != SourceTick + 1 || Caller != 0)
-                throw new InvalidOperationException("Visit every portable source dispatch exactly once.");
-            SourceTick = tick; records.Clear();
-        }
-        public void Create(long serial, int id, string function, int level, ushort sleep = 1)
-        {
-            if (serial <= 0 || Find(serial) != null || string.IsNullOrEmpty(function))
-                throw new ArgumentException("A fresh declared process identity is required.");
-            nodes.Insert(0, new Node { Identity = new SourceProcessView(serial, id, function, level, SourceTick, sleep), Sleep = sleep });
-            Record("Create", serial, id, sleep);
-        }
-        public bool Visit(long serial)
-        {
-            Node n = Find(serial);
-            if (n == null) return false;
-            if (Caller != 0 || n.LastVisit == SourceTick)
-                throw new InvalidOperationException("A declared process slot cannot execute twice or inline in another wake.");
-            n.LastVisit = SourceTick;
-            if (n.Identity.BirthTick >= SourceTick || (short)n.Sleep <= 0) return false;
-            n.Sleep--;
-            if (n.Sleep != 0) return false;
-            Caller = serial; n.LastWake = SourceTick; Record("Wake", serial, n.Identity.Id, 0);
-            return true;
-        }
-        public void Complete()
-        {
-            Node n = Find(Caller);
-            if (n != null && n.Sleep == 0) n.Sleep = 1;
-            Caller = 0;
-        }
-        public void Sleep(int ticks)
-        {
-            Node n = Find(Caller);
-            if (n == null || ticks < 1 || ticks > 0x7fff)
-                throw new InvalidOperationException("sleep requires the actual executing continuation and a positive source delay.");
-            n.Sleep = (ushort)ticks; Record("Sleep", Caller, n.Identity.Id, ticks);
-        }
-        public void Kill(long serial)
-        {
-            Node n = Find(serial);
-            if (n == null) return;
-            nodes.Remove(n); Record("Die", serial, n.Identity.Id, 0);
-        }
-        public bool Exists(int id, int mask)
-        {
-            foreach (Node n in nodes) if ((n.Identity.Id & mask) == (id & mask)) return true;
-            return false;
-        }
-        public bool Contains(long serial) { return Find(serial) != null; }
-        public void SuspendMultiple(int id, int mask)
-        {
-            foreach (Node n in nodes)
-                if (n.Identity.Serial != Caller && (n.Identity.Id & mask) == id)
-                { n.Sleep |= 0x8000; Record("Suspend", n.Identity.Serial, n.Identity.Id, n.Sleep); }
-        }
-        public void ResumeMultiple(int id, int mask)
-        {
-            foreach (Node n in nodes)
-                if ((n.Identity.Id & mask) == id)
-                { n.Sleep &= 0x7fff; Record("Resume", n.Identity.Serial, n.Identity.Id, n.Sleep); }
-        }
-        public void ResumeAll()
-        {
-            foreach (Node n in nodes)
-            { n.Sleep &= 0x7fff; Record("ResumeAll", n.Identity.Serial, n.Identity.Id, n.Sleep); }
-        }
-        public SourceProcessView Require(long serial)
-        {
-            Node n = Find(serial);
-            if (n == null) throw new InvalidOperationException("The actual declared process is no longer alive.");
-            return new SourceProcessView(serial, n.Identity.Id, n.Identity.Function, n.Identity.RunLevel, n.Identity.BirthTick, n.Sleep, n.LastWake);
-        }
-        internal void Record(string operation, long serial, int id, int value)
-        { records.Add(new SourcePossessionProcessRecord(SourceTick, operation, serial, id, value)); }
-        private Node Find(long serial) { return nodes.Find(n => n.Identity.Serial == serial); }
-    }
-
     public sealed partial class GameSimulation : ISourceCameraProcessServices
     {
         internal const long GameProcess = 1, BallProcess = 16, CameraProcess = 17, ClockProcess = 18,
@@ -186,9 +80,12 @@ namespace Blitz.Gameplay
                 throw new InvalidOperationException("intercepted_ball_sp requires its pinned table and the actual selected ancr_swaped_bnk_str.");
             }
             int ordinal = SourceDraw(5, "sounds.c:intercepted_ball_sp:831");
+            SourceProcessSoundCall output = EmitSourceProcessSound(SourceProcessSoundKind.PossessionSpeech,
+                "intercepted_ball_sp", Model.SourceAnnouncerSwappedBank, sourcePossessionSoundData.Playlist(ordinal),
+                sourcePossessionSoundData.Volume, sourcePossessionSoundData.Pan, sourcePossessionSoundData.Priority, 1);
             var call = new SourcePossessionSpeech(Model.SourceTick, serial, Model.SourceRandomProcessOrder,
                 Model.SourceAnnouncerSwappedBank, ordinal, sourcePossessionSoundData.Playlist(ordinal),
-                sourcePossessionSoundData.Volume, sourcePossessionSoundData.Pan, sourcePossessionSoundData.Priority);
+                sourcePossessionSoundData.Volume, sourcePossessionSoundData.Pan, sourcePossessionSoundData.Priority, output);
             sourcePossessionSpeech.Add(call);
             Model.SourceProcesses.Record("Speech", serial, call.PlaylistId, unchecked((int)call.PriorityWord));
             Action<SourcePossessionSpeech> consumer = SourcePossessionSpeechRaised;
@@ -221,10 +118,20 @@ namespace Blitz.Gameplay
             host.Create(CursorProcess, 0x0f81, "cursor_proc", 0x400);
             host.Create(StatusProcess, 0x0700, "score_status_box", 0);
             host.Create(24, 0x0a00, "detect_proc", 0x500);
+            sourceInstructionDispatcher = new SourceInstructionDispatcher(host,
+                EmitSourceInstructionSound, EmitSourceKickoffInstructionSound);
+            InitializeSourceInstructionAdmission();
         }
 
         private bool EnterSourceProcess(long serial) { return Model.SourceProcesses.Visit(serial); }
-        private void CompleteSourceProcess() { Model.SourceProcesses.Complete(); }
+        private void CompleteSourceProcess()
+        {
+            long caller = Model.SourceProcesses.Caller;
+            Model.SourceProcesses.Complete();
+            long child;
+            while ((child = Model.SourceProcesses.NextImmediateAfter(caller)) != 0)
+                DispatchSourceMessage(new SourceFireWakeSlot(SourceFireSlotKind.HostContinuation, child, "flash_obj_proc"));
+        }
         private bool SourceCameraHasRetainedOutput
         {
             get
@@ -282,13 +189,17 @@ namespace Blitz.Gameplay
         {
             var result = new List<SourceFireWakeSlot>();
             foreach (SourceProcessView p in Model.SourceProcesses.Processes)
-                if (p.Function == "show_message_proc" || p.Function == "flash_obj_proc")
+                if (IsSourceMessageFunction(p.Function))
                     result.Add(new SourceFireWakeSlot(SourceFireSlotKind.HostContinuation, p.Serial, p.Function));
             return result;
         }
 
         private void DispatchSourceMessage(SourceFireWakeSlot slot)
         {
+            if (sourceInstructionDispatcher != null && sourceInstructionDispatcher.Dispatch(slot.ProcessSerial,
+                function => BeginSourceProcess(function, -1, 0))) return;
+            if (DispatchSourceOriginalSpeechChild(slot.ProcessSerial)) return;
+            if (DispatchSourceAudibleChild(slot.ProcessSerial)) return;
             if (!EnterSourceProcess(slot.ProcessSerial)) return;
             BeginSourceProcess(slot.Function, -1, 0);
             try
@@ -353,6 +264,91 @@ namespace Blitz.Gameplay
             finally { CompleteSourceProcess(); }
         }
 
+        private void CleanSourceAudibleTeam(int team)
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            if (a == null) return;
+            int oid = 813 + team;
+            a.NonAlpha.RemoveAll(sprite => sprite.Id == oid);
+            a.Alpha.RemoveAll(sprite => sprite.Id == oid);
+            foreach (SourceAudibleChild child in a.Children)
+                if ((int)child.Sprite.Team == team && Model.SourceProcesses.Contains(child.Serial))
+                {
+                    child.Stage = SourceAudibleFlashStage.Killed;
+                    child.LastProcess = Model.SourceProcesses.Require(child.Serial);
+                    Model.SourceProcesses.Kill(child.Serial);
+                }
+            a.Backgrounds[team] = null;
+        }
+
+        private void PrintSourceAudible(ActorState actor, bool first)
+        {
+            int team = (int)actor.Team;
+            CleanSourceAudibleTeam(team);
+            var sprite = new SourceAudibleSprite { Serial = ++sourceFireNextSerial, Team = actor.Team,
+                Parent = Model.SourceProcesses.Caller, Id = 813 + team };
+            SourceAudibleState a = Model.SourceAudibleState;
+            a.Objects.Add(sprite); a.NonAlpha.Add(sprite); a.Backgrounds[team] = sprite;
+            Model.SourceProcesses.Record("BeginAudibleSprite", sprite.Serial, sprite.Id, team);
+            if (!first) return;
+            var child = new SourceAudibleChild { Serial = ++sourceFireNextSerial, Sprite = sprite,
+                Stage = SourceAudibleFlashStage.PendingEntry, BirthTick = Model.SourceTick };
+            a.Children.Add(child);
+            Model.SourceProcesses.CreateImmediateAfterCaller(child.Serial, 0x1500 + team, "flash_obj_proc");
+        }
+
+        private bool DispatchSourceAudibleChild(long serial)
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            if (a == null) return false;
+            SourceAudibleChild child = a.Children.Find(c => c.Serial == serial);
+            if (child == null) return false;
+            if (!EnterSourceProcess(serial)) return true;
+            BeginSourceProcess("flash_obj_proc", -1, 0);
+            try
+            {
+                bool exists = a.NonAlpha.Contains(child.Sprite) || a.Alpha.Contains(child.Sprite);
+                child.CheckTick = Model.SourceTick; child.CheckExists = exists;
+                Model.SourceProcesses.Record("SpriteExists", serial, (int)child.Sprite.Serial, exists ? 1 : 0);
+                if (!exists)
+                {
+                    child.Stage = SourceAudibleFlashStage.MissingSprite;
+                    child.LastProcess = Model.SourceProcesses.Require(serial);
+                    Model.SourceProcesses.Kill(serial);
+                    return true;
+                }
+                if (child.Stage == SourceAudibleFlashStage.PendingEntry)
+                {
+                    child.EntryTick = Model.SourceTick;
+                    child.Color = child.Sprite.Color; child.Combiner = child.Sprite.Combiner;
+                }
+                else if (child.Stage == SourceAudibleFlashStage.WhiteSleep)
+                {
+                    child.Sprite.Combiner = child.Combiner.Value; child.Sprite.Chroma = 0;
+                    child.Stage = SourceAudibleFlashStage.ColorSleep;
+                    Model.SourceProcesses.Sleep(2);
+                    return true;
+                }
+                else
+                {
+                    child.Cycles++;
+                    if (child.Cycles == 3)
+                    {
+                        child.Sprite.Color = child.Color.Value; child.Sprite.Combiner = child.Combiner.Value;
+                        child.Sprite.Chroma = 0; child.Stage = SourceAudibleFlashStage.Completed;
+                        child.LastProcess = Model.SourceProcesses.Require(serial);
+                        Model.SourceProcesses.Kill(serial);
+                        return true;
+                    }
+                }
+                child.Sprite.Combiner = 0x10; child.Sprite.Chroma = 1;
+                child.Stage = SourceAudibleFlashStage.WhiteSleep;
+                Model.SourceProcesses.Sleep(2);
+                return true;
+            }
+            finally { CompleteSourceProcess(); }
+        }
+
         private void AddSourceMessageSprite(MessageProcess message, string image)
         {
             var sprite = new MessageSprite { Serial = ++sourceFireNextSerial, Image = image,
@@ -386,6 +382,8 @@ namespace Blitz.Gameplay
             if (!EnterSourceProcess(ClockProcess)) return;
             SourceClockStep clock = SourceClock.Step(Model.SourceClock,
                 new SourceClockInput(Model.SourceTick, Model.ClockActive, Model.Quarter - 1, sourceConfiguration.TimeAdjustment));
+            Model.SourceTimeOfPossession = SourceTimeOfPossession.Accumulate(Model.SourceTimeOfPossession,
+                Model.Possession, clock.TimeOfPossessionDelta);
             Model.SourceClock = clock.State; UpdateSourceClockView();
             CompleteSourceProcess();
         }

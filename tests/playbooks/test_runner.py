@@ -1,4 +1,5 @@
 """Failure-gate tests only; these are not original gameplay parity evidence."""
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -8,6 +9,7 @@ import sys
 import unittest
 from unittest import mock
 import uuid
+import xml.etree.ElementTree as ET
 
 sys.dont_write_bytecode = True
 import support
@@ -16,6 +18,131 @@ import oracle
 SPEC = importlib.util.spec_from_file_location("playbook_runner", Path(__file__).with_name("run.py"))
 runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
+
+
+class PlaybookCurrentBuildInventory(unittest.TestCase):
+    """Build-input coverage only; snapshot() retains historical byte certification."""
+
+    def test_contract_roster_project_links_and_profile_without_historical_certification(self):
+        names = support.source_paths()
+        expected = {"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}
+        expected.update("Assets/Scripts/Gameplay/" + name for name in support.GAMEPLAY)
+        expected.update("tools/playbooks/" + name for name in support.PRODUCER)
+        self.assertEqual(14, len(support.CONTRACTS))
+        self.assertEqual(14, len(set(support.CONTRACTS)))
+        self.assertEqual(26, len(names))
+        self.assertEqual(expected, set(names))
+        self.assertEqual(20, sum(name.endswith(".cs") for name in names))
+        for name in ("SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
+                     "SourceKickoffInstructionChildContracts.cs", "SourcePortableProcessContracts.cs"):
+            self.assertIn("Assets/Scripts/Contracts/" + name, names)
+        self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in names))
+
+        model = ET.fromstring((support.SUITE / "model/PurePlaybooks.csproj").read_text())
+        checks = ET.fromstring((support.SUITE / "PlaybookChecks.csproj").read_text())
+        for project in (model, checks):
+            self.assertEqual("7.3", project.findtext("./PropertyGroup/LangVersion"))
+            self.assertEqual("true", project.findtext("./PropertyGroup/TreatWarningsAsErrors"))
+            self.assertEqual("false", project.findtext("./PropertyGroup/EnableDefaultCompileItems"))
+            self.assertEqual([], project.findall("./Import"))
+            for group in project.findall("./ItemGroup"):
+                self.assertEqual({}, group.attrib)
+        self.assertEqual("netstandard2.1", model.findtext("./PropertyGroup/TargetFramework"))
+        self.assertEqual("net10.0", checks.findtext("./PropertyGroup/TargetFramework"))
+        self.assertEqual("$(MSBuildThisFileDirectory)../../../",
+                         model.findtext("./PropertyGroup/BlitzSourceRoot"))
+        self.assertEqual([{"Include": "model/PurePlaybooks.csproj"}],
+                         [item.attrib for item in checks.findall("./ItemGroup/ProjectReference")])
+        items = model.findall(".//Compile")
+        self.assertIn("$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs",
+                      [item.attrib["Include"] for item in items])
+        linked = []
+        for item in items:
+            self.assertNotIn("Exclude", item.attrib)
+            self.assertNotIn("Remove", item.attrib)
+            self.assertNotIn("Condition", item.attrib)
+            for pattern in item.attrib["Include"].split(";"):
+                if pattern.startswith("$(BlitzSourceRoot)"):
+                    linked.extend(path.relative_to(support.ROOT).as_posix()
+                                  for path in support.ROOT.glob(pattern.replace("$(BlitzSourceRoot)", "", 1)))
+                else:
+                    self.assertEqual("FriendAccess.cs", pattern)
+        self.assertEqual(len(linked), len(set(linked)))
+        self.assertEqual({name for name in names if name.startswith("Assets/Scripts/")}, set(linked))
+
+        tree = ast.parse((support.SUITE / "run.py").read_text())
+        mains = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
+        self.assertEqual(1, len(mains))
+        reports = [node.value for node in mains[0].body if isinstance(node, ast.Assign)
+                   and any(isinstance(target, ast.Name) and target.id == "evidence" for target in node.targets)]
+        self.assertEqual(1, len(reports))
+        self.assertIsInstance(reports[0], ast.Dict)
+        fields = {ast.literal_eval(key): value for key, value in zip(reports[0].keys, reports[0].values)}
+        self.assertEqual(
+            "Actual complete thirteen Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; "
+            "C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
+            ast.literal_eval(fields["profile"]))
+        self.assertIs(False, ast.literal_eval(fields["full_gameplay_parity_claimed"]))
+
+        expected_methods = {
+            "PlaybookCurrentBuildInventory": [
+                "test_contract_roster_project_links_and_profile_without_historical_certification",
+            ],
+            "PlaybookRunnerGuards": [
+                "test_exact_original_matrix_inventory_is_required",
+                "test_status_only_quick_scope_crash_or_parity_claim_cannot_pass",
+                "test_only_exact_revision_tree_release_profile_and_recipe_pins_are_supported",
+                "test_public_pins_agree_with_existing_source_oracles_and_producer",
+                "test_actual_source_snapshot_is_bounded_to_complete_contracts_six_pure_helpers_and_producer",
+                "test_live_source_hash_guard_rejects_changed_actual_copied_source",
+                "test_missing_wrong_hash_and_escaping_original_inputs_fail_closed",
+                "test_actual_manifest_schema_rejects_missing_extra_bad_hash_and_parity_claim",
+                "test_manifest_provenance_and_catalog_mismatch_cannot_pass_shape_only",
+                "test_actual_weighted_ordinal_mutant_preserves_count_order_and_other_duplicate",
+                "test_actual_route_mutant_replaces_opcode_not_parameters_or_identity",
+                "test_mutation_rejection_requires_exact_artifact_guard_not_crash_or_build_error",
+                "test_original_function_selection_rejects_missing_or_ambiguous_bodies",
+                "test_unit_test_gate_never_accepts_skips_zero_discovery_or_status_only",
+            ],
+        }
+        expected_ids = {"test_runner." + owner + "." + method
+                        for owner, methods in expected_methods.items() for method in methods}
+        loader = unittest.TestLoader()
+        discovered = loader.discover(str(support.SUITE), pattern="test_*.py")
+
+        def test_ids(suite):
+            for test in suite:
+                if isinstance(test, unittest.TestSuite):
+                    yield from test_ids(test)
+                else:
+                    yield test.id()
+
+        self.assertEqual([], loader.errors)
+        self.assertEqual(15, len(expected_ids))
+        self.assertEqual(15, discovered.countTestCases())
+        self.assertEqual(expected_ids, set(test_ids(discovered)))
+        admissions = [(step.value, following.value)
+                      for block in ast.walk(mains[0]) if isinstance(block, ast.Try)
+                      for step, following in zip(block.body, block.body[1:])
+                      if isinstance(step, ast.Assign) and isinstance(step.value, ast.Call)
+                      and isinstance(step.value.func, ast.Name) and step.value.func.id == "execute"
+                      and step.value.args and isinstance(step.value.args[0], ast.Constant)
+                      and step.value.args[0].value == "runner-unit-tests" and isinstance(following, ast.Expr)]
+        self.assertEqual(1, len(admissions))
+        discovery, admission = admissions[0]
+        expected_command = ('[sys.executable, "-B", "-m", "unittest", "discover", '
+                            '"-s", str(SUITE), "-p", "test_*.py", "-v"]')
+        self.assertEqual(ast.dump(ast.parse(expected_command, mode="eval").body), ast.dump(discovery.args[1]))
+        self.assertEqual(ast.dump(ast.parse("require_unit_tests(code, stdout + stderr, 15)", mode="eval").body),
+                         ast.dump(admission))
+        runner.require_unit_tests(0, "Ran 15 tests in 0.1s\n\nOK\n", 15)
+        for code, output in ((1, "Ran 15 tests in 0.1s\nOK\n"), (134, "Ran 15 tests in 0.1s\nOK\n"),
+                             (0, "OK\n"), (0, "Ran 0 tests in 0.1s\nOK\n"),
+                             (0, "Ran 14 tests in 0.1s\nOK\n"), (0, "Ran 16 tests in 0.1s\nOK\n"),
+                             (0, "Ran 15 tests in 0.1s\nOK (skipped=1)\n"),
+                             (0, "Ran 15 tests in 0.1s\nRan 15 tests in 0.1s\nOK\n")):
+            with self.subTest(code=code, output=output), self.assertRaises(support.GateError):
+                runner.require_unit_tests(code, output, 15)
 
 
 class PlaybookRunnerGuards(unittest.TestCase):
@@ -100,14 +227,16 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, support.live_hashes())
-        self.assertEqual(10, len(support.CONTRACTS))
-        self.assertEqual(16, sum(name.endswith(".cs") for name in contents))
-        for name in ("SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs", "SourceCameraContracts.cs"):
+        self.assertEqual(13, len(support.CONTRACTS))
+        self.assertEqual(19, sum(name.endswith(".cs") for name in contents))
+        for name in ("SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs", "SourceCameraContracts.cs",
+                     "SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
+                     "SourcePortableProcessContracts.cs"):
             relative = "Assets/Scripts/Contracts/" + name
             self.assertEqual(contents[relative], (support.ROOT / relative).read_bytes())
             self.assertEqual(hashes[relative], support.sha256(contents[relative]))
         runner_source = (support.SUITE / "run.py").read_text()
-        self.assertIn('"profile": "Actual complete ten Contracts +', runner_source)
+        self.assertIn('"profile": "Actual complete thirteen Contracts +', runner_source)
         self.assertNotIn('"profile": "Actual complete nine Contracts +', runner_source)
         self.assertNotIn('"profile": "Actual complete seven Contracts +', runner_source)
         self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in contents))
@@ -128,7 +257,7 @@ class PlaybookRunnerGuards(unittest.TestCase):
     def test_live_source_hash_guard_rejects_changed_actual_copied_source(self):
         contents, before = support.snapshot()
         contracts = {name for name in contents if name.startswith("Assets/Scripts/Contracts/")}
-        self.assertEqual(10, len(contracts))
+        self.assertEqual(13, len(contracts))
         self.assertIn("Assets/Scripts/Contracts/SourceContactContracts.cs", contracts)
         self.assertEqual({"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}, contracts)
         for name, data in contents.items():
@@ -137,7 +266,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
             path.write_bytes(data)
         support.require_unchanged(before, self.directory)
         for name in ("SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs",
-                     "SourceCameraContracts.cs"):
+                     "SourceCameraContracts.cs", "SourceInstructionContracts.cs",
+                     "SourceInstructionPresentationContracts.cs", "SourcePortableProcessContracts.cs"):
             relative = "Assets/Scripts/Contracts/" + name
             contract = self.directory / relative
             contract.unlink()
@@ -271,12 +401,13 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertIn(("nfl.c", "lineup_players"), oracle.FUNCTIONS)
 
     def test_unit_test_gate_never_accepts_skips_zero_discovery_or_status_only(self):
-        runner.require_unit_tests(0, "Ran 14 tests in 0.1s\n\nOK\n", 14)
-        for code, output in ((1, "Ran 14 tests in 0.1s\nOK\n"), (0, "OK\n"),
+        runner.require_unit_tests(0, "Ran 15 tests in 0.1s\n\nOK\n", 15)
+        for code, output in ((1, "Ran 15 tests in 0.1s\nOK\n"), (0, "OK\n"),
                              (0, "Ran 0 tests in 0.1s\nOK\n"),
-                             (0, "Ran 14 tests in 0.1s\nOK (skipped=1)\n")):
+                             (0, "Ran 14 tests in 0.1s\nOK\n"),
+                             (0, "Ran 15 tests in 0.1s\nOK (skipped=1)\n")):
             with self.subTest(code=code, output=output), self.assertRaises(support.GateError):
-                runner.require_unit_tests(code, output, 14)
+                runner.require_unit_tests(code, output, 15)
 
 
 if __name__ == "__main__":

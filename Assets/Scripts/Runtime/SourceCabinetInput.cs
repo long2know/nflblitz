@@ -86,25 +86,51 @@ namespace Blitz.Runtime
         private readonly SourceMatchConfiguration configuration;
         private readonly Queue<SourceInputFrame> ordered = new Queue<SourceInputFrame>();
         private readonly SourceButtons[] previous = new SourceButtons[4];
+        private readonly SourceDigitalDirections[] previousDigital = new SourceDigitalDirections[4];
+        private readonly bool preserveSourceDigitalChanges;
+        private SourcePhysicalSwitchFrame previousPhysical;
+        private bool physicalSamplesSeen;
         private SourceInputFrame held;
         public bool WaitingForNeutral { get; private set; }
         public int PendingFrames { get { return ordered.Count; } }
 
-        public SourceCabinetInputBuffer(SourceMatchConfiguration configuration)
+        public SourceCabinetInputBuffer(SourceMatchConfiguration configuration, bool preserveSourceDigitalChanges = false)
         {
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            this.preserveSourceDigitalChanges = preserveSourceDigitalChanges;
             held = Neutral();
         }
 
         public void Capture(IReadOnlyList<SourceCabinetSample> samples)
+        { CaptureCore(samples, null); }
+
+        public void Capture(IReadOnlyList<SourceCabinetSample> samples, SourcePhysicalSwitchFrame physicalSwitches)
+        {
+            if (physicalSwitches == null) throw new ArgumentNullException(nameof(physicalSwitches));
+            CaptureCore(samples, physicalSwitches);
+        }
+
+        private void CaptureCore(IReadOnlyList<SourceCabinetSample> samples, SourcePhysicalSwitchFrame physicalSwitches)
         {
             if (samples == null) throw new ArgumentNullException(nameof(samples));
             if (samples.Count != configuration.Stations.Count)
                 throw new ArgumentException("Sample all configured source stations, not a team-side shortcut.", nameof(samples));
+            if (physicalSamplesSeen && physicalSwitches == null)
+                throw new InvalidOperationException("A physical cabinet capture cannot fall back to configured stations only.");
+            if (physicalSwitches != null)
+                foreach (SourceCabinetSample sample in samples)
+                {
+                    SourceStationInput physical = physicalSwitches.Station(sample.StationId);
+                    if (sample.Held != physical.Held || sample.Stick.StickX != physical.StickX
+                        || sample.Stick.StickZ != physical.StickZ
+                        || sample.Stick.DigitalDirections != (int)physical.DigitalCurrent.Value)
+                        throw new ArgumentException("Configured and physical switches must come from the same capture.", nameof(samples));
+                }
             var seen = new bool[4];
             var frame = new SourceStationInput[samples.Count];
             var latest = new SourceStationInput[samples.Count];
-            bool edge = false, neutral = true;
+            bool edge = physicalSwitches != null && !physicalSwitches.SameCurrent(previousPhysical);
+            bool neutral = physicalSwitches == null || physicalSwitches.IsNeutral;
             for (int i = 0; i < samples.Count; i++)
             {
                 SourceCabinetSample sample = samples[i];
@@ -117,29 +143,38 @@ namespace Blitz.Runtime
                 SourceButtons pressed = sample.Held & ~previous[sample.StationId];
                 SourceButtons released = previous[sample.StationId] & ~sample.Held;
                 previous[sample.StationId] = sample.Held;
+                var digital = (SourceDigitalDirections)sample.Stick.DigitalDirections;
+                bool digitalChanged = digital != previousDigital[sample.StationId];
+                previousDigital[sample.StationId] = digital;
                 bool command = sample.Command.IsSpecified &&
                     (sample.Command.Action != SourceAction.None || sample.Command.OffenseFlipped.HasValue);
-                edge |= pressed != SourceButtons.None || released != SourceButtons.None || command;
+                edge |= pressed != SourceButtons.None || released != SourceButtons.None || command ||
+                    preserveSourceDigitalChanges && digitalChanged;
                 neutral &= sample.Held == SourceButtons.None && sample.Stick.Ordinal == 24 && !command;
                 frame[i] = new SourceStationInput(sample.StationId, sample.Stick.StickX, sample.Stick.StickZ,
-                    sample.Held, pressed, released, sample.Command);
-                latest[i] = new SourceStationInput(sample.StationId, sample.Stick.StickX, sample.Stick.StickZ, sample.Held);
+                    sample.Held, pressed, released, sample.Command, digital);
+                latest[i] = new SourceStationInput(sample.StationId, sample.Stick.StickX, sample.Stick.StickZ,
+                    sample.Held, digitalCurrent: digital);
             }
+            physicalSamplesSeen |= physicalSwitches != null;
+            previousPhysical = physicalSwitches;
             if (WaitingForNeutral)
             {
                 if (neutral)
                 {
                     WaitingForNeutral = false;
                     Array.Clear(previous, 0, previous.Length);
+                    Array.Clear(previousDigital, 0, previousDigital.Length);
+                    previousPhysical = physicalSamplesSeen ? SourcePhysicalSwitchFrame.Neutral() : null;
                 }
                 return;
             }
-            held = new SourceInputFrame(latest);
+            held = new SourceInputFrame(latest, physicalSwitches);
             if (edge)
             {
                 if (ordered.Count >= 8192)
                     throw new InvalidOperationException("Source cabinet edge backlog exceeded 8192; refusing to silently drop input.");
-                ordered.Enqueue(new SourceInputFrame(frame));
+                ordered.Enqueue(new SourceInputFrame(frame, physicalSwitches));
             }
         }
 
@@ -153,6 +188,8 @@ namespace Blitz.Runtime
         {
             ordered.Clear();
             Array.Clear(previous, 0, previous.Length);
+            Array.Clear(previousDigital, 0, previousDigital.Length);
+            previousPhysical = physicalSamplesSeen ? SourcePhysicalSwitchFrame.Neutral() : null;
             held = Neutral();
             WaitingForNeutral = requireNeutral;
         }
@@ -161,8 +198,9 @@ namespace Blitz.Runtime
         {
             var values = new SourceStationInput[configuration.Stations.Count];
             for (int i = 0; i < values.Length; i++)
-                values[i] = new SourceStationInput(configuration.Stations[i].StationId);
-            return new SourceInputFrame(values);
+                values[i] = new SourceStationInput(configuration.Stations[i].StationId,
+                    digitalCurrent: SourceDigitalDirections.None);
+            return new SourceInputFrame(values, physicalSamplesSeen ? SourcePhysicalSwitchFrame.Neutral() : null);
         }
     }
 

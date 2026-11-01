@@ -147,7 +147,9 @@ namespace Blitz.AssetImport
                 RosterGuard.Sha256(json) == expectedSha256, "Original cinematic content pin mismatch.");
             RosterObject root = RosterJson.Object(RosterJson.Parse(json), "original impact presentation");
             string schema = root.Text("schema");
-            bool preSnap = schema == "original-impact-contact282-c2-m1-presnap-switch/v1";
+            bool final = schema == "original-impact-complete-original303-final/v1";
+            bool complete = schema == "original-impact-complete-original303/v1" || final;
+            bool preSnap = schema == "original-impact-contact282-c2-m1-presnap-switch/v1" || complete;
             bool m1 = preSnap || schema == "original-impact-contact281-c2-m1/v1";
             bool c2 = m1 || schema == "original-impact-contact281-c2/v1";
             bool contact = c2 || schema == "original-impact-contact272/v1";
@@ -207,7 +209,7 @@ namespace Blitz.AssetImport
                 var arguments = new string[args.Length];
                 for (int i = 0; i < arguments.Length; i++)
                     arguments[i] = args[i] is string ? RosterJson.Text(args[i], 128, false) :
-                        RosterJson.Integer(args[i], 0, 100000).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        RosterJson.Integer(args[i], final ? -5 : 0, 100000).ToString(System.Globalization.CultureInfo.InvariantCulture);
                 cue.Text("execution"); cue.Done();
                 RosterGuard.Require(cueIds.Add(line) && (kind == "camera" && args.Length == 1 ||
                     kind == "shaker" && args.Length == 2 || kind == "callback" && args.Length == 4),
@@ -247,16 +249,24 @@ namespace Blitz.AssetImport
                         binding.Text("legacy_programs_sha256", 64) == SourceTeamResourceProfile.ContactProgramsSha256,
                         "C2 must retain the qualified C1 source/library lineage.");
                     c2Data = binding.Text("c2_payload_sha256", 64);
-                    RosterGuard.Require(c2Data == (preSnap ? SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 :
+                    RosterGuard.Require(c2Data == (complete ? SourceTeamResourceProfile.CompleteOriginalCallbackSha256 :
+                        preSnap ? SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256 :
                         m1 ? SourceInterfacePackagePlan.C2M1CallbackSha256
                         : SourceInterfacePackagePlan.C2CallbackSha256),
                         "C2 impact must bind its actual frozen callback data.");
                 }
                 if (preSnap)
                 {
+                    if (complete)
+                        RosterGuard.Require(binding.Text("base_presnap_switch_catalog_sha256", 64) ==
+                            SourceTeamResourceProfile.PreSnapSwitchImpactSha256,
+                            "CompleteOriginal303 retains the exact482-site original282 impact lineage.");
                     movementPrograms = binding.Text("presnap_switch_movement_programs_sha256", 64);
-                    RosterGuard.Require(expectedSha256 == SourceTeamResourceProfile.PreSnapSwitchImpactSha256 &&
-                        contactAnimation == SourceTeamResourceProfile.PreSnapSwitchAnimationSha256 &&
+                    RosterGuard.Require(expectedSha256 == (final ? SourceTeamResourceProfile.CompleteOriginalFinalImpactSha256 :
+                            complete ? SourceTeamResourceProfile.CompleteOriginalImpactSha256 :
+                            SourceTeamResourceProfile.PreSnapSwitchImpactSha256) &&
+                        contactAnimation == (complete ? SourceTeamResourceProfile.CompleteOriginalAnimationSha256 :
+                            SourceTeamResourceProfile.PreSnapSwitchAnimationSha256) &&
                         contactPrograms == SourceTeamResourceProfile.C2ProgramsSha256 &&
                         movementPrograms == SourceTeamResourceProfile.PreSnapSwitchMovementProgramsSha256 &&
                         binding.Text("base_m1_catalog_sha256", 64) == SourceTeamResourceProfile.C2M1ImpactSha256 &&
@@ -279,6 +289,34 @@ namespace Blitz.AssetImport
                         "C1 camera must explicitly retain both exact original .byte opcode and .word operand identities.");
                     cameraBindings.Add(new SourceCinematicCameraBinding(script, opcode, operand, table));
                 }
+                if (final)
+                {
+                    RosterGuard.Require(binding.Text("base_complete_original_catalog_sha256", 64) ==
+                        SourceTeamResourceProfile.CompleteOriginalImpactSha256,
+                        "Final TD admission must retain the exact pre-TD complete catalog lineage.");
+                    object[] tdSites = binding.Array("complete_original_td_camera_sites");
+                    RosterGuard.Require(tdSites.Length == 11, "All eleven exact original TD camera WORD sites are required.");
+                    foreach (object raw in tdSites)
+                    {
+                        RosterObject site = RosterJson.Object(raw, "original TD exact camera instruction");
+                        string script = site.Text("script"), table = site.Text("table");
+                        int opcode = site.Integer("opcode_line", 1, 100000), operand = site.Integer("operand_line", 1, 100000);
+                        site.Done();
+                        RosterGuard.Require(operand == opcode + 1 && tables.ContainsKey(table) &&
+                            HasCue(cues, script, opcode, "camera", table) && HasCue(cues, script, operand, "camera", table),
+                            "TD camera requires both authenticated original opcode and WORD identities.");
+                        cameraBindings.Add(new SourceCinematicCameraBinding(script, opcode, operand, table));
+                    }
+                    object[] soundLines = binding.Array("complete_original_sound_lines");
+                    RosterGuard.Require(soundLines.Length == 15, "The exact additional original TD/receiver sound sites are required.");
+                    foreach (object raw in soundLines)
+                    {
+                        int line = RosterJson.Integer(raw, 1, 100000);
+                        RosterGuard.Require(cues.Exists(cue => cue.Line == line && cue.Kind == "callback" &&
+                            (cue.Arguments[0] == "taunt_speech" || cue.Arguments[0] == "plyr_open_sp")),
+                            "Final source sound identity must be a real closed original callback.");
+                    }
+                }
                 object[] additional = binding.Array("new_callback_lines");
                 var unique = new HashSet<int>();
                 foreach (object raw in additional)
@@ -289,8 +327,8 @@ namespace Blitz.AssetImport
                         "C1 additional speech sites must remain exact original metadata, not implemented substitutes.");
                 }
                 binding.Done();
-                RosterGuard.Require(cameraBindings.Count == 25 && additional.Length == (m1 ? 41 : c2 ? 36 : 28) &&
-                    cues.Count == (m1 ? 482 : c2 ? 477 : 469),
+                RosterGuard.Require(cameraBindings.Count == (final ? 36 : 25) && additional.Length == (m1 ? 41 : c2 ? 36 : 28) &&
+                    cues.Count == (final ? 508 : m1 ? 482 : c2 ? 477 : 469),
                     "Impact coverage requires the exact historical469 or explicit C2477 source sites, never a missing-speech subset.");
             }
             string[] qualifications = root.Strings("qualifications", 1, 32); root.Done();

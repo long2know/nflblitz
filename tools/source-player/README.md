@@ -1,5 +1,524 @@
 # Portable C# browser preview (not a Unity player build)
 
+## Original pregame, records and live global-mixer successor
+
+`original-teams-complete-original303-prematch` uses963 authenticated inputs,
+manifest `309ca9cf4f7f0d3b9f8b43427ab581fda4257d072ea00bfdb4ccc0003c2cba4f`,
+and `SourceC2Composition.CreateCompleteOriginalPrematchSimulation`. It keeps
+the final303-clip/508-cue/36-camera family and adds the six original career,
+record-found/missing and custom-load plates:303 actual cabinet images total.
+Earlier packages and their default routes remain separately pinned.
+
+The actual four-slot input FIFO drives a60→57Hz pregame process service.
+Unjoined menus make no original entry/bank claim. After trusted HTML startup,
+an unlocked but **suspended** AudioContext, empty bank map and zero reserved
+mask are intentional while Joining; require actual resumed playback only
+after the physical cabinet start activates the source entry.
+An accepted cabinet start
+activates the authenticated permanent-bank boundary; the original pre_game,
+option controller, welcome child, station cursors and CAP helpers produce
+their own canonical sound/control outputs. Storage completion only queues
+data for the appropriate source wake. The renderer backdrop supplies neither
+source sound outputs nor the shared RNG. VS/rematch carries the same actual
+random owner, full observed clock and typed current-cursor token.
+
+The49 banks now contain1081 executed programmes. SAUDv3 adds eight finite
+original2.33 implicit-global mixer programmes, including all reachable
+menu20/28/80 and welcome/CAP introductions. The pinned CPU VM executes both
+primary0 and rebased-primary1 contexts; their PCM is **not interchangeable**.
+Original13/14 control the global0 destination matrix, not an invented timer
+ID or the SFX's own gain. Live six-column envelopes retain DCS240-sample
+steps, signed/clamped arithmetic, fixed1.15 transfer, final snaps,
+replacement/00 resets and concurrent contributions. Native16-bit overflow
+is rejected. The independent firmware/ISA reference establishes those
+operators and their finite stops; it does not certify the portable allocator,
+outer gain/pan, master headroom or whole-game DSP equivalence.
+
+Immutable menu and actual selected VS PCM resources are primed before their
+ready boundary. A once-only transport clock-start anchors the first real
+source wake/output after context readiness; later underruns, replay,
+reordering and stale plays still fail. Neither source time nor RNG is
+advanced by the receiver. This profile requires its real record menu driver;
+use the frozen final profile for a deliberate record-disabled AV probe.
+
+Gameplay elapsed follows measured active host time, not render-ahead
+`AudioContext.currentTime` jumps. Render time, output timestamps and latency
+are separate read-only diagnostics. The audio epoch, sample origin and100ms
+deadline never change during play.
+The runtime retains measured elapsed debt across normal callbacks while
+keeping the existing0.1-second/six-step bridge budget per callback. Complete
+four-slot physical changes carry observed active-host timestamps; only due
+FIFO entries are delivered, so new input is not applied retroactively to
+historical debt. Explicit pause/reset/VS boundaries clear transients and
+exclude suspended time. Sustained lag still fails the unchanged100ms audio
+deadline; no midgame clock reanchor or stale-play clamp is used.
+`sourcePlayer.observe()` provides a defensive, lightweight read-only state
+copy without the immutable source/resource inventories or camera history.
+The full `snapshot()` contract remains available for explicitly paused proof.
+Before acknowledging pause, one bounded callback drains already-observed active
+time. Unprocessed fractions survive input clearing. Resume requires two genuine
+complete physical observations and a zero-wake ready boundary before bounded
+catch-up; no synthetic neutral frame or late-audio replay is supplied.
+
+Original joint shadows use authored alpha, source raster winding and an
+explicit normalized16-bit depth-bias proxy. Actual material/identity GPU
+differentials are distinguished from native floating-WBUFFER pixels.
+
+Focused checks for this separately prepared generation:
+
+```sh
+bash tools/source-player/dotnet.sh run --project tools/source-player/SourcePlayer.Checks.csproj -- \
+  "$PREMATCH_DATA" --prematch-inputs-only
+bash tools/source-player/dotnet.sh run --project tools/source-player/SourcePlayer.Checks.csproj -- \
+  --native-mixer-reference-only "$ORIGINAL_ISA_MIXER_CASES"
+python3 tools/source-player/build.py --profile original-teams-complete-original303-prematch \
+  --data "$PREMATCH_DATA"
+```
+
+The first is explicitly a resource/source-process component fixture, not a
+natural match. The second consumes independently executed firmware values,
+not HLE-generated expectations. Browser acceptance uses trusted public
+controls, normal sandbox/autoplay policy and actual source clocks.
+
+## Final original record/CAP/TD resource generation
+
+The explicit successor `original-teams-complete-original303-final` freezes953
+inputs with manifest
+`6ad3183827cc27e5c74fd9bc140f4295266285ab9f955a190da407d825d004ce`.
+Its actual factory is `SourceC2Composition.CreateCompleteOriginalFinalSimulation`.
+Earlier661/692/record953 generations, approved563 and metadata-only885c remain
+separate immutable inputs, not aliases.
+
+This generation adds the exact original eleven TD camera **WORD** identities
+alongside their original byte opcodes, plus fifteen closed source sound sites:
+508 cues/36 explicit camera operand bindings. The original source tables,
+303 clips/30777 selected frames and legacy six/fifteen SoundVM guards remain
+separate and authenticated. A guessed neighboring opcode still fails.
+
+The original presentation package contains297 images:41 gameflow rasters,
+147 CAP authoring images and109 original normal name/PIN/options images.
+Actual WIFF pixels/anchors are preserved; generated native atlas packing and
+native pixels are not claimed. `record-solid` is only a1x1 color carrier for
+actual editor line/route geometry, never replacement artwork. The49 exact
+source-selected banks contain1073 qualified executed playlist programs.
+Packed PCM stays immutable/lazy; the WebAudio upload cache remains bounded.
+An authenticated FFFFFFFF sparse slot has a distinct ordered **no-entry**
+result, not a fabricated silent sample or an unsupported-program fallback.
+Assigned DCS3 op13/14 remain unqualified in this frozen historical generation;
+the separately named pregame successor above closes its eight listed programmes.
+
+### Browser record lifetime and privacy boundary
+
+Register `records.js` as `source-player-records` before constructing
+`new SourcePlayerRecordStore(new BrowserRecordStorage())`. Await `LoadAsync`;
+initialize only after an **explicit NotFound** user action. Keep the same
+adapter/store across rematches and resets; dispose only when the player lifetime
+ends. The database is `nflblitz-original-records`, version1, store `cabinet`.
+The primary/backup/recovery triple is committed by one IndexedDB transaction,
+not independent key writes. Real native/managed CAS, rollback, recovery and a
+premature-ack rejection are documented in the focused persistence handoff.
+Those are component tests, not by themselves cabinet-feature acceptance.
+
+The final profile defaults records ON. `source-records=disabled` deliberately
+keeps that workflow unbound; `portable` requires this genuinely admitted
+record/CAP family and portable gameflow. Historical profiles never open a DB
+implicitly. Browser startup loads the store once before Host construction.
+Actual source game_proc owns the before-final-statistics commit barrier:
+pending/failure never becomes a fake saved receipt or a host clock freeze.
+Saved selection/rematch constructs a fresh immutable session before wake1.
+
+PINs, envelopes, entered identity glyph sequences and raw record-menu inputs
+are excluded from diagnostic snapshots; actual on-screen rendering is not
+replaced. Local import/export requires its current explicit cabinet action.
+No native EEPROM/disk, arcade DSP or whole-game equivalence follows from these
+portable interfaces or original-resource identities.
+
+## Explicit complete-original303 successor
+
+The separately named `original-teams-complete-original303` data generation is
+not the old563 or metadata-only885c package. Its661 inputs are pinned by manifest
+`fef5f838759a50afdacc4d94b0749d580b1ac90406624c887fc6ea01dc6cfa42`.
+`SourceC2Composition.CreateCompleteOriginalSimulation` requires the actual
+303-clip/30777-selected-frame union, separate callbacks/impact pins and the
+unchanged authenticated default-audible subsystem. Clip admission does **not**
+mean the original TD/reaction callers and programs have been ported.
+
+This explicit feature contract bundles portable gameflow, instructions and world
+presentation. Historical profiles/default flights remain unchanged. The new
+browser entry requires the visible **START ORIGINAL GAME WITH SOUND** button:
+a real trusted click resumes `AudioContext` before original PCM reaches C#.
+`Browser.Start` rejects this new profile rather than silently promoting it.
+
+The original-art package contains the four32x32 PSSHOULD/PSLIMB/PSTORSO/PSHAND
+materials, seven source-selected coaching photos, halftime/final backgrounds and
+all31 original team-win rasters. Shadows use the existing rendered-joint C5
+geometry/VBO/shader; no blob/HEDSHU/TRAIL replacement is used. Original TGA v2
+developer directories are bounded and authenticated, not discarded as pixels.
+Coaching selects the existing committed background ordinal without another RNG
+draw. Cabinet images use the existing HUD packets. Native WMS/mip/Composit
+packing and the win-program sparkle RNG are not inferred from these rasters.
+
+SAUD v2 carries executed original single-logical-channel playlist programs,
+not relabeled isolated one-shots. The preparation tool runs the pinned CPU
+playlist VM with exact BNK address relocation and checks the second/third
+infinite loop cycles byte-for-byte. The receiver uses supplied loop ranges,
+priority/reserved tracks, gain/pan, stops, bank lifetime and reset epochs.
+PCM uploads are lazy; bank deletion releases unused cached PCM while retaining
+already-playing buffers. The old v1 one-shot qualification/schema remains strict.
+This is not arcade DSP/native equivalence. Unknown original opcodes and
+unregistered Gameplay selectors still fail explicitly, never muted success.
+
+Focused checks, using existing SDK wrapper/environment:
+
+```sh
+bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj -c Release --no-restore
+bash tools/source-player/dotnet.sh tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$COMPLETE_ORIGINAL_DATA" --complete-original-inputs-only
+node --test tools/source-player/audio.test.mjs tools/source-player/renderer.test.mjs
+python3 -B -m unittest discover -s tests/audio -p test_prepare_playlists.py
+```
+
+The actual source/consumer check exercises real original PCM and shadow uploads;
+its directed music call is a component fixture, not a natural-game/browser proof.
+The preparation receipts list unsupported program identities exactly. Source
+bank-table overflow requires actual original load-order evidence; CURSORS2 is
+never relabeled as CURSORS.
+
+## Opt-in qualified PCM browser receiver
+
+`Browser.WebGlSink` implements the existing `ISourceAudioSink` using binary PCM
+resources and ordered JSON batches. `wwwroot/audio.js` validates resource hashes,
+the v1 schemas, source clock, epochs/ordinals and bank/program/voice bindings,
+then schedules real mono31250Hz buffers through gain and stereo-pan nodes.
+PCM16 is divided by32768; baked playlist mix is not applied twice.
+
+The approved563 profile still starts through the unchanged exported
+`Browser.Start(manifest, url)`: recording-only, with **no AudioContext required**.
+There is no audio URL flag, bank fetch, implicit admission or default promotion.
+The historical approved manifest contains only `kernel/sound-functions.safn`;
+it still admits no decoded banks. The October30 local integration authorization
+is used only by the explicit complete-original successor above; it does not
+silently change this old profile. Receiver correctness is not original hearing, DSP or
+whole-game acceptance.
+
+A separately authorized C# composition may call the non-JS-exported
+`Browser.StartDecodedAudio(manifest, url, SourceAudioPlaybackAdmission)`. Before
+that composition starts, a public click/pointerup/keydown handler must await
+`sourcePlayerAudio.unlock(event)`. The real trusted event and current browser
+user activation are required; missing/closed/unresumed contexts fail explicitly.
+Context operations have a bounded five-second failure deadline.
+This unlock alone does **not** admit banks or change the legacy composition.
+The historical route has no end-user original banks. Calls before unlock throw;
+they are never buffered for later replay.
+
+The portable clock has100ms scheduling look-ahead per epoch. Underrun fails
+explicitly rather than bursting stale one-shots. C# `active` commands suspend/
+resume this receiver's owned context without restarting voices; the host frame
+waits for the transition and discards elapsed wall time. `reset` cancels every
+old/scheduled node while retaining immutable samples. Bank deletion retains
+playing buffers; old `onended` callbacks cannot clear a replacement voice.
+Output/subcall ordering is epoch-local for a genuinely new C# producer;
+command and voice identities still never rewind.
+Unexpected browser suspension is an explicit failure, not automatic autoplay
+recovery. Focus/pause and linear gain/pan are portable policies, not DSP parity.
+
+Run the focused synthetic/fake-node unit checks with the existing runner:
+
+```sh
+npm --prefix tools/source-player test
+```
+
+The optional real-Chrome case in `audio.test.mjs` requires
+`SOURCE_AUDIO_BROWSER=1` and `SOURCE_AUDIO_BROWSER_EVIDENCE` (a new owned JSON
+output), plus the existing secure short POSIX `CHROME_RUNTIME_ROOT`.
+`SOURCE_AUDIO_APP_BUNDLE` optionally selects an explicitly owned freshly built
+AppBundle for a real default-startup check with AudioContext unavailable.
+The test starts a unique loopback server above8097 and launches its own
+normally sandboxed Chrome with no autoplay/trust bypass,
+uses actual CDP mouse input on a public unlock button and observes synthetic
+PCM through real graph analysers. It stops its owned browser/context/server.
+See the requested local C6 handoff for
+the exact executed build/browser evidence. No original audio is used by tests.
+
+## Opt-in complete-match free-play cabinet
+
+Append **`?source-gameflow=portable`** to the normal player URL (or append it
+with `&` to an existing query). Omission preserves the previous unbound route.
+The value is exact, must occur once, and cannot be combined with
+`source-compatibility=strict`. Fire and authored kick-meter options remain
+independent; this flag does not enable them or change the authenticated profile.
+New-player sessions use the actual pre-snap-switch FourStation composition.
+
+The original-atlas cabinet screens run in C#, through the same HUD/render
+packets as the match. The tick-zero fourteen-actor World is an **unadvanced
+menu backdrop**. Starting constructs the playable simulation with the chosen
+immutable configuration before wake1; the authenticated settings/data are not
+rewritten.
+
+Use the existing station keys or corresponding standard gamepads:
+
+| Physical station | Side | Move | A / B / C |
+|---|---|---|---|
+| P1 / 0 | Home | WASD | V / B / N |
+| P2 / 1 | Home | arrows | Delete / End / PageDown |
+| P3 / 2 | Away | IJKL | U / O / P |
+| P4 / 3 | Away | TFGH | Z / X / C |
+
+1. **Join:** A joins that station, B leaves, C proceeds with joined humans.
+   The approved initial choice is explicitly P1/Home, not a loaded saved record.
+2. **Teams:** each side's captain uses left/right across all31 actual teams,
+   A confirms, B returns to participation. C lets a lone side edit the CPU's
+   team. Confirm both human sides; an untouched CPU side starts ready.
+3. **Rosters:** up/down selects one of seven actor slots; left/right selects
+   one of that team's16 original records. A confirms, B goes back; C edits an
+   unmanned CPU side. Genuine roster names, numbers, models and uniform
+   selectors are used. Original audible restarts deliberately rebuild the
+   source's play-specific roster lineup; handpicked slots are not falsely
+   promised to survive that source operation.
+4. **Versus:** the first joined station chooses initial possession,
+   cooperative captain, source difficulty/time adjustment and free-play versus
+   confirmation-required quarter continuation. A starts; B returns.
+   In gameplay, the existing controls remain **B choose / A flip / C page**,
+   source snap/pass/jump/turbo, stock specials, PAT and random gestures.
+
+Only deliberate new-player games bind explicit **known-none** custom
+inventories to the released source selector. Unavailable inventory is not
+interpreted as empty, and a missing custom play is never replaced with a
+generic/CPU play. Default audibles are available **only** when the actual
+separately authenticated `source-default-audibles/v1` successor was supplied.
+The approved base563 is not an alias or an enabled-audibles composition.
+
+Committed result plates, EOQ/winner/overtime announcements, the source-selected
+coaching text, halftime team statistics, continuation timedown and final
+statistics are distinct screens. C1 owns all waits, the ordered coaching draws,
+period/PAT rules and final confirmation. Hold A+B+C to speed result/EOQ waits
+after their source minimum; press A for the other source waits. Rendering does
+not poll input, advance waits, select hints or produce statistics. The existing
+one-source-wake pending-result HUD hold is retained.
+
+Final scores, seven quarter/OT columns and statistics project the actual
+immutable producers. `0` is a recorded zero; `--` means unavailable or
+unplayed. Actual `PlayActivityStats` supplies pass attempts, fumbles/lost fumbles
+and original **human-only** tackles, independently of sacks; it does not count
+all CPU stops. Old-constructor null groups remain `--`, distinct from measured
+`0`. Interceptions lost use the opposite side's made count, paired with the
+side's own lost fumbles, not an invented total-turnover counter. The winner
+comes from scores, not the MatchEnded event value.
+
+At final confirmation, release all buttons, then press A (or the configured
+station's public Continue). The retained final offers **A rematch / B new
+teams and players** after another release. A performs the existing bridge
+restart/reset once. B preserves the final while returning to choices; starting
+changed choices creates a fresh simulation. Inputs/neutral latch, HUD, camera,
+effects, events and audio epochs are reset at that deliberate boundary, not by
+redraw. Up to16 real match summaries and the chosen session settings remain in
+memory; there is no persistence, fabricated original player record, credit,
+coin or audit hardware. R remains administrative and is not needed for this
+loop. Focus/pause and held-through transitions require a genuinely neutral
+raw sample before another confirmation.
+Join/leave occurs in pregame/new-match choices, not by mutating humans in a
+running match. All four raw physical slots remain distinct; unjoined slots
+cannot control that match. Raw A works for each configured side's final
+confirmation; the existing Enter shortcut addresses P1 when P1 participates.
+
+This is explicitly portable free play: zero-initialized wait scratch and the
+continuation policies are not a native stack/ABI claim. The approved venue
+remains **field0/stadium0/BEA**, even when other teams are selected. Existing
+`playresult`, `sp_*`, `msg_*` and original font art present the screens; the
+separate original halftime/final backgrounds, cheer photos, team-specific win
+animations, disk/transit timing, native Composit packing/pixels and complete
+audio remain unqualified/not admitted. No replacement asset was generated.
+The bound Portable flow also reports `CarrierlessDeadBallLateHit` when original
+`_mode_db` would read `player_blocks[-1]` for a new-A late hit after play-over.
+Only that undefined target-dependent decision is deferred, after standard
+movement; raw ABC, wait counters and independent B/C remain intact. No carrier,
+replacement animation or RNG draw is invented. Strict/unbound guards remain.
+
+Focused actual-host checks (terminal/clock/statistics fixtures are labelled
+edge tests, not full-match proof):
+
+```sh
+bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj \
+  -c Release --no-restore --nologo -v quiet
+bash tools/source-player/dotnet.sh \
+  tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$APPROVED563" --cabinet-session-only
+```
+
+The separate natural regression uses only public cabinet captures/Continue
+through the actual host, without score, clock, seed or gameplay-state setters:
+
+```sh
+bash tools/source-player/dotnet.sh \
+  tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$APPROVED563" --cabinet-full-match
+```
+
+## Portable source world presentation
+
+`?source-world=portable` opts into the C# world-presentation packet. Omission
+or `source-world=disabled` leaves it off. Values are exact and single-use;
+StrictSource rejects the portable flight. This does not enable gameflow,
+instructions, fire, kick meters, audio or another resource profile.
+
+The actual fourteen rendered affine joint pivots and current source camera
+drive `player.c`'s ten shadow links: original SUN projection onto the ground,
+fixed per-end widths/extensions, PF_ONSCREEN and A/B/C acceptance,665.6 focal
+factor, Single quarter-pixel snap,255 ST endpoints and descending28..10 bias.
+No blob, shadow map, second pose evaluator, renderer RNG or effect clock is
+introduced. The flight also places the original field2/goalpost table after
+actors, inside the source fog-on/off draw interval. Legacy draw order is
+unchanged when the flight is off.
+
+**Approved563 cannot draw the player-shadow material.** Original
+`player_shadow_init` needs `psshould.wms`, `pslimb.wms`, `pstorso.wms` and
+`pshand.wms`; their `img3d/PSSHOULD.TGA`, `PSLIMB.TGA`, `PSTORSO.TGA` and
+`PSHAND.TGA` authoring inputs are not admitted. Real articulated geometry
+reaches a GPU buffer, but the explicit missing-resource packet produces
+**zero shadow material draws/pixels**, never static-shadow/black-quad
+substitutes. No original art is fetched or generated by this feature.
+
+With **`?source-gameflow=portable&source-world=portable`**, the existing C3
+Versus settings add **SOURCE USER FOG**: original GC_FOG values
+**0 None / 1 Normal / 2 Thick / 3 Night / 4 Smog**, initially None.
+Use up/down to select that row (P1 W wraps from the first row), left/right
+to choose (P1 D advances), then A to start. Flag-OFF retains the original
+five settings and no user-fog binding; there is no weather/debug URL.
+
+The actual Versus confirmation commits an immutable typed choice.
+`vsscreen.c:1041-1049` applies GC_FOG **then ORs saved versus power-up masks
+back**. After field draw setup, `nfl.c:680-685` selects `do_user_fog`, not
+`do_vs_fog`, before source wake1. C# follows that order once per fresh world
+epoch, without changing authenticated settings, gameplay or RNG. Normal
+uses RGB A0A0A0/end1250, Thick A0A0A0/500, Night black/700 and Smog673C00/700;
+all begin at1. These need no additional texture.
+
+Saved `pup_fog`/`pup_thickfog` and `field_setup.is_foggy` remain **unknown**.
+The four active user choices nonetheless guarantee fog and the source
+`is_foggy=1` write. Numeric masks stay null, except Thick's guaranteed source
+override determines final `pup_fog=0`. None does **not** invent zero masks or
+an `is_foggy` write: its source enable/early-return remains null, and existing
+rendering stays off with that explicit unresolved status. Actual known-zero
+source masks, if supplied by their owner, are distinct from unknown operands.
+The menu backdrop/unbound non-cabinet route never invents a user selection.
+Public rematch/restart retains the choice; changed-session confirmation makes
+a new immutable choice and clears the old fog epoch.
+
+JS only renders supplied camera-W range/color uniforms; HUD is outside fog.
+`gpuProof().world.fogPixels` labels its same-geometry no-fog diagnostic
+separately from the actual supplied-fog material pass and gameplay screenshot.
+Continuous WebGL depth/fog,
+negative polygon-offset conversion, host sqrt/trig and authoring UV origin
+are not native WBUFFER, Glide fog-table, fast-trig or pixel qualification.
+The source venue remains field0/stadium0/BEA for every selected team;
+alternate texture/end-zone/stadium domains remain unavailable.
+
+`ISourceWorldRenderSink.WorldPresentation(SourceWorldRenderPacket)` supplies
+six `[rasterX,rasterY,reciprocalZ,GlideS,GlideT]` vertices and four
+`[actor,link,textureSlot,depthBias]` selectors per accepted link, plus
+`blitz-source-world/v1` metadata. Browser stages this once into the existing
+Effects JSON's `world:{vertices,links,state}`; there is no new loader import.
+Present's optional `world` snapshot is the identical metadata. Schema,
+source identities, bounds, original resource bindings, source epochs and
+same-frame delivery are validated. Pause/skipped wakes do not age effects;
+rematch/fresh factory clears observations once and retains GPU resources.
+
+Focused source math/actual Host checks (terminal reset fixtures are labelled,
+not a natural match or native/GPU shadow acceptance):
+
+```sh
+bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj \
+  -c Release --no-restore --nologo -v quiet
+bash tools/source-player/dotnet.sh \
+  tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$APPROVED563" --source-world-only
+node --test tools/source-player/renderer.test.mjs
+```
+
+## Portable source instructions
+
+`?source-gameflow=portable&source-instructions=portable` enables the original
+kickoff children, pre-selection introductory card and four-page instruction
+process in the actual PlayerHost.
+Omission (or `source-instructions=disabled`) leaves this feature off. It requires
+an authenticated FourStation pre-snap-switch or separately admitted
+default-audibles composition and deliberate known-new cabinet session.
+StrictSource still rejects this portable feature. The default-audibles
+successor is its explicit pinned metadata composition, not a relabelled base
+profile or permission for new assets.
+
+The menu backdrop stays unbound. Every actual fresh match binds the existing
+source dispatcher/consumer **before source wake1**. The real kickoff catch
+creates the deferred parent, which writes1, runs the source children, waits,
+retires their IDs and resumes football. An eligible NORMAL selection-return
+creates the four original pages: Rules, How to Pass, How to Audible and General
+Hints. Entry writes-1; actual waits, text/plate flashers, cleanup and the final
+ten source wakes precede2. PAT/kickoff are not normal-selection aliases.
+Before NORMAL or PAT selection, the real inline `play_select` introduction
+raises `show_plysel_idiot_box` by10 before the existing timer's first wake.
+It renders the original GENERAL INFO, OFFENSE/DEFENSE and PAGE1 prints on
+the three original plates; the returned side-label strings flash every7 wakes.
+Only participating offensive teammates' held ABC can dismiss the active-team
+wait: minimum40 **within total627** wakes, not40+627. The source FourStation
+CPU-offense branch has **no wait**, so its setup/cleanup can complete without
+a visible frame. Sound, flasher/string/object cleanup and-11 occur once before
+the original20-wake menu initialization. Experience3 skips this branch.
+The same live gate preserves the any-button helper's conditional direct tick.
+
+Participation, `games_played` and the instruction flag have one live
+`SourceCabinetSession` owner. Experience starts at known-new0 and increments
+once per participating station only when an admitted match actually reaches
+its final observation. Restarts/redraws do not increment it; rematches and
+changed-team factories retain these in-memory counts. Source experience3
+skips both tutorials. This is not a native save, user identity or persistence
+claim. Focus/pause freezes live processes/resources; real restart/new-factory
+boundaries reset/dispose them without repeating texture uploads.
+
+The adapter executes all28 page,33 child and12 introductory source print
+slots, the actual ESC justification/color and PLAYER decimal operations, source masks/PIDs, button
+current/old writes and player flash flags. It uses only approved563
+`playresult`, `bast18`, `bast10`, `bast8t` and the already-uploaded white mask.
+Glyphs travel through the same C# HUD primitives and `IRenderSink.Present`
+atlas packet as every other original screen, not HTML or JS game logic.
+Native-named interfaces here are managed services, not invented unmanaged
+callbacks. Authored image dimensions/anchors, portable ARGB palette/radian
+sprite transforms and returned-body retirement are explicit portable policies,
+not native SDK numeric, Composit, fast-trig or pixel equivalence. Missing
+low-resolution BAST23/BAST10LOW fonts fail explicitly; no fonts are aliased.
+
+All four physical acquired switch samples accompany the SAME configured
+cabinet FIFO frame. Helpers read only the source-consumed snapshot and input
+epoch, published before process dispatch even while `game_proc` is suspended.
+Unjoined press/release and joystick changes survive the default-audibles FIFO;
+there is no latest-render/host sample, second dequeue or guessed zero input.
+Existing old/unbound capture paths retain their original contract.
+
+The source stamps instruction, intro, timer, speech and cabinet sound operands
+with its genuine shared ordinal before callbacks. The original typed
+`TakeExecuting...` callbacks retain the **same** immutable queue record.
+Host merges actorless, direct and VM outputs once in common ordinal order;
+event metadata is not another sound delivery. C6 receives that exact record.
+Original banks remain unadmitted; metadata is **not hearing**. Explicit decoded
+mode still faults an unavailable exact bank/program—no invented ordinal,
+native bank address, sample or PCM fallback.
+
+```sh
+bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj \
+  -c Release --no-restore --nologo -v quiet
+bash tools/source-player/dotnet.sh \
+  tools/source-player/bin/SourcePlayer.Checks/Release/net10.0/SourcePlayer.Checks.dll \
+  "$APPROVED563" --portable-instructions-only
+```
+
+`--portable-instructions-natural` runs the public-host kickoff-catch,
+CPU-offense intro branch, normal selection, all four pages and resumed normal
+play without clock/score/seed/gameplay-state setters. The focused selector also
+uses public Versus choices to render a human-offense intro and exercises its
+real minimum/timeout. It verifies the exact `885c…` default-audibles descriptor
+in memory against unchanged563 payloads and the actual suspended-source FIFO.
+Its terminal/experience and failed-bind fixtures remain labelled, not natural
+regulation/browser acceptance. Final current WASM/GPU acceptance is separate.
+
 ## Source skin RGB and missing-arm regression
 
 The original `PC_BLACK` uniform binds `ARMHND2.WMS` to logical material slot0.
@@ -1058,3 +1577,215 @@ credentials or source-download steps are supplied to this workflow.
 - [Microsoft: WebAssembly browser app withJSImport/JSExport](https://learn.microsoft.com/en-us/aspnet/core/client-side/dotnet-interop/wasm-browser-app?view=aspnetcore-10.0)
 - [Microsoft: .NET WebAssembly JavaScript interop](https://learn.microsoft.com/en-us/aspnet/core/client-side/dotnet-interop/?view=aspnetcore-10.0)
 - [.NET runtime browser-WASM features](https://github.com/dotnet/runtime/blob/main/src/mono/wasm/features.md)
+
+## Explicit default-audibles source integration
+
+`original-teams-contact282-c2-m1-default-audibles` is a separate Portable opt-in
+using `SourceC2Composition.CreateDefaultAudiblesSimulation`. Its loader retains
+the inherited payload inventory and requires the same authenticated HUD,
+interface catalog and playbook identity as the typed default-audibles data.
+Declared-hash-only admission, static audible data and alternate input roots do
+not substitute for these bindings. The pre-snap-switch build default, historical
+one-argument preview URL default, older factories and raw cabinet held/edge
+ordering are unchanged.
+
+The source union includes the frozen default-audibles producer, roster/pre-lineup/
+lineup/defensive restart, controls rebuild, snapshot/HUD and direct sound consumers.
+It does not redesign audible behavior. `--default-audibles-adapters-only` remains
+an explicit data-bound check at the manifest-loader boundary; its isolated units
+and constructor-boundary World frame are not active producer or changed-World
+qualification. See `../../docs/build.md` for the separate preparation/build opt-in.
+
+The positive data-bound feature checks forward `data.Catalog.Profile.StableId`
+to the existing two-argument `PreviewOptions.FromUrl` overload for all four
+option combinations and their feature host. The historical one-argument
+overload still defaults to M1, and the kernel's profile-mismatch guard is
+unchanged. Complete normal managed checks are a product smoke/contract check,
+not full P1, independent original-source parity, or native acceptance.
+
+The normal upload-inventory check retains exactly32 model selectors, nonempty
+World draws, the mandatory `hud/interface-white` mask and the historical texture
+count of team textures plus28. Only the authenticated default-audibles profile
+requires exactly one additional `hud/interface-chroma` upload (team textures
+plus29); other profiles must not upload that mask. Twenty data-free synthetic
+inventory controls call this same predicate once within the full normal check,
+including plausible-count missing/replaced masks and extra/count mutations.
+They add no gameplay, RNG or runtime process and do not replace the actual
+uploaded-inventory assertion or constitute original rendering/parity evidence.
+
+The pinned original `player.c` audible close path leaves the raw shown latch set
+while clearing the action and removing menu objects and their child processes;
+the explicit reset clears the latch. A shown latch is therefore not a visible
+menu. Guarded episode diagnostics distinguish raw state from actual sprite-list
+membership, current process slots and the committed same-Present HUD. Retained
+object/child history (including a pre-kill process view) is not active membership.
+No production latch or rendering change is implied by this diagnostic contract.
+
+### Normal callback-bootstrap selection regression
+
+The normal managed check validates callbacks with the same
+`UsesPreSnapSwitchPayload` discriminator as `PlayerData`: historical M1 requires
+`SourceC2CallbackData.M1Profile` and fourteen bindings; both pre-snap-switch and
+default-audibles require `SourceC2CallbackData.PreSnapSwitchProfile` and fifteen.
+The validation remains before normal `PlayerHost` construction.
+
+After a **separately authorized build and execution grant**, run this dedicated
+data-free regression on the rebuilt checks DLL:
+
+```sh
+dotnet path/to/SourcePlayer.Checks.dll --source-callback-bootstrap-only
+```
+
+It calls the exact normal validation helper for all three real resource profiles,
+accepts each required callback-profile/count pair, and rejects the other nine
+combinations. Its JSON identifies all twelve cases; it loads no bundle and
+constructs no `PlayerData`, gameplay or host. Extra arguments return exit2 with
+`Usage: SourcePlayer.Checks --source-callback-bootstrap-only` before data loading.
+Restoring the old pre-snap-switch-only discriminator makes the default-audibles
+case fail. This check is separate from affine/observation assertions and does not
+qualify normal data-bound execution, gameplay, Unity, native World or audio.
+
+## Explicit source raw-affine CPU pipeline
+
+`OriginalPortable` layers use the existing bound interpolation operation for
+frame/transition sampling and eligible render-time pose blending. The original
+two-method `ISourcePoseInterpolation` contract and its Slerp arithmetic are
+unchanged. A separate `ISourcePoseAffineHeading` capability on that same opaque
+operation resolves integer facing through its already bound quarter row.
+Only the existing defensive-pre-snap-switch opt-in binds this operation; library,
+table, selected-row, profile metadata or tick-rate presence is not authorization.
+
+The original layer constructors remain available and default to
+`LegacyNormalized`. The older source-aware constructor still supports direct
+`SampleLayer` without a facing value; the additional constructor retains the
+actual integer `SourceFacing`. The source-affine path requires that value and
+compatible in-process capability authority. Missing, unsupported, unknown,
+mixed or incompatible bindings fail explicitly, including at endpoints.
+Serialized metadata does not restore the private nonserialized operation.
+
+`SourceAnimationMatrices.Evaluate` remains the normalized legacy API.
+`EvaluateSource` consumes the explicitly bound layers, sampled poses and resolved
+headings. It retains raw float quaternion-to-affine and parent/pivot order across
+all fifteen joints. Direct joint positions remain distinct from pivot-corrected
+model-origin translations; upper/lower branches and their masks remain independent.
+The basis includes `ModelScale` once, and positions include animation root but
+not outer actor placement. A raw joint's quaternion `Rotation` is unavailable,
+not a normalized approximation. Direct vertices and `FrameMath.Joint` validate
+scale rather than applying it twice. Packets preserve reflection, column-major
+layout, float placement and the existing double-transport/Float32 GPU boundary.
+Geometry/camera callers consume the same direct positions, and the raw digest
+includes all nine basis components plus representation/scale tags.
+
+Facing endpoints use the bound integer quarter lookup. Interior presentation
+fractions retain existing shortest-arc heading blending, not a claim about
+original fractional integer-facing arithmetic. Eligibility, contact/rewind/
+teleport suppression, clocks and root placement remain unchanged.
+
+Unity's `SourcePlayerRig` consumes the basis through owned per-instance mesh
+clones from immutable baseline vertices. Joint transforms are translation
+containers, not raw orientations. Normals use inverse transpose; tangents,
+torso numbers, bounds, submeshes, materials, UVs and triangles are retained.
+Clones are reused and restored/released on legacy/static/reset/rebind/appearance
+changes and destruction. Unsupported or unreadable mesh/attribute states fail
+instead of silently reverting to TRS. Shared assets, scenes and settings are
+unchanged. Diagnostic affine evidence reports the basis and unavailable quaternion.
+
+### Combined public regression wiring
+
+After a **separately authorized build and execution grant**, pure selectors are:
+
+```sh
+dotnet path/to/ParityChecks.dll --source-affine-math-only
+dotnet path/to/ParityChecks.dll --source-pose-math-only
+dotnet path/to/SourcePlayer.Checks.dll --source-affine-packet-only
+dotnet path/to/SourcePlayer.Checks.dll --source-render-observation-only
+```
+
+Each rejects extra arguments before data loading. Parity has 84 authored sources,
+including `StreamChecks.cs` and `SourceAffineChecks.cs` once. The 11-source portable
+check project includes `ArmRenderingChecks.cs`, `AffinePacketChecks.cs` and
+`DefaultAudiblesChecks.cs` once and references its local `SourcePlayer.Core.csproj`.
+The existing data-bound arm/default dispatch is retained.
+
+The actual recorded-GL artifact has eight tests: all seven stream-root-base
+renderer groups, including both arm cases, plus the frozen full non-TRS affine
+packet case. It uses the common `playerScene` helper once and the unchanged
+arm-corrected production renderer, not an older renderer substitution:
+
+```sh
+env -u SOURCE_PLAYER_RENDERER node --test tools/source-player/renderer.test.mjs
+python3 -B tools/source-player/test_ci.py SourcePlayerCI.test_source_union_memberships
+```
+
+The static regression reads the actual project/test bytes and rejects in-memory
+removal of stream membership, arm membership and the affine test with explicit
+artifact/member/inventory diagnostics. Recorded GL is not a browser or GPU run.
+Authored numerical fixtures, interpolation expectations, tolerances and original
+oracles are unchanged. Existing source/arithmetic reviews keep their frozen
+scope; they do not replace fresh source/reference/compiled/deployed bindings for
+this union or authorize a repeated source-control campaign.
+
+The actual full C#7.3/netstandard2.1 descriptors remain
+`tests/default-audibles/DefaultAudibles.Production.csproj` (95 authored sources)
+and `tools/animation/tests/MovementComplete.Production.csproj` (20). The net10
+Core closure has 106 authored sources. These are static authored counts, not
+SDK-observed generated inputs or compilation proof. Fresh generated-definition,
+compiler/reference, PE/PDB and local Core deployment bindings remain pending,
+followed by one focused integration review. The source-only
+`SourceAnimationChecks.VerifySourceAffineSynthetic` requires separate engine
+execution admission; pure checks cannot stand in for it.
+
+## Opt-in render-consumption observation
+
+Existing sampler callers and `PlayerHost` constructors remain observation-off.
+Request `Evaluate(..., renderInterpolation01, true, out observation)` or opt into
+the existing Host path with `new PlayerHost(data, sink, observeRendering: true)`.
+Opt-out allocates no observation objects, arrays or clones. No URL/profile,
+status, sink, shader or browser transport is added for observation.
+
+The sampler retains its already computed current sample, the previous sample
+only when that branch ran, the actual post-blend pose/decision/amount, headings,
+animation root and the same evaluated result. It does not sample, calculate
+matrices or normalize again. Previous/current views and actor identity accompany
+those values.
+
+`LatestRenderObservation` retains only the latest successfully presented frame.
+It uses the existing Host epoch and frame ordinal, not a new lifetime/history
+authority or successful-call counter. Reset clears it. Snapshot host/source ticks,
+rates, actual sampler alpha, model/appearance slots, pose scale and joint-write
+world root identify the observation. Retained joint/model/appearance and actor
+collections are cloned before the same sink can mutate or reuse them. Publication
+occurs only after that same `Present` succeeds and the existing epoch still
+matches. A failed Present leaves the prior successful receipt intact; the status
+string is the same outgoing immutable string.
+
+The pure observation selector exercises immutable views, sampler/FrameMath and
+receipt construction, not a live Host/Game/VM/Present. These are observed values,
+not independent original/native expectations.
+
+## Passive live-VM and exact stance-call observation
+
+`ISourceLiveAnimationObservationState` is separately optional; existing audible
+interfaces and constructors remain valid. `LiveAnimations` is unavailable (`null`)
+outside explicit default audibles. Each enabled snapshot or reinitialization
+phase owns fourteen actor-indexed immutable witnesses sharing its already-created
+`ActorAnimationView`. Raw primary/secondary checkpoints and exact last-advance
+ticks copy stored metadata once. Missing data and negative unavailable advance
+ticks stay null, never snapshot/source tick substitutes; observed zero stays zero.
+A bound inactive secondary may retain stored VM metadata without a specified
+presentation layer.
+
+Capture adds no pose evaluation, sampling, animation advance, process/AI/VM
+dispatch or RNG draw. Other profiles allocate no witness collections. Phase IDs
+0..9 retain their meanings; 10/11 (`StanceAnimationInput`/`StanceAnimationOutput`)
+immediately bracket the same existing `FullBody` call. Phase5 remains after
+grounding/role writes. Observations clear once per source step, retain the
+128-checkpoint cap, and have a static caller-graph maximum of 97.
+
+This public source integration neither copies nor revises private FinalT3
+artifacts or their locked-out validation. E1 original instance/input history,
+E2 independent pose ancestry and E3 original World/native numerical authority
+are not supplied by current witnesses or Host epochs. Fresh compiled binding,
+active default-audibles, Unity/native/GPU/DSP, performance, CI and publication
+acceptance remain separate. FullWorld stays STOP, all16 stay OPEN, and the
+whole-game goal remains unfinished.

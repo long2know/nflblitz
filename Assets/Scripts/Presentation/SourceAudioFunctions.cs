@@ -121,6 +121,22 @@ namespace Blitz.Presentation
             return execution.Result();
         }
 
+        public static SourceAudioFunctionResult SelectCompleteOriginal(SourceAudioFunctionData data,
+            SourceOriginalSoundBindings bindings, SourceCallbackCue cue, SourceAudioFunctionState state,
+            ISourceRandom sameSourceRandom, SourceRandomContext randomContext)
+        {
+            if (data == null || data.PayloadSha256 != SourceInterfacePackagePlan.SoundVmFunctionsSha256)
+                throw new ArgumentException("Complete-original actor functions preserve the exact legacy source selector data.");
+            if (bindings == null) throw new ArgumentNullException(nameof(bindings));
+            SourceAudioVmBinding binding = bindings.Require(cue);
+            if (binding.FunctionSymbol != "get_hit_snd" && binding.FunctionSymbol != "grnd_hit_snd")
+                throw new ArgumentException("This supplemental selector supports only the two actual source actor functions.");
+            var execution = new Execution(data, cue, state, sameSourceRandom, randomContext);
+            if (cue.FunctionSymbol == "get_hit_snd") execution.Hit();
+            else execution.Ground();
+            return execution.Result();
+        }
+
         private sealed class Recorder : ISourceRandom
         {
             private readonly ISourceRandom source;

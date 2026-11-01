@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../.squad/.scratch/original-records-20261030/build/$(SourceRecordsBuildFlavor)checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../.squad/.scratch/original-records-20261030/build/$(SourceRecordsBuildFlavor)checks/bin/</BaseOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <SourceRecordStorePath Condition="'$(SourceRecordStorePath)' == ''">$(MSBuildThisFileDirectory)../../tools/source-player/Runtime/SourcePlayerRecordStore.cs</SourceRecordStorePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="SourceRecords.Production.csproj" />
+    <Compile Include="Program.cs" />
+    <Compile Include="$(SourceRecordStorePath)" Link="Production/SourcePlayerRecordStore.cs" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

@@ -1,0 +1,6 @@
+**
+!Dockerfile
+!nginx.conf
+!bundle-inventory.json
+!AppBundle/
+!AppBundle/**

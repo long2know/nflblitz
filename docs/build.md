@@ -1,5 +1,12 @@
 # WebGL build and static hosting
 
+**Primary browser route:** [the portable source-player](../tools/source-player/README.md)
+builds the shared C# simulation to .NET browser-WASM and renders directly with
+WebGL2. It does not require the Unity Editor, a Unity build or Unity licensing.
+Use that route for current browser/gameplay work. The Unity route and its
+entitlement/import history below are retained separately, not prerequisites for
+the portable application or excuses to defer its actual browser acceptance.
+
 The root is the Unity project. The recorded deployment route is a **Unity
 6000.3.24f1 host editor**, followed by a **Docker static runtime**.
 The **older live preview** has continuous original animation: **56 clips / 3,731
@@ -36,6 +43,43 @@ Its source-authored geometry and portable-authored kick metrics retain their
 stated native limitations. See the
 [published portable-browser evidence](source-parity.md#published-portable-browser-evidence)
 for the actual build identity and bounded match/capture qualification.
+
+## Private default-audibles adapter opt-in
+
+The separate successor `original-teams-contact282-c2-m1-default-audibles` uses
+`source-default-audibles/v1` and
+`SourceC2Composition.CreateDefaultAudiblesSimulation`. It retains the exact
+282-clip/26,265-frame library, fifteen callbacks, 482-site impact catalog and
+all 563 inherited payload files. Admission requires Portable compatibility and
+the same authenticated HUD, interface catalog and playbook-backed audible data;
+declared hashes alone or a static fallback do not admit this profile.
+
+When private-input preparation is separately authorized, the metadata successor
+can be prepared in a fresh ignored output location:
+
+```sh
+python3 -B tools/source-player/prepare_default_audibles.py \
+  --input "$SOURCE_SWITCH_563_DATA" \
+  --input-manifest-sha256 150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6 \
+  --output .squad/.scratch/default-audibles-systems/player
+```
+
+Only manifest profile/feature/factory metadata changes. Entry points, settings,
+the four sealed historical inputs and all copied payload bytes remain unchanged;
+existing output roots are refused. No asset, recording or fixture is regenerated.
+The explicit build option is
+`build.py --profile original-teams-contact282-c2-m1-default-audibles --data DATA_ROOT`.
+The CLI default remains pre-snap-switch, and one-argument
+`PreviewOptions.FromUrl` remains historical M1.
+
+The data-bound managed selector is
+`DATA_ROOT --default-audibles-adapters-only --proof-output IGNORED_PROOF_ROOT`.
+Its constructor-boundary World frame and isolated admission/raw-buffer/HUD/sound
+units are not active audible execution or changed-World proof. The integrated
+source now carries the frozen producer, restart, passive observation and affine
+consumers together with the stream/arm corrections. Fresh compiled/reference
+bindings and focused integration review remain pending; no combined runtime,
+browser, Unity/native, DSP, hosted CI or publication result is implied.
 
 ## Required pre-snap-switch CI
 

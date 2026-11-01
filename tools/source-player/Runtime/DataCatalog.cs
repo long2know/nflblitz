@@ -20,6 +20,8 @@ public sealed class DataCatalog
     public int ConsumedInputCount => consumed.Count;
     public int VerifiedRetainedInputCount => RetainedInputs.Count(pin => consumed.Contains(pin.Path));
     public SourceTeamResourceProfile Profile { get; }
+    public string FeatureContract { get; }
+    public string Factory { get; }
 
     public sealed record FilePin(string Path, int Bytes, string Sha256);
 
@@ -34,11 +36,54 @@ public sealed class DataCatalog
         Require(root.GetProperty("schema").GetString() == "blitz-portable-source-player/v1" &&
             root.GetProperty("runtimeFlavor").GetString() == PlayerHost.RuntimeFlavor &&
             (root.GetProperty("profile").GetString() == SourceTeamResourceProfile.C2M1StableId ||
-                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.PreSnapSwitchStableId) &&
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.PreSnapSwitchStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.DefaultAudiblesStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.CompleteOriginalStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.CompleteOriginalSourceBanksStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.CompleteOriginalRecordsStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.CompleteOriginalFinalStableId ||
+                root.GetProperty("profile").GetString() == SourceTeamResourceProfile.CompleteOriginalPrematchStableId) &&
             root.GetProperty("sourceRevision").GetString() == SourceEnvironmentReader.SourceCommit &&
             root.GetProperty("converterRevision").GetString() == SourceEnvironmentReader.ToolsCommit,
             "Only the explicitly identified historical M1 or pre-snap-switch portable data generation is supported.");
         Profile = SourceTeamResourceProfile.FromStableId(root.GetProperty("profile").GetString());
+        if (Profile.IsContact282C2M1DefaultAudibles)
+        {
+            Require(root.TryGetProperty("featureContract", out var feature) &&
+                feature.ValueKind == JsonValueKind.String &&
+                feature.GetString() == SourceInterfacePackagePlan.DefaultAudiblesFeatureContract,
+                "Default audibles require explicit featureContract=source-default-audibles/v1; a relabeled v4 manifest is not admission.");
+            Require(root.TryGetProperty("factory", out var factory) &&
+                factory.ValueKind == JsonValueKind.String &&
+                factory.GetString() == SourceInterfacePackagePlan.DefaultAudiblesFactory,
+                "Default audibles require the explicit SourceC2Composition.CreateDefaultAudiblesSimulation factory.");
+            FeatureContract = feature.GetString();
+            Factory = factory.GetString();
+            Require(ManifestSha256 == SourceInterfacePackagePlan.DefaultAudiblesManifestSha256,
+                "Default audibles require the exact metadata-only manifest and unchanged563 payload pins/entrypoints.");
+        }
+        else if (Profile.IsCompleteOriginal303)
+        {
+            Require(ManifestSha256 == (Profile.IsCompleteOriginalPrematch303 ? SourceTeamResourceProfile.CompleteOriginalPrematchManifestSha256 :
+                    Profile.IsCompleteOriginalFinal303 ? SourceTeamResourceProfile.CompleteOriginalFinalManifestSha256 :
+                    Profile.IsCompleteOriginalRecords303 ? SourceTeamResourceProfile.CompleteOriginalRecordsManifestSha256 :
+                    Profile.IsCompleteOriginalSourceBanks303 ?
+                    SourceTeamResourceProfile.CompleteOriginalSourceBanksManifestSha256 : SourceTeamResourceProfile.CompleteOriginalManifestSha256) &&
+                root.GetProperty("featureContract").GetString() == (Profile.IsCompleteOriginalPrematch303 ?
+                    SourceTeamResourceProfile.CompleteOriginalPrematchFeatureContract : Profile.IsCompleteOriginalRecords303 ?
+                    SourceTeamResourceProfile.CompleteOriginalRecordsFeatureContract : SourceTeamResourceProfile.CompleteOriginalFeatureContract) &&
+                root.GetProperty("factory").GetString() == (Profile.IsCompleteOriginalPrematch303 ?
+                    SourceTeamResourceProfile.CompleteOriginalPrematchFactory : Profile.IsCompleteOriginalFinal303 ?
+                    SourceTeamResourceProfile.CompleteOriginalFinalFactory : Profile.IsCompleteOriginalRecords303 ?
+                    SourceTeamResourceProfile.CompleteOriginalRecordsFactory : Profile.IsCompleteOriginalSourceBanks303 ?
+                    SourceTeamResourceProfile.CompleteOriginalSourceBanksFactory : SourceTeamResourceProfile.CompleteOriginalFactory),
+                "CompleteOriginal303 requires its explicit feature contract and actual source factory.");
+            FeatureContract = root.GetProperty("featureContract").GetString();
+            Factory = root.GetProperty("factory").GetString();
+        }
+        else
+            Require(!root.TryGetProperty("featureContract", out _) && !root.TryGetProperty("factory", out _),
+                "Historical manifests cannot carry the successor default-audibles feature/factory metadata.");
         var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var value in root.GetProperty("files").EnumerateArray())
         {
@@ -61,7 +106,7 @@ public sealed class DataCatalog
         foreach (string name in new[] { "rosters", "model", "skeleton", "playbook", "movement", "sound",
             "animations", "callbacks", "hit", "impact", "world", "teams", "hud", "settings", "bootstrap", "freeBall" })
             Require(entrypoints.ContainsKey(name), "Required actual source service is missing: " + name);
-        if (Profile.IsContact282C2M1PreSnapSwitch)
+        if (Profile.UsesPreSnapSwitchPayload)
         {
             Require(files.Count == 563, "Pre-snap switch requires the exact563-file successor, not a relabeled historical bundle.");
             foreach (var pair in new[] {
@@ -87,6 +132,34 @@ public sealed class DataCatalog
                 Require(!entrypoints.ContainsValue(pin.Path),
                     "A sealed retained historical input cannot be an active source service: " + pin.Path);
             }
+        }
+        if (Profile.IsCompleteOriginal303)
+        {
+            foreach (var pair in new[] {
+                ("animations", "animation/export-inventory-complete-original.json", Profile.AnimationSha256),
+                ("callbacks", "kernel/c2-complete-original-callback-data.json", SourceTeamResourceProfile.CompleteOriginalCallbackSha256),
+                ("impact", "kernel/impact-complete-original-presentation.json", Profile.IsCompleteOriginalFinal303 ?
+                    SourceTeamResourceProfile.CompleteOriginalFinalImpactSha256 : SourceTeamResourceProfile.CompleteOriginalImpactSha256),
+                ("originalPresentation", "original/manifest.json", Profile.IsCompleteOriginalPrematch303 ?
+                    SourceOriginalPresentationData.PrematchManifestSha256 : Profile.IsCompleteOriginalRecords303 ?
+                    SourceOriginalPresentationData.RecordsManifestSha256 : SourceOriginalPresentationData.ManifestSha256)
+            })
+                Require(Entry(pair.Item1) == pair.Item2 && EntryHash(pair.Item1) == pair.Item3,
+                    "CompleteOriginal303 exact input generation differs: " + pair.Item1);
+            Require(Entry("settings") == "settings-presnap-switch.json" && HasEntry("originalAudio"),
+                "CompleteOriginal303 requires original57 FourStation settings and its real decoded audio service.");
+            string[] oldPaths = { "animation/export-inventory.json", "kernel/c2-callback-data.json",
+                "kernel/impact-presentation.json", "settings.json", "animation/export-inventory-presnap-switch.json",
+                "kernel/c2-presnap-switch-callback-data.json", "kernel/impact-presnap-switch-presentation.json" };
+            string[] oldHashes = { SourceTeamResourceProfile.C2AnimationSha256, SourceInterfacePackagePlan.C2M1CallbackSha256,
+                SourceTeamResourceProfile.C2M1ImpactSha256, "a78aaa6144e80700550ff1204c393bda2c279200dbf9b5a4dad147d6c6b20777",
+                SourceTeamResourceProfile.PreSnapSwitchAnimationSha256, SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256,
+                SourceTeamResourceProfile.PreSnapSwitchImpactSha256 };
+            RetainedInputs = Array.AsReadOnly(oldPaths.Select((path, i) => {
+                Require(files.TryGetValue(path, out FilePin pin) && pin.Sha256 == oldHashes[i] &&
+                    !entrypoints.ContainsValue(path), "A sealed inherited original input changed or became active: " + path);
+                return pin;
+            }).ToArray());
         }
     }
 

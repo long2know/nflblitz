@@ -96,9 +96,30 @@ namespace Blitz.Presentation
             textures = loaded; data = parsed;
         }
 
+        public SourceInterfaceTexture TextureAtlas(string id)
+        {
+            Texture(id);
+            // Generated masks retain the interface atlas coordinates, not new manifest entries.
+            string atlas = id == "interface-white" || id == "interface-chroma" ? "interface" : id;
+            return data.Textures[atlas];
+        }
+
         public Texture2D Texture(string id)
         {
             Load();
+            if (id == "interface-chroma" && !textures.ContainsKey(id))
+                foreach (SourceHudTextureBytes binding in textureBytes)
+                    if (binding.Id == "interface")
+                    {
+                        SourceInterfaceTexture definition = data.Textures[binding.Id];
+                        byte[] mask = SourceHudTextureMask.BlackChromaKey(data.RequireTextureBytes(binding.Id, binding.Data.bytes));
+                        var chroma = new Texture2D(definition.Width, definition.Height, TextureFormat.RGBA32, false);
+                        chroma.name = "source-interface-black-chromakey-" + AuthorizedAssetRoot.Sha256(mask);
+                        chroma.filterMode = definition.PointSampled ? FilterMode.Point : FilterMode.Bilinear;
+                        chroma.wrapMode = TextureWrapMode.Clamp;
+                        chroma.LoadRawTextureData(mask); chroma.Apply(false, true);
+                        textures.Add(id, chroma);
+                    }
             Texture2D texture;
             if (!textures.TryGetValue(id, out texture)) throw new SourceInterfaceException("Missing original HUD texture: " + id);
             return texture;

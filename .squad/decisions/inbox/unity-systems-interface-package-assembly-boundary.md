@@ -1,0 +1,4 @@
+### 2026-10-16: Keep interface preflight on the actual runtime assembly boundary
+**By:** Unity Systems
+**What:** The permanent B1 HUD/services packager uses new `AssetImport/SourceTeamInterfacePackage.cs` for pure preflight and explicit match/presentation configuration. It reuses existing internal `RosterJson`/`RosterObject` rather than cloning a parser or invoking internals through reflection. The two new Editor scripts consume its public typed plan.
+**Why:** Unity compiles runtime and Editor folders into separate assemblies. Actual separate-assembly checks validate the new callers, and expose two existing frozen Team Editor calls to internal `AuthorizedAssetRoot.DecodeUtf8` that an all-in-one API compile missed. That shared-helper visibility repair is explicitly routed to the parent; frozen22 bytes are not changed here. B1/final117 remains separate from Primary M1, and no import/native proof is claimed while legitimate Editor access is blocked.

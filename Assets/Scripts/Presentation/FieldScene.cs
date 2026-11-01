@@ -364,7 +364,13 @@ namespace Blitz.Presentation
                 foreach (int index in indices)
                 {
                     Transform joint = actor.SourceRig.GetJoint(index);
-                    item.joints.Add(new AnimationJointEvidence { index = index, position = joint.position, localRotation = joint.localRotation });
+                    SourceJointTransform applied = actor.SourceRig.HasContinuousPose
+                        ? actor.SourceRig.GetAppliedJointTransform(index) : default(SourceJointTransform);
+                    item.joints.Add(new AnimationJointEvidence {
+                        index = index, position = joint.position,
+                        localRotation = applied.IsRawAffine ? (Quaternion?)null : joint.localRotation,
+                        affineBasis = applied.IsRawAffine ? (SourceAffineBasis?)applied.AffineBasis : null
+                    });
                 }
                 evidence.actors.Add(item);
             }
@@ -418,11 +424,31 @@ namespace Blitz.Presentation
                     if (j != 0) json.Append(',');
                     AnimationJointEvidence joint = actor.joints[j];
                     json.Append("{\"index\":").Append(joint.index).Append(",\"position\":"); JsonVector(json, joint.position);
-                    json.Append(",\"localRotation\":{\"x\":"); JsonNumber(json, joint.localRotation.x);
-                    json.Append(",\"y\":"); JsonNumber(json, joint.localRotation.y);
-                    json.Append(",\"z\":"); JsonNumber(json, joint.localRotation.z);
-                    json.Append(",\"w\":"); JsonNumber(json, joint.localRotation.w);
-                    json.Append("}}");
+                    json.Append(",\"localRotation\":");
+                    if (joint.localRotation.HasValue)
+                    {
+                        Quaternion rotation = joint.localRotation.Value;
+                        json.Append("{\"x\":"); JsonNumber(json, rotation.x);
+                        json.Append(",\"y\":"); JsonNumber(json, rotation.y);
+                        json.Append(",\"z\":"); JsonNumber(json, rotation.z);
+                        json.Append(",\"w\":"); JsonNumber(json, rotation.w);
+                        json.Append("}");
+                    }
+                    else json.Append("null");
+                    if (joint.affineBasis.HasValue)
+                    {
+                        SourceAffineBasis basis = joint.affineBasis.Value;
+                        json.Append(",\"representation\":\"RawAffine\",\"affineBasis\":[");
+                        float[] values = { basis.M00, basis.M01, basis.M02, basis.M10, basis.M11, basis.M12,
+                            basis.M20, basis.M21, basis.M22 };
+                        for (int component = 0; component < values.Length; component++)
+                        {
+                            if (component != 0) json.Append(',');
+                            JsonNumber(json, values[component]);
+                        }
+                        json.Append("]");
+                    }
+                    json.Append("}");
                 }
                 json.Append("]}");
             }
@@ -479,7 +505,8 @@ namespace Blitz.Presentation
         {
             public int index;
             public Vector3 position;
-            public Quaternion localRotation;
+            public Quaternion? localRotation;
+            public SourceAffineBasis? affineBasis;
         }
 
         private Actor CreateActor(int id, Material jersey, Material dark, Material trim,

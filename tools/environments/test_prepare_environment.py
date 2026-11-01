@@ -190,6 +190,19 @@ class TextureTests(unittest.TestCase):
                                                0, 255, 0, 255, 255, 0, 0, 255)))
         self.assertEqual(env.decode_tga(toy_tga(0, 24), "toy.tga")["mips"][0][3::4], b"\xff" * 4)
 
+    def test_tga_developer_payload_is_bounded_and_never_part_of_pixels(self):
+        pixels = toy_tga()
+        directory = struct.pack("<HHII", 1, 20, len(pixels) + 12, 4)
+        footer = struct.pack("<II", 0, len(pixels)) + b"TRUEVISION-XFILE.\0"
+        data = pixels + directory + b"8BIM" + footer
+        self.assertEqual(env.decode_tga(data, "developer.tga")["mips"],
+                         env.decode_tga(pixels, "pixels.tga")["mips"])
+        for offset in (len(pixels) - 1, len(data), 0xffffffff):
+            bad = bytearray(data)
+            struct.pack_into("<I", bad, len(pixels) + 4, offset)
+            with self.assertRaisesRegex(env.EnvironmentError, "developer payload"):
+                env.decode_tga(bytes(bad), "bad.tga")
+
     def test_tga_rejects_palette_rle_truncation_and_unknown_trailer(self):
         for index, value in ((1, 1), (2, 10), (16, 16), (17, 0x48)):
             data = bytearray(toy_tga())

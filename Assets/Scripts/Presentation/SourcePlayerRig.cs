@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Blitz.AssetImport;
 using Blitz.Contracts;
 using UnityEngine;
@@ -28,6 +29,15 @@ namespace Blitz.Presentation
         private string appliedUniform;
         private SourceSkinSelector appliedSkin;
         private string appliedPlayer;
+        private SourceEvaluatedPose appliedPose;
+        private readonly List<AffineMesh> affineMeshes = new List<AffineMesh>();
+        private sealed class AffineMesh
+        {
+            internal MeshFilter Filter;
+            internal Mesh Source, Clone;
+            internal Vector3[] Vertices, Normals, PendingVertices, PendingNormals;
+            internal Vector4[] Tangents, PendingTangents;
+        }
         private Material[][] flashOriginals;
         private readonly System.Collections.Generic.Dictionary<Material, Material> flashMaterials =
             new System.Collections.Generic.Dictionary<Material, Material>();
@@ -58,6 +68,7 @@ namespace Blitz.Presentation
                 TeamAppearance = appearance;
                 return;
             }
+            ReleaseAffineMeshes();
             RestoreSourceFireMaterials();
             for (int i = 0; i < JointCount; i++)
             {
@@ -79,6 +90,7 @@ namespace Blitz.Presentation
             teamAssets = assets; appliedModel = appearance.Model.Index; appliedHead = head;
             appliedUniform = appearance.UniformIdentity; appliedSkin = appearance.Uniform.Skin;
             appliedPlayer = appearance.SourcePlayerId; TeamAppearance = appearance;
+            if (appliedPose != null && appliedPose.IsRawAffine) ApplyContinuousSourcePose(appliedPose);
         }
 
         public void ApplySourceFireFlash(SourceFirePlayerFlashState flash, Shader shader)
@@ -122,7 +134,10 @@ namespace Blitz.Presentation
         }
 
         private void OnDestroy()
-        { foreach (Material material in flashMaterials.Values) if (material != null) Destroy(material); }
+        {
+            ReleaseAffineMeshes();
+            foreach (Material material in flashMaterials.Values) if (material != null) Destroy(material);
+        }
 
         // Called by the explicit editor importer; no external source files are read in a player/WebGL build.
         public void InitializeBindPose(string id, Transform[] orderedJoints, int[] parents, int[] flags)
@@ -179,6 +194,7 @@ namespace Blitz.Presentation
             return Instantiate(generatedPrefab, parent, false);
         }
 
+        // Raw affine orientation is in the deformed mesh/applied value, not this container's TRS.
         public Transform GetJoint(int index)
         {
             if (joints == null || index < 0 || index >= joints.Length) throw new ArgumentOutOfRangeException("index");
@@ -210,6 +226,14 @@ namespace Blitz.Presentation
         {
             if (pose == null || pose.Joints.Count != JointCount || JointCount != SourceTiming.JointCount)
                 throw new InvalidOperationException("Continuous source pose/rig mapping requires fifteen joints.");
+            if (pose.IsRawAffine)
+            {
+                ApplyRawAffinePose(pose);
+                appliedPose = pose;
+                HasContinuousPose = true;
+                return;
+            }
+            ReleaseAffineMeshes();
             for (int i = 0; i < JointCount; i++) joints[i].localScale = Vector3.one;
             joints[0].localScale = Vector3.one * pose.ModelScale;
             for (int i = 0; i < JointCount; i++)
@@ -221,6 +245,123 @@ namespace Blitz.Presentation
                     transform.rotation * new Quaternion(q.X, q.Y, q.Z, q.W));
             }
             HasContinuousPose = true;
+            appliedPose = pose;
+        }
+
+        public SourceJointTransform GetAppliedJointTransform(int index)
+        {
+            if (!HasContinuousPose || appliedPose == null)
+                throw new InvalidOperationException("No continuous source pose is applied.");
+            if (index < 0 || index >= appliedPose.Joints.Count) throw new ArgumentOutOfRangeException(nameof(index));
+            return appliedPose.Joints[index];
+        }
+
+        private void ApplyRawAffinePose(SourceEvaluatedPose pose)
+        {
+            for (int i = 0; i < JointCount; i++)
+                PrepareAffineMesh(AffineMeshFor(joints[i].GetComponent<MeshFilter>()), pose.Joints[i].AffineBasis);
+            if (TeamAppearance != null && numberFilter == null)
+                throw new InvalidOperationException("Raw affine team rendering requires its torso-number mesh.");
+            if (numberFilter != null) PrepareAffineMesh(AffineMeshFor(numberFilter), pose.Joints[1].AffineBasis);
+            for (int i = 0; i < JointCount; i++) joints[i].localScale = Vector3.one;
+            for (int i = 0; i < JointCount; i++)
+            {
+                SourceVector3 position = pose.Joints[i].Position;
+                joints[i].SetPositionAndRotation(transform.TransformPoint(new Vector3(position.X, position.Y, position.Z)),
+                    transform.rotation);
+            }
+            foreach (AffineMesh mesh in affineMeshes)
+            {
+                mesh.Clone.vertices = mesh.PendingVertices;
+                if (mesh.PendingNormals.Length != 0) mesh.Clone.normals = mesh.PendingNormals;
+                if (mesh.PendingTangents.Length != 0) mesh.Clone.tangents = mesh.PendingTangents;
+                mesh.Clone.RecalculateBounds();
+                mesh.Filter.sharedMesh = mesh.Clone;
+            }
+        }
+
+        private AffineMesh AffineMeshFor(MeshFilter filter)
+        {
+            if (filter == null || filter.sharedMesh == null)
+                throw new InvalidOperationException("Raw affine rendering requires the existing limb/number MeshFilter.");
+            foreach (AffineMesh cached in affineMeshes)
+                if (cached.Filter == filter)
+                {
+                    if (filter.sharedMesh != cached.Clone && filter.sharedMesh != cached.Source)
+                        throw new InvalidOperationException("Raw affine mesh binding changed outside appearance rebinding.");
+                    return cached;
+                }
+            Mesh source = filter.sharedMesh;
+            if (!source.isReadable)
+                throw new NotSupportedException("Raw affine rendering requires readable mesh attributes; no asset reimport fallback.");
+            Vector3[] vertices = source.vertices, normals = source.normals;
+            Vector4[] tangents = source.tangents;
+            if (vertices.Length == 0 || normals.Length != 0 && normals.Length != vertices.Length ||
+                tangents.Length != 0 && tangents.Length != vertices.Length)
+                throw new NotSupportedException("Raw affine mesh attribute counts are unsupported.");
+            var mesh = new AffineMesh {
+                Filter = filter, Source = source, Clone = Instantiate(source),
+                Vertices = vertices, Normals = normals, Tangents = tangents,
+                PendingVertices = new Vector3[vertices.Length], PendingNormals = new Vector3[normals.Length],
+                PendingTangents = new Vector4[tangents.Length]
+            };
+            mesh.Clone.name = source.name + "/instance-raw-affine";
+            affineMeshes.Add(mesh);
+            return mesh;
+        }
+
+        private static void PrepareAffineMesh(AffineMesh mesh, SourceAffineBasis basis)
+        {
+            Matrix4x4 linear = Matrix4x4.identity;
+            linear.m00 = basis.M00; linear.m01 = basis.M01; linear.m02 = basis.M02;
+            linear.m10 = basis.M10; linear.m11 = basis.M11; linear.m12 = basis.M12;
+            linear.m20 = basis.M20; linear.m21 = basis.M21; linear.m22 = basis.M22;
+            bool attributes = mesh.Normals.Length != 0 || mesh.Tangents.Length != 0;
+            float determinant = attributes ? linear.determinant : 1f;
+            if (attributes && (determinant == 0f || float.IsNaN(determinant) || float.IsInfinity(determinant)))
+                throw new NotSupportedException("Raw affine lit normal/tangent consumer requires a finite nonsingular basis.");
+            Matrix4x4 normals = attributes ? linear.inverse.transpose : Matrix4x4.identity;
+            for (int i = 0; i < mesh.Vertices.Length; i++)
+            {
+                Vector3 point = mesh.Vertices[i];
+                SourceVector3 transformed = basis.TransformVector(new SourceVector3(point.x, point.y, point.z));
+                SourceAnimationSampling.Finite(transformed, "raw deformed mesh vertex");
+                mesh.PendingVertices[i] = new Vector3(transformed.X, transformed.Y, transformed.Z);
+            }
+            for (int i = 0; i < mesh.Normals.Length; i++)
+                mesh.PendingNormals[i] = UnitAttribute(normals.MultiplyVector(mesh.Normals[i]));
+            for (int i = 0; i < mesh.Tangents.Length; i++)
+            {
+                Vector4 tangent = mesh.Tangents[i];
+                if (float.IsNaN(tangent.w) || float.IsInfinity(tangent.w))
+                    throw new NotSupportedException("Raw affine tangent handedness must be finite.");
+                Vector3 direction = UnitAttribute(linear.MultiplyVector(new Vector3(tangent.x, tangent.y, tangent.z)));
+                mesh.PendingTangents[i] = new Vector4(direction.x, direction.y, direction.z,
+                    determinant < 0f ? -tangent.w : tangent.w);
+            }
+        }
+
+        private static Vector3 UnitAttribute(Vector3 value)
+        {
+            double lengthSquared = (double)value.x * value.x + (double)value.y * value.y + (double)value.z * value.z;
+            if (!(lengthSquared > 0d) || double.IsNaN(lengthSquared) || double.IsInfinity(lengthSquared))
+                throw new NotSupportedException("Raw affine normal/tangent transform is nonfinite or zero.");
+            double inverse = 1d / Math.Sqrt(lengthSquared);
+            return new Vector3((float)(value.x * inverse), (float)(value.y * inverse), (float)(value.z * inverse));
+        }
+
+        private void ReleaseAffineMeshes()
+        {
+            foreach (AffineMesh mesh in affineMeshes)
+            {
+                if (mesh.Filter != null && mesh.Filter.sharedMesh == mesh.Clone) mesh.Filter.sharedMesh = mesh.Source;
+                if (mesh.Clone != null)
+                {
+                    if (Application.isPlaying) Destroy(mesh.Clone);
+                    else DestroyImmediate(mesh.Clone);
+                }
+            }
+            affineMeshes.Clear();
         }
 
         public void SetUnityLocalRotation(int index, Quaternion rotation)
@@ -236,6 +377,8 @@ namespace Blitz.Presentation
 
         public void ResetBindPose()
         {
+            ReleaseAffineMeshes();
+            appliedPose = null;
             for (int i = 0; i < JointCount; i++)
             {
                 joints[i].localPosition = restPositions[i];
@@ -257,6 +400,8 @@ namespace Blitz.Presentation
                 float.IsNaN(anchoredRootOffset.y) || float.IsInfinity(anchoredRootOffset.y) ||
                 float.IsNaN(anchoredRootOffset.z) || float.IsInfinity(anchoredRootOffset.z))
                 throw new InvalidOperationException("Incomplete static source pose; no default standing rotations will be substituted.");
+            ReleaseAffineMeshes();
+            appliedPose = null;
             for (int i = 0; i < JointCount; i++)
             {
                 joints[i].localPosition = restPositions[i];

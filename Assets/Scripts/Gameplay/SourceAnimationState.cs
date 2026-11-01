@@ -70,6 +70,20 @@ namespace Blitz.Gameplay
             return new SourceJointPose(rotations);
         }
 
+        internal static SourceRotation Slerp(SourceRotation from, SourceRotation to, float t,
+            ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            return interpolation.Slerp(from, to, t);
+        }
+
+        internal static SourceJointPose Blend(SourceJointPose from, SourceJointPose to, float t,
+            ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            return interpolation.Blend(from, to, t);
+        }
+
         internal static SourceJointPose Turn(SourceJointPose pose, int heading)
         {
             if (pose == null || (heading & 1023) == 0)
@@ -98,6 +112,8 @@ namespace Blitz.Gameplay
         private readonly ISourceAnimationLibrary library;
         private readonly int actorId;
         private readonly IReadOnlyDictionary<string, SourceAnimationProgram> programExtension;
+        private SourcePoseInterpolationPolicy poseInterpolationPolicy;
+        private ISourcePoseInterpolation poseInterpolation;
         private SourceAnimationProgram program;
         private ISourceAnimationClip clip;
         private int pc;
@@ -146,6 +162,11 @@ namespace Blitz.Gameplay
         internal int VariableCount = 4;
         internal string SequenceName { get { return clip == null ? null : clip.SequenceName; } }
         internal string ScriptSymbol { get { return program == null ? null : program.Symbol; } }
+        internal int LogicalInstructionIndex { get { return pc; } }
+        internal string RawTransitionSourceSequenceName { get { return transitionSourceClip == null ? null : transitionSourceClip.SequenceName; } }
+        internal int RawTransitionSourceOrdinal { get { return transitionSourceOrdinal; } }
+        internal int RawTransitionCount { get { return transitionCount; } }
+        internal int RawTransitionTicks { get { return transitionTicks; } }
         internal bool IsSpecified { get { return clip != null && FrameOrdinal >= 0; } }
         internal bool IsUninterruptible { get { return (Mode & SourceAnimationModes.Uninterruptible) != 0; } }
         internal bool IsEnded { get { return (Mode & SourceAnimationModes.End) != 0; } }
@@ -161,6 +182,7 @@ namespace Blitz.Gameplay
 
         internal void CopyFrom(SourceAnimationLayerState other)
         {
+            // Numerical policy belongs to the receiver, not the copied playback state.
             program = other.program;
             clip = other.clip;
             pc = other.pc;
@@ -186,6 +208,25 @@ namespace Blitz.Gameplay
             lastAdvanceTick = other.lastAdvanceTick;
             Mode = other.Mode | SourceAnimationModes.Secondary | SourceAnimationModes.TwoPart;
             CodeReturnEvidence = other.CodeReturnEvidence;
+        }
+
+        internal void CheckPoseInterpolationBinding(ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            if (program != null || clip != null)
+                throw new InvalidOperationException("Source pose interpolation must be bound before animation execution.");
+            if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.LegacyNormalized &&
+                poseInterpolationPolicy != SourcePoseInterpolationPolicy.OriginalPortable)
+                throw new InvalidOperationException("Unknown pose interpolation policy.");
+            if (poseInterpolation != null && !ReferenceEquals(poseInterpolation, interpolation))
+                throw new InvalidOperationException("Source pose interpolation is already bound.");
+        }
+
+        internal void BindSourcePoseInterpolation(ISourcePoseInterpolation interpolation)
+        {
+            CheckPoseInterpolationBinding(interpolation);
+            poseInterpolation = interpolation;
+            poseInterpolationPolicy = SourcePoseInterpolationPolicy.OriginalPortable;
         }
 
         internal void Change(string symbol, ActorState actor, long tick, Func<int, int> random,
@@ -259,23 +300,47 @@ namespace Blitz.Gameplay
 
         internal SourceJointPose EvaluatePose()
         {
+            RequirePoseInterpolation();
             if (clip == null)
                 return null;
             SourceJointPose target = Frame(Math.Max(0, FrameOrdinal)).Pose;
             float fraction = Fraction();
             if (fraction > 0f && FrameOrdinal + 1 < clip.SelectedSourceFrames.Count)
-                target = SourcePoseMath.Blend(target, Frame(FrameOrdinal + 1).Pose, fraction);
-            return SourcePoseMath.Blend(transitionFrom, target, TransitionFraction());
+                target = BlendPose(target, Frame(FrameOrdinal + 1).Pose, fraction);
+            return BlendPose(transitionFrom, target, TransitionFraction());
+        }
+
+        private void RequirePoseInterpolation()
+        {
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable)
+            {
+                if (poseInterpolation == null)
+                    throw Failure("OriginalPortable pose interpolation binding is unavailable");
+            }
+            else if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.LegacyNormalized)
+                throw Failure("unknown pose interpolation policy");
+        }
+
+        private SourceJointPose BlendPose(SourceJointPose from, SourceJointPose to, float amount)
+        {
+            return poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable
+                ? SourcePoseMath.Blend(from, to, amount, poseInterpolation)
+                : SourcePoseMath.Blend(from, to, amount);
         }
 
         internal SourceAnimationLayer View(ushort mask, int facing)
         {
+            RequirePoseInterpolation();
             if (!IsSpecified)
                 throw Failure("actor snapshot has no source animation");
             int nextOrdinal = Math.Min(FrameOrdinal + (Fraction() > 0f ? 1 : 0),
                 clip.SelectedSourceFrames.Count - 1);
             var sample = new SourceAnimationSample(SequenceName, clip.SelectedSourceFrames[FrameOrdinal],
                 clip.SelectedSourceFrames[nextOrdinal], Fraction());
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable)
+                return new SourceAnimationLayer(poseInterpolationPolicy, poseInterpolation, facing, ScriptSymbol, InstanceId,
+                    sample, Mode, mask, transitionTicks > 0 ? transitionFrom : null, TransitionFraction(),
+                    SourcePoseMath.Facing(facing), CodeReturnEvidence);
             return new SourceAnimationLayer(ScriptSymbol, InstanceId, sample, Mode, mask,
                 transitionTicks > 0 ? transitionFrom : null, TransitionFraction(), SourcePoseMath.Facing(facing),
                 CodeReturnEvidence);
@@ -526,6 +591,10 @@ namespace Blitz.Gameplay
                     break;
                 case SourceAnimationOp.SetLateHittable:
                     actor.SourceLateHittable = i.A != 0;
+                    break;
+                case SourceAnimationOp.SetCelebrate:
+                    if (i.A != 0) actor.SourceRawFlags |= (int)SourceMovementFlags.Celebrate;
+                    else actor.SourceRawFlags &= ~(int)SourceMovementFlags.Celebrate;
                     break;
                 case SourceAnimationOp.RotateTorso:
                     actor.UpperFacing = actor.TargetUpperFacing = actor.Facing;
@@ -895,6 +964,14 @@ namespace Blitz.Gameplay
         {
             Primary = new SourceAnimationLayerState(library, actorId, false, programExtension);
             Secondary = new SourceAnimationLayerState(library, actorId, true, programExtension);
+        }
+
+        internal void BindSourcePoseInterpolation(ISourcePoseInterpolation interpolation)
+        {
+            Primary.CheckPoseInterpolationBinding(interpolation);
+            Secondary.CheckPoseInterpolationBinding(interpolation);
+            Primary.BindSourcePoseInterpolation(interpolation);
+            Secondary.BindSourcePoseInterpolation(interpolation);
         }
 
         internal void SetScriptSelector(Func<string, ActorState, Func<int, int>, string> selector)

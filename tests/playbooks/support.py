@@ -11,7 +11,9 @@ PINS = json.loads((SUITE / "pins.json").read_text(encoding="utf-8"))
 CONTRACTS = (
     "GameplayContracts.cs", "SourceAnimationContracts.cs", "SourceCameraContracts.cs", "SourceConfigurationContracts.cs",
     "SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceInputContracts.cs",
-    "SourceKickMeterContracts.cs", "SourceMatchContracts.cs", "SourcePresentationContracts.cs",
+    "SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
+    "SourceKickMeterContracts.cs", "SourceKickoffInstructionChildContracts.cs", "SourceMatchContracts.cs",
+    "SourcePortableProcessContracts.cs", "SourcePresentationContracts.cs",
 )
 GAMEPLAY = (
     "SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs",
@@ -70,7 +72,7 @@ def source_paths(root=ROOT):
                         for path in (root / "Assets/Scripts/Contracts").rglob("*.cs")}
     if actual_contracts != set(CONTRACTS):
         missing, unexpected = set(CONTRACTS) - actual_contracts, actual_contracts - set(CONTRACTS)
-        raise GateError("Expected the complete ten actual Contracts sources, never substitute DTOs; "
+        raise GateError("Expected the complete fourteen actual Contracts sources, never substitute DTOs; "
                         "missing=" + str(sorted(missing)) + "; unexpected=" + str(sorted(unexpected)))
     names = ["Assets/Scripts/Contracts/" + name for name in CONTRACTS]
     names += ["Assets/Scripts/Gameplay/" + name for name in GAMEPLAY]

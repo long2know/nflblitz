@@ -5,6 +5,18 @@ export const CABINET_KEYS = Object.freeze([
   ['KeyT', 'KeyG', 'KeyF', 'KeyH', 'KeyZ', 'KeyX', 'KeyC'],
 ]);
 
+export class ObservedHostClock {
+  constructor() { this.seconds = 0; this.last = null; this.running = false; }
+  sample(milliseconds, running) {
+    if (!Number.isFinite(milliseconds) || milliseconds < 0 ||
+      this.last !== null && milliseconds < this.last)
+      throw new Error('Actual observed host time must be finite and monotonic.');
+    if (this.last !== null && this.running) this.seconds += (milliseconds - this.last) / 1000;
+    this.last = milliseconds; this.running = running;
+    return this.seconds;
+  }
+}
+
 export function cabinetPacket(keys, pads, stations) {
   const axes = Array(8).fill(0), buttons = Array(4).fill(0);
   for (const station of stations) {
@@ -32,9 +44,10 @@ export function cabinetPacket(keys, pads, stations) {
 }
 
 export class SourceInput {
-  constructor(api, canvas, stations, fatal, focusChanged) {
+  constructor(api, canvas, stations, fatal, focusChanged, observedClock = null) {
     this.api = api; this.canvas = canvas; this.stations = stations;
     this.keys = new Set(); this.paused = false; this.fatal = fatal; this.focusChanged = focusChanged;
+    this.observedClock = observedClock;
     this.configured = new Set(stations.flatMap(id => CABINET_KEYS[id]));
     this.listeners = [];
     this.listen(window, 'keydown', event => this.key(event, true));
@@ -68,7 +81,7 @@ export class SourceInput {
 
   focus() {
     this.keys.clear();
-    this.api.Capture(Array(8).fill(0), Array(4).fill(0));
+    this.capture(Array(8).fill(0), Array(4).fill(0));
     this.api.SetActive(!this.paused && !document.hidden && document.hasFocus());
     this.focusChanged();
   }
@@ -77,7 +90,13 @@ export class SourceInput {
     const active = !this.paused && !document.hidden && document.hasFocus();
     const packet = active ? cabinetPacket(this.keys, navigator.getGamepads?.(), this.stations) :
       { axes: Array(8).fill(0), buttons: Array(4).fill(0) };
-    this.api.Capture(packet.axes, packet.buttons);
+    this.capture(packet.axes, packet.buttons);
+  }
+
+  capture(axes, buttons) {
+    if (this.observedClock && this.api.CaptureObserved)
+      this.api.CaptureObserved(axes, buttons, this.observedClock());
+    else this.api.Capture(axes, buttons);
   }
 
   close() { for (const remove of this.listeners) remove(); this.listeners.length = 0; }

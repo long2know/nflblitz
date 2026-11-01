@@ -39,7 +39,7 @@ static class FeatureChecks
         foreach (string query in new[] { "", "?source-fire=portable", "?source-kick-meters=portable-authored",
             "?source-fire=portable&source-kick-meters=portable-authored" })
         {
-            var options = PreviewOptions.FromUrl(query);
+            var options = PreviewOptions.FromUrl(query, data.Catalog.Profile.StableId);
             var game = KernelBinding.Create(data, options);
             var kick = (ISourceKickMeterState)game.State;
             Require(game.SourceFireEnabled == options.FireEnabled && kick.KickMeterMode == options.KickMeters,
@@ -63,7 +63,7 @@ static class FeatureChecks
             Require(side > 0 ? rasterX < 256 : rasterX > 256, "Projection sign must not be compensated by falsifying camera/world coordinates.");
         }
         var sink = new Sink();
-        var host = new PlayerHost(data, sink, options: PreviewOptions.FromUrl("?source-fire=portable&source-kick-meters=portable-authored"));
+        var host = new PlayerHost(data, sink, options: PreviewOptions.FromUrl("?source-fire=portable&source-kick-meters=portable-authored", data.Catalog.Profile.StableId));
         int boundaryWakes = 0;
         var actualCamera = host.Game.SourceCameraHeadingProvider;
         host.Game.SourceCameraHeadingProvider = (snapshot, tick) => {
