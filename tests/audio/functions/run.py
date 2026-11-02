@@ -14,6 +14,9 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(ROOT / "tests/parity"))
+from kernel_sources import production_paths
+
 OUT = HERE / ".artifacts"
 PROJECT = HERE / "SourceAudioFunctions.Checks.csproj"
 DATA = ROOT / "Assets/Scripts/AssetImport/SourceAudioFunctionData.cs"
@@ -51,21 +54,8 @@ def run(args, label, check=True, stdin=None):
 
 def support(core):
     path = core / "Assets/Scripts/Gameplay/SourcePlaybook.cs"
-    text = path.read_text()
-    start = text.index("internal static class SourceP1Guard")
-    opening = text.index("{", start)
-    depth = 0
-    for at in range(opening, len(text)):
-        depth += (text[at] == "{") - (text[at] == "}")
-        if depth == 0:
-            fragment = text[start:at + 1]
-            break
-    else:
-        raise RuntimeError("actual Core guard not found")
-    output = OUT / "ActualCoreSupport.cs"
-    output.write_text("using System;\nnamespace Blitz.Gameplay {\n" + fragment + "\n}\n")
-    return {"source": str(path), "source_sha256": sha(path), "fragment_sha256": sha(output),
-            "claim": "Exact unmodified SourceP1Guard declaration from actual Core source, not a replacement API/guard. Avoids compiling unrelated playbook/AI implementations."}
+    return {"source": str(path), "source_sha256": sha(path),
+            "claim": "The actual complete SourcePlaybook and shared pure Core closure are compiled, including the real SourceP1Guard; no extracted replacement types."}
 
 
 def build(core, data=None, selector=None, label="build"):
@@ -171,10 +161,9 @@ def unity_compile(editor_data, core):
     sdk = subprocess.check_output(["dotnet", "--list-sdks"], text=True).splitlines()[-1]
     match = re.fullmatch(r"(\S+)\s+\[(.+)\]", sdk)
     compiler = Path(match[2]) / match[1] / "Roslyn/bincore/csc.dll"
-    sources = list((core / "Assets/Scripts/Contracts").rglob("*.cs"))
-    sources += [core / "Assets/Scripts/Gameplay" / name for name in
-                ["SourceRandom.cs", "SourceMatchFlow.cs", "SourceClock.cs", "SourceMatchRules.cs"]]
-    sources += [OUT / "ActualCoreSupport.cs", DATA, SELECTOR]
+    sources = [path for path in production_paths(core)
+               if path.name not in ("SourceAudioFunctionData.cs", "SourceAudioFunctions.cs")]
+    sources += [DATA, SELECTOR]
     result = []
     for define in ["UNITY_EDITOR", "UNITY_WEBGL"]:
         output = OUT / (define + ".dll")
@@ -258,9 +247,7 @@ def main():
            HERE / "test_producer.py", Path(__file__).resolve(),
            ROOT / "tools/audio/FUNCTIONS.md", ROOT / "tools/audio/sound-functions.schema.json"]
     own_before = {str(path.relative_to(ROOT)): sha(path) for path in own}
-    core_files = sorted((core / "Assets/Scripts/Contracts").rglob("*.cs"))
-    core_files += [core / "Assets/Scripts/Gameplay" / name for name in
-                   ["SourceRandom.cs", "SourcePlaybook.cs", "SourceMatchFlow.cs", "SourceClock.cs", "SourceMatchRules.cs"]]
+    core_files = production_paths(core)
     core_before = {str(path): sha(path) for path in core_files}
     report = {"schema": "source-audio-function-validation/v1", "core_support": support(core),
               "core_source_sha256": core_before}

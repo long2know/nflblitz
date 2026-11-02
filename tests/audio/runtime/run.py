@@ -15,6 +15,8 @@ SUITE = ROOT / "tests/audio/runtime"
 ARTIFACTS = SUITE / ".artifacts"
 sys.path.insert(0, str(ROOT / "tests/ci"))
 from isolated_mutations import run_mutations
+sys.path.insert(0, str(ROOT / "tests/parity"))
+from kernel_sources import production_paths
 TRANSPORT = "Assets/Scripts/Runtime/SourceSoundVmTransport.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
 PLAYBACK = "tools/source-player/Runtime/SourceAudioPlayback.cs"
@@ -96,6 +98,14 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def source_files():
+    return production_paths() + [ROOT / name for name in (
+        "Assets/Scripts/Runtime/SourceCabinetInput.cs",
+        "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
+        PLAYBACK, TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs",
+        "tests/parity/FullKernelSources.props")]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture-manifest", type=Path, help="Explicit real157 Core input manifest.")
@@ -121,19 +131,7 @@ def main(argv=None):
     cache.mkdir(exist_ok=True)
     environment = dict(os.environ, TMPDIR=str(cache), TMP=str(cache), TEMP=str(cache),
                        PYTHONDONTWRITEBYTECODE="1", DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1")
-    paths = []
-    for directory in ("Contracts", "Gameplay", "AssetImport"):
-        paths.extend(sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs")))
-    paths += [ROOT / name for name in (
-        "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
-        "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
-        "Assets/Scripts/Presentation/SourceCinematicModel.cs",
-        "Assets/Scripts/Runtime/SourceC2Composition.cs",
-        "Assets/Scripts/Runtime/SourceCabinetInput.cs",
-        "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
-        PLAYBACK,
-        TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs",
-        "tests/parity/FullKernelSources.props")]
+    paths = source_files()
     source = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in paths}
     guarded = {name: digest(data) for name, data in source.items()}
     result = {"schema": "source-sound-runtime-gate/v1", "status": "failed", "source_sha256": guarded,
@@ -152,7 +150,8 @@ def main(argv=None):
                 target.write_bytes(data)
             tests = selected / "tests/audio/runtime"
             tests.mkdir(parents=True)
-            for name in ("Program.cs", "ActualCore.cs", "PlaybackChecks.cs", "ProcessOutputChecks.cs", "SourceSoundRuntime.Checks.csproj"):
+            for name in ("Program.cs", "ActualCore.cs", "PlaybackChecks.cs", "ProcessOutputChecks.cs",
+                         "PreGameProcessChecks.cs", "SourceSoundRuntime.Checks.csproj"):
                 shutil.copyfile(SUITE / name, tests / name)
             scratch = selected / "runtime"
             scratch.mkdir()

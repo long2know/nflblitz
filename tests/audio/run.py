@@ -245,8 +245,8 @@ def mutations():
             "!String.Equals(packageHash, expectedPackageSha256, StringComparison.Ordinal)",
             "!String.Equals(packageHash, packageHash, StringComparison.Ordinal)"),
         "pcm-integrity-bypass": (
-            "!String.Equals(Hash(pcm), pcmHash, StringComparison.Ordinal)",
-            "!String.Equals(pcmHash, pcmHash, StringComparison.Ordinal)"),
+            'if (Hash(pcm) != hash) throw new InvalidDataException("PCM SHA-256 mismatch.");',
+            'if (!String.Equals(hash, hash, StringComparison.Ordinal)) throw new InvalidDataException("PCM SHA-256 mismatch.");'),
         "repeat-accepted": ("p[14] != 1", "p[14] > 2"),
         "nonstandard-end-qualified": (
             "EndWaitFrames == OriginalStreamFrames + 1", "EndWaitFrames >= OriginalStreamFrames"),

@@ -113,7 +113,7 @@ class SoundVmClosure(unittest.TestCase):
                 self.assertIn("Assets/Scripts/Presentation/SourceC2SoundFunctions.cs", names)
                 self.assertIn("Assets/Scripts/Runtime/SourceC2Composition.cs", names)
             else:
-                for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+                for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
                     self.assertIn(name, text, path)
 
     def test_explicit_staged_projects_link_both_selectors_from_their_selected_root(self):
@@ -126,9 +126,12 @@ class SoundVmClosure(unittest.TestCase):
             includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile[@Include]")}
             for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
                 self.assertIn(prefix + "Assets/Scripts/Presentation/" + name, includes, project)
-        runtime = (ROOT / "tests/audio/runtime/run.py").read_text()
+        spec = importlib.util.spec_from_file_location("runtime_source_inventory", ROOT / "tests/audio/runtime/run.py")
+        runtime = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runtime)
+        sources = {path.relative_to(ROOT).as_posix() for path in runtime.source_files()}
         for name in ("Assets/Scripts/Runtime/SourceC2Composition.cs", "tests/parity/FullKernelSources.props"):
-            self.assertIn(name, runtime)
+            self.assertIn(name, sources)
 
     def test_no_primary_machine_path_is_a_new_permanent_default(self):
         for path in (ROOT / "tests/audio/vm").iterdir():

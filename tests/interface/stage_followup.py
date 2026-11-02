@@ -22,9 +22,9 @@ IMPORTER = "Assets/Scripts/Editor/SourceTeamInterfaceImporter.cs"
 IMPORT_CHECKS = "Assets/Scripts/Editor/SourceTeamInterfaceChecks.cs"
 PROFILES = "Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs"
 M1_PREFLIGHT = "if (profile.UsesM1Services) RequirePossessionSpeechResource();"
-M1_IMPORT_ASSERTION = "only the two explicit M1 service profiles require speech before asset output"
+M1_IMPORT_ASSERTION = "only explicitly qualified M1 service profiles require speech before asset output"
 M1_SAVED_ASSERTION = "saved M1 verification must exercise the same strict canonical HUD speech binding"
-M1_ANCESTRY_ASSERTION = "M1 services ancestry must be exactly old281 or new282, never other profiles"
+M1_ANCESTRY_ASSERTION = "M1 services ancestry must match the exact qualified successor profiles and preserve old exclusions"
 POSSESSION_IMPORTER_MUTATIONS = (
     ("implicit-root", '"-interfacePossessionSpeechRoot"', '"-unrelatedRoot"',
      "speech import must use explicit authorized root"),
@@ -70,15 +70,27 @@ POSSESSION_SAVED_MUTATIONS = (
      "if (ReferenceEquals(profile, null)) if (profile.UsesM1Services)", M1_SAVED_ASSERTION),
 )
 M1_ANCESTRY_MUTATIONS = (
-    ("lost-old281", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "IsContact282C2M1PreSnapSwitch"),
-    ("lost-new282", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"),
-    ("any-profile", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch", "true"),
-    ("nonM1-C2-ancestry", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch",
-     "IsContact281C2 || IsContact281C2M1 || IsContact282C2M1PreSnapSwitch"),
-    ("nonM1-C1-ancestry", "IsContact281C2M1 || IsContact282C2M1PreSnapSwitch",
-     "IsContact272 || IsContact281C2M1 || IsContact282C2M1PreSnapSwitch"),
+    ("lost-old281", "IsContact281C2M1 || UsesPreSnapSwitchServices", "UsesPreSnapSwitchServices"),
+    ("lost-new282", "IsContact282C2M1PreSnapSwitch || IsContact282C2M1DefaultAudibles",
+     "IsContact282C2M1DefaultAudibles"),
+    ("any-profile", "IsContact281C2M1 || UsesPreSnapSwitchServices", "true"),
+    ("nonM1-C2-ancestry", "IsContact281C2M1 || UsesPreSnapSwitchServices",
+     "IsContact281C2 || IsContact281C2M1 || UsesPreSnapSwitchServices"),
+    ("nonM1-C1-ancestry", "IsContact281C2M1 || UsesPreSnapSwitchServices",
+     "IsContact272 || IsContact281C2M1 || UsesPreSnapSwitchServices"),
     ("old-profile-alias", "StableId == C2M1StableId", "StableId == C2StableId"),
     ("new-profile-alias", "StableId == PreSnapSwitchStableId", "StableId == C2M1StableId"),
+    ("lost-default-audibles", "IsContact282C2M1PreSnapSwitch || IsContact282C2M1DefaultAudibles",
+     "IsContact282C2M1PreSnapSwitch"),
+    ("lost-complete-original", "UsesPreSnapSwitchPayload || IsCompleteOriginal303", "UsesPreSnapSwitchPayload"),
+    ("lost-source-banks", "StableId == CompleteOriginalStableId || IsCompleteOriginalSourceBanks303 || IsCompleteOriginalRecords303",
+     "StableId == CompleteOriginalStableId || IsCompleteOriginalRecords303"),
+    ("lost-records", "StableId == CompleteOriginalStableId || IsCompleteOriginalSourceBanks303 || IsCompleteOriginalRecords303",
+     "StableId == CompleteOriginalStableId || IsCompleteOriginalSourceBanks303"),
+    ("lost-final", "StableId == CompleteOriginalRecordsStableId || IsCompleteOriginalFinal303",
+     "StableId == CompleteOriginalRecordsStableId"),
+    ("lost-prematch", "StableId == CompleteOriginalFinalStableId || IsCompleteOriginalPrematch303",
+     "StableId == CompleteOriginalFinalStableId"),
 )
 SOUND_FACTORIES = (
     ("Assets/Scripts/Runtime/SourceContactComposition.cs", "CreateSimulation", "soundFunctions"),
@@ -445,9 +457,17 @@ def assert_compile_inventory(compiled, expected_owned):
 def validate_m1_services_ancestry(source):
     clean = uncomment(source)
     for name, expression in (
-        ("UsesM1Services", "IsContact281C2M1||IsContact282C2M1PreSnapSwitch"),
+        ("UsesM1Services", "IsContact281C2M1||UsesPreSnapSwitchServices"),
+        ("UsesPreSnapSwitchServices", "UsesPreSnapSwitchPayload||IsCompleteOriginal303"),
+        ("UsesPreSnapSwitchPayload", "IsContact282C2M1PreSnapSwitch||IsContact282C2M1DefaultAudibles"),
         ("IsContact281C2M1", "StableId==C2M1StableId"),
         ("IsContact282C2M1PreSnapSwitch", "StableId==PreSnapSwitchStableId"),
+        ("IsContact282C2M1DefaultAudibles", "StableId==DefaultAudiblesStableId"),
+        ("IsCompleteOriginal303", "StableId==CompleteOriginalStableId||IsCompleteOriginalSourceBanks303||IsCompleteOriginalRecords303"),
+        ("IsCompleteOriginalSourceBanks303", "StableId==CompleteOriginalSourceBanksStableId"),
+        ("IsCompleteOriginalRecords303", "StableId==CompleteOriginalRecordsStableId||IsCompleteOriginalFinal303"),
+        ("IsCompleteOriginalFinal303", "StableId==CompleteOriginalFinalStableId||IsCompleteOriginalPrematch303"),
+        ("IsCompleteOriginalPrematch303", "StableId==CompleteOriginalPrematchStableId"),
     ):
         bodies = re.findall(r"\bpublic\s+bool\s+" + name + r"\s*\{\s*get\s*\{([^{}]*)\}\s*\}", clean)
         require(len(bodies) == 1 and compact(bodies[0]) == "return" + expression + ";",
@@ -460,6 +480,16 @@ def validate_m1_services_ancestry(source):
         ("Contact281C2M1", "C2M1StableId", "original-teams-contact281-c2-m1", True),
         ("Contact282C2M1PreSnapSwitch", "PreSnapSwitchStableId",
          "original-teams-contact282-c2-m1-presnap-switch", True),
+        ("Contact282C2M1DefaultAudibles", "DefaultAudiblesStableId",
+         "original-teams-contact282-c2-m1-default-audibles", True),
+        ("CompleteOriginal303", "CompleteOriginalStableId", "original-teams-complete-original303", True),
+        ("CompleteOriginalSourceBanks303", "CompleteOriginalSourceBanksStableId",
+         "original-teams-complete-original303-source-banks", True),
+        ("CompleteOriginalRecords303", "CompleteOriginalRecordsStableId",
+         "original-teams-complete-original303-records", True),
+        ("CompleteOriginalFinal303", "CompleteOriginalFinalStableId", "original-teams-complete-original303-final", True),
+        ("CompleteOriginalPrematch303", "CompleteOriginalPrematchStableId",
+         "original-teams-complete-original303-prematch", True),
     )
     singletons = re.findall(r"\bpublic\s+static\s+readonly\s+SourceTeamResourceProfile\s+(\w+)\s*="
                             r"\s*new\s+SourceTeamResourceProfile\s*\(([^;]*)\);", clean)
@@ -470,7 +500,14 @@ def validate_m1_services_ancestry(source):
         require(name in singletons and compact(singletons[name]).split(",")[0] == token,
                 M1_ANCESTRY_ASSERTION)
         if not token.startswith('"'):
-            constants = re.findall(r"\bpublic\s+const\s+string\s+" + token + r'\s*=\s*"([^"]*)";', clean)
+            if token == "DefaultAudiblesStableId":
+                require("publicconststringDefaultAudiblesStableId=SourceDefaultAudibleData.StableProfileId;"
+                        in compact(clean), M1_ANCESTRY_ASSERTION)
+                constants = re.findall(
+                    r'\bpublic\s+const\s+string\s+StableProfileId\s*=\s*"([^"]*)";',
+                    uncomment((SOURCE_ROOT / "Assets/Scripts/Gameplay/SourcePlaybook.cs").read_text()))
+            else:
+                constants = re.findall(r"\bpublic\s+const\s+string\s+" + token + r'\s*=\s*"([^"]*)";', clean)
             require(constants == [stable_id], M1_ANCESTRY_ASSERTION)
     resolver = compact(method(source, "FromStableId"))
     prefix = "".join("if(stableId==" + name + ".StableId)return" + name + ";"
@@ -570,6 +607,12 @@ class CallerGuards(unittest.TestCase):
             "original-teams-contact272": False, "original-teams-contact281-c2": False,
             "original-teams-contact281-c2-m1": True,
             "original-teams-contact282-c2-m1-presnap-switch": True,
+            "original-teams-contact282-c2-m1-default-audibles": True,
+            "original-teams-complete-original303": True,
+            "original-teams-complete-original303-source-banks": True,
+            "original-teams-complete-original303-records": True,
+            "original-teams-complete-original303-final": True,
+            "original-teams-complete-original303-prematch": True,
         })
 
     def test_m1_services_ancestry_removal_guards(self):
