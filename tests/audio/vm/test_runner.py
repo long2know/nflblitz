@@ -19,8 +19,15 @@ class SoundVmClosure(unittest.TestCase):
         self.assertEqual(current.count(old), 1)
         self.assertIn("private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)", old)
         self.assertTrue(old.endswith("RequireSourceSoundVmBinding();"))
-        self.assertEqual(hashlib.sha256(current.encode()).hexdigest(),
-                         RUNNER.POST_HOST_SELECTION_SOURCE_SHA256)
+        self.assertEqual({
+            "4e41f3c0ecb3f002374090fbfddb92dcbaf51bc79ded50659a1fa1b2c2345ce3":
+                "defensive-presnap-switch/binding-required/v1",
+            "3180b7e8924e65a25e2312cff769443137f88d8e9fd4ba61454728b4f7f33f04":
+                "original303-output-sequence/binding-required/v2",
+        }, RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS)
+        self.assertEqual(
+            "original303-output-sequence/binding-required/v2",
+            RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS[hashlib.sha256(current.encode()).hexdigest()])
         self.assertEqual(RUNNER.POST_HOST_SELECTION_BINDING,
                          "defensive-presnap-switch/binding-required/v1")
         self.assertIn("deferred.Add(Tuple.Create(actor,cue)); return;", new)
@@ -83,7 +90,8 @@ class SoundVmClosure(unittest.TestCase):
         props = ET.parse(ROOT / "tests/audio/vm/SourceSoundVmSources.props")
         includes = [item.attrib["Include"] for item in props.findall(".//Compile")]
         self.assertEqual(["$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs",
-                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"], includes)
+                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
+                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs"], includes)
 
     def test_every_coupled_kernel_project_imports_the_actual_selector(self):
         for project in ["Blitz.Core.Tests/Blitz.Core.Tests.csproj", "ball/BallChecks.csproj",
@@ -115,8 +123,8 @@ class SoundVmClosure(unittest.TestCase):
             ("presentation/interface-packaging/PackagingChecks.csproj", "$(BlitzPackagingRoot)"),
             ("presentation/sound-runtime/SoundPackagingChecks.csproj", "$(SoundPackagingRoot)"),
         ):
-            includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile")}
-            for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+            includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile[@Include]")}
+            for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
                 self.assertIn(prefix + "Assets/Scripts/Presentation/" + name, includes, project)
         runtime = (ROOT / "tests/audio/runtime/run.py").read_text()
         for name in ("Assets/Scripts/Runtime/SourceC2Composition.cs", "tests/parity/FullKernelSources.props"):

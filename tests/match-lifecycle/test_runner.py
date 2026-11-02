@@ -174,7 +174,7 @@ class LifecycleRunnerGuards(unittest.TestCase):
 
     def test_real_bridge_is_local_to_this_compile_closure_not_a_global_inventory_rebase(self):
         original = RUNNER.production_paths()
-        self.assertEqual(79, len(original))
+        self.assertEqual(103, len(original))
         self.assertIn(RUNNER.ROOT / "Assets/Scripts/Gameplay/GameSimulation.Possession.cs", original)
         self.assertIn(RUNNER.ROOT / "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs", original)
         self.assertIn(RUNNER.ROOT / "Assets/Scripts/AssetImport/SourceNormalCameraData.cs", original)

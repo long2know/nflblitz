@@ -36,6 +36,15 @@ class RuntimeMutationAnchors(unittest.TestCase):
                 self.assertNotEqual(before, after)
                 self.assertTrue(assertion)
 
+    def test_unbound_cabinet_control_preserves_the_actual_selected_bank(self):
+        row = next(item for item in RUNNER.PRODUCER_MUTANTS if item[0] == "cabinet-output-unbound")
+        source = (ROOT / row[1]).read_text()
+        mutated = source.replace(row[2], row[3])
+        bank = "(soundProducer as ISourceCabinetSoundBank)?.SourceCursorSoundBank"
+        self.assertIn(bank, source)
+        self.assertIn(bank, mutated)
+        self.assertEqual(source, mutated.replace(row[3], row[2]))
+
 
 if __name__ == "__main__":
     unittest.main()
