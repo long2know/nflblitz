@@ -55,8 +55,10 @@ def require_result(code, result, expected_failure=None):
           result.get("actual_VM_offsets")!=116 or
           result.get("interrupted_VM_offsets")!=232 or result.get("secondary_VM_offsets")!=116 or
           result.get("root_boundary_offsets")!=[24,39,40,113,114,115] or
+          result.get("pose_interpolation_policy")!="OriginalPortable" or
           result.get("factory")!="SourceC2Composition.CreatePreSnapSwitchSimulation"):
-        raise RuntimeError("The complete bounded original-C/caller/VM/pose/sound inventory is required.")
+        detail=" First failure: "+result["failed_assertion"] if result.get("failed_assertion") else ""
+        raise RuntimeError("The complete bounded original-C/caller/VM/pose/sound inventory is required."+detail)
 
 
 def arguments(argv=None):
@@ -154,7 +156,8 @@ def main(argv=None):
     try:
         reference=oracle.generate(args.source_root,args.presnap_switch_inputs,output/"original")
         result["original_C"]=dict(cases=len(reference["cases"]),VM_offsets=len(reference["vm"]),
-                                  extracted_bodies=reference["extracted_bodies"],diagnostics=reference["compiler_diagnostics"])
+                                  extracted_bodies=reference["extracted_bodies"],pose_math=reference["pose_math"],
+                                  diagnostics=reference["compiler_diagnostics"])
         if args.sdk_netstandard21:
             build(HERE/"PreSnapSwitch.Production.csproj","production-netstandard21",[
                 "-p:BaseIntermediateOutputPath="+str(output/"sdk/obj")+"/",

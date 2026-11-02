@@ -6,6 +6,7 @@
 #include <string.h>
 #include "original-defines.h"
 #include "selected-poses.h"
+#include "original-trigs.h"
 
 typedef struct { int flags, nframes, nlimbs; } aniheader;
 typedef struct {
@@ -48,17 +49,10 @@ static aniheader hop_header = { 0, HOP_FRAME_COUNT, 15 }, rush_header = { 0, RUS
 #define Y 1
 #define Z 2
 #define W 3
-#define EPSILON 0.00001f
-#define PI_RAD 3.14159265358979323846f
-#define HALFPI (PI_RAD * 0.5f)
 #define fsqrt(x) sqrtf(x)
-#define acos_rad(x) acosf(x)
-#define sin_rad(x) sinf(x)
 #define LESSER(a,b) ((a) < (b) ? (a) : (b))
 static int getword(unsigned char *p) { int value; memcpy(&value, p, sizeof(value)); return value; }
 #define GETWORD(offset) getword(pani->pscript + (offset))
-static float isin(int angle) { return sinf((angle & 1023) * (2.0f * PI_RAD / 1024.0f)); }
-static float icos(int angle) { return cosf((angle & 1023) * (2.0f * PI_RAD / 1024.0f)); }
 static void set_puppet_pos(obj_3d *a, obj_3d *b) { (void)a; (void)b; abort(); }
 static int off_captain(void) { return game_info.captain; }
 static int audible_check(fbplyr_data *p, int side) { (void)p; (void)side; return 1; }

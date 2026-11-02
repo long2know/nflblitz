@@ -37,6 +37,13 @@ internal static class PreSnapChecks
         Check(!float.IsNaN(actual) && Math.Abs(actual - expected) <= tolerance,
             field + ";actual=" + actual.ToString("R") + ";original-C=" + expected.ToString("R"));
     }
+    internal static void RotationNear(SourceRotation actual, float[] expected, int joint, string identity)
+    {
+        Near(actual.X, expected[joint * 4], identity + "/X");
+        Near(actual.Y, expected[joint * 4 + 1], identity + "/Y");
+        Near(actual.Z, expected[joint * 4 + 2], identity + "/Z");
+        Near(actual.W, expected[joint * 4 + 3], identity + "/W");
+    }
     private static int Main(string[] args)
     {
         string output = args.Length == 8 ? args[6] : null;
@@ -62,6 +69,10 @@ internal static class PreSnapChecks
             int stationCases = 0, callerCases = 0, legalRandomCases = 0;
             using (JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(args[5])))
             {
+                string policy = document.RootElement.GetProperty("pose_math").GetProperty("policy").GetString();
+                Check(policy == SourcePoseInterpolationPolicy.OriginalPortable.ToString(),
+                    "current VM oracle requires the original portable pose-math generation");
+                summary["pose_interpolation_policy"] = policy;
                 foreach (JsonElement row in document.RootElement.GetProperty("cases").EnumerateArray())
                 {
                     GameSimulation.RunPreSnapOriginalCase(actual, row);
@@ -395,6 +406,8 @@ namespace Blitz.Gameplay
                 }
                 else actor.AnimationState.Advance(actor,1000+offset,game.SourceDraw);
                 SourceAnimationLayerState layer = actor.AnimationState.Primary;
+                PreSnapChecks.Check(layer.View(SourceTiming.AllJoints,actor.Facing).PoseInterpolationPolicy ==
+                    SourcePoseInterpolationPolicy.LegacyNormalized, identity + " retains its historical pose-math generation");
                 PreSnapChecks.Evidence.Add(new { kind="historical-VM",profile=identity,offset,layer.FrameOrdinal,
                     layer.Mode,layer.ScriptSymbol,layer.SequenceName,actor.SourceRoot,
                     world=SourcePlayerDriver.WorldPosition(actor),actor.SourceVelocity,actor.SourceVerticalVelocity,
@@ -423,10 +436,14 @@ namespace Blitz.Gameplay
                         AnimationSelectionEvidence.SourceVerified);
                 else if (offset != 0) layer.Advance(actor,1000+offset,game.SourceDraw);
                 SourceAnimationLayer view = layer.View(SourceTiming.AllJoints,actor.Facing);
+                SourceJointPose pose = layer.EvaluatePose();
                 PreSnapChecks.Evidence.Add(new { kind = "VM-before-assertion",secondary,interruptOffset,offset,
                     expected = row.Clone(),actual = new { layer.FrameOrdinal,layer.ScriptSymbol,layer.SequenceName,
                         layer.InstanceId,layer.Mode,actor.SourceRoot,actor.SourceVerticalVelocity,
-                        world=SourcePlayerDriver.WorldPosition(actor),view.Transition01,view.Sample } });
+                        world=SourcePlayerDriver.WorldPosition(actor),view.Transition01,view.Sample,
+                        pose=pose.Rotations } });
+                PreSnapChecks.Check(view.PoseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable,
+                    "current VM binds original portable pose math, never a historical normalized generation");
                 PreSnapChecks.Check(layer.InstanceId == instance+(interruptOffset >= 0 && offset >= interruptOffset ? 1 : 0),
                     "stance GOTO preserves the original instance");
                 if (offset == 39 || offset == 40)
@@ -465,23 +482,17 @@ namespace Blitz.Gameplay
                 PreSnapChecks.Near(world.X,position[0],"original VM world-X offset"+offset);
                 PreSnapChecks.Near(world.Y,position[1],"original VM world-Y offset"+offset);
                 PreSnapChecks.Near(world.Z,position[2],"original VM world-Z offset"+offset);
-                SourceJointPose pose = layer.EvaluatePose();
                 float[] q = row.GetProperty("pose").EnumerateArray().Select(PreSnapChecks.Float).ToArray();
                 float[] fromPose = row.GetProperty("fromPose").EnumerateArray().Select(PreSnapChecks.Float).ToArray();
                 PreSnapChecks.Check(pose.Rotations.Count == 15 && q.Length == 60,"actual original fifteen-limb pose");
                 for (int joint=0;joint<15;joint++)
                 {
-                    SourceRotation r = pose.Rotations[joint];
-                    double dot = r.X*q[joint*4]+r.Y*q[joint*4+1]+r.Z*q[joint*4+2]+r.W*q[joint*4+3];
-                    PreSnapChecks.Check(Math.Abs(Math.Abs(dot)-1d) < .00001d,
+                    PreSnapChecks.RotationNear(pose.Rotations[joint],q,joint,
                         "actual original fifteen-limb quaternion offset"+offset+"/joint"+joint);
                     if (fromPose.Length != 0)
                     {
                         PreSnapChecks.Check(view.TransitionFromPose != null,"original VM selected origin pose offset"+offset);
-                        SourceRotation from = view.TransitionFromPose.Rotations[joint];
-                        double fromDot = from.X*fromPose[joint*4]+from.Y*fromPose[joint*4+1]
-                            +from.Z*fromPose[joint*4+2]+from.W*fromPose[joint*4+3];
-                        PreSnapChecks.Check(Math.Abs(Math.Abs(fromDot)-1d) < .00001d,
+                        PreSnapChecks.RotationNear(view.TransitionFromPose.Rotations[joint],fromPose,joint,
                             "original VM selected origin quaternion offset"+offset+"/joint"+joint);
                     }
                 }
