@@ -62,6 +62,7 @@ CURRENT_CASE_ADDITIONS = {
     6: (
         "tests/movement-callers/test_export_portable_public.py::ExporterRevisionGuards.test_current_export_rejects_unsealed_or_archived_policy_before_output_and_never_authors",
         "tests/movement-callers/test_export_portable_public.py::ExporterRevisionGuards.test_current_export_selectors_use_only_current_authority_without_legacy_fallback",
+        "tests/movement-callers/test_export_portable_public.py::PortableExportGuards.test_current_constructor_defaults_project_losslessly_but_real_extra_inputs_are_rejected",
     ),
 }
 REPORT_SCHEMAS = {

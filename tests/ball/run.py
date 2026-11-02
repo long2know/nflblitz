@@ -31,6 +31,11 @@ C2_CALLER_ASSERTIONS = 18062  # 17980 +14 +23 +1 retained inventory +44 NEW comp
 GEOMETRY_ADDED_ASSERTIONS = 9
 RAW_NEW_PRESSED_GENERATION = "defensive-presnap-switch/post-BeginTick/v1"
 RAW_NEW_PRESSED_SOURCE_SHA256 = "9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165"
+RAW_NEW_PRESSED_SOURCE_GENERATIONS = {
+    RAW_NEW_PRESSED_SOURCE_SHA256: RAW_NEW_PRESSED_GENERATION,
+    "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927":
+        "integrated-default-audibles/post-BeginTick/v2",
+}
 RAW_NEW_PRESSED_MUTATION = (
     "raw-new-pressed", "SourceMovementIntegration.cs",
     "state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);",
@@ -89,8 +94,8 @@ MUTATIONS = (
      "if (SourceStationInputTransform == null || Model.SourceTick % 2 != 0) return command;",
      "caller", "ordered raw drain transforms exactly once", 1),
     ("off-flip-real-lineup", "GameSimulation.Source.cs",
-     "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped)",
-     "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, false)", "caller", "off_flip passes exact source hash/offset", 1),
+     "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped));",
+     "Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, false));", "caller", "off_flip passes exact source hash/offset", 1),
     ("original-predicate90", "SourceAnimationState.cs", "actor.SourceIsCarrier && random(100) < 90",
      "actor.SourceIsCarrier && random(100) <= 90", "caller", "actual original C plyr_have_ball gate", 1),
     ("singleton-camera-draw", "GameSimulation.Source.cs", "if (instruction.Op == SourceAnimationOp.CameraCue)",
@@ -189,7 +194,7 @@ def mutation_source(case, data):
     if case not in MUTATIONS + ORIENTATION_MUTATIONS + FIFO_MUTATIONS + GEOMETRY_MUTATIONS:
         raise RuntimeError("Actual mutation binding changed: " + case[0])
     name, _, anchor, replacement, _, _, occurrences = case
-    if name == "raw-new-pressed" and hashlib.sha256(data).hexdigest() != RAW_NEW_PRESSED_SOURCE_SHA256:
+    if name == "raw-new-pressed" and hashlib.sha256(data).hexdigest() not in RAW_NEW_PRESSED_SOURCE_GENERATIONS:
         raise RuntimeError("Actual raw-new-pressed source SHA256 changed for " + RAW_NEW_PRESSED_GENERATION)
     if data.count(anchor.encode()) != occurrences:
         raise RuntimeError("Actual mutation anchor count changed: " + name)

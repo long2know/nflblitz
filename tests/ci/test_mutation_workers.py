@@ -124,8 +124,8 @@ class InventorySuiteWorkerTests(unittest.TestCase):
         original = {i: [name for name in names if name not in inventory.CURRENT_CASE_ADDITIONS.get(i, ())]
                     for i, names in cases.items()}
         self.assertEqual(sum(map(len, original.values())), 100)
-        self.assertEqual({i: len(names) for i, names in inventory.CURRENT_CASE_ADDITIONS.items()}, {4: 4, 5: 4, 6: 2})
-        self.assertEqual(sum(map(len, cases.values())), 110)
+        self.assertEqual({i: len(names) for i, names in inventory.CURRENT_CASE_ADDITIONS.items()}, {4: 4, 5: 4, 6: 3})
+        self.assertEqual(sum(map(len, cases.values())), 111)
         lines = text.splitlines()
         changes = ["", "\n".join(lines[:-1]) + "\n", text + lines[0] + "\n",
                    text.replace(lines[4], lines[4] + " --workers 2"), text.replace(lines[4], "true"),

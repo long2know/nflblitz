@@ -12,9 +12,12 @@ The `raw-new-pressed` control has a separately named
 `defensive-presnap-switch/post-BeginTick/v1` source binding. The historical
 `17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b`
 generation merged `(SourceDroneButtons)(int)station.Pressed` directly. The
-current `SourceMovementIntegration.cs` SHA-256 is
-`9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165`;
-its active merge is
+v1 `SourceMovementIntegration.cs` SHA-256 remains
+`9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165`.
+The integrated-default-audibles generation has a separate
+`integrated-default-audibles/post-BeginTick/v2` binding to
+`56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927`.
+Both retain the same active merge:
 `state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);`.
 That real helper preserves historical-profile presses and masks B only for the
 enabled defensive-switch profile's same-wake fake-B transfer.
@@ -29,6 +32,10 @@ kill. The shared mutation writer rejects stale source hashes and changed control
 metadata; permanent tests inspect its exact emitted mutation, call ordering and
 retained fake-B mask. All original 20 named controls, cases, counts and historical
 pins/recipes remain intact; old receipts are not relabelled as this generation.
+
+The normal-lineup flip control matches the complete `SourceLineupInput` call
+ending in `));`, not the shared argument prefix. This leaves the separately
+implemented audible `LineUpSide(..., retained, side)` call unchanged.
 
 ## Source ball orientation lifecycle
 
