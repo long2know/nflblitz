@@ -3,7 +3,7 @@
   "date": "2026-11-01",
   "owner": "Unity",
   "baselineCommit": "c397d6dd8de48a5e82a792fd5d5341b502b77fb2",
-  "status": "local-full-source-scenario-qualified-awaiting-committed-checkout-guards",
+  "status": "complete-local-source-scenario-qualified-publication-held",
   "scenario": "trips-rollout-clearance-presnap-switch-v7-12000",
   "controllerPolicy": "source-trips-rollout-public-controller/v1",
   "recordingGeneration": "source-public-open-space/v7",
@@ -437,10 +437,7 @@
     "actualWorkflowJobId": null,
     "localRunDidNotFabricateWorkflowIdentity": true
   },
-  "pendingValidation": [
-    "exact committed-checkout workflow guards",
-    "final combined Python regression units"
-  ],
+  "pendingValidation": [],
   "preserved": {
     "all115FrozenCompiledSourceAndHarnessFiles": true,
     "all1123FrozenDataFiles": true,
@@ -456,5 +453,46 @@
     "Source-driven input coverage and bounded portable M1 caller/cache qualification, not native or whole-game equivalence.",
     "Original-C checks cover the664 actual post-VM physics rows only; cache reference remains offline pose/matrix arithmetic.",
     "Hosted CI/PR45 merge/GHCR publication belong to parent; no push, PR comment, publisher or image mutation occurred."
-  ]
+  ],
+  "codeCommits": [
+    "38c5d6d9f98fe3f25ef1bd0a37968e67cec7d9f4",
+    "53b1916c489947d2be7b592f1aa57b2bab855ac2"
+  ],
+  "validatedCodeCommit": "53b1916c489947d2be7b592f1aa57b2bab855ac2",
+  "validation": {
+    "syntheticPublicPolicyAssertions": 157,
+    "syntheticGameConstructions": 0,
+    "syntheticGameSteps": 0,
+    "committedMovementAndHistoricalUnits": 157,
+    "focusedOriginalVmRunnerUnits": 12,
+    "immutableHistoricalRecordingUnits": 3,
+    "exactCommittedCheckoutAndWorkflowUnits": 17,
+    "totalScopedPythonUnits": 189,
+    "actualFullResultArtifactMutationsRejected": 26,
+    "fullNormalGraphPassed": true,
+    "allThreePositiveReplaysByteEqual": true,
+    "allElevenControlsCompiledAndCausal": true,
+    "originalCActualInputs": 664,
+    "originalCExactChecks": 5312,
+    "freshV5PositiveAndCurrentStalePassed": true,
+    "logsSha256": {
+      "final-committed-movement-guards.log": "2139e87f4ba35864acd41f42efc660d104b367a8bc62b7fa7189a4a60319977c",
+      "final-committed-presnap-ci-guards.log": "ef8f486d4edc913f3acad6f73c9e1222fcbb2f0aeb6e055fd04e9c763d1c4d5d"
+    },
+    "precommitFailures": "Exact committed-checkout guards correctly rejected unpublished files; the old full-workflow seal was separately updated only for the declared new input and retained-v5 step. All final guards passed without relaxation."
+  },
+  "workflowSeals": {
+    "previousFull": "ccf82aba97e84aa168d60fbcebe40402d5efbb1aeabc40b473c93a55addb0697",
+    "newFull": "308aab01d387e8cbdfd5847ccf0a57d8a063cc80f9067969f2d5e4d67beaa38b",
+    "unchangedInherited": "94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8",
+    "delta": "Only separately named v7 preparation/replay references and required historical-v5 compatibility execution."
+  },
+  "frozenCompiledSourceHarnessStillByteExact": true,
+  "frozenDataStillByteExact": true,
+  "authoringToolSnapshotsStillByteExact": true,
+  "pythonTestIntegrationAfterCaptureIsNotAnotherAuthoring": true,
+  "actualWindowCount": 1,
+  "authoringRetries": 0,
+  "pushed": false,
+  "gitIndexExpectedClean": true
 }
