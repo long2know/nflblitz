@@ -1072,6 +1072,32 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                 canonical._m1_trajectory_binding(canonical._m1_new_trajectory_capture(), "uninstrumented",
                                                 dict(expected, replayFileSha256="f" * 64), production, harness)
 
+    def test_integrated_inventory_binding_requires_exact103_source_and_current_harness_without_relabelling_v5(self):
+        production={p.relative_to(canonical.ROOT).as_posix():canonical.sha(p.read_bytes())
+                    for p in canonical.production_paths()}
+        harness={name:canonical.sha((canonical.ROOT/name).read_bytes()) for name in canonical.HARNESS}
+        recipe=canonical.public_replay.current_recipe(canonical.public_replay.PRESNAP_CURRENT_CASE)
+        expected=dict(observed=False,profile="original-teams-contact282-c2-m1-presnap-switch",
+            sourceData=canonical.PRESNAP_DATA_SHA,factory="REAL SourceC2Composition.CreatePreSnapSwitchSimulation",
+            replayFileSha256=recipe["jsonl"]["sha256"])
+        head=canonical.subprocess.CompletedProcess([],0,"1"*40+"\n"+"2"*40+"\n","")
+        with patch.dict(canonical.os.environ,{"GITHUB_RUN_ID":"42","GITHUB_JOB":"defensive-presnap-switch"}), \
+                patch.object(canonical.subprocess,"run",return_value=head):
+            capture=canonical._m1_new_trajectory_capture()
+            canonical._m1_trajectory_binding(capture,"uninstrumented",expected,production,harness)
+            self.assertEqual(capture["issues"],[])
+            self.assertEqual(capture["attempt"]["productionInventoryCountAndSha256"],
+                dict(count=103,sha256=canonical.CURRENT_OBSERVER_GENERATION["source_manifest_sha256"]))
+            self.assertEqual(recipe["source_manifest_sha256"],canonical.public_replay.CURRENT_SOURCE_SHA256)
+            self.assertNotEqual(recipe["source_manifest_sha256"],
+                canonical.CURRENT_OBSERVER_GENERATION["source_manifest_sha256"])
+            for kind,name in (("production","Assets/Scripts/Gameplay/SourceRandom.cs"),
+                              ("harness","tests/movement-callers/Canonical.cs")):
+                changed=dict(production if kind=="production" else harness);changed[name]="0"*64
+                with self.subTest(kind=kind),self.assertRaisesRegex(ValueError,"conflicting_inventory"):
+                    canonical._m1_trajectory_binding(canonical._m1_new_trajectory_capture(),"uninstrumented",expected,
+                        changed if kind=="production" else production,changed if kind=="harness" else harness)
+
     def test_actual_m1_cli_keeps_first_fault_and_finalizes_capture_before_returning_failure(self):
         case = self.attempt()
         output = self.work / "cli-output"

@@ -1,8 +1,48 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
-## Integrated current observer generation — November 1, 2026
+## Bounded current-input compatibility — November 1, 2026
 
-Current replay admission freezes the complete actual103-source closure at
+The unchanged v5 recording still passes all12,000 hosts/11,400 source wakes
+on its authenticated near-frame78-source/twelve-harness generation. On the
+integrated103-source generation it remains a separately required stale negative:
+host4912/source4667 submits Home's offensive Hail Mary while Home is defending.
+The existing playbook-side guard is unchanged.
+
+The earliest profile difference is the reviewed `OriginalPortable` interpolation
+and raw-affine matrix binding. Its first common numeric state difference occurs
+at host361/source343, before the first RNG-site difference at draw7751/source4122.
+The provider/raw prefix is unchanged. Original `ANIM.C`, `pipe3D.c`, `TRIGS.H`
+and the prior independent original-C numeric checks authenticate that correction;
+the later captain change also follows `nfl.c`'s post-turnover condition. This is
+source/input-generation incompatibility, not a new original-game numeric golden.
+
+The one explicitly authorized v6 authoring attempt retained seed1, the unchanged
+controller and unfiltered provider. It completed12,000/11,400 without a source
+fault and witnessed12 fresh-B transfers, but had **zero R_SKIP frames**. It
+returned nonzero and was not exported, registered or retried. There is no
+accepted v6 fixture or recipe. No source, policy, seed or coverage requirement
+was adjusted to obtain a positive.
+
+The separately sealed current harness is
+`718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43`;
+its only compiled change permits the named v6 authoring request. The103-source
+production manifest is unchanged. The compatibility runner freshly compiles
+the actual old positive and the exact current stale negative independently:
+
+```sh
+python3 -B tests/movement-callers/current_presnap_compatibility.py \
+  --fixture-manifest "$CONTACT272_FIXTURE" --sound-functions "$UNCHANGED_SAFN" \
+  --presnap-switch-inputs "$PROFILE282" --replay-commands "$UNCHANGED_V5_JSONL" \
+  --output "$NEW_PRIVATE_OUTPUT"
+```
+
+This boundary check does not replace the required current full replay, all three
+positive executions, eleven causal controls or original-C post-VM campaign.
+Those are **not qualified** by a failed authoring window.
+
+## Initial integrated observer admission — November 1, 2026
+
+The initial integrated admission froze the complete actual103-source closure at
 `c202cecc114c380ebe53fe98def59f2550461bde`, with manifest
 `a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507`,
 and its separate exact twelve-file current harness

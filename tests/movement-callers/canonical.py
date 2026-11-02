@@ -53,13 +53,13 @@ HARNESS = (
 )
 CURRENT_OBSERVER_GENERATION = {
     "schema": "source-current-cache-observer-generation/v1",
-    "source_generation": "integrated-default-audibles/c202",
+    "source_generation": "integrated-default-audibles/c202-v6-harness",
     "source_commit": "c202cecc114c380ebe53fe98def59f2550461bde",
     "source_tree": "0b4791000b65a5d47886fa495a9810a16f5182be",
     "source_count": 103,
     "source_manifest_sha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
     "harness_count": 12,
-    "harness_manifest_sha256": "9698a817d2f9688c01d989df976436793b9fa1d63d4f1a29bdb23849d04602b7",
+    "harness_manifest_sha256": "718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43",
     "cache_source_sha256": "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927",
 }
 CANONICAL_CACHE_MUTANTS = (
@@ -753,7 +753,14 @@ def _m1_trajectory_binding(capture, label, expected, production, harness):
         attempt["headCommit"], attempt["headTree"] = head
     except (OSError, ValueError, subprocess.SubprocessError):
         _m1_trajectory_issue(capture, "missing_head_binding")
-    for name, pins, count in (("production", production, 78), ("harness", harness, 12)):
+    current_source = (type(production) is dict
+                      and len(production) == CURRENT_OBSERVER_GENERATION["source_count"]
+                      and sha(_m1_trajectory_json(production)) ==
+                      CURRENT_OBSERVER_GENERATION["source_manifest_sha256"])
+    if current_source:
+        _m1_trajectory_require(type(harness) is dict and sha(_m1_trajectory_json(harness)) ==
+                               CURRENT_OBSERVER_GENERATION["harness_manifest_sha256"], "conflicting_inventory")
+    for name, pins, count in (("production", production, 103 if current_source else 78), ("harness", harness, 12)):
         _m1_trajectory_require(type(pins) is dict and len(pins) == count
                                and all(isinstance(path, str) and _m1_trajectory_hash(pin)
                                        for path, pin in pins.items()), "conflicting_inventory")

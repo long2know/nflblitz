@@ -503,7 +503,8 @@ internal static partial class Program
             JsonElement policy = document.RootElement;
             recordingGeneration = policy.GetProperty("recordingGeneration").GetString();
             Check((recordingGeneration == "source-defensive-presnap-switch/v4" ||
-                recordingGeneration == "source-defensive-presnap-switch/v5") &&
+                recordingGeneration == "source-defensive-presnap-switch/v5" ||
+                recordingGeneration == "source-defensive-presnap-switch/v6") &&
                 policy.GetProperty("maxHosts").GetInt32() == 12000 &&
                 policy.GetProperty("maximumInitialWindows").GetInt32() == 1 &&
                 policy.GetProperty("controllerSha256").GetString() ==
