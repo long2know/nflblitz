@@ -228,6 +228,14 @@ class SelectionCI(unittest.TestCase):
         self.assertEqual(managed, run.CONTROL_SCOPES)
         self.assertEqual(list(run.EXPECTED_CAUSES), [c[0] for c in controls])
         for index, control in enumerate(controls):
+            bound = run.current_control_binding(control)
+            self.assertEqual((ROOT / bound[1]).read_text().count(bound[2]), 1, control[0])
+            self.assertNotEqual(bound[2], bound[3])
+            if control[0] in run.CURRENT_CONTROL_BINDINGS:
+                changed_binding = list(control)
+                changed_binding[2] += "-wrong-source"
+                with self.assertRaisesRegex(AssertionError, "historical control binding changed"):
+                    run.current_control_binding(tuple(changed_binding))
             scope = run.control_scope(control, random_fixtures)
             run.validate_binding(control[0], scope)
             self.assertIn(control[4], run.EXPECTED_CAUSES[control[0]])

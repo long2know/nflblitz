@@ -43,11 +43,9 @@ def workflow_context(projection):
     working_path = ROOT / projection.GAME
     working = read(working_path)
     digest = hashlib.sha256(working).hexdigest()
-    if digest == OUTER_WORKFLOW_SHA256:
+    if digest != INHERITED_WORKFLOW_SHA256:
         outer_root, outer, kind = ROOT, working, "outer"
-        inherited = projection.inherited_game(working.decode()).encode()
-        require(hashlib.sha256(inherited).hexdigest() == INHERITED_WORKFLOW_SHA256,
-                "declared outer projection changed")
+        inherited = None
     else:
         require(digest == INHERITED_WORKFLOW_SHA256, "unknown or changed working workflow")
         receipt = json.loads((ROOT / ".squad/.scratch/ci-workspace.json").read_bytes())
@@ -55,12 +53,14 @@ def workflow_context(projection):
         git_dir = Path(receipt["source_git_dir"])
         require(outer_root.is_absolute() and outer_root.resolve() == outer_root and outer_root != ROOT,
                 "actual outer source root required")
+        outer = read(outer_root / projection.GAME)
+        outer_sha256 = hashlib.sha256(outer).hexdigest()
         require(receipt["schema"] == "defensive-switch-ci-workspace/v1"
                 and receipt["status"] == "passed" and receipt["inherited_view"] is True
                 and receipt["production_and_harness_bytes_unchanged"] is True
-                and receipt["input_game_sha256"] == OUTER_WORKFLOW_SHA256
+                and receipt["input_game_sha256"] == outer_sha256
                 and receipt["inherited_game_sha256"] == INHERITED_WORKFLOW_SHA256
-                and receipt["source_sha256"][projection.GAME] == OUTER_WORKFLOW_SHA256,
+                and receipt["source_sha256"][projection.GAME] == outer_sha256,
                 "existing inherited bootstrap receipt required")
         require(receipt["runtime_git_root"] == str(ROOT)
                 and receipt["runtime_git_dir"] == str(git_dir)
@@ -78,13 +78,27 @@ def workflow_context(projection):
         require(source_view.stdout.splitlines() == [str(outer_root), str(git_dir)],
                 "actual outer source Git view changed")
         outer = read(outer_root / projection.GAME)
-        require(hashlib.sha256(outer).hexdigest() == OUTER_WORKFLOW_SHA256,
+        require(hashlib.sha256(outer).hexdigest() == outer_sha256,
                 "outer working source bytes changed")
         inherited, kind = working, "inherited"
     require(projection.INHERITED_GAME_SHA256 == INHERITED_WORKFLOW_SHA256,
             "existing inherited workflow pin changed")
+    try:
+        validated = projection.validate_workflows(outer.decode(), read(outer_root / projection.PLAYER).decode()).encode()
+    except AssertionError as error:
+        raise AssertionError("Default diagnostic workflow context: declared outer projection changed: " + str(error)) from error
+    require(hashlib.sha256(validated).hexdigest() == INHERITED_WORKFLOW_SHA256,
+            "declared outer projection changed")
+    if inherited is None:
+        inherited = validated
+    else:
+        require(validated == inherited, "actual workflow must retain its exact declared inherited projection")
+    committed = subprocess.run(["git", "show", "HEAD:" + projection.GAME], cwd=outer_root,
+        env=dict(os.environ, GIT_WORK_TREE=str(outer_root)), capture_output=True, check=True).stdout
+    require(outer == committed, "actual outer working workflow must match the committed source")
     return dict(kind=kind, outer=outer.decode(), inherited=inherited.decode(),
-                outerRoot=outer_root, workingPath=working_path)
+                outerRoot=outer_root, workingPath=working_path,
+                historicalOuterQualificationSha256=OUTER_WORKFLOW_SHA256)
 
 
 diagnostic = load("default_diagnostic_static_tests", HERE / "default_diagnostic.py")
@@ -125,11 +139,7 @@ REVISION_CASES = (
 
 
 def production():
-    names = set()
-    for item in ET.parse(ROOT / "tools/source-player/ProductionSources.props").iter("Compile"):
-        names.update(path.relative_to(ROOT).as_posix() for path in
-                     ROOT.glob(item.attrib["Include"].replace("$(BlitzSourceRoot)", "")))
-    return {name: (ROOT / name).read_bytes() for name in sorted(names)}
+    return compatibility.frozen_current_sources()
 
 
 def historical_fixture(current):
@@ -227,7 +237,7 @@ def synthetic_source_bindings(module):
     current = production()
     source_hash = diagnostic.sha(diagnostic.canonical({name: diagnostic.sha(raw) for name, raw in current.items()}))
     loaders = dict(main40=diagnostic.sha(b"static-test-own-historical-loader"),
-                   current=diagnostic.sha((ROOT / compatibility.FIXTURE_LOADER).read_bytes()))
+                   current=diagnostic.sha(compatibility.frozen_current_bundle()[compatibility.FIXTURE_LOADER]))
     with patch.object(module, "diagnostic_module", return_value=diagnostic), \
          patch.object(module, "LOADER_SHA256", loaders), \
          patch.object(diagnostic, "PRODUCTION_MAPS", (source_hash, source_hash)):
@@ -318,7 +328,7 @@ def mock_generate(case, output, different=False, bad_loader=False, bad_productio
     source = production()
     historical = historical_fixture(source[diagnostic.BODY_PATH])
     original_loader = b"static-test-own-historical-loader"
-    current_loader = (ROOT / compatibility.FIXTURE_LOADER).read_bytes()
+    current_loader = compatibility.frozen_current_bundle()[compatibility.FIXTURE_LOADER]
     expected_loaders = {"main40": diagnostic.sha(original_loader), "current": diagnostic.sha(current_loader)}
     baseline = {**source, compatibility.FIXTURE_LOADER: original_loader + (b"changed" if bad_loader else b"")}
     source_hash = diagnostic.sha(diagnostic.canonical({name: diagnostic.sha(data) for name, data in source.items()}))
@@ -521,7 +531,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
             graph.line(label + " " + operation + " " + clocks + "\n")
 
     def test_one_historical_fraction_body_only_and_all_other_bytes_current(self):
-        current = (ROOT / diagnostic.BODY_PATH).read_bytes()
+        current = production()[diagnostic.BODY_PATH]
         historical = historical_fixture(current)
         control = diagnostic.one_body_control(current, historical)
         self.assertTrue(diagnostic.sha(control) == "e1a7c82ff278bd9c5b997f3c895756fd32dc242282e05d508ee80e31fdfce223")
@@ -975,6 +985,12 @@ class DefaultDiagnosticTests(unittest.TestCase):
                 compatibility.validate_receipt(changed)
 
     def test_loader_or_production_seal_mismatch_precedes_any_native_work(self):
+        frozen = production()
+        self.assertEqual(len(frozen), 94)
+        self.assertEqual(diagnostic.sha(diagnostic.canonical({name: diagnostic.sha(raw) for name, raw in frozen.items()})),
+                         diagnostic.PRODUCTION_MAPS[1])
+        self.assertEqual(diagnostic.sha(compatibility.frozen_current_bundle()[compatibility.FIXTURE_LOADER]),
+                         compatibility.LOADER_SHA256["current"])
         with self.assertRaisesRegex(AssertionError, "own authenticated fixture loader"):
             mock_generate(self, self.output / "bad-loader", bad_loader=True)
         with self.assertRaisesRegex(AssertionError, "production behavior must remain unchanged"):
@@ -1125,7 +1141,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
         selection = load("default_diagnostic_inherited_selection", HERE / "test_ci.py")
         with patch.object(projection, "inherited_game", wraps=projection.inherited_game) as transform:
             context = workflow_context(projection)
-        self.assertEqual(transform.call_count, 1 if context["kind"] == "outer" else 0)
+        self.assertEqual(transform.call_count, 1)
         text = context["inherited"]
         selection.validate_workflow(text)
         self.assertTrue(diagnostic.sha(text.encode()) == projection.INHERITED_GAME_SHA256)
@@ -1152,8 +1168,9 @@ class DefaultDiagnosticTests(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, "projection changed"):
                     workflow_context(projection)
         else:
-            with patch.object(projection, "inherited_game", side_effect=AssertionError("projected twice")):
+            with patch.object(projection, "inherited_game", wraps=projection.inherited_game) as transform:
                 self.assertEqual(workflow_context(projection)["inherited"], text)
+                self.assertEqual(transform.call_count, 1)
             with patch.dict(os.environ, GIT_WORK_TREE=str(context["outerRoot"])):
                 with self.assertRaisesRegex(AssertionError, "caller exports"):
                     workflow_context(projection)

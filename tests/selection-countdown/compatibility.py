@@ -1,5 +1,7 @@
 """Source-correct Fraction checks plus an authenticated legacy counterfactual projection."""
 import hashlib
+import fnmatch
+from functools import lru_cache
 import importlib.util
 import io
 import json
@@ -8,11 +10,14 @@ import re
 import subprocess
 import tarfile
 import time
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 BASE = "e3157c42df9a5f09d534f689339495429e778768"
 TREE = "7793a6257537fb165e97f7316cc8e6d97b2e72fe"
+COMPARISON_CURRENT = "45f045612ab52611edea31a782696478cde1aca6"
+COMPARISON_CURRENT_TREE = "e85f0c818386c4821a6c676b2204348e1c9c4ce0"
 FIXTURE_LOADER = "tests/parity/FullKernelInputs.cs"
 LOADER_SHA256 = {
     "main40": "c0c6b4dcd84e8780dfffc66b29671af3d656ee59f01efd33e6746cf58e08c745",
@@ -267,16 +272,17 @@ def _validate_receipt(receipt):
                 "Counter-granted bytes must equal complete files.")
 
 
-def source_baseline(names):
+def source_archive(names, revision, tree, root=None):
+    root = ROOT if root is None else Path(root)
     def git(*args):
-        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, check=True).stdout
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, check=True).stdout
     try:
-        git("cat-file", "-e", BASE + "^{commit}")
+        git("cat-file", "-e", revision + "^{commit}")
     except subprocess.CalledProcessError:
-        git("fetch", "--no-tags", "--depth=1", "origin", BASE)
-    require(git("rev-parse", BASE + "^{tree}").decode().strip() == TREE, "Exact main40 baseline commit/tree required.")
+        git("fetch", "--no-tags", "--depth=1", "origin", revision)
+    require(git("rev-parse", revision + "^{tree}").decode().strip() == tree, "Exact frozen comparison commit/tree required.")
     entries = {}
-    for row in git("ls-tree", "-r", "-z", BASE, "--", *names).split(b"\0"):
+    for row in git("ls-tree", "-r", "-z", revision, "--", *names).split(b"\0"):
         if row:
             meta, name = row.decode().split("\t")
             mode, kind, blob = meta.split()
@@ -285,7 +291,7 @@ def source_baseline(names):
             entries[name] = blob
     require(set(entries) == set(names), "Baseline selected compile closure differs.")
     files = {}
-    with tarfile.open(fileobj=io.BytesIO(git("archive", "--format=tar", BASE, "--", *names))) as archive:
+    with tarfile.open(fileobj=io.BytesIO(git("archive", "--format=tar", revision, "--", *names))) as archive:
         for member in archive:
             if member.isdir():
                 continue
@@ -299,12 +305,44 @@ def source_baseline(names):
     return files
 
 
+def source_baseline(names):
+    return source_archive(names, BASE, TREE)
+
+
+@lru_cache(maxsize=2)
+def frozen_current_archive(root):
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, check=True).stdout
+    props = ET.fromstring(git("show", COMPARISON_CURRENT + ":tools/source-player/ProductionSources.props"))
+    patterns = [item.attrib["Include"].replace("$(BlitzSourceRoot)", "")
+                for item in props.iter("Compile") if "Include" in item.attrib]
+    names = git("ls-tree", "-r", "--name-only", COMPARISON_CURRENT, "--", "Assets").decode().splitlines()
+    selected = sorted({name for name in names if any(fnmatch.fnmatchcase(name, pattern) for pattern in patterns)})
+    require(len(selected) == 94, "The historical diagnostic retains its exact94-source closure.")
+    bundle = source_archive([*selected, FIXTURE_LOADER], COMPARISON_CURRENT, COMPARISON_CURRENT_TREE, root)
+    return tuple(bundle.items())
+
+
+def frozen_current_bundle():
+    bundle = dict(frozen_current_archive(str(ROOT)))
+    diagnostic = diagnostic_module()
+    source_map = {name: diagnostic.sha(raw) for name, raw in bundle.items() if name != FIXTURE_LOADER}
+    require(diagnostic.sha(diagnostic.canonical(source_map)) == diagnostic.PRODUCTION_MAPS[1]
+            and diagnostic.sha(bundle[FIXTURE_LOADER]) == LOADER_SHA256["current"],
+            "Pinned main40/current production behavior must remain unchanged for this diagnostic.")
+    return bundle
+
+
+def frozen_current_sources():
+    return {name: raw for name, raw in frozen_current_bundle().items() if name != FIXTURE_LOADER}
+
+
 def generate(args, output, production, compiler, references):
     started = time.monotonic()
     output.mkdir()
     baseline = source_baseline(sorted([*production, FIXTURE_LOADER]))
     loaders = {"main40": baseline.pop(FIXTURE_LOADER),
-               "current": (ROOT / FIXTURE_LOADER).read_bytes()}
+               "current": frozen_current_bundle()[FIXTURE_LOADER]}
     require({name: hashlib.sha256(raw).hexdigest() for name, raw in loaders.items()} == LOADER_SHA256,
         "Each exact source tree must retain its own authenticated fixture loader.")
     common = {"DefaultChecks.cs": (HERE / "DefaultChecks.cs").read_bytes()}

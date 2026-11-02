@@ -28,6 +28,22 @@ LIFECYCLE_CONTROLS = {
     "random-output-failure-swallowed": "random-output-failure",
 }
 CONTROL_INVENTORY_SHA256 = "d2334d1977457f6efb67f9a6efecd8a32ec1d1b6e65358c4ad546dd79d87c207"
+CURRENT_CONTROL_BINDINGS = {
+    "suspended-timer-still-runs": (
+        ("Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
+         "if (n.Identity.BirthTick >= SourceTick || (short)n.Sleep <= 0) return false;",
+         "if (n.Identity.BirthTick >= SourceTick || n.Sleep == 0) return false;"),
+        ("Assets/Scripts/Gameplay/SourcePortableProcessHost.cs",
+         "if (n.Identity.BirthTick >= SourceTick && !n.Immediate || (short)n.Sleep <= 0) return false;",
+         "if (n.Identity.BirthTick >= SourceTick && !n.Immediate || n.Sleep == 0) return false;")),
+    "random-draw-from-skipped-consumer": (
+        ("Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+         "command = TransformSourceStationInput(command);\n            Model.SourceCurrentInput = command;",
+         "{ AdvanceSourceRandomSelections(); command = TransformSourceStationInput(command); }\n            Model.SourceCurrentInput = command;"),
+        ("Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+         "command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive);\n            Model.SourceCurrentInput = command;",
+         "{ AdvanceSourceRandomSelections(); command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive); }\n            Model.SourceCurrentInput = command;")),
+}
 CONTROL_SCOPES = {
     "host60-clock": "timer-traces",
     "zero-grace24": "timer-traces",
@@ -183,6 +199,14 @@ def validate_control_inventory(controls):
     require([c[0] for c in controls] == list(CONTROL_SCOPES) == list(EXPECTED_CAUSES) and
             hashlib.sha256(json.dumps(controls, sort_keys=True, separators=(",", ":")).encode()).hexdigest() ==
             CONTROL_INVENTORY_SHA256, "All42 exact immutable control identities/expressions/expected failures are required.")
+
+
+def current_control_binding(control):
+    binding = CURRENT_CONTROL_BINDINGS.get(control[0])
+    if binding is None:
+        return control
+    require(tuple(control[1:4]) == binding[0], "Declared historical control binding changed: " + control[0])
+    return (control[0], *binding[1], *control[4:])
 
 
 def validate_binding(control, scope):
@@ -438,7 +462,7 @@ def main():
         report["originalRandomCases"] = len(random_fixtures)
 
         def mutate(control):
-            label, name, old, new, expected = control[:5]
+            label, name, old, new, expected = current_control_binding(control)[:5]
             group = control_scope(control, random_fixtures)
             changed = dict(files)
             raw = changed[name].decode()
@@ -459,7 +483,11 @@ def main():
         report["runs"].extend(rows)
         for row in rows:
             print(row["name"] + ": " + row["output"][:1000], flush=True)
-        production = {n: b for n, b in files.items() if n.startswith("Assets/")}
+        report["defaultCompatibilitySourceScope"] = dict(
+            comparison_current_commit=compatibility.COMPARISON_CURRENT,
+            comparison_current_tree=compatibility.COMPARISON_CURRENT_TREE,
+            historical_component_diagnostic_not_live_source_qualification=True)
+        production = compatibility.frozen_current_sources()
         post_start = time.monotonic()
         final, default = post_checks(lambda: execute("final-baseline", files, reuse=baseline),
             lambda: compatibility.generate(args, output / "default-compatibility", production,

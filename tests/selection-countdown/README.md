@@ -5,6 +5,22 @@ its existing pinned kernel/M1, impact, normal camera, speech, HUD and FX inputs
 and the authenticated `possession-service-original` directory. No new original
 download or generated payload belongs in Git.
 
+The live timer/cabinet graph uses the actual current production closure. Two
+source-location bindings follow the extracted portable process host and the
+introduction-aware input observer; the original42 control tuples, inventory
+hash, scopes and exact causal failures remain unchanged.
+
+The separate Fraction counterfactual is a **frozen component comparison**, not
+qualification of the live whole-game source. Its A tree remains main40
+`e3157c42df9a5f09d534f689339495429e778768`; its B tree is explicitly
+`45f045612ab52611edea31a782696478cde1aca6`. Both retain their exact94-source
+maps, original fixture loaders, body pins and three-window bounds. The B source
+and loader are authenticated from that Git tree rather than accidentally taking
+the expanded live checkout. The current timer graph and its original-C cases
+and42 compiled controls still execute separately. Workflow context checks use
+the existing strict full-to-inherited projection plus committed working bytes;
+the historical inherited workflow hash is not rebased.
+
 Canonical relative authority paths and their absolute equivalents are normalized
 before the same strict root, file, symlink and Git-blob checks. Symlink aliases and
 parent-traversal aliases remain rejected; no source-acquisition input is added.
