@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 HOST = "Assets/Scripts/Runtime/BlitzRuntime.cs"
 RENDERER = "Assets/Scripts/Presentation/SourceFreeBallRenderer.cs"
 SOUND_CONTRACT = "Assets/Scripts/Contracts/SourceMatchContracts.cs"
+SOUND_GUARD = "Assets/Scripts/Contracts/SourceConfigurationContracts.cs"
 
 
 def digest(raw):
@@ -30,11 +31,19 @@ def replace_once(source, before, after):
     return source.replace(before, after, 1)
 
 
-def selection_sound_contract(source):
-    declarations = re.findall(
-        r"(?ms)^    public readonly struct SourceSelectionTimerSound\r?\n    \{.*?^    \}", source)
-    require(len(declarations) == 1, "Exactly one actual source timer sound contract is required.")
-    return ("namespace Blitz.Contracts\n{\n" + declarations[0] + "\n}\n").encode("utf-8")
+def selection_sound_contract(source, guard_source):
+    declarations = []
+    for kind, name in (("enum", "SourceProcessSoundKind"), ("sealed class", "SourceProcessSoundCall"),
+                       ("readonly struct", "SourceSelectionTimerSound")):
+        selected = re.findall(r"(?ms)^    public " + kind + " " + name +
+                              r"\r?\n    \{.*?^    \}", source)
+        require(len(selected) == 1, "Exactly one actual source sound declaration is required: " + name)
+        declarations.append(selected[0])
+    guard = re.findall(r"(?ms)^        internal static void Range\(int value, int minimum, int maximum, string name\)"
+                       r"\r?\n        \{.*?^        \}", guard_source)
+    require(len(guard) == 1, "The original source sound call must retain its actual range validator.")
+    declarations.append("    internal static class SourceContractGuard\n    {\n" + guard[0] + "\n    }")
+    return ("using System;\nnamespace Blitz.Contracts\n{\n" + "\n".join(declarations) + "\n}\n").encode("utf-8")
 
 
 def controls(source):
@@ -96,13 +105,17 @@ def main():
         "Unity_engine_executed": False, "Editor_executed": False, "native_player_executed": False,
         "real_asset_import_or_material_shader_execution": False,
         "simulation_or_RNG_parity_claimed": False, "runs": [],
+        "instruction_gameplay_or_presentation_executed": False,
+        "default_audibles_profile_executed": False,
     }
     try:
         contract_input = (ROOT / SOUND_CONTRACT).read_bytes()
-        sound_contract = selection_sound_contract(contract_input.decode("utf-8"))
+        guard_input = (ROOT / SOUND_GUARD).read_bytes()
+        sound_contract = selection_sound_contract(contract_input.decode("utf-8"), guard_input.decode("utf-8"))
         report["source_timer_sound_contract"] = {
             "authority_root": str(ROOT), "source": SOUND_CONTRACT,
             "source_sha256": digest(contract_input), "compiled_declaration_sha256": digest(sound_contract),
+            "range_validator_source": SOUND_GUARD, "range_validator_source_sha256": digest(guard_input),
             "actual_contract_compiled_verbatim": True,
             "gameplay_timer_or_sound_hardware_executed": False,
         }

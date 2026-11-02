@@ -36,6 +36,8 @@ U2_CURRENT_SOURCE_SHA256 = "bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc6450
 U2_HARNESS_SHA256 = "e3816f617b1dbd12251d75ead06d5d455e429d34887a5ee7a1a7b4045ad1af97"
 U2_ARCHIVE_REF = "df75bd647b1b7bc902e0eae8520ee42e8af62d1e"
 U2_ARCHIVE_TREE = "970b6ff8d533c621b8bd8ef561b736b474cf2c40"
+NEAR_FRAME_ARCHIVE_REF = "45f045612ab52611edea31a782696478cde1aca6"
+NEAR_FRAME_ARCHIVE_TREE = "e85f0c818386c4821a6c676b2204348e1c9c4ce0"
 NEAR_FRAME_HARNESS_SHA256 = "6924a80b7df99e62ab65a9af9503c23472b548cfc21d70463e1fc71777168a13"
 OLD_PUBLIC_SHA256 = replay.RECORDINGS[replay.POSITIVE_CASE]["public_sha256"]
 POSSESSION_PUBLIC_SHA256 = replay.RECORDINGS[replay.SOURCE_CURRENT_CASE]["public_sha256"]
@@ -185,33 +187,40 @@ def current_snapshot():
     return historical_snapshot(CURRENT_REF, current=True)
 
 
-def u2_current_snapshot():
-    """Retain the fifth boundary's exact harness, not the new authoring/counter harness."""
-    tree = git("rev-parse", U2_ARCHIVE_REF + "^{tree}").decode().strip()
-    require(tree == U2_ARCHIVE_TREE, "exact archived U2 source/tree required")
-    names = [p.relative_to(ROOT).as_posix() for p in production_paths()]
-    names += list(canonical.HARNESS)
+def archived_u2_snapshot(ref, expected_tree, harness_digest):
+    """Select the immutable tree's closure, never today's expanded production inventory."""
+    tree = git("rev-parse", ref + "^{tree}").decode().strip()
+    require(tree == expected_tree, "exact archived U2 source/tree required")
+    selected = ("Assets/Scripts/Contracts", "Assets/Scripts/Gameplay", "Assets/Scripts/AssetImport",
+                *SOURCE_EXTRAS, *canonical.HARNESS)
     blobs = {}
-    for row in git("ls-tree", "-r", "-z", U2_ARCHIVE_REF, "--", *names).split(b"\0"):
+    for row in git("ls-tree", "-r", "-z", ref, "--", *selected).split(b"\0"):
         if row:
             meta, name = row.decode().split("\t")
             mode, kind, blob = meta.split()
-            require(name in names and mode in ("100644", "100755") and kind == "blob",
-                    "archived U2 payload must remain regular selected Git blobs")
-            blobs[name] = blob
-    require(set(blobs) == set(names), "complete exact archived U2 inventory required")
-    raw = git("archive", "--format=tar", U2_ARCHIVE_REF, "--", *sorted(blobs))
+            source = name.endswith(".cs") and any(name.startswith("Assets/Scripts/" + area + "/")
+                                                  for area in ("Contracts", "Gameplay", "AssetImport"))
+            if source or name in SOURCE_EXTRAS or name in canonical.HARNESS:
+                require(mode in ("100644", "100755") and kind == "blob",
+                        "archived U2 payload must remain regular selected Git blobs")
+                blobs[name] = blob
+    require(len(blobs) == 78 + 12 and set(canonical.HARNESS).issubset(blobs),
+            "complete exact archived U2 inventory required")
+    raw = git("archive", "--format=tar", ref, "--", *sorted(blobs))
     files = archive_payload(raw, blobs)
-    identity = validate_snapshot(files, 78, U2_CURRENT_SOURCE_SHA256, U2_HARNESS_SHA256)
-    identity.update(commit=U2_ARCHIVE_REF, tree=tree, selected_git_archive_sha256=replay.sha(raw))
+    identity = validate_snapshot(files, 78, U2_CURRENT_SOURCE_SHA256, harness_digest)
+    identity.update(commit=ref, tree=tree, selected_git_archive_sha256=replay.sha(raw))
     return files, identity
+
+
+def u2_current_snapshot():
+    """Retain the fifth boundary's exact harness, not the new authoring/counter harness."""
+    return archived_u2_snapshot(U2_ARCHIVE_REF, U2_ARCHIVE_TREE, U2_HARNESS_SHA256)
 
 
 def near_frame_snapshot():
-    files = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
-    files.update({name: (ROOT / name).read_bytes() for name in canonical.HARNESS})
-    identity = validate_snapshot(files, 78, replay.CURRENT_SOURCE_SHA256, NEAR_FRAME_HARNESS_SHA256)
-    return files, identity
+    """Retain the reviewed near-frame generation without relabelling new production bytes."""
+    return archived_u2_snapshot(NEAR_FRAME_ARCHIVE_REF, NEAR_FRAME_ARCHIVE_TREE, NEAR_FRAME_HARNESS_SHA256)
 
 
 def old_commands(path, case=replay.POSITIVE_CASE):

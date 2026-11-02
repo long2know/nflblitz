@@ -1591,7 +1591,8 @@ print(json.dumps({name: dict({key: identity.get(key) for key in fields},
              generations.PREVIOUS_SOURCE_SHA256, generations.HARNESS_SHA256),
             ("pr41", generations.CURRENT_REF, generations.CURRENT_TREE, 78,
              generations.CURRENT_SOURCE_SHA256, generations.HARNESS_SHA256),
-            ("near-frame", None, None, 78, generations.U2_CURRENT_SOURCE_SHA256,
+            ("near-frame", generations.NEAR_FRAME_ARCHIVE_REF, generations.NEAR_FRAME_ARCHIVE_TREE,
+             78, generations.U2_CURRENT_SOURCE_SHA256,
              generations.NEAR_FRAME_HARNESS_SHA256),
         ):
             expected[name] = dict(commit=ref, tree=tree, source_count=count, source_manifest_sha256=source,
@@ -1632,8 +1633,13 @@ print(json.dumps({name: dict({key: identity.get(key) for key in fields},
                         mutant = game.replace("jobs:\n", "env:\n" + binding + "\njobs:\n", 1)
                     probe = empty_runner_checkout(mutant, job, self.directory / (job + "-" + scope))
                     self.assertEqual(probe["exit"], 128, probe["stderr"])
-                    self.assertIn("fatal: Invalid path '" + str(probe["workspace"] / ".squad") +
-                                  "': No such file or directory", probe["stderr"])
+                    # Git 2.43 names the first missing component; current hosted Git names the work tree.
+                    self.assertIn(probe["stderr"].strip(), (
+                        "fatal: Invalid path '" + str(probe["workspace"] / ".squad") +
+                        "': No such file or directory",
+                        "fatal: Cannot access work tree '" + str(probe["workspace"] / workspace_path) +
+                        "': No such file or directory",
+                    ))
                     self.assertFalse((probe["workspace"] / ".squad").exists())
                     with self.assertRaises(AssertionError):
                         validate_workflows(mutant, player)

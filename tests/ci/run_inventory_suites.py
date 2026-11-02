@@ -56,6 +56,7 @@ CURRENT_CASE_ADDITIONS = {
     5: (
         "tests/movement-callers/test_replay_generations.py::CurrentOldBoundaryTests.test_current_boundaries_require_named_first_fault_exact_old_row_counts_and_factory",
         "tests/movement-callers/test_replay_generations.py::CurrentOldBoundaryTests.test_separate_current_boundaries_do_not_relabel_or_replace_any_of_the_historical_five",
+        "tests/movement-callers/test_replay_generations.py::RecordingGenerationTests.test_archived_closures_do_not_depend_on_the_live_production_inventory",
         "tests/movement-callers/test_replay_generations.py::RecordingGenerationTests.test_new_current_harness_and_archived_fifth_boundary_are_separately_source_pinned",
     ),
     6: (

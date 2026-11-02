@@ -97,6 +97,8 @@ class RecordingGenerationTests(unittest.TestCase):
         archived, old = generations.u2_current_snapshot()
         self.assertEqual(identity["source_manifest_sha256"], replay.CURRENT_SOURCE_SHA256)
         self.assertEqual(identity["harness_manifest_sha256"], generations.NEAR_FRAME_HARNESS_SHA256)
+        self.assertEqual((identity["commit"], identity["tree"]),
+                         (generations.NEAR_FRAME_ARCHIVE_REF, generations.NEAR_FRAME_ARCHIVE_TREE))
         self.assertEqual(old["harness_manifest_sha256"], generations.U2_HARNESS_SHA256)
         self.assertEqual((old["commit"], old["tree"]), (generations.U2_ARCHIVE_REF, generations.U2_ARCHIVE_TREE))
         self.assertNotEqual(current["tests/movement-callers/Canonical.cs"], archived["tests/movement-callers/Canonical.cs"])
@@ -108,6 +110,22 @@ class RecordingGenerationTests(unittest.TestCase):
             generations.validate_snapshot(changed, 78, replay.CURRENT_SOURCE_SHA256,
                                           generations.NEAR_FRAME_HARNESS_SHA256)
         self.assertEqual(len(generations.ALL_PROBES), 5)
+
+    def test_archived_closures_do_not_depend_on_the_live_production_inventory(self):
+        for snapshot in (generations.u2_current_snapshot, generations.near_frame_snapshot):
+            with self.subTest(snapshot=snapshot.__name__), patch.object(
+                    generations, "production_paths", side_effect=AssertionError("live inventory must not select history")):
+                files, identity = snapshot()
+                self.assertEqual((identity["source_count"], identity["harness_count"]), (78, 12))
+                self.assertNotIn("Assets/Scripts/Storage/SourcePlayerRecords.cs", files)
+                self.assertNotIn("Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs", files)
+                self.assertEqual(identity["source_manifest_sha256"], generations.U2_CURRENT_SOURCE_SHA256)
+        for snapshot in (generations.u2_current_snapshot, generations.near_frame_snapshot):
+            with self.subTest(wrong_tree=snapshot.__name__), patch.object(
+                    generations, "git", return_value=b"0" * 40) as git:
+                with self.assertRaisesRegex(ValueError, "exact archived U2 source/tree required"):
+                    snapshot()
+                self.assertEqual(git.call_count, 1, "Reject a substituted tree before selecting or archiving files.")
 
     def test_both_archived_sources_are_exact_git_authenticated_named_generations(self):
         for ref, previous, count, digest in (
