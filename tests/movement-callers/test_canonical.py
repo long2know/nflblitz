@@ -1209,8 +1209,13 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             capture_output=True, check=True).stdout
         self.assertEqual(full, committed, "full workflow must match the actual checked-out Git source")
         self.assertEqual(canonical.sha(full),
-                         "308aab01d387e8cbdfd5847ccf0a57d8a063cc80f9067969f2d5e4d67beaa38b",
+                         "0aea8a2452a55fc8067dcb4268d1326ad47d9727970173767a0b7757596fdbd1",
                          "every job, gate and budget is retained with sealed inputs and full-history checkouts")
+        prior = ci.remove_once(full.decode("utf-8"), ci.LIFECYCLE_ASSETS_STEP)
+        prior = ci.remove_once(prior, ci.ADMITTED_LIFECYCLE_STEP, ci.ORIGINAL_LIFECYCLE_STEP)
+        self.assertEqual(canonical.sha(prior.encode("utf-8")),
+                         "308aab01d387e8cbdfd5847ccf0a57d8a063cc80f9067969f2d5e4d67beaa38b",
+                         "only exact serial lifecycle resource admission may differ from the sealed v7 workflow")
         inherited = ci.inherited_game(full.decode("utf-8")).encode("utf-8")
         actual = (canonical.ROOT / ci.GAME).read_bytes()
         if receipt is not None:
