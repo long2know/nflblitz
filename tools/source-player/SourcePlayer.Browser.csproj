@@ -16,9 +16,12 @@
   <ItemGroup>
     <ProjectReference Include="SourcePlayer.Core.csproj" />
     <Compile Include="Browser.cs" />
+    <Compile Include="BrowserRecords.cs" />
     <WasmExtraFilesToDeploy Include="wwwroot/index.html" TargetPath="index.html" />
     <WasmExtraFilesToDeploy Include="wwwroot/main.js" TargetPath="main.js" />
     <WasmExtraFilesToDeploy Include="wwwroot/renderer.js" TargetPath="renderer.js" />
     <WasmExtraFilesToDeploy Include="wwwroot/input.js" TargetPath="input.js" />
+    <WasmExtraFilesToDeploy Include="wwwroot/audio.js" TargetPath="audio.js" />
+    <WasmExtraFilesToDeploy Include="wwwroot/records.js" TargetPath="records.js" />
   </ItemGroup>
 </Project>

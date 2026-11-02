@@ -66,6 +66,7 @@ namespace Blitz.Presentation
             }
             if (Event.current.type != EventType.Repaint) return;
             Draw(composer.Compose(runtime.State, viewport, runtime.SourceSelection, status.RedClock, runtime.InputSuspended), viewport);
+            runtime.DrawSourceInstructions(viewport);
             if (state.Match.Phase != SourceMatchPhase.PreSnap && state.Match.Phase != SourceMatchPhase.LiveBall || runtime.GameCamera == null)
                 return;
             foreach (SourceStationView station in state.Match.Stations)
@@ -85,6 +86,9 @@ namespace Blitz.Presentation
         }
 
         private void Draw(IReadOnlyList<SourceHudPrimitive> primitives, SourceHudViewport viewport)
+        { DrawPrimitives(asset, primitives, viewport); }
+
+        internal static void DrawPrimitives(SourceHudAsset asset, IReadOnlyList<SourceHudPrimitive> primitives, SourceHudViewport viewport)
         {
             GL.PushMatrix();
             bool begun = false;

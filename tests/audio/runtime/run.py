@@ -15,16 +15,20 @@ SUITE = ROOT / "tests/audio/runtime"
 ARTIFACTS = SUITE / ".artifacts"
 sys.path.insert(0, str(ROOT / "tests/ci"))
 from isolated_mutations import run_mutations
+sys.path.insert(0, str(ROOT / "tests/parity"))
+from kernel_sources import production_paths
 TRANSPORT = "Assets/Scripts/Runtime/SourceSoundVmTransport.cs"
 BRIDGE = "Assets/Scripts/Runtime/FixedStepBridge.cs"
+PLAYBACK = "tools/source-player/Runtime/SourceAudioPlayback.cs"
 MUTANTS = (
     ("empty-clears-pending", TRANSPORT, "LastBatch = batch;", "LastBatch = batch; pending.Clear();",
      "empty/skipped drain cannot discard pending records"),
     ("cue-context-alias", TRANSPORT, "!ReferenceEquals(pending.Peek().OriginalCue, cue)",
      "pending.Peek().OriginalCue.Context.SourceTick != cue.Context.SourceTick",
      "context-equivalent reconstructed cue is not OriginalCue"),
-    ("missing-consumer-silence", TRANSPORT, "FailedDispatch = dispatch;\n                throw new InvalidOperationException(failure);",
-     "FailedDispatch = dispatch;\n                return;",
+    ("missing-consumer-silence", TRANSPORT,
+     'failure = "Resolved original sound has nonempty raw calls but no REAL DSP3/raw-output consumer is bound. Nothing was played.";\n                FailedDispatch = dispatch;\n                throw new InvalidOperationException(failure);',
+     'failure = "Resolved original sound has nonempty raw calls but no REAL DSP3/raw-output consumer is bound. Nothing was played.";\n                FailedDispatch = dispatch;\n                return;',
      "nonempty calls without real output fail explicitly"),
     ("zero-needs-output", TRANSPORT, "if (dispatch.Result.Calls.Count == 0) return;",
      "if (dispatch.Result.Calls.Count < 0) return;", "legitimate resolved zero calls need no output consumer"),
@@ -58,6 +62,30 @@ MUTANTS = (
      "finally drain retains partial record on failed Step"),
     ("restart-retains-transport", BRIDGE, "if (restarted != null) restarted();",
      "if (restarted != null && State.Tick > 0) restarted();", "actual bridge restart clears transport without selection replay"),
+    ("native-skips-cue-boundary", TRANSPORT,
+     "pending.Count == 0 || !ReferenceEquals(pending.Peek(), dispatch))",
+     "pending.Count == 0)", "native delivery cannot jump over an actual cue/direct boundary"),
+    ("unsupported-end-timing-admitted", PLAYBACK,
+     "if (!program.IsolatedPlaybackQualified || program.RepeatCount != 1)",
+     "if (program.RepeatCount != 1)", "unsupported original end timing"),
+)
+PRODUCER_MUTANTS = (
+    ("timer-output-unbound", "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs",
+     "var ordered = new SourceSelectionTimerSound(call.SourceTick, call.ProcessSerial, call.Number, output);",
+     "var ordered = new SourceSelectionTimerSound(call.SourceTick, call.ProcessSerial, call.Number);",
+     "actual timer process stamps the original first beep while it executes"),
+    ("cabinet-output-unbound", "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
+     "random, page[(int)side], cursor[(int)side], Flipped, output,",
+     "random, page[(int)side], cursor[(int)side], Flipped, null,",
+     "actual cabinet random gesture/controller sound records carry the common producer order and unchanged raw operands"),
+    ("restart-rewinds-output", "Assets/Scripts/Gameplay/SourceSoundVm.cs",
+     "private void InitializeSourceSoundState()\n        {\n",
+     "private void InitializeSourceSoundState()\n        {\n            sourceOutputSequence = 0;\n",
+     "same Game restart clears pending output but never reuses or rewinds its common producer counter"),
+    ("instruction-ordinal-alias", "Assets/Scripts/Gameplay/SourceInstructionProcess.cs",
+     "|| executingSoundContext.CallOrdinal != context.CallOrdinal || !Owns(host.Caller))",
+     "|| !Owns(host.Caller))",
+     "wrong instruction subcall is rejected"),
 )
 
 
@@ -70,15 +98,30 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def source_files():
+    return production_paths() + [ROOT / name for name in (
+        "Assets/Scripts/Runtime/SourceCabinetInput.cs",
+        "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
+        PLAYBACK, TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs",
+        "tests/parity/FullKernelSources.props")]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture-manifest", type=Path, help="Explicit real157 Core input manifest.")
     parser.add_argument("--sound-functions", type=Path, help="Explicit original1983-byte SAFN4a557 payload.")
+    parser.add_argument("--producer-data", type=Path, help="Explicit unchanged approved563 data for actual source process ordering.")
     parser.add_argument("--unity-editor-data", type=Path, help="Actual6000.3.24 references; no Editor is started.")
     parser.add_argument("--no-mutations", action="store_true", help="Explicit author-only baseline; not complete mutation evidence.")
+    parser.add_argument("--producer-mutations-only", action="store_true",
+                        help="Run the four focused actual-source producer controls, retaining the original transport inventory.")
     args = parser.parse_args(argv)
     if bool(args.fixture_manifest) != bool(args.sound_functions):
         parser.error("Real Core tests require BOTH --fixture-manifest and --sound-functions; no source-data fallback.")
+    if args.producer_data and args.fixture_manifest:
+        parser.error("Select the legacy Core fixture or current producer data, not both.")
+    if args.producer_mutations_only and (not args.producer_data or args.no_mutations):
+        parser.error("--producer-mutations-only requires --producer-data and enabled mutations.")
     for supplied in (args.fixture_manifest, args.sound_functions):
         if supplied is not None and not supplied.is_file():
             parser.error("Missing explicit original input: " + str(supplied))
@@ -88,20 +131,11 @@ def main(argv=None):
     cache.mkdir(exist_ok=True)
     environment = dict(os.environ, TMPDIR=str(cache), TMP=str(cache), TEMP=str(cache),
                        PYTHONDONTWRITEBYTECODE="1", DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1")
-    paths = []
-    for directory in ("Contracts", "Gameplay", "AssetImport"):
-        paths.extend(sorted((ROOT / "Assets/Scripts" / directory).rglob("*.cs")))
-    paths += [ROOT / name for name in (
-        "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
-        "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
-        "Assets/Scripts/Presentation/SourceCinematicModel.cs",
-        "Assets/Scripts/Runtime/SourceC2Composition.cs",
-        TRANSPORT, BRIDGE, "tests/parity/FullKernelInputs.cs",
-        "tests/parity/FullKernelSources.props")]
+    paths = source_files()
     source = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in paths}
     guarded = {name: digest(data) for name, data in source.items()}
     result = {"schema": "source-sound-runtime-gate/v1", "status": "failed", "source_sha256": guarded,
-              "actual_inputs_supplied": args.fixture_manifest is not None, "mutants": [],
+              "actual_inputs_supplied": args.fixture_manifest is not None or args.producer_data is not None, "mutants": [],
               "Unity_native_DSP_browser_or_audio_playback_claimed": False}
     try:
         def execute(label, mutant=None):
@@ -116,20 +150,34 @@ def main(argv=None):
                 target.write_bytes(data)
             tests = selected / "tests/audio/runtime"
             tests.mkdir(parents=True)
-            for name in ("Program.cs", "ActualCore.cs", "SourceSoundRuntime.Checks.csproj"):
+            for name in ("Program.cs", "ActualCore.cs", "PlaybackChecks.cs", "ProcessOutputChecks.cs",
+                         "PreGameProcessChecks.cs", "SourceSoundRuntime.Checks.csproj"):
                 shutil.copyfile(SUITE / name, tests / name)
             scratch = selected / "runtime"
             scratch.mkdir()
             execute_env = dict(environment, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
             build = ["dotnet", "build", str(tests / "SourceSoundRuntime.Checks.csproj"),
-                     "--configuration", "Release", "--verbosity", "quiet",
+                     "--no-restore", "--configuration", "Release", "--verbosity", "quiet",
                      "-p:BlitzSourceRoot=" + str(selected) + "/"]
             compiled = subprocess.run(build, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
-            (ARTIFACTS / (label + "-build.log")).write_text(compiled.stdout + compiled.stderr)
+            build_output = compiled.stdout + compiled.stderr
+            if compiled.returncode != 0 and "NETSDK1004" in build_output:
+                feed = ARTIFACTS / "empty-package-feed"
+                feed.mkdir(exist_ok=True)
+                restored = subprocess.run(["dotnet", "restore", str(tests / "SourceSoundRuntime.Checks.csproj"),
+                    "--source", str(feed), "-p:NuGetAudit=false", "--verbosity", "quiet"],
+                    cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
+                build_output += restored.stdout + restored.stderr
+                require(restored.returncode == 0, "SDK-only restore after missing assets failed: " + label)
+                compiled = subprocess.run(build, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
+                build_output += compiled.stdout + compiled.stderr
+            (ARTIFACTS / (label + "-build.log")).write_text(build_output)
             require(compiled.returncode == 0, "Compilation failure is NOT a rejected Runtime mutant: " + label)
             command = ["dotnet", str(tests / "bin/Release/net10.0/SourceSoundRuntime.Checks.dll")]
             if args.fixture_manifest and not mutant:
                 command += [str(args.fixture_manifest.resolve()), str(args.sound_functions.resolve())]
+            if args.producer_data and (not mutant or mutant in PRODUCER_MUTANTS):
+                command += ["--producer-data", str(args.producer_data.resolve())]
             checked = subprocess.run(command, cwd=ROOT, env=execute_env, text=True, capture_output=True, timeout=180)
             (ARTIFACTS / (label + ".log")).write_text(checked.stdout + checked.stderr)
             reports = [json.loads(line) for line in checked.stdout.splitlines() if line.startswith('{"schema":')]
@@ -142,7 +190,7 @@ def main(argv=None):
             else:
                 require(checked.returncode == 0 and report["status"] == "passed" and report["assertions"] >= 50,
                         "Actual Runtime transport baseline failed: " + label + " " + str(report))
-                if args.fixture_manifest:
+                if args.fixture_manifest or args.producer_data:
                     require(report["actual_assertions"] >= 20, "Real Core batches/partial state were not exercised.")
             return report
 
@@ -151,7 +199,8 @@ def main(argv=None):
             def mutation(mutant):
                 report = execute(mutant[0], mutant)
                 return {"id": mutant[0], "offending_assertion": report["failed_assertion"], "status": "rejected"}
-            result["mutants"] = run_mutations(MUTANTS, mutation)
+            controls = PRODUCER_MUTANTS if args.producer_mutations_only else MUTANTS + (PRODUCER_MUTANTS if args.producer_data else ())
+            result["mutants"] = run_mutations(controls, mutation)
         final = execute("final")
         require(final == result["baseline"], "Final transport baseline changed.")
         for name, sha in guarded.items():

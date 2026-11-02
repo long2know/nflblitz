@@ -13,3 +13,8 @@ public interface IRenderSink
     void Present(double[] viewProjection, double[] joints, int[] models, int[] appearances,
         double[] ball, double[] hudVertices, int[] hudColors, string[] hudTextures, int[] hudCounts, string status);
 }
+
+public interface ISourceWorldRenderSink
+{
+    void WorldPresentation(SourceWorldRenderPacket packet);
+}

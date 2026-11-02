@@ -106,3 +106,65 @@ unverified. Equal-time blocker ordering is qualified, never treated as a parity
 pass. Snap audibles are supplied explicitly. No original art/motion/assets,
 full-game equivalence, P1 integration completion, or full-parity closure is
 claimed by this necessary regression coverage.
+
+## Cabinet saved and known-none custom selection
+
+The separate bounded managed checks use an **existing approved pre-snap-switch563**
+data root, without preparing assets or promoting it to the default-audibles profile:
+
+```sh
+tools/source-player/dotnet.sh build tests/playbooks/model/CustomSelectionProduction.csproj --no-restore -c Release
+tools/source-player/dotnet.sh run --project tests/playbooks/CustomSelectionChecks.csproj --no-restore -c Release -- /path/to/approved563/data
+```
+
+Restore the selected project only if its assets file is missing. Production is
+also compiled as C#7.3/netstandard2.1. The checks exercise the actual quantizer,
+input buffer, game_proc, timer, shared RNG and source selection using authenticated
+HUD/catalog/M1 inputs. A declared post-result entry and injected custom4 highlight
+cover the otherwise unreachable timeout branch; known-none ordinary page cycling
+skips custom4. These are not browser, native or whole-match acceptance.
+
+Only deliberately new-player sessions may call
+`game.BindSourceCustomPlaySession(SourceCustomPlaySession.KnownNone(configuration), data.Hud)`
+before the first wake, then construct
+`new SourceCabinetPlaySelection(data.Hud, customPlaySelection: game)`.
+The session must retain the same actual FourStation configuration and Portable
+pre-snap-switch composition. Omitted/unavailable inventory is not empty. A missing manual custom
+choice produces no selection or RNG; a valid forced known-none choice consumes
+one `PlaySel__MakeChoice:2847` draw and resolves the actual current first-page
+team/FG/punt/PAT slot without changing the displayed page or cursor. Custom
+audibles do not acquire a timeout fallback.
+
+For actually loaded records, bind
+`new SourceCustomPlaySession(actualSavedRecordSession)` instead. Core converts
+the source grid through `SourceCustomPlayCodec` into private per-Game plays and
+routes. Typed `SourcePlaySelection.SavedOrigin` retains station/slot/session
+identity without adding strings to the authenticated static catalog. Saved
+captain page4, requested/first-existing forced selection, actual live receiver
+routes, signed audibles and original saved-play/flip restoration are exercised.
+Zero audible rows retain the real `select.c:960` defaults. The separate audible
+factory authenticates its own catalog input; the base profile is not promoted.
+The read-only `SourceCabinetPlaySelection.CustomPlay` supplies the actual
+captain's grid for custom-card rendering, never a stock-play replacement.
+
+Bindings are immutable and survive administrative reset. Changed records require
+a fresh Game/session. `BindSourceRecordCommitBarrier` is optional and requires
+the actual saved session and cabinet-flow bindings before wake1. At the original
+full-game save guard, Core captures `SourceFinalRecordCommit` before final stats;
+Pending/Failed sleeps the real game process, Committed/explicit Declined resumes
+once, and reset cannot bypass the wait. Runtime owns IO, durable match IDs and
+retry. Partial declined games retain their actual period count and never acquire
+a fabricated four-period save. These are bounded source-process fixtures, not a
+claim of browser persistence, natural full-match or native equivalence.
+
+### Versioned CI source binding
+
+Current CI admits an exact seventeen-contract closure: the retained fourteen
+plus the named introduction, pre-game-sound and saved-record declarations.
+The historical thirteen/fourteen inventories and `pins.json` production hashes
+remain unchanged. Current pure-helper hashes are a separate source generation;
+they never certify the old source identity.
+
+The same frozen public input blobs, producer/catalog pins, original-C matrix,
+expected assertion partitions and all three causal controls still apply.
+Current results explicitly report `historical_source_identity_requalified=false`.

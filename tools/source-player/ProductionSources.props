@@ -6,6 +6,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" Link="Production/Contracts/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/*.cs" Link="Production/Gameplay/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" Link="Production/AssetImport/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs" Link="Production/Storage/%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceC2Composition.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceContactComposition.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/FixedStepBridge.cs" />
@@ -15,8 +16,10 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceSoundVmTransport.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceFireSpfxRuntime.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceFreeBallBinding.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceInstructionConsumer.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/NormalCameraModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />
@@ -24,9 +27,17 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceImpactShaker.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudViewport.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCabinetScreenModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceRecordScreenModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudComposer.Records.cs"
+             Condition="Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudComposer.Records.cs')" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceHudComposer.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceInstructionPresentation.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceInstructionTextProgram.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceKickoffInstructionPresentation.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceFireSpfxRenderModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceFreeBallRenderModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceWorldPresentationModel.cs" />
   </ItemGroup>
   <Target Name="RequireActualProduction" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.cs')"

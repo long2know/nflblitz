@@ -18,6 +18,166 @@ namespace Blitz.Editor
     {
         private static int assertions;
 
+        public static void VerifySourceAffineSynthetic()
+        {
+            assertions = 0;
+            GameObject root = null; Mesh mesh = null, replacement = null, unreadable = null;
+            Material material = null; Texture2D texture = null; TextAsset decoded = null;
+            try
+            {
+                Shader shader = Shader.Find("Standard");
+                if (shader == null) throw new InvalidOperationException("Authored affine engine checks require Standard.");
+                Vector3[] baseline = { new Vector3(-0.375f, 0.125f, 0), new Vector3(0.625f, 0.125f, 0),
+                    new Vector3(-0.375f, 0.875f, 0) };
+                mesh = new Mesh { name = "own affine triangle", vertices = baseline, triangles = new[] { 0, 1, 2 },
+                    normals = new[] { Vector3.forward, Vector3.forward, Vector3.forward },
+                    tangents = new[] { new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1) } };
+                texture = new Texture2D(1, 1); texture.SetPixel(0, 0, Color.white); texture.Apply();
+                material = new Material(shader) { mainTexture = texture };
+                root = new GameObject("own raw affine rig");
+                root.transform.localScale = Vector3.one / SourceTiming.SourceUnitsPerYard;
+                var pivots = new SourceVector3[SourceTiming.JointCount];
+                var rotations = new SourceRotation[SourceTiming.JointCount];
+                var joints = new Transform[SourceTiming.JointCount];
+                var parents = new int[SourceTiming.JointCount];
+                for (int i = 0; i < joints.Length; i++)
+                {
+                    pivots[i] = new SourceVector3(i * 0.375f + 0.25f, i * 0.5f + 1.25f, i * -0.125f - 0.5f);
+                    float component = 0.6f + 1f / 131072f;
+                    rotations[i] = new SourceRotation(i % 3 == 0 ? component : 0,
+                        i % 3 == 1 ? component : 0, i % 3 == 2 ? component : 0, 0.8f);
+                    parents[i] = SourceAnimationSkeleton.ParentIndices[i];
+                    joints[i] = new GameObject("own affine joint " + i).transform;
+                    joints[i].SetParent(parents[i] < 0 ? root.transform : joints[parents[i]], false);
+                    joints[i].localPosition = Vector(pivots[i]) -
+                        (parents[i] < 0 ? Vector3.zero : Vector(pivots[parents[i]]));
+                    joints[i].gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+                    joints[i].gameObject.AddComponent<MeshRenderer>().sharedMaterial = material;
+                }
+                SourcePlayerRig rig = root.AddComponent<SourcePlayerRig>();
+                rig.InitializeBindPose("own-affine-rig", joints, parents, new int[joints.Length]);
+                var numberObject = new GameObject("own torso numbers");
+                numberObject.transform.SetParent(joints[1], false);
+                MeshFilter numbers = numberObject.AddComponent<MeshFilter>(); numbers.sharedMesh = mesh;
+                MeshRenderer numberRenderer = numberObject.AddComponent<MeshRenderer>(); numberRenderer.sharedMaterial = material;
+                const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                typeof(SourcePlayerRig).GetField("numberFilter", fields).SetValue(rig, numbers);
+                typeof(SourcePlayerRig).GetField("numberRenderer", fields).SetValue(rig, numberRenderer);
+                ISourcePoseInterpolation operation = SourceAnimationSampling.CreateOriginalPoseInterpolation(index => index / 256f);
+                var layer = new SourceAnimationLayer(SourcePoseInterpolationPolicy.OriginalPortable, operation, 97,
+                    "own_affine", 4, new SourceAnimationSample("OWN", 1, 1));
+                var pose = new SourceJointPose(rotations);
+                var animationRoot = new SourceVector3(0.875f, 2.25f, -1.375f);
+                SourceEvaluatedPose raw = SourceAnimationMatrices.EvaluateSource(pivots, pose, layer,
+                    layer.ResolveSourceFacing(), animationRoot, 1.25f);
+                rig.ApplyContinuousSourcePose(raw);
+                Mesh firstClone = joints[14].GetComponent<MeshFilter>().sharedMesh;
+                Check(firstClone != mesh && numbers.sharedMesh != mesh, "raw limbs/numbers use owned clones");
+                for (int i = 0; i < joints.Length; i++)
+                {
+                    Mesh actual = joints[i].GetComponent<MeshFilter>().sharedMesh;
+                    SourceAffineBasis basis = raw.Joints[i].AffineBasis;
+                    Matrix4x4 linear = Matrix4x4.identity;
+                    linear.m00 = basis.M00; linear.m01 = basis.M01; linear.m02 = basis.M02;
+                    linear.m10 = basis.M10; linear.m11 = basis.M11; linear.m12 = basis.M12;
+                    linear.m20 = basis.M20; linear.m21 = basis.M21; linear.m22 = basis.M22;
+                    for (int vertex = 0; vertex < baseline.Length; vertex++)
+                    {
+                        Vector3 expected = Vector(SourceAnimationMatrices.TransformVertex(raw.Joints[i],
+                            Source(baseline[vertex]), raw.ModelScale));
+                        Near(root.transform.InverseTransformPoint(joints[i].TransformPoint(actual.vertices[vertex])),
+                            expected, "actual raw engine mesh point " + i + "/" + vertex);
+                        Near(actual.normals[vertex], linear.inverse.transpose.MultiplyVector(Vector3.forward).normalized,
+                            "raw inverse-transpose normal");
+                        Vector4 tangent = actual.tangents[vertex];
+                        Near(new Vector3(tangent.x, tangent.y, tangent.z), linear.MultiplyVector(Vector3.right).normalized,
+                            "raw tangent direction");
+                        Check(tangent.w == 1f, "raw tangent handedness retained for positive determinant");
+                        Check(actual.bounds.Contains(actual.vertices[vertex]), "raw clone bounds contain drawn vertex");
+                        Check(mesh.vertices[vertex].Equals(baseline[vertex]), "shared baseline mesh remains immutable");
+                    }
+                    Check(actual.subMeshCount == mesh.subMeshCount && actual.triangles.Length == mesh.triangles.Length,
+                        "raw submesh/triangle inventory retained");
+                }
+                for (int vertex = 0; vertex < baseline.Length; vertex++)
+                    Near(joints[1].TransformPoint(numbers.sharedMesh.vertices[vertex]),
+                        root.transform.TransformPoint(Vector(SourceAnimationMatrices.TransformVertex(raw.Joints[1],
+                            Source(baseline[vertex]), raw.ModelScale))), "actual torso-number affine path");
+                rig.ApplyContinuousSourcePose(raw);
+                Check(joints[14].GetComponent<MeshFilter>().sharedMesh == firstClone, "raw clone reused, not reallocated");
+                Near(firstClone.vertices[0], Vector(raw.Joints[14].AffineBasis.TransformVector(Source(baseline[0]))),
+                    "raw rebake always starts from immutable baseline");
+                SourceEvaluatedPose legacy = SourceAnimationMatrices.Evaluate(pivots, pose, new FieldVector(0, 1),
+                    animationRoot, 1.25f);
+                rig.ApplyContinuousSourcePose(legacy);
+                Check(firstClone == null && joints[14].GetComponent<MeshFilter>().sharedMesh == mesh &&
+                    numbers.sharedMesh == mesh, "legacy restores originals and destroys owned clones");
+                replacement = Object.Instantiate(mesh);
+                joints[8].GetComponent<MeshFilter>().sharedMesh = replacement;
+                rig.ApplyContinuousSourcePose(raw);
+                Check(joints[8].GetComponent<MeshFilter>().sharedMesh != replacement, "replacement head gets its own raw clone");
+                rig.ResetBindPose();
+                Check(joints[8].GetComponent<MeshFilter>().sharedMesh == replacement && numbers.sharedMesh == mesh &&
+                    !rig.HasContinuousPose, "reset restores replacement mesh and clears raw state");
+                rig.ApplyContinuousSourcePose(raw);
+                decoded = new TextAsset("authored affine static reset");
+                var staticRotations = new Quaternion[joints.Length];
+                for (int i = 0; i < staticRotations.Length; i++) staticRotations[i] = Quaternion.identity;
+                rig.ApplyStaticSourcePose(staticRotations, Vector3.zero, "OWN", 1, new string('a', 64), decoded);
+                Check(!rig.HasContinuousPose && joints[0].GetComponent<MeshFilter>().sharedMesh == mesh,
+                    "static pose restores baseline meshes");
+                rig.ResetBindPose();
+                byte[] clipBytes = Encoding.UTF8.GetBytes(SyntheticClip());
+                string clipHash = AuthorizedAssetRoot.Sha256(clipBytes);
+                string inventory = "{\"schema\":\"original-wan-export-inventory/v1\",\"clips\":[{\"path\":\"own.json\"," +
+                    "\"runtime_name\":\"OWN\",\"selected_frames\":2,\"sha256\":\"" + clipHash +
+                    "\",\"source_first\":1,\"source_frames\":4,\"source_git_blob_sha1\":\"" + new string('a', 40) +
+                    "\",\"source_last\":3,\"source_path\":\"synthetic/own.wan\"}]}";
+                SourceAnimationLibrary library = SourceAnimationLibrary.Read(Encoding.UTF8.GetBytes(inventory), path => clipBytes);
+                var view = new PlayerView(3, TeamId.Home, default(FieldVector), default(FieldVector), 1,
+                    facingDirection: new FieldVector(0, 1), role: ActorRole.Receiver,
+                    animation: new ActorAnimationView(40, ActorAction.Run, AnimationSelectionEvidence.Approximate,
+                        layer, animationRoot), modelScale: 1.25f);
+                new SourceAnimationPlayer(rig, library).Apply(view, view, 1);
+                Check(rig.GetAppliedJointTransform(14).IsRawAffine &&
+                    joints[14].GetComponent<MeshFilter>().sharedMesh != mesh,
+                    "actual SourceAnimationPlayer forwards the bound raw sampler pose to mesh consumption");
+                rig.ResetBindPose();
+                unreadable = Object.Instantiate(mesh);
+                unreadable.UploadMeshData(true);
+                joints[0].GetComponent<MeshFilter>().sharedMesh = unreadable;
+                bool rejected = false;
+                try { rig.ApplyContinuousSourcePose(raw); }
+                catch (NotSupportedException e) { rejected = e.Message.Contains("readable"); }
+                Check(rejected, "unreadable raw mesh must explicitly reject");
+                joints[0].GetComponent<MeshFilter>().sharedMesh = mesh;
+                rig.ApplyContinuousSourcePose(raw);
+                var singularRotations = (SourceRotation[])rotations.Clone();
+                singularRotations[0] = new SourceRotation(0.5f, 0.5f, 0f, 0f);
+                SourceEvaluatedPose singular = SourceAnimationMatrices.EvaluateSource(pivots, new SourceJointPose(singularRotations),
+                    layer, layer.ResolveSourceFacing(), animationRoot, 1.25f);
+                rejected = false;
+                try { rig.ApplyContinuousSourcePose(singular); }
+                catch (NotSupportedException e) { rejected = e.Message.Contains("nonsingular"); }
+                Check(rejected, "singular lit-attribute consumer must explicitly reject, not become TRS");
+                Mesh finalClone = joints[14].GetComponent<MeshFilter>().sharedMesh;
+                Object.DestroyImmediate(root); root = null;
+                Check(finalClone == null, "current owned raw mesh lifetime does not outlive rig");
+            }
+            finally
+            {
+                if (root != null) Object.DestroyImmediate(root);
+                if (mesh != null) Object.DestroyImmediate(mesh);
+                if (replacement != null) Object.DestroyImmediate(replacement);
+                if (unreadable != null) Object.DestroyImmediate(unreadable);
+                if (material != null) Object.DestroyImmediate(material);
+                if (texture != null) Object.DestroyImmediate(texture);
+                if (decoded != null) Object.DestroyImmediate(decoded);
+            }
+            Debug.Log("PASS: " + assertions + " authored raw-affine Unity mesh/normal/number/clone/reset assertions; not original/native qualification.");
+        }
+
         public static void VerifySynthetic()
         {
             assertions = 0;

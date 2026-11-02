@@ -197,6 +197,7 @@ def caller_guards(source_root=ROOT):
             "if(soundTransport!=null)soundTransport.CompletePresentationBatch();" and
             compact(method(runtime, "ResetSourceSoundTransport")) ==
             "if(soundTransport!=null)soundTransport.Reset();"
+            "if(sourceInstructions!=null)sourceInstructions.OnSourceProgramReset();"
             "if(sourceFireRenderer!=null)sourceFireRenderer.ResetSourceEpoch();",
             "actual sound batch completion and restart hooks are connected to transport, not no-ops")
     cue = compact(method(runtime, "OnSourcePresentationCue"))

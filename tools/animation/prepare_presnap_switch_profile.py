@@ -48,9 +48,17 @@ def document(content):
     return json.loads(content, object_pairs_hook=selected._unique_object, parse_constant=selected._nonfinite)
 
 
+def c2_program_binding():
+    _, binding = c2.c2_program_source_binding(read(
+        ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs", limit=1024 * 1024))
+    require(binding["selected_historical_programs_sha256"] == C2_PROGRAMS_SHA,
+            "The pre-snap profile retains the exact historical C2 program payload.")
+    return binding
+
+
 def programs(path):
     content = read(path, MOVEMENT_SHA, 1024 * 1024)
-    read(ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs", C2_PROGRAMS_SHA, 1024 * 1024)
+    c2_program_binding()
     return content
 
 
@@ -196,6 +204,7 @@ def source_attack(sources):
 def prepare_profile(source_root, base_m1_inputs, hop_bundle, movement_programs, destination):
     destination = destination_root(destination, (source_root, base_m1_inputs, hop_bundle, movement_programs))
     movement = programs(movement_programs)
+    source_binding = c2_program_binding()
     source_root, base, hop = map(selected._absolute, (source_root, base_m1_inputs, hop_bundle))
     sources = {name: read(source_root / name) for name in c2.SOURCE_PINS}
     require(all(selected.reader.wan.git_blob_sha1(sources[name]) == pin
@@ -254,18 +263,20 @@ def prepare_profile(source_root, base_m1_inputs, hop_bundle, movement_programs, 
     for name in ("animation282/export-inventory.json", "c2-callback-data.json", "m-qbfite-hit-extension.safn"):
         outputs[name + ".sha256"] = (sha(outputs[name]) + "\n").encode()
     require(len(outputs) == 289, "Exact289-file successor producer closure required.")
-    require(programs(movement_programs) == movement and
+    require(programs(movement_programs) == movement and c2_program_binding() == source_binding and
             all(read(source_root / name) == value for name, value in sources.items()),
             "Frozen source/Movement inputs changed during preparation.")
     return {"schema": "presnap-switch-profile-preparation/v1", "profile": STABLE_ID,
             "animation_manifest_sha256": sha(inventory_raw), "callback_payload_sha256": sha(callback_raw),
-            "movement_programs_sha256": MOVEMENT_SHA, "clips": 282, "selected_frames": 26265,
+            "movement_programs_sha256": MOVEMENT_SHA, "C2_program_source_binding": source_binding,
+            "clips": 282, "selected_frames": 26265,
             "bindings": 15, "files": persist(destination, outputs)}
 
 
 def prepare_impact(base_catalog, callback_data, animation_manifest, movement_programs, destination):
     destination = destination_root(destination, (base_catalog, callback_data, animation_manifest, movement_programs))
     movement = programs(movement_programs)
+    source_binding = c2_program_binding()
     catalog = document(read(base_catalog, BASE_IMPACT_SHA))
     callback_raw, animation_raw = read(callback_data, DATA_SHA), read(animation_manifest, ANIMATION_SHA)
     callbacks, inventory = document(callback_raw), document(animation_raw)
@@ -295,10 +306,12 @@ def prepare_impact(base_catalog, callback_data, animation_manifest, movement_pro
         "Explicit pre-snap282/15-binding successor; all482 sites,25 camera bindings,41 additional speech lines, tables and camera data are unchanged. Hop3409 already exists. C2 and Movement program pins are distinct; no PCM/native qualification.")
     encoded = audio.canonical(catalog)
     require(sha(encoded) == IMPACT_SHA, "Fresh rebound impact bytes differ from the frozen generation.")
-    require(programs(movement_programs) == movement, "Frozen Movement program changed during impact preparation.")
+    require(programs(movement_programs) == movement and c2_program_binding() == source_binding,
+            "Frozen Movement or actual C2 source generation changed during impact preparation.")
     return {"schema": IMPACT_SCHEMA, "sites": 482, "camera_bindings": 25, "additional_speech_lines": 41,
             "animation_manifest_sha256": sha(animation_raw), "callback_payload_sha256": sha(callback_raw),
-            "C2_programs_sha256": C2_PROGRAMS_SHA, "movement_programs_sha256": MOVEMENT_SHA,
+            "C2_programs_sha256": C2_PROGRAMS_SHA, "C2_program_source_binding": source_binding,
+            "movement_programs_sha256": MOVEMENT_SHA,
             "files": persist(destination, {"impact-presentation.json": encoded})}
 
 

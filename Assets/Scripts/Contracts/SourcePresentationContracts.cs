@@ -46,6 +46,8 @@ namespace Blitz.Contracts
 
     public sealed class SourcePossessionSpeech
     {
+        public SourceProcessSoundCall Output { get; }
+        public long OutputSequence { get { return Output == null ? 0 : Output.OutputSequence; } }
         public long SourceTick { get; }
         public long ProcessSerial { get; }
         public int ProcessOrder { get; }
@@ -58,21 +60,20 @@ namespace Blitz.Contracts
         public bool PcmOrDspPlayback { get { return false; } }
         public SourcePossessionSpeech(long tick, long serial, int order, string bank, int ordinal,
             int playlist, uint volume, uint pan, uint priority)
+            : this(tick, serial, order, bank, ordinal, playlist, volume, pan, priority, null) { }
+
+        public SourcePossessionSpeech(long tick, long serial, int order, string bank, int ordinal,
+            int playlist, uint volume, uint pan, uint priority, SourceProcessSoundCall output)
         {
+            if (output != null && (output.Kind != SourceProcessSoundKind.PossessionSpeech
+                || output.SourceTick != tick || output.ProcessSerial != serial || output.DispatchOrder != order
+                || output.Bank != bank || output.PlaylistId != playlist || output.Volume != volume
+                || output.Pan != pan || output.PriorityWord != priority))
+                throw new ArgumentException("Speech output must retain this actual source call.", nameof(output));
             SourceTick = tick; ProcessSerial = serial; ProcessOrder = order; Bank = bank;
             SelectedOrdinal = ordinal; PlaylistId = playlist; Volume = volume; Pan = pan; PriorityWord = priority;
+            Output = output;
         }
-    }
-
-    public readonly struct SourcePossessionProcessRecord
-    {
-        public long SourceTick { get; }
-        public string Operation { get; }
-        public long Serial { get; }
-        public int Id { get; }
-        public int Value { get; }
-        public SourcePossessionProcessRecord(long tick, string operation, long serial, int id, int value)
-        { SourceTick = tick; Operation = operation; Serial = serial; Id = id; Value = value; }
     }
 
     public sealed class SourcePresentationSettings

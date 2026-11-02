@@ -1,0 +1,40 @@
+{
+  "schema": "source-public-replay-recording/v1",
+  "case": "trips-rollout-clearance-presnap-switch-v7-12000",
+  "epoch": "OriginalRelease57Hz",
+  "input_profile": "contact272",
+  "c2_profile": "contact282-c2-m1-presnap-switch",
+  "source_compatibility": "portable",
+  "seed": 1,
+  "ai_opponents": {
+    "home": 5,
+    "away": 11
+  },
+  "provider_profile": "source-sound-smoke/raw-vector-v1",
+  "hosts": 12000,
+  "commands_only": true,
+  "native_equivalent": false,
+  "jsonl": {
+    "file": "trips-rollout-clearance-presnap-switch-v7-12000.jsonl",
+    "sha256": "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866",
+    "bytes": 8537498
+  },
+  "gzip": {
+    "file": "trips-rollout-clearance-presnap-switch-v7-12000.jsonl.gz",
+    "sha256": "6d1202ebe3b1bc50e032cdc67a3978f0abc546a31ddb9e16712696fdd95872fa",
+    "bytes": 68250
+  },
+  "recording_generation": "source-public-open-space/v7",
+  "policy": "source-trips-rollout-public-controller/v1",
+  "controller_sha256": "7dfbfa794319d371b2b5e73a5c4f1d297b2a8788946cdab2041ca30ab56b8da1",
+  "source_manifest_sha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
+  "controller_source": "tests/movement-callers/InputAndStation.cs",
+  "stable_profile": "original-teams-contact282-c2-m1-presnap-switch",
+  "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation",
+  "station_layout": 4,
+  "source_count": 103,
+  "harness_manifest_sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
+  "harness_count": 12,
+  "authoring_policy_sha256": "4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087",
+  "maximum_authoring_windows": 1
+}

@@ -85,6 +85,20 @@ public sealed class RenderAssets
                 DecodeTga(source, texture.Path), 1, true, true, texture.Sha256, texture.Representation);
             TextureCount++;
         }
+        if (data.OriginalPresentation != null)
+            foreach (SourceOriginalRaster raster in data.OriginalPresentation.Rasters)
+            {
+                sink.Texture(raster.TextureId, raster.Width, raster.Height, raster.CopyRgba(), 1,
+                    raster.Kind == "shadow", true, raster.Sha256, raster.SourcePath + " / " + raster.Representation);
+                TextureCount++;
+            }
+        if (data.Catalog.Profile.IsCompleteOriginalRecords303)
+        {
+            byte[] solid = { 255, 255, 255, 255 };
+            sink.Texture("hud/record-solid", 1, 1, solid, 1, false, false, DataCatalog.Hash(solid),
+                "procedural original editor line/triangle geometry color carrier; NOT original raster art or an image substitute");
+            TextureCount++;
+        }
         foreach (var pair in data.Hud.Textures)
         {
             SourceInterfaceTexture texture = pair.Value;
@@ -99,6 +113,14 @@ public sealed class RenderAssets
                 sink.Texture("hud/interface-white", texture.Width, texture.Height, white, 1, false,
                     !texture.PointSampled, hash, "original GR_COLORCOMBINE_ONE / black chroma key, authored-alpha portable mask");
                 TextureCount++;
+                if (data.Catalog.Profile.UsesDefaultAudibles)
+                {
+                    byte[] chroma = SourceHudTextureMask.BlackChromaKey(rgba);
+                    string chromaHash = DataCatalog.Hash(chroma);
+                    sink.Texture("hud/interface-chroma", texture.Width, texture.Height, chroma, 1, false,
+                        !texture.PointSampled, chromaHash, "original DECAL_TEXTURE / black chroma key, unchanged authored RGB/nonblack alpha");
+                    TextureCount++;
+                }
             }
         }
     }
@@ -132,6 +154,7 @@ public sealed class RenderAssets
                     "Missing original world texture binding: " + draw.name);
                 sink.WorldDraw(id, "world/" + binding.textureIndex, JsonSerializer.Serialize(new {
                     name = draw.name, renderPass = draw.renderPass, draw.renderQueue,
+                    sourceDrawOrder = SourceWorldVenue.DrawOrder(draw.renderPass),
                     depthFunction = draw.state.depthFunction, depthMask = draw.state.depthMask,
                     depthBias = draw.state.depthBias, alphaFunction = draw.state.alphaFunction,
                     alphaValue = draw.state.alphaValue, colorFunction = draw.state.colorFunction,

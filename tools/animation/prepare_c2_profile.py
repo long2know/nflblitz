@@ -26,6 +26,9 @@ RUNNING_BINDINGS = (
     ("r_ezsprint_anim", 6508, -5),
 )
 HIT_SHA = "bb978454ab57b09357e422f048e4035bea01a4d5932f453dd89be39838c6e904"
+C2_PROGRAMS_SHA = "0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc"
+COMPLETE_C2_SOURCE_SHA = "defa8716559a7d9a90245b545acd853951c2f9ba3dd2519c08680ece61d3b79a"
+COMPLETE_C2_ADDITION_SHA = "ea581e3a3d9c0bc4d20943f29885df494099cc849407148972335ecb7c874f5b"
 SOURCE_PINS = {
     "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
     "plyrseq.c": "28cef0d1082f2b0c9241930fdc8886de4c8f5438",
@@ -50,6 +53,42 @@ require = selected._require
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def c2_program_source_binding(content):
+    """Bind the actual source separately from the byte-identical historical C2 program payload."""
+    actual = sha(content)
+    require(actual in (C2_PROGRAMS_SHA, COMPLETE_C2_SOURCE_SHA),
+            "Exact known C2 source-generation content pin required; unknown or mutated source is not legacy C2.")
+    canonical = content
+    addition = b""
+    if actual == COMPLETE_C2_SOURCE_SHA:
+        start = b"        private static SourceAnimationInstruction Celebrate(bool value)\n"
+        stop = b"        internal static IReadOnlyDictionary<string, SourceAnimationProgram> CreateC2Extension()\n"
+        require(content.count(start) == content.count(stop) == 1,
+                "The explicit complete-original C2 addition must have its exact unique boundaries.")
+        first, last = content.index(start), content.index(stop)
+        require(first < last, "The complete-original C2 addition must precede, never replace, legacy programs.")
+        addition = content[first:last]
+        canonical = content[:first] + content[last:]
+        require(len(addition) == 9205 and sha(addition) == COMPLETE_C2_ADDITION_SHA,
+                "Only the exact separately pinned complete-original C2 addition may be excluded.")
+    require(len(canonical) == 9542 and sha(canonical) == C2_PROGRAMS_SHA,
+            "The entire historical C2 source must remain byte-identical after explicit additive selection.")
+    return canonical, {
+        "schema": "source-C2-program-generation-binding/v1",
+        "source_generation": "complete-original303-additive-C2" if addition else "historical-contact281-C2",
+        "source_file_sha256": actual,
+        "source_file_bytes": len(content),
+        "selected_historical_programs_sha256": sha(canonical),
+        "selected_historical_programs_bytes": len(canonical),
+        "historical_source_commit": "45f045612ab52611edea31a782696478cde1aca6",
+        "legacy_entrypoint": "CreateC2Extension",
+        "added_entrypoint": "CreateCompleteOriginalExtension" if addition else None,
+        "added_source_sha256": sha(addition) if addition else None,
+        "historical_source_recovered_byte_identically": True,
+        "whole_current_source_is_historical": not addition,
+    }
 
 
 def running_bindings(lines):

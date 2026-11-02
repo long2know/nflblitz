@@ -31,6 +31,19 @@ assertions; compiler errors are never successful controls. Baseline/final
 baseline, actual cinematic kind5 delivery and the real raw `PlayerHost` path
 are separate evidence from selector registration.
 
+The current enabled profile explicitly binds `OriginalPortable` pose math.
+Its C oracle extracts the authenticated `isin`, `icos`, `asin_rad`, `acos_rad`
+and `sin_rad` bodies alongside `slerp`, using the unchanged `TRIGS.H` dependency
+already pinned by the inherited playbook inputs. It does not substitute libc
+trigonometry. Every quaternion and retained origin pose is compared component
+by component at the existing `0.00001` tolerance, without normalization: the
+original near-zero sine floor can produce non-unit quaternions. A unit-dot
+comparison would reject authentic results and miss magnitude regressions.
+Both historical VM probes still require their distinct `LegacyNormalized`
+policy; no old input bundle, source pin or saved recording is relabelled.
+Receipts bind the policy, extracted bodies and trig-table hash, and a failed
+runner diagnostic includes the first actual assertion.
+
 ## Completed-stream root/interpolation regression
 
 The new profile binds selected-source-frame root origins in the general animation

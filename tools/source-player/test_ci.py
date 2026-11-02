@@ -2,6 +2,7 @@
 
 import ast
 import importlib.util
+import json
 from pathlib import Path
 import re
 import shlex
@@ -133,7 +134,109 @@ def validate_workflow(text):
     defensive.validate_workflows(GAME_BUILD.read_text(), text)
 
 
+def validate_source_union_memberships(parity, checks, renderer):
+    inventories = {}
+    for artifact, text, required in (
+        ("tests/parity/ParityChecks.csproj", parity, ("StreamChecks.cs", "SourceAffineChecks.cs")),
+        ("tools/source-player/SourcePlayer.Checks.csproj", checks,
+         ("ArmRenderingChecks.cs", "AffinePacketChecks.cs", "DefaultAudiblesChecks.cs")),
+    ):
+        members = [node.attrib["Include"] for node in ET.fromstring(text).iter("Compile")]
+        for member in required:
+            require(members.count(member) == 1,
+                    f"{artifact}: {member} must occur exactly once; actual inventory={members!r}")
+        inventories[artifact] = members
+    references = [node.attrib["Include"] for node in ET.fromstring(checks).iter("ProjectReference")]
+    require(references == ["SourcePlayer.Core.csproj"],
+            "tools/source-player/SourcePlayer.Checks.csproj: local Core ProjectReference "
+            f"inventory must be ['SourcePlayer.Core.csproj']; actual inventory={references!r}")
+    expected = (
+        "light observation preserves actual state, omits only camera history/immutable inventories, and cannot mutate live nested objects",
+        "original skin draws retain zero-alpha ARMHND2 RGB for every model, team and arm segment",
+        "opaque player correction preserves explicit source nodraw exclusions and selected joint matrices",
+        "source-affine packet retains full non-TRS matrices through present, uniforms and torso numbers",
+        "adapter-only: actual effects receiver preserves selected originals and raw0x400, rejecting substitutes",
+        "adapter-only: disabled effects never issue a particle draw",
+        "adapter-only: actual fire draw binds selected frames, camera vertices and separate source-alpha blends",
+        "adapter-only: original-atlas HUD batches split for additive192 highlight and explicitly restore base",
+        "actual linked shader bodies retain source flash/additive HUD and camera-space FX consumers",
+        "adapter-only: actual world receiver uploads supplied source raster triangles, holds clocks and reports missing originals without drawing substitutes",
+        "adapter-only: world packet rejects wrong source linkage, material, resource substitution, size and invented fog admission",
+        "adapter-only: supplied original-shadow resources draw exact raster linkage with source alpha, separate blends and disclosed portable depth conversion",
+        "actual world composition retains field/table materials and source field2 pass after actors, without changing old independent profiles",
+        "actual managed world envelope is consumed unchanged when an explicit production packet receipt is supplied",
+    )
+    names = re.findall(r"^test\('([^'\n]+)',", renderer, re.M)
+    declarations = len(re.findall(r"^test\(", renderer, re.M))
+    require(declarations == 14 and sorted(names) == sorted(expected),
+            "tools/source-player/renderer.test.mjs: expected fourteen-test inventory="
+            f"{expected!r}; actual inventory={names!r}; declarations={declarations}")
+    require(len(re.findall(r"^function playerScene\(", renderer, re.M)) == 1,
+            "tools/source-player/renderer.test.mjs: playerScene helper inventory must contain exactly one")
+    inventories["tools/source-player/renderer.test.mjs"] = names
+    inventories["local_core_project_references"] = references
+    return inventories
+
+
 class SourcePlayerCI(unittest.TestCase):
+    def test_source_union_memberships(self):
+        parity = (ROOT / "tests/parity/ParityChecks.csproj").read_text()
+        checks = (HERE / "SourcePlayer.Checks.csproj").read_text()
+        renderer = (HERE / "renderer.test.mjs").read_text()
+        inventories = validate_source_union_memberships(parity, checks, renderer)
+        affine = "source-affine packet retains full non-TRS matrices through present, uniforms and torso numbers"
+        affine_start = renderer.index("test('" + affine + "',")
+        affine_end = renderer.find("\ntest(", affine_start + 1)
+        self.assertGreater(affine_end, affine_start)
+        mutations = (
+            ("tests/parity/ParityChecks.csproj", "StreamChecks.cs", parity,
+             parity.replace('    <Compile Include="StreamChecks.cs" />\n', "", 1), checks, renderer),
+            ("tools/source-player/SourcePlayer.Checks.csproj", "ArmRenderingChecks.cs", checks,
+             parity, checks.replace('    <Compile Include="ArmRenderingChecks.cs" />\n', "", 1), renderer),
+            ("tools/source-player/renderer.test.mjs", affine, renderer,
+             parity, checks, renderer[:affine_start] + renderer[affine_end + 1:]),
+        )
+        negative_witnesses = []
+        for artifact, member, original, mutated_parity, mutated_checks, mutated_renderer in mutations:
+            with self.subTest(artifact=artifact, missing_member=member):
+                mutated = {"tests/parity/ParityChecks.csproj": mutated_parity,
+                           "tools/source-player/SourcePlayer.Checks.csproj": mutated_checks,
+                           "tools/source-player/renderer.test.mjs": mutated_renderer}[artifact]
+                self.assertNotEqual(original, mutated, f"{artifact}: mutation must change actual source bytes")
+                with self.assertRaises(AssertionError) as rejected:
+                    validate_source_union_memberships(mutated_parity, mutated_checks, mutated_renderer)
+                diagnostic = str(rejected.exception)
+                for required in (artifact, member, "inventory"):
+                    self.assertIn(required, diagnostic)
+                negative_witnesses.append({"artifact": artifact, "missing_member": member,
+                                           "diagnostic": diagnostic})
+        self.assertEqual(3, len(negative_witnesses))
+        print(json.dumps({"schema": "source-union-membership-regression/v1", "status": "passed",
+                          "inventories": inventories, "negative_witnesses": negative_witnesses},
+                         sort_keys=True))
+
+    def test_default_audibles_adapters_are_a_separate_unqualified_opt_in(self):
+        checks = (HERE / "Checks.cs").read_text()
+        self.assertIn('args.Contains("--default-audibles-adapters-only")', checks)
+        project = ET.parse(HERE / "SourcePlayer.Checks.csproj")
+        self.assertIn("DefaultAudiblesChecks.cs", {node.attrib["Include"] for node in project.iter("Compile")})
+        proof = (HERE / "DefaultAudiblesChecks.cs").read_text()
+        for actual in ("new PlayerHost(data, sink)", "catalog.RequireAllInputsConsumed()",
+                       "new SourceDirectSoundRecordingConsumer()", "ComposeAudibles(normal, viewport)",
+                       "coreAudibleProducerOrWorldChangeProven = false", "actualHostDirectDeliveries"):
+            self.assertIn(actual, proof)
+        for forbidden in ("Game.Model", "BindingFlags", "SourceAction.Audible"):
+            self.assertNotIn(forbidden, proof)
+        module = ast.parse((HERE / "build.py").read_text())
+        profile = next(node for node in ast.walk(module) if isinstance(node, ast.Call) and
+                       isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument" and
+                       node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "--profile")
+        options = {keyword.arg: keyword.value for keyword in profile.keywords}
+        self.assertEqual(ast.unparse(options["default"]), "PROFILE")
+        self.assertEqual(ast.unparse(options["choices"]),
+                         "(OLD_PROFILE, PROFILE, AUDIBLES_PROFILE, COMPLETE_PROFILE, "
+                         "SOURCE_BANKS_PROFILE, RECORDS_PROFILE, FINAL_PROFILE, PREMATCH_PROFILE)")
+
     def test_actual_workflow_covers_public_commands_sdk_and_triggers(self):
         validate_workflow(WORKFLOW.read_text())
 
@@ -192,9 +295,9 @@ class SourcePlayerCI(unittest.TestCase):
         self.assertIn('File.ReadAllBytes(Path.Combine(root, "manifest.json"))', checks)
         self.assertIn("new PlayerData(catalog)", checks)
         self.assertIn("./artifacts/portable-player/evidence.json", (HERE / "assertions.test.mjs").read_text())
-        self.assertEqual(4, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
+        self.assertEqual(6, len(re.findall(r"^test\(", (HERE / "input.test.mjs").read_text(), re.M)))
         renderer = (HERE / "renderer.test.mjs").read_text()
-        self.assertEqual(7, len(re.findall(r"^test\(", renderer, re.M)))
+        self.assertEqual(14, len(re.findall(r"^test\(", renderer, re.M)))
         self.assertNotIn("artifacts/", renderer)
         head_renderer = (HERE / "popped-head.renderer.test.mjs").read_text()
         self.assertEqual(2, len(re.findall(r"^test\(", head_renderer, re.M)))

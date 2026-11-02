@@ -16,6 +16,8 @@ spec.loader.exec_module(profile)
 def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=profile.PROFILE):
     profile.require(selected_profile in (profile.PROFILE, profile.M1_PROFILE), "Select one explicit impact generation.")
     m1 = selected_profile == profile.M1_PROFILE
+    program_bytes = profile.selected._read_bytes(profile.selected._absolute(programs), 1024 * 1024)
+    canonical_programs, source_binding = profile.c2_program_source_binding(program_bytes)
     def read(path, pin):
         data = profile.selected._read_bytes(profile.selected._absolute(path), 4 * 1024 * 1024)
         profile.require(profile.sha(data) == pin, "Explicit original/C2 metadata content pin differs.")
@@ -27,9 +29,6 @@ def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=pr
     raw = profile.selected._read_bytes(profile.selected._absolute(plyrseq), 4 * 1024 * 1024)
     profile.require(profile.selected.reader.wan.git_blob_sha1(raw) == profile.SOURCE_PINS["plyrseq.c"],
                     "Pinned plyrseq.c changed.")
-    program_bytes = profile.selected._read_bytes(profile.selected._absolute(programs), 1024 * 1024)
-    profile.require(profile.sha(program_bytes) == "0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc",
-                    "Actual frozen C2 programs are required.")
     lines = raw.decode("ascii").splitlines()
     existing = {cue["line"]: cue for cue in catalog["animation_cues"]}
     added = []
@@ -54,7 +53,7 @@ def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=pr
     binding = catalog["contact_binding"]
     binding.update(legacy_animation_manifest_sha256=binding["animation_manifest_sha256"],
                    legacy_programs_sha256=binding["programs_sha256"],
-                   animation_manifest_sha256=profile.ANIMATION_SHA, programs_sha256=profile.sha(program_bytes),
+                   animation_manifest_sha256=profile.ANIMATION_SHA, programs_sha256=profile.sha(canonical_programs),
                    c2_payload_sha256=profile.M1_DATA_SHA if m1 else profile.DATA_SHA)
     binding["new_callback_lines"] = sorted(binding["new_callback_lines"] + added)
     catalog["schema"] = "original-impact-contact281-c2-m1/v1" if m1 else "original-impact-contact281-c2/v1"
@@ -68,6 +67,8 @@ def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=pr
         catalog["qualifications"].append(
             "Explicit M1 successor adds only the four original running-taunt scripts and their ezsprint replacement; old nine-binding C2 remains distinct.")
     encoded = (json.dumps(catalog, sort_keys=True, indent=2) + "\n").encode()
+    profile.require(profile.selected._read_bytes(profile.selected._absolute(programs), 1024 * 1024) == program_bytes,
+                    "Actual C2 source-generation input changed during impact preparation.")
     destination = profile.selected._absolute(destination)
     profile.require(destination.is_relative_to(profile.ROOT / ".squad/.scratch"), "Original catalogs must remain ignored/local.")
     profile.selected._no_symlinks(destination)
@@ -80,7 +81,8 @@ def prepare(base, callbacks, plyrseq, programs, destination, selected_profile=pr
     return {"schema": catalog["schema"], "sha256": profile.sha(encoded), "sites": len(catalog["animation_cues"]),
             "animation_manifest_sha256": profile.ANIMATION_SHA,
             "c2_data_sha256": profile.M1_DATA_SHA if m1 else profile.DATA_SHA,
-            "C2_programs_sha256": profile.sha(program_bytes), "new_speech_sites": sorted(added)}
+            "C2_programs_sha256": profile.sha(canonical_programs),
+            "C2_program_source_binding": source_binding, "new_speech_sites": sorted(added)}
 
 
 def main():

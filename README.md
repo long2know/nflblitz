@@ -1,7 +1,10 @@
 # nflblitz
 
-A Unity/C# source-based port targeting the **original NFL Blitz 2000 look and
-game logic**, running client-side in a browser. The procedural graybox
+A source-based C# port targeting the **original NFL Blitz 2000 look and
+game logic**, running client-side in a browser. The primary browser application
+uses **.NET browser-WASM and direct WebGL2 rendering**, without Unity.
+The Unity project remains a separate retained implementation path, not a build
+or runtime prerequisite for this application. The procedural graybox
 is a diagnostic baseline, **not the visual target**. This is an incomplete port,
 not a finished or whole-game-parity recreation.
 
@@ -101,6 +104,21 @@ or relabeled by the separate portable browser or headless/API results.
 October 15 static-pose/title history.
 
 ## Import, build and run
+
+### Primary browser application: .NET/WASM and WebGL2
+
+Follow [the source-player build and serving recipe](tools/source-player/README.md).
+`tools/source-player/SourcePlayer.Browser.csproj` compiles the shared production
+C# simulation to `browser-wasm`; JavaScript supplies cabinet input and renders
+the C# packets directly with WebGL2. Use the existing explicit prepared-data and
+profile contracts. No Unity Editor, Unity build or Unity license is required for
+this route. Genuine browser/gameplay and source-fidelity acceptance are still
+required; Unity-specific checks do not replace or gate that acceptance.
+
+### Separate Unity player path
+
+The instructions below apply only to the retained Unity player, not the primary
+portable browser application.
 
 Paths are relative to the **project root**. Offline preparation can use the
 checkout; native source imports/builds require the approved isolated candidate

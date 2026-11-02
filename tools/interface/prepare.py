@@ -72,8 +72,9 @@ class Image:
     source: str
 
 
-def wif_images(data, identity):
+def wif_images(data, identity, selected_symbols=None):
     """Strict observed WIFF IMG/PAL layout, guarded by full original input pins."""
+    require(selected_symbols is None or bool(selected_symbols), identity + ": empty selected IMG identities.")
     require(len(data) >= 8 and data[:4] == b"WIFF"
             and int.from_bytes(data[4:8], "big") == len(data) - 8, identity + ": invalid WIFF length.")
     position, images, palettes = 8, [], {}
@@ -86,13 +87,19 @@ def wif_images(data, identity):
         if tag == b"IMG ":
             require(size >= 56, identity + ": truncated IMG metadata.")
             name_bytes = body[8:24].split(b"\0", 1)[0]
-            require(re.fullmatch(rb"[!A-Za-z0-9_-]+", name_bytes) is not None, identity + ": invalid IMG identity.")
-            name = name_bytes.decode("ascii")
+            try:
+                name = name_bytes.decode("ascii")
+            except UnicodeDecodeError as error:
+                raise InterfaceError(identity + ": invalid ASCII IMG identity.") from error
+            selected = selected_symbols is None or name.lower() in selected_symbols
+            require(not selected or re.fullmatch(rb"[!A-Za-z0-9_-]+", name_bytes) is not None,
+                    identity + ": invalid IMG identity.")
             width, height, bits = struct.unpack_from("<HHH", body, 32)
             ax, ay = struct.unpack_from("<hh", body, 46)
             require(0 < width <= 2048 and 0 < height <= 2048 and bits in (8, 24, 32)
                     and size == 56 + width * height * (bits // 8), identity + ": unsupported IMG payload: " + name)
-            images.append((name, width, height, bits, ax, ay, int.from_bytes(body[4:8], "big"), body[56:]))
+            if selected:
+                images.append((name, width, height, bits, ax, ay, int.from_bytes(body[4:8], "big"), body[56:]))
         elif tag == b"PAL ":
             require(size >= 36, identity + ": truncated PAL metadata.")
             key = int.from_bytes(body[:4], "big")
@@ -103,7 +110,7 @@ def wif_images(data, identity):
         else:
             require(tag == b"ORIG", identity + ": unsupported WIFF chunk " + repr(tag))
         position = end + (size & 1)
-    require(position == len(data) and images, identity + ": empty or malformed WIFF.")
+    require(position == len(data) and (images or selected_symbols is not None), identity + ": empty or malformed WIFF.")
     result = {}
     for name, width, height, bits, ax, ay, palette, pixels in images:
         if name.startswith("!"):
@@ -122,6 +129,8 @@ def wif_images(data, identity):
             rgba = b"".join(bytes(colors[index]) + (b"\0" if colors[index] == (0, 0, 0) else b"\xff")
                             for index in pixels)
         result[symbol] = Image(symbol, width, height, ax, ay, rgba, identity)
+    if selected_symbols is not None:
+        require(set(result) == set(selected_symbols), identity + ": missing selected IMG identity.")
     return result
 
 

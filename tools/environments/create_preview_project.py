@@ -7,6 +7,8 @@ Run from the repository root before a coordinated Editor lease:
 The default metadata-only preview_sources.json pins only the six copied C#
 sources and their existing metas. --source-hashes <snapshot.json> retains the
 explicit custom-snapshot path; no ignored session snapshot is required.
+The current v2 generation preserves historical v1 metadata separately rather
+than treating changed source bytes as the old dependency checkpoint.
 
 Then use the explicitly licensed Unity 6000.3.24f1 executable with this project,
 -batchmode -nographics -quit -buildTarget WebGL and one executeMethod at a time:
@@ -37,6 +39,10 @@ SOURCE_FILES = (
     "Assets/Scripts/Editor/SourceEnvironmentChecks.cs",
 )
 DEFAULT_SNAPSHOT = "tools/environments/preview_sources.json"
+HISTORICAL_SNAPSHOT = {
+    "path": "tools/environments/preview_sources.v1.json",
+    "sha256": "10c5e26afc096653dc74c45bee8afbf32b7b92151b3219fc83b674d86ab3640d",
+}
 
 
 def load_source_snapshot(project, source_hashes=None):
@@ -64,8 +70,13 @@ def load_source_snapshot(project, source_hashes=None):
     required = {relative for source in SOURCE_FILES for relative in (source, source + ".meta")}
     env.require(required.issubset(hashes), "Preview snapshot must pin all six copied C# sources and their metas.")
     if source_hashes is None:
-        env.require(snapshot.get("schema") == "source-world-preview-inputs/v1" and set(hashes) == required,
+        env.require(snapshot.get("schema") in ("source-world-preview-inputs/v1", "source-world-preview-inputs/v2")
+                    and set(hashes) == required,
                     "Default preview snapshot must contain exactly the six copied sources and their metas.")
+        if snapshot["schema"] == "source-world-preview-inputs/v2":
+            env.require(snapshot.get("generation") == "original-completion-authorized-assets/v2" and
+                        snapshot.get("supersedes") == HISTORICAL_SNAPSHOT,
+                        "Current preview generation requires its historical snapshot identity.")
     return snapshot_bytes, snapshot, hashes
 
 
@@ -93,6 +104,8 @@ def create_preview_project(project, source_hashes=None):
                          for source in SOURCE_FILES for path in (source, source + ".meta")],
         "sourceSnapshotSha256": env.digest(snapshot_bytes),
         "sourceSnapshotProfile": "public-frozen-default" if source_hashes is None else "explicit-custom",
+        "sourceSnapshotSchema": snapshot.get("schema"),
+        "sourceSnapshotGeneration": snapshot.get("generation"),
         "frozenDependencyCheckpoint": snapshot["frozenDependencyCheckpoint"],
         "copiedHotGameplayOrAnimationFiles": False,
         "editorStarted": False, "mainProjectChanged": False,

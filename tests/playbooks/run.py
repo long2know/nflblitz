@@ -135,7 +135,9 @@ def main(argv=None):
     evidence = {
         "schema": "source-playbook-regressions/v1", "status": "failed", "commands": [], "mutations": [],
         "source_root": str(source_root), "source_pins": PINS,
-        "profile": "Actual complete ten Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
+        "profile": "Actual complete seventeen Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
+        "source_generation": "complete-original-p1-current/v1",
+        "historical_source_identity_requalified": False,
         "boundary": PINS["boundary"], "full_gameplay_parity_claimed": False,
         "unity_editor_native_build_browser_or_hosting_executed": False,
         "production_hashes_unchanged": False, "original_input_hashes_unchanged": False,
@@ -217,7 +219,7 @@ def main(argv=None):
         copy_sources(source, contents)
         code, stdout, stderr = execute("runner-unit-tests", [sys.executable, "-B", "-m", "unittest", "discover",
                                                            "-s", str(SUITE), "-p", "test_*.py", "-v"])
-        require_unit_tests(code, stdout + stderr, 14)
+        require_unit_tests(code, stdout + stderr, 15)
         code, stdout, stderr = execute("producer-unit-tests", [sys.executable, "-B", "-m", "unittest", "discover",
             "-s", str(source / "tools/playbooks"), "-p", "test_*.py", "-v"])
         require_unit_tests(code, stdout + stderr, 11)

@@ -1,0 +1,31 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../.squad/.scratch/original-records-20261030/build/$(SourceRecordsBuildFlavor)pure/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../.squad/.scratch/original-records-20261030/build/$(SourceRecordsBuildFlavor)pure/bin/</BaseOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <BlitzSourceRoot>$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
+    <SourceCustomPlayCodecPath Condition="'$(SourceCustomPlayCodecPath)' == ''">$(BlitzSourceRoot)Assets/Scripts/Storage/SourceCustomPlayCodec.cs</SourceCustomPlayCodecPath>
+    <SourcePlayerRecordsPath Condition="'$(SourcePlayerRecordsPath)' == ''">$(BlitzSourceRoot)Assets/Scripts/Storage/SourcePlayerRecords.cs</SourcePlayerRecordsPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" />
+    <Compile Include="$(SourceCustomPlayCodecPath)" />
+    <Compile Include="$(SourcePlayerRecordsPath)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceClock.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchRules.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePlaybook.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceDroneAI.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceRandom.cs" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

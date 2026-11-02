@@ -14,6 +14,7 @@
   #status.ready { border-color: #68d095; }
   #status.diagnostic { border-color: #e5b356; }
   #status.failed { border-color: #ff7777; color: #ffd2d2; }
+  #start-original-audio { padding: 12px 20px; margin: 8px 0; font: inherit; cursor: pointer; }
   .stage { width: min(100%, calc((100vh - 220px) * 4 / 3)); margin: auto; }
   canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: black; outline: 1px solid #4d596b; }
   canvas:focus { outline-color: #bdcedf; }
@@ -36,6 +37,12 @@
   <span>Actual production gameplay · original source artwork · portable raster origin</span>
 </header>
 <p id="status">Loading actual production C# gameplay…</p>
+<button id="start-original-audio" type="button" hidden>START ORIGINAL GAME WITH SOUND</button>
+<div id="record-transfers" hidden>
+  <button id="records-export" type="button" disabled>Export local records</button>
+  <label>Import local records <input id="records-import" type="file" accept=".json,application/json" disabled></label>
+  <span id="records-transfer-status" role="status"></span>
+</div>
 <div class="stage">
 <canvas id="game" width="1280" height="800" tabindex="0"></canvas>
 </div>
@@ -48,6 +55,8 @@
 </p>
 <p class="qualification" id="feature-status">Audio output unqualified · Fire/meters disabled unless explicitly selected · Explicit Portable corrections;
 native Unity build and arcade bit-exact acceptance remain open.</p>
+<p class="qualification" id="audio-qualification">Historical profiles retain recording-only audio. The explicit complete-original303 package
+has its own authenticated original banks and public user-gesture audio start; it is not an alias for the old563/885c packages.</p>
 <details><summary>Runtime, policy and qualification limits</summary>
 <pre id="runtime-details"></pre>
 <p>This license-independent preview runs C# on .NET WebAssembly, not Unity. Original authored TGA/HUD raster,

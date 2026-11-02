@@ -8,11 +8,25 @@ SUITE = Path(__file__).resolve().parent
 ROOT = SUITE.parents[1]
 ARTIFACTS = SUITE / ".artifacts"
 PINS = json.loads((SUITE / "pins.json").read_text(encoding="utf-8"))
-CONTRACTS = (
+HISTORICAL_CONTRACTS_14 = (
     "GameplayContracts.cs", "SourceAnimationContracts.cs", "SourceCameraContracts.cs", "SourceConfigurationContracts.cs",
     "SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceInputContracts.cs",
-    "SourceKickMeterContracts.cs", "SourceMatchContracts.cs", "SourcePresentationContracts.cs",
+    "SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
+    "SourceKickMeterContracts.cs", "SourceKickoffInstructionChildContracts.cs", "SourceMatchContracts.cs",
+    "SourcePortableProcessContracts.cs", "SourcePresentationContracts.cs",
 )
+HISTORICAL_CONTRACTS_13 = tuple(
+    name for name in HISTORICAL_CONTRACTS_14 if name != "SourceKickoffInstructionChildContracts.cs")
+CURRENT_CONTRACT_ADDITIONS = (
+    "SourcePlaySelectionIntroductionContracts.cs", "SourcePreGameSoundContracts.cs", "SourceSavedRecordContracts.cs",
+)
+CONTRACTS = HISTORICAL_CONTRACTS_14 + CURRENT_CONTRACT_ADDITIONS
+SOURCE_GENERATION = "complete-original-p1-current/v1"
+CURRENT_PRODUCTION_SHA256 = {
+    "Assets/Scripts/Gameplay/SourcePlaybook.cs": "8b91191c6e56563bff8696755bc4f5bedcc6acc6167fcb0e0d9df0c3d79b39fc",
+    "Assets/Scripts/Gameplay/SourceDroneAI.cs": "cce5dc35460d5ec2cb77d7a0ab5d322fcb7816a60f28d41dc739ecbea70fbc07",
+    "Assets/Scripts/Gameplay/SourceRandom.cs": "fb1b5a6690357933f69a30d842620d1aed9f091537444bc807dc3dee2993d1ce",
+}
 GAMEPLAY = (
     "SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs",
     "SourcePlaybook.cs", "SourceDroneAI.cs", "SourceRandom.cs",
@@ -64,15 +78,18 @@ def require_recipe(recipe):
         raise GateError("Producer recipe input pins differ from regression pins.")
 
 
-def source_paths(root=ROOT):
+def source_paths(root=ROOT, source_generation=SOURCE_GENERATION):
     root = Path(root)
+    if source_generation not in (SOURCE_GENERATION, "historical-p1/v1"):
+        raise GateError("Select an explicit known P1 source generation.")
+    contracts = CONTRACTS if source_generation == SOURCE_GENERATION else HISTORICAL_CONTRACTS_13
     actual_contracts = {path.relative_to(root / "Assets/Scripts/Contracts").as_posix()
                         for path in (root / "Assets/Scripts/Contracts").rglob("*.cs")}
-    if actual_contracts != set(CONTRACTS):
-        missing, unexpected = set(CONTRACTS) - actual_contracts, actual_contracts - set(CONTRACTS)
-        raise GateError("Expected the complete ten actual Contracts sources, never substitute DTOs; "
+    if actual_contracts != set(contracts):
+        missing, unexpected = set(contracts) - actual_contracts, actual_contracts - set(contracts)
+        raise GateError("Expected the complete exact named Contracts source generation, never substitute DTOs; "
                         "missing=" + str(sorted(missing)) + "; unexpected=" + str(sorted(unexpected)))
-    names = ["Assets/Scripts/Contracts/" + name for name in CONTRACTS]
+    names = ["Assets/Scripts/Contracts/" + name for name in contracts]
     names += ["Assets/Scripts/Gameplay/" + name for name in GAMEPLAY]
     names += ["tools/playbooks/" + name for name in PRODUCER]
     for name in names:
@@ -82,23 +99,24 @@ def source_paths(root=ROOT):
     return names
 
 
-def live_hashes(root=ROOT):
-    return {name: sha256((Path(root) / name).read_bytes()) for name in source_paths(root)}
+def live_hashes(root=ROOT, source_generation=SOURCE_GENERATION):
+    return {name: sha256((Path(root) / name).read_bytes()) for name in source_paths(root, source_generation)}
 
 
-def snapshot(root=ROOT):
-    contents = {name: (Path(root) / name).read_bytes() for name in source_paths(root)}
+def snapshot(root=ROOT, source_generation=SOURCE_GENERATION):
+    contents = {name: (Path(root) / name).read_bytes() for name in source_paths(root, source_generation)}
     captured = {name: sha256(data) for name, data in contents.items()}
-    if live_hashes(root) != captured:
+    if live_hashes(root, source_generation) != captured:
         raise GateError("LiveSources changed while capturing the bounded P1 snapshot.")
-    for name, expected in dict(PINS["production_sha256"], **PINS["producer_sha256"]).items():
+    production = CURRENT_PRODUCTION_SHA256 if source_generation == SOURCE_GENERATION else PINS["production_sha256"]
+    for name, expected in dict(production, **PINS["producer_sha256"]).items():
         if captured.get(name) != expected:
-            raise GateError("Frozen actual-source SHA256 guard failed: " + name)
+            raise GateError("Frozen actual-source SHA256 guard failed: " + name + "; generation=" + source_generation)
     return contents, captured
 
 
-def require_unchanged(before, root=ROOT):
-    after = live_hashes(root)
+def require_unchanged(before, root=ROOT, source_generation=SOURCE_GENERATION):
+    after = live_hashes(root, source_generation)
     if after != before:
         raise GateError("LiveSources inventory/bytes changed during the P1 regression run.")
     return after

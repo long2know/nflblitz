@@ -127,18 +127,25 @@ namespace Blitz.Runtime
         {
             RequireHealthy();
             while (pending.Count != 0 && !pending.Peek().HasOriginalAnimationCue)
+                DeliverNextNative(pending.Peek());
+        }
+
+        public void DeliverNextNative(SourceSoundVmDispatch dispatch)
+        {
+            RequireHealthy();
+            if (dispatch == null || dispatch.HasOriginalAnimationCue ||
+                pending.Count == 0 || !ReferenceEquals(pending.Peek(), dispatch))
+                throw new InvalidOperationException("Native sound must consume exactly the next drained dispatch, not skip a direct/VM boundary.");
+            RequireNativeContext(dispatch);
+            if (dispatch.Status != SourceSoundVmStatus.Resolved)
             {
-                SourceSoundVmDispatch dispatch = pending.Dequeue();
-                RequireNativeContext(dispatch);
-                if (dispatch.Status != SourceSoundVmStatus.Resolved)
-                {
-                    failure = "Native original process sound is not a resolved output: " + dispatch.Detail;
-                    FailedDispatch = dispatch;
-                    throw new InvalidOperationException(failure);
-                }
-                nativePaired.Add(dispatch);
-                DeliverResolved(dispatch);
+                failure = "Native original process sound is not a resolved output: " + dispatch.Detail;
+                FailedDispatch = dispatch;
+                throw new InvalidOperationException(failure);
             }
+            pending.Dequeue();
+            nativePaired.Add(dispatch);
+            DeliverResolved(dispatch);
         }
 
         public static int ActorIdOf(SourceSoundVmDispatch dispatch)
@@ -181,7 +188,8 @@ namespace Blitz.Runtime
             if (c2 != null && dispatch.HasOriginalAnimationCue &&
                 (!c2.HasOriginalAnimationCue || !ReferenceEquals(c2.OriginalAnimationCue, dispatch.OriginalCue) ||
                     c2.Kind != SourceC2SoundFunctionKind.TauntSpeech && c2.Kind != SourceC2SoundFunctionKind.HitFunctionExtension &&
-                    c2.Kind != SourceC2SoundFunctionKind.AttackSoundFixed))
+                    c2.Kind != SourceC2SoundFunctionKind.AttackSoundFixed &&
+                    (c2.Kind != SourceC2SoundFunctionKind.OriginalSpeech || c2.FunctionSymbol != "plyr_open_sp")))
                 throw new InvalidOperationException("C2 animation sound must retain its real cue and exact typed discriminator.");
             if (c2 != null && c2.Kind == SourceC2SoundFunctionKind.HitFunctionExtension &&
                 (!dispatch.HasOriginalAnimationCue || dispatch.OriginalCueContext.SourceLine != 7538 ||
@@ -247,6 +255,11 @@ namespace Blitz.Runtime
         private static SourceC2SoundContext RequireNativeContext(SourceSoundVmDispatch dispatch)
         {
             SourceC2SoundContext c2 = dispatch.C2Context;
+            if (c2 != null && !c2.HasOriginalAnimationCue && c2.Kind == SourceC2SoundFunctionKind.OriginalSpeech &&
+                c2.ActorId == -1 && c2.InvocationId > 0 && c2.SourcePath == "sounds.c" &&
+                (c2.FunctionSymbol == "sacked_sp_proc" && c2.SourceLine == 1407 ||
+                 c2.FunctionSymbol == "tackled2_sp_proc" && (c2.SourceLine == 1461 || c2.SourceLine == 1463)))
+                return c2;
             if (c2 == null || c2.HasOriginalAnimationCue ||
                 (c2.Kind == SourceC2SoundFunctionKind.WhistleProc ? c2.ActorId != -1 :
                     c2.Kind != SourceC2SoundFunctionKind.WhistleImmediate || c2.ActorId < 0 || c2.ActorId > 13))

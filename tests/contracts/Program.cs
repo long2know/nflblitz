@@ -41,6 +41,7 @@ internal static class Program
         {
             { "schema", "actual-source-contract-checks/v1" },
             { "status", "error" },
+            { "human_onside_contract", "source-human-onside-held-gesture/v1" },
             { "full_gameplay_parity_claimed", false }
         };
         int exit = 1;
@@ -68,6 +69,25 @@ internal static class Program
             if (rules != 122)
                 throw new InvalidOperationException("Expected the exact promoted 122 rules/flow checks.");
             result["rules_flow_assertions"] = rules;
+            if (Checks.Count != 511)
+                throw new InvalidOperationException("Expected the unchanged 511-check retained prefix.");
+            result["retained_assertions"] = Checks.Count;
+            result["human_onside_fields_per_case"] = 14;
+            result["human_onside_api_guard_assertions"] = 0;
+            start = Checks.Count;
+            try { RulesFlowChecks.RunHumanOnsideInputs(); }
+            finally
+            {
+                result["human_onside_tuple_assertions"] = Checks.Count - start;
+                result["human_onside_cases"] = RulesFlowChecks.HumanOnsideCases;
+            }
+            if (Checks.Count - start != 1232 || RulesFlowChecks.HumanOnsideCases != 88)
+                throw new InvalidOperationException("Expected exactly 88 human-onside tuples / 1232 field checks.");
+            start = Checks.Count;
+            try { RulesFlowChecks.RunHumanOnsideApiGuard(); }
+            finally { result["human_onside_api_guard_assertions"] = Checks.Count - start; }
+            if (Checks.Count - start != 1 || Checks.Count != 1744)
+                throw new InvalidOperationException("Expected one human-onside API guard / 1744 total checks.");
             result["status"] = "passed";
             exit = 0;
         }
@@ -81,6 +101,8 @@ internal static class Program
             result["exception_type"] = error.GetType().FullName;
             result["error"] = error.Message;
         }
+        if (result.ContainsKey("retained_assertions"))
+            result["human_onside_assertions"] = Checks.Count - (int)result["retained_assertions"];
         result["assertions"] = Checks.Count;
         Console.WriteLine(JsonSerializer.Serialize(result));
         return exit;

@@ -4,7 +4,8 @@ using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
-    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState, ISourceCameraState, ISourcePossessionState
+    internal sealed class GameSnapshot : ISourcePresentationState, ISourceKickMeterState, ISourceCameraState, ISourcePossessionState,
+        ISourceAudibleObservationState, ISourceLiveAnimationObservationState, ISourceCabinetFlowState
     {
         private readonly SourceKickMeterMetrics kickMeterMetrics;
         private readonly SourceKickMeterView kickMeter;
@@ -38,6 +39,7 @@ namespace Blitz.Gameplay
         public BallView Ball { get; }
         public IReadOnlyList<PlayerView> Players { get; }
         public SourceMatchView Match { get; }
+        public SourceCabinetFlowView CabinetFlow { get; }
         public SourcePresentationSettings Presentation { get; }
         public SourceCameraBoundary CameraBoundary { get; }
         public System.Collections.ObjectModel.ReadOnlyCollection<SourceProcessView> Processes { get; }
@@ -45,9 +47,22 @@ namespace Blitz.Gameplay
         public System.Collections.ObjectModel.ReadOnlyCollection<SourcePossessionMessageView> PossessionMessages { get; }
         public long CameraOutputSourceTick { get; }
         public bool CameraProcessSleeping { get; }
+        private readonly SourceAudibleRetentionView audibleRetention;
+        private readonly System.Collections.ObjectModel.ReadOnlyCollection<SourceAudibleReinitializationCheckpoint> audibleReinitializations;
+        SourceAudibleRetentionView ISourceAudibleObservationState.AudibleRetention { get { return audibleRetention; } }
+        System.Collections.ObjectModel.ReadOnlyCollection<SourceAudibleReinitializationCheckpoint>
+            ISourceAudibleObservationState.AudibleReinitializations { get { return audibleReinitializations; } }
+        private readonly System.Collections.ObjectModel.ReadOnlyCollection<SourceLiveAnimationWitness> liveAnimations;
+        System.Collections.ObjectModel.ReadOnlyCollection<SourceLiveAnimationWitness>
+            ISourceLiveAnimationObservationState.LiveAnimations { get { return liveAnimations; } }
 
         internal GameSnapshot(SimulationState model, int cameraProcessOrder = -1)
         {
+            if (model.SourceDefaultAudiblesEnabled)
+            {
+                audibleRetention = CaptureAudibleRetention(model);
+                audibleReinitializations = CaptureAudibleReinitializations(model);
+            }
             kickMeterMetrics = model.SourceKickMeterMetrics;
             kickMeter = model.SourceKickMeter == null ? default(SourceKickMeterView) : model.SourceKickMeter.View;
             kickLaunch = model.SourceKickLaunch;
@@ -91,6 +106,13 @@ namespace Blitz.Gameplay
                         actor.Height, role: actor.Role, modelScale: actor.ModelScale);
             }
             Players = Array.AsReadOnly(players);
+            if (model.SourceDefaultAudiblesEnabled)
+            {
+                var witnesses = new SourceLiveAnimationWitness[players.Length];
+                for (int id = 0; id < witnesses.Length; id++)
+                    witnesses[id] = CaptureLiveAnimationWitness(model.Players[id], players[id].Animation);
+                liveAnimations = Array.AsReadOnly(witnesses);
+            }
             if (model.SourceMode)
             {
                 Processes = model.SourceProcesses.Processes;
@@ -109,7 +131,69 @@ namespace Blitz.Gameplay
                     stations[i] = new SourceStationView(station, model.SourceStationPlayers[station],
                         model.SourceStationTurbo[station] / 100f);
                 }
-                Match = new SourceMatchView(model.SourceConfiguration, (SourcePlayKind)model.SourceRules.PlayType,
+                Match = new SourceMatchView(new SourcePlayActivityStatsView(
+                    model.SourceOffensivePlays[(int)TeamId.Home],
+                    model.SourceOffensivePlays[(int)TeamId.Away],
+                    model.SourcePassAttempts[(int)TeamId.Home],
+                    model.SourcePassAttempts[(int)TeamId.Away],
+                    model.SourceTackles[(int)TeamId.Home],
+                    model.SourceTackles[(int)TeamId.Away],
+                    model.SourceFumbles[(int)TeamId.Home],
+                    model.SourceFumbles[(int)TeamId.Away],
+                    model.SourceLostFumbles[(int)TeamId.Home],
+                    model.SourceLostFumbles[(int)TeamId.Away],
+                    model.SourceBobbles[(int)TeamId.Home],
+                    model.SourceBobbles[(int)TeamId.Away],
+                    model.SourceDeflections[(int)TeamId.Home],
+                    model.SourceDeflections[(int)TeamId.Away]),
+                    new SourceScoringStatsView(
+                    model.SourceSafeties[(int)TeamId.Home],
+                    model.SourceSafeties[(int)TeamId.Away],
+                    model.SourceTwoPointAttempts[(int)TeamId.Home],
+                    model.SourceTwoPointAttempts[(int)TeamId.Away],
+                    model.SourceTwoPointConversions[(int)TeamId.Home],
+                    model.SourceTwoPointConversions[(int)TeamId.Away]),
+                    new SourceTouchdownStatsView(
+                    model.SourceTouchdowns[(int)TeamId.Home],
+                    model.SourceTouchdowns[(int)TeamId.Away]),
+                    new SourceFourthDownAttemptsView(
+                    model.SourceFourthDownAttempts[(int)TeamId.Home],
+                    model.SourceFourthDownAttempts[(int)TeamId.Away]),
+                    new SourceResultProgressionStatsView(
+                    model.SourceFirstDowns[(int)TeamId.Home],
+                    model.SourceFirstDowns[(int)TeamId.Away],
+                    model.SourceFourthDownConversions[(int)TeamId.Home],
+                    model.SourceFourthDownConversions[(int)TeamId.Away]),
+                    new SourcePlaceKickStatsView(
+                    model.SourceFieldGoalAttempts[(int)TeamId.Home],
+                    model.SourceFieldGoalAttempts[(int)TeamId.Away],
+                    model.SourceFieldGoals[(int)TeamId.Home],
+                    model.SourceFieldGoals[(int)TeamId.Away]),
+                    new SourcePlayEndStatsView(
+                    model.SourceReturnYards[(int)TeamId.Home],
+                    model.SourceReturnYards[(int)TeamId.Away],
+                    model.SourceKickReturns[(int)TeamId.Home],
+                    model.SourceKickReturns[(int)TeamId.Away],
+                    model.SourceRushingYards[(int)TeamId.Home],
+                    model.SourceRushingYards[(int)TeamId.Away],
+                    model.SourceRushes[(int)TeamId.Home],
+                    model.SourceRushes[(int)TeamId.Away],
+                    model.SourceSackYards[(int)TeamId.Home],
+                    model.SourceSackYards[(int)TeamId.Away],
+                    model.SourceSacks[(int)TeamId.Home],
+                    model.SourceSacks[(int)TeamId.Away]),
+                    new SourceCompletedPassStatsView(
+                    model.SourcePassingYards[(int)TeamId.Home],
+                    model.SourcePassingYards[(int)TeamId.Away],
+                    model.SourceTotalYards[(int)TeamId.Home],
+                    model.SourceTotalYards[(int)TeamId.Away],
+                    model.SourcePassTouchdowns[(int)TeamId.Home],
+                    model.SourcePassTouchdowns[(int)TeamId.Away]),
+                    new SourcePassCompletionsView(model.SourcePassCompletions[(int)TeamId.Home],
+                    model.SourcePassCompletions[(int)TeamId.Away]),
+                    new SourceInterceptionsView(model.SourceInterceptions[(int)TeamId.Home],
+                    model.SourceInterceptions[(int)TeamId.Away]),
+                    model.SourceTimeOfPossession, model.SourceConfiguration, (SourcePlayKind)model.SourceRules.PlayType,
                     model.SourceMatchPhase, model.SourcePeriodView,
                     new SourcePossessionView(model.Possession, (TeamId)model.SourceRules.InitialOffenseSide,
                         (TeamId)model.SourceLastPossession, (TeamId)model.SourceFirstPossession,
@@ -124,8 +208,192 @@ namespace Blitz.Gameplay
                     model.SourceForwardCatcher, model.SourceDronesLose, model.SourceDronesWinning,
                     model.SourceHandicapRepetitionBonus, model.SourceCompatibility,
                     model.SourceCompatibilityRepairCount, model.SourceCompatibilityRepairs, model.SourceSelectionTimer,
-                    model.SourceRandomSelections[0], model.SourceRandomSelections[1]);
+                    model.SourceRandomSelections[0], model.SourceRandomSelections[1],
+                    CaptureAudibles(model));
+                CabinetFlow = model.SourceCabinetFlow;
             }
+        }
+
+        internal static SourceAudibleRetentionView CaptureAudibleRetention(SimulationState model)
+        {
+            return new SourceAudibleRetentionView(model.SourceStationTurbo, model.SourceStationPlayers, model.SourceKickMeter);
+        }
+
+        internal static System.Collections.ObjectModel.ReadOnlyCollection<SourceAudibleReinitializationCheckpoint>
+            CaptureAudibleReinitializations(SimulationState model)
+        {
+            return Array.AsReadOnly(model.SourceAudibleReinitializations.ToArray());
+        }
+
+        private static SourceAudibleVmLayerCheckpoint? CaptureAudibleVmLayer(SourceAnimationLayerState layer)
+        {
+            if (layer == null) return null;
+            string program = layer.ScriptSymbol;
+            if (program == null) return null;
+            return new SourceAudibleVmLayerCheckpoint(program, layer.LogicalInstructionIndex, layer.Mode,
+                layer.RawTransitionSourceSequenceName, layer.RawTransitionSourceOrdinal,
+                layer.RawTransitionCount, layer.RawTransitionTicks);
+        }
+
+        private static SourceLiveAnimationWitness CaptureLiveAnimationWitness(ActorState actor, ActorAnimationView animation)
+        {
+            SourceAnimationLayerState primary = actor.AnimationState == null ? null : actor.AnimationState.Primary;
+            SourceAnimationLayerState secondary = actor.AnimationState == null ? null : actor.AnimationState.Secondary;
+            SourceAudibleVmLayerCheckpoint? primaryVm = CaptureAudibleVmLayer(primary);
+            SourceAudibleVmLayerCheckpoint? secondaryVm = CaptureAudibleVmLayer(secondary);
+            long primaryTick = primaryVm.HasValue ? primary.SourceTick : -1;
+            long secondaryTick = secondaryVm.HasValue ? secondary.SourceTick : -1;
+            return new SourceLiveAnimationWitness(actor.Id, animation, primaryVm, secondaryVm,
+                primaryTick >= 0 ? (long?)primaryTick : null,
+                secondaryTick >= 0 ? (long?)secondaryTick : null);
+        }
+
+        internal static SourceAudibleReinitializationCheckpoint CaptureAudibleReinitialization(SimulationState model,
+            SourceAudibleReinitializationPhase phase, int side, int actorPlayerId,
+            SourceAudibleDbpsInput dbpsInput = null)
+        {
+            var actors = new SourceAudibleActorCheckpoint[14];
+            var drones = new SourceAudibleDroneView[14];
+            var witnesses = new SourceLiveAnimationWitness[14];
+            for (int i = 0; i < 14; i++)
+            {
+                ActorState actor = model.Players[i];
+                SourceRouteState drone = model.SourceDrones[i];
+                SourceFormationSlot slot = model.SourceFormationSlots[i];
+                PlayerView player = SourcePlayerView(actor, model.SourceTick);
+                SourceLiveAnimationWitness witness = CaptureLiveAnimationWitness(actor, player.Animation);
+                witnesses[i] = witness;
+                actors[i] = new SourceAudibleActorCheckpoint(player,
+                    SourcePlayerDriver.WorldPosition(actor), actor.SourceRoot,
+                    new SourceVector3(actor.SourceVelocity.X, actor.SourceVerticalVelocity, actor.SourceVelocity.Z),
+                    actor.SourceMove, actor.Facing, actor.TargetFacing, actor.SourceStick, (int)actor.SourceButtons,
+                    actor.SourceTarget, (int)actor.SourceJob, actor.SourceCelebrateTime, actor.SourceOverrideTime,
+                    (int)slot.Control, (int)slot.Mode, slot.Script, drone.Stick, drone.StickTicks,
+                    witness.PrimaryVm, witness.SecondaryVm,
+                    actor.SourceDroneFace);
+                drones[i] = new SourceAudibleDroneView(i, drone.Program.Identity, drone.WordIndex,
+                    drone.Target, (int)drone.Flags, (int)drone.Job, drone.ThinkTicks, drone.BlitzTicks,
+                    drone.PassReactTicks, drone.FakeZoneTicks, drone.CatchTicks, drone.WaitTicks,
+                    drone.BlockTicks, model.SourceNameCoordinateInvalidation[i], drone.Ended);
+            }
+            var stations = new SourceStationView[model.SourceConfiguration.Stations.Count];
+            for (int i = 0; i < stations.Length; i++)
+            {
+                int station = model.SourceConfiguration.Stations[i].StationId;
+                stations[i] = new SourceStationView(station, model.SourceStationPlayers[station],
+                    model.SourceStationTurbo[station] / 100f);
+            }
+            SourceQuarterbackPlan plan = model.SourceQuarterbackPlan;
+            var globals = new SourceAudibleGlobalView(model.SourceAnimationUniqueMasks, model.SourceBreathControl,
+                model.SourceQbEvaded, plan.DropbackUnits, plan.GainSought, plan.RollDirection,
+                plan.MotionDirection, plan.HurdlePass);
+            return new SourceAudibleReinitializationCheckpoint(model.SourceTick,
+                model.SourceProcesses.Require(GameSimulation.GameProcess).Serial,
+                model.SourceAudibleReinitializations.Count, phase, side, actorPlayerId, model.SourceRandomDraws,
+                model.SourceRandomProcess, model.SourceRandomActor, model.SourceRandomProcessOrder,
+                model.SourceRandomCallIndex, actors, drones, globals, stations, CaptureAudibleRetention(model),
+                dbpsInput == null ? null : new SourceAudibleDbpsCall(dbpsInput,
+                    CaptureAudibleDbpsState(model, model.SourceDrones[actorPlayerId], actorPlayerId)), witnesses);
+        }
+
+        private static SourceAudibleDroneView CaptureAudibleDbpsDrone(SimulationState model, SourceRouteState state, int id)
+        {
+            return new SourceAudibleDroneView(id, state.Program.Identity, state.WordIndex, state.Target,
+                (int)state.Flags, (int)state.Job, state.ThinkTicks, state.BlitzTicks, state.PassReactTicks,
+                state.FakeZoneTicks, state.CatchTicks, state.WaitTicks, state.BlockTicks,
+                model.SourceNameCoordinateInvalidation[id], state.Ended);
+        }
+
+        internal static SourceAudibleDbpsState CaptureAudibleDbpsState(SimulationState model, SourceRouteState state, int id)
+        {
+            ActorState actor = model.Players[id];
+            return new SourceAudibleDbpsState(CaptureAudibleDbpsDrone(model, state, id), state.MoveTicks,
+                new FieldVector(state.ZonePoint.X, state.ZonePoint.Z),
+                new FieldVector(state.ZoneVelocity.X, state.ZoneVelocity.Z), state.ZoneLowX, state.ZoneHighX,
+                state.ZoneLowZ, state.ZoneHighZ, state.Stick, state.OldStick, state.StickTicks, (int)state.Buttons,
+                SourceActorFlags(actor), (int)actor.SourceJob, actor.SourceTarget, actor.SourceDroneFace,
+                actor.SourceBackpedalTarget);
+        }
+
+        internal static SourceAudibleDbpsInput CaptureAudibleDbpsInput(SimulationState model,
+            SourceRouteInput input, SourceRouteState state)
+        {
+            if (input.DroneStates == null || !input.FormationSlot.HasValue)
+                throw new InvalidOperationException("An actual audible DBPS call requires its existing drone/formation inputs.");
+            var actors = new SourceAudibleDbpsActorInput[14];
+            var drones = new SourceAudibleDroneView[14];
+            for (int i = 0; i < 14; i++)
+            {
+                SourceAiActor actor = input.Frame.Actors[i];
+                actors[i] = new SourceAudibleDbpsActorInput(i,
+                    new SourceVector3(actor.Position.X, actor.Height, actor.Position.Z),
+                    new FieldVector(actor.Velocity.X, actor.Velocity.Z), (int)actor.Mode, (int)actor.Job,
+                    actor.Target, (int)actor.Flags, actor.Station, actor.RawFacing, actor.Stick);
+                drones[i] = CaptureAudibleDbpsDrone(model, input.DroneStates[i], i);
+            }
+            int carrier = input.Frame.Ball.Carrier;
+            SourceFormationSlot slot = input.FormationSlot.Value;
+            return new SourceAudibleDbpsInput(input.Frame.SourceTick, input.ActorId, input.Frame.CameraHeading,
+                input.Frame.Rules.OffenseSide, input.Frame.Rules.LineOfScrimmage, (int)input.Frame.DefensePlayFlags,
+                carrier, carrier < 0 ? (int?)null : input.Frame.Angle(input.ActorId, carrier),
+                input.Parameters.Side0Handicap, input.Parameters.Side1Handicap, input.Frame.UsesSuppliedSourceGeometry,
+                new FieldVector(slot.Offset.X, slot.Offset.Z), CaptureAudibleDbpsState(model, state, input.ActorId),
+                actors, drones);
+        }
+
+        internal static SourceAudibleView CaptureAudibles(SimulationState model)
+        {
+            SourceAudibleState a = model.SourceAudibleState;
+            if (!model.SourceDefaultAudiblesEnabled || a == null || a.OffenseSide != (int)model.Possession) return null;
+            int off = (int)model.Possession, def = 1 - off;
+            var sprites = new List<SourceAudibleSpriteView>();
+            foreach (SourceAudibleSprite s in a.Objects)
+            {
+                SourceSpriteListMembership membership = (a.NonAlpha.Contains(s) ? SourceSpriteListMembership.NonAlpha : 0)
+                    | (a.Alpha.Contains(s) ? SourceSpriteListMembership.Alpha : 0);
+                sprites.Add(new SourceAudibleSpriteView(s.Serial, s.Team, s.Id, s.Parent, "aud_menu",
+                    new SourceVector3(s.Team == TeamId.Home ? 70 : 442, 192, 1.4f), membership,
+                    membership != 0, s.Color, s.Combiner, s.Chroma));
+            }
+            var children = new List<SourceAudibleFlashView>();
+            foreach (SourceAudibleChild child in a.Children)
+                children.Add(new SourceAudibleFlashView(child.Sprite.Team,
+                    model.SourceProcesses.Contains(child.Serial) ? model.SourceProcesses.Require(child.Serial) : child.LastProcess,
+                    child.Sprite.Serial, child.Stage, child.EntryTick, child.Cycles, child.Color, child.Combiner,
+                    child.CheckTick, child.CheckExists));
+            SourcePlaySelection currentOff = off == 0 ? model.SourceHomePlay : model.SourceAwayPlay;
+            SourcePlaySelection currentDef = def == 0 ? model.SourceHomePlay : model.SourceAwayPlay;
+            SourceAudibleDroneView[] drones = null;
+            if (Array.TrueForAll(model.SourceDrones, state => state.Program != null))
+            {
+                drones = new SourceAudibleDroneView[model.SourceDrones.Length];
+                for (int i = 0; i < drones.Length; i++)
+                {
+                    SourceRouteState state = model.SourceDrones[i];
+                    drones[i] = new SourceAudibleDroneView(i, state.Program.Identity, state.WordIndex,
+                        state.Target, (int)state.Flags, (int)state.Job, state.ThinkTicks, state.BlitzTicks,
+                        state.PassReactTicks, state.FakeZoneTicks, state.CatchTicks, state.WaitTicks,
+                        state.BlockTicks, model.SourceNameCoordinateInvalidation[i], state.Ended);
+                }
+            }
+            SourceQuarterbackPlan plan = model.SourceQuarterbackPlan;
+            var globals = new SourceAudibleGlobalView(model.SourceAnimationUniqueMasks, model.SourceBreathControl,
+                model.SourceQbEvaded, plan.DropbackUnits, plan.GainSought, plan.RollDirection,
+                plan.MotionDirection, plan.HurdlePass);
+            var actorButtons = new int[model.Players.Length];
+            for (int i = 0; i < actorButtons.Length; i++) actorButtons[i] = (int)model.Players[i].SourceButtons;
+            return new SourceAudibleView(model.SourceTick,
+                new SourceAudibleTeamView(TeamId.Home, a.Timers[0], a.Actions[0], a.Shown[0],
+                    a.Backgrounds[0] == null ? (long?)null : a.Backgrounds[0].Serial),
+                new SourceAudibleTeamView(TeamId.Away, a.Timers[1], a.Actions[1], a.Shown[1],
+                    a.Backgrounds[1] == null ? (long?)null : a.Backgrounds[1].Serial),
+                new SourceAudibleRoleView(SourceAudibleRole.Offense, (TeamId)off, a.Callers[off],
+                    a.Choices[0], a.Pending[0], a.OriginalSelections[off], currentOff),
+                new SourceAudibleRoleView(SourceAudibleRole.Defense, (TeamId)def, a.Callers[def],
+                    a.Choices[1], a.Pending[1], a.OriginalSelections[def], currentDef),
+                a.OriginalFlip, model.SourceOffenseFlipped, model.SourceProcesses.Require(GameSimulation.GameProcess),
+                a.RestartStage, Array.FindAll(model.SourceDigitalScans, scan => scan.IsSpecified && scan.SourceTick == model.SourceTick),
+                sprites, children, a.Calls, drones, globals, actorButtons);
         }
 
         internal static int RawCameraGameMode(SimulationState model)

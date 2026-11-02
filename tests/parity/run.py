@@ -39,9 +39,13 @@ def stable_production_snapshot():
 def require_full_kernel(summary, animation_sha):
     if (not isinstance(summary, dict) or summary.get("status") != "passed"
             or summary.get("full_kernel_host_adapter_exercised") is not True
-            or summary.get("contract_assertions") != 332
+            or summary.get("contract_assertions") != 332 + 143 + 352
+            or summary.get("retained_contract_assertions") != 332
+            or summary.get("portable_library_contract_assertions") != 143
+            or summary.get("source_pose_contract_assertions") != 352
             or summary.get("real_animation_library_sha256") != animation_sha):
-        raise RuntimeError("Actual full-kernel332 adapter checks and explicit animation identity are required.")
+        raise RuntimeError("Actual full-kernel retained332/portable143/source-pose352 checks and explicit animation identity are required: "
+                           + json.dumps(summary, sort_keys=True))
 
 
 def main():

@@ -35,7 +35,7 @@ class KickRunnerContracts(unittest.TestCase):
 
     def test_real_compile_closure_includes_existing_cabinet_and_HUD_consumers(self):
         paths = {str(p.relative_to(RUNNER.ROOT)) for p in RUNNER.production_paths()}
-        self.assertEqual(len(paths), 78)
+        self.assertEqual(len(paths), 103)
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.Possession.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs", paths)
         self.assertIn("Assets/Scripts/Contracts/SourceKickMeterContracts.cs", paths)
@@ -47,7 +47,10 @@ class KickRunnerContracts(unittest.TestCase):
         self.assertIn("Assets/Scripts/AssetImport/SourceFreeBallData.cs", paths)
         self.assertIn("Assets/Scripts/AssetImport/SourceNormalCameraData.cs", paths)
         self.assertIn("Assets/Scripts/Contracts/SourceCameraContracts.cs", paths)
-        self.assertEqual(len(RUNNER.EXTRA_PURE), 5)
+        self.assertIn("Assets/Scripts/Storage/SourcePlayerRecords.cs", paths)
+        self.assertIn("Assets/Scripts/Storage/SourceCustomPlayCodec.cs", paths)
+        self.assertIn("Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs", paths)
+        self.assertEqual(len(RUNNER.EXTRA_PURE), 8)
         for name in RUNNER.EXTRA_PURE:
             self.assertTrue((RUNNER.ROOT / name).is_file(), name)
 
@@ -85,8 +88,11 @@ class KickRunnerContracts(unittest.TestCase):
 
         common = ("animations,pivots,playbook,Configuration(),teams.Rosters,PresentationSettings,"
                   "MovementData,MovementSettings,SoundVmData")
-        m1 = common + ",bootstrap,compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics)"
+        m1_arguments = common + ",bootstrap,compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics"
+        m1 = m1_arguments + ")"
         expected = [
+            "SourceC2Composition.CreateDefaultAudiblesSimulation(" + m1_arguments +
+            ",defaultAudibles:DefaultAudibles,impactLibrary:SourcePlayerProvider.ResolveRequiredCinematicLibrary(prefab))",
             "SourceC2Composition.CreatePreSnapSwitchSimulation(" + m1,
             "SourceC2Composition.CreateM1Simulation(" + m1,
             "SourceC2Composition.CreateSimulation(" + common + ",bootstrap,kickMeterMetrics:kickMetrics)",
@@ -96,10 +102,13 @@ class KickRunnerContracts(unittest.TestCase):
                          "SourceInterfaceServices.CreateSimulation must forward typed kick metrics through every actual factory.")
         self.assertIn("if(Profile.UsesC2Data){SourceC2Bootstrapbootstrap="
                       "SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);", create)
-        for profile, call in zip(("IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"), expected):
+        self.assertIn("if(Profile.IsContact282C2M1DefaultAudibles){"
+                      "originalHud.Data.BindDefaultAudiblePresentation(teams.Rosters,MovementBootstrap);return" +
+                      expected[0] + ";}", create)
+        for profile, call in zip(("IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"), expected[1:3]):
             with self.subTest(profile=profile):
                 self.assertIn("if(Profile." + profile + ")return" + call + ";", create)
-        self.assertTrue(create.endswith("return" + expected[2] + ";}return" + expected[3] + ";"),
+        self.assertTrue(create.endswith("return" + expected[3] + ";}return" + expected[4] + ";"),
                         "Old C2 and C1 routes must retain their own typed-provider forwarding.")
 
         c2 = (RUNNER.ROOT / "Assets/Scripts/Runtime/SourceC2Composition.cs").read_text()
@@ -117,7 +126,7 @@ class KickRunnerContracts(unittest.TestCase):
         checked = METHODS.compact(METHODS.method(c2, "CreateChecked"))
         self.assertIn("vargame=newGameSimulation(animations,geometry,playbook,configuration,randomFactory,seed,"
                       "rosters,presentation,movementData,movementSettings,c2Bootstrap,handicapSettings,compatibility,"
-                      "fireEffects,kickMeterMetrics);", checked)
+                      "fireEffects,kickMeterMetrics,defaultAudibles:defaultAudibles);", checked)
         contact = METHODS.compact(METHODS.method(
             (RUNNER.ROOT / "Assets/Scripts/Runtime/SourceContactComposition.cs").read_text(), "CreateSimulation"))
         self.assertIn("vargame=newGameSimulation(animations,geometry,playbook,configuration,randomFactory,seed,"

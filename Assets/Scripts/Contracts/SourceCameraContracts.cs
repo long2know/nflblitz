@@ -136,26 +136,6 @@ namespace Blitz.Contracts
         void SleepCamera(int sourceTicks);
     }
 
-    public readonly struct SourceProcessView
-    {
-        public long Serial { get; }
-        public int Id { get; }
-        public string Function { get; }
-        public int RunLevel { get; }
-        public long BirthTick { get; }
-        public ushort SleepWord { get; }
-        public long LastWakeTick { get; }
-        public bool Suspended { get { return (SleepWord & 0x8000) != 0; } }
-        public int SleepRemaining { get { return SleepWord & 0x7fff; } }
-        public SourceProcessView(long serial, int id, string function, int runLevel, long birthTick, ushort sleepWord,
-            long lastWakeTick = -1)
-        {
-            Serial = serial; Id = id; Function = function; RunLevel = runLevel;
-            BirthTick = birthTick; SleepWord = sleepWord;
-            LastWakeTick = lastWakeTick;
-        }
-    }
-
     public readonly struct SourceCameraFeedback
     {
         public long SourceTick { get; }

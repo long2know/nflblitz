@@ -81,6 +81,7 @@ namespace Blitz.Runtime
         public const string C2ResourceKey = SourceInterfacePackagePlan.C2ServicesResourceKey;
         public const string C2M1ResourceKey = SourceInterfacePackagePlan.C2M1ServicesResourceKey;
         public const string PreSnapSwitchResourceKey = SourceInterfacePackagePlan.PreSnapSwitchServicesResourceKey;
+        public const string DefaultAudiblesResourceKey = SourceInterfacePackagePlan.DefaultAudiblesServicesResourceKey;
         public const string HistoricalSoundVmResourceKey = SourceInterfacePackagePlan.SoundVmServicesResourceKey;
         public const string SoundVmFunctionsResourceKey = "SourceData/sound-functions-safn1-4a557304";
         public const string ExpandedAnimationSha256 = "f0ae9395e57ae8327b7b55493dd6c457102adb4a13ecbb581e3551d400a3800e";
@@ -121,12 +122,14 @@ namespace Blitz.Runtime
         private SourceMovementSettings movementSettings;
         private SourceAudioFunctionData soundVmData;
         private SourceC2CallbackData c2Data;
+        private SourceDefaultAudibleData defaultAudibles;
 
         public SourceTeamResourceProfile Profile
         { get { return resourceProfile == null ? SourceTeamResourceProfile.Movement157 : SourceTeamResourceProfile.FromStableId(resourceProfile); } }
         public static string ResourceKeyFor(SourceTeamResourceProfile profile)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
+            if (profile.IsContact282C2M1DefaultAudibles) return DefaultAudiblesResourceKey;
             if (profile.IsContact282C2M1PreSnapSwitch) return PreSnapSwitchResourceKey;
             if (profile.IsContact281C2M1) return C2M1ResourceKey;
             if (profile.IsContact281C2) return C2ResourceKey;
@@ -140,7 +143,7 @@ namespace Blitz.Runtime
                 if (!Profile.UsesC2Data) throw new SourceInterfaceException("Historical services have no implicit C2 bank-entry bootstrap.");
                 if (c2Data == null)
                 {
-                    string callbackKey = Profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.PreSnapSwitchCallbackResourceKey :
+                    string callbackKey = Profile.UsesPreSnapSwitchPayload ? SourceInterfacePackagePlan.PreSnapSwitchCallbackResourceKey :
                         Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.C2M1CallbackResourceKey :
                         SourceInterfacePackagePlan.C2CallbackResourceKey;
                     TextAsset callbacks = Resources.Load<TextAsset>(callbackKey);
@@ -148,7 +151,7 @@ namespace Blitz.Runtime
                     if (callbacks == null || hit == null || !ReferenceEquals(callbacks, originalC2Callbacks) ||
                         !ReferenceEquals(hit, originalC2HitExtension))
                         throw new SourceInterfaceException("C2 services require the SAME canonical JSON/ONE7538 extension assets; copied/old resources are not aliases.");
-                    c2Data = Profile.IsContact282C2M1PreSnapSwitch ? SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks.bytes, hit.bytes) :
+                    c2Data = Profile.UsesPreSnapSwitchPayload ? SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks.bytes, hit.bytes) :
                         Profile.IsContact281C2M1 ? SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hit.bytes) :
                         SourceInterfacePackagePlan.ReadC2Callbacks(callbacks.bytes, hit.bytes);
                 }
@@ -159,6 +162,17 @@ namespace Blitz.Runtime
         public bool NativeGamepadsEnabled { get { return nativeGamepadsEnabled; } }
         public ISourceAnimationLibrary Animations { get { Validate(); return animations; } }
         public SourcePlaybook Playbook { get { Validate(); return playbook; } }
+        public SourceDefaultAudibleData DefaultAudibles
+        {
+            get
+            {
+                Validate();
+                if (!Profile.IsContact282C2M1DefaultAudibles)
+                    throw new SourceInterfaceException("Default audibles require their distinct explicitly selected services.");
+                if (defaultAudibles == null) defaultAudibles = originalHud.Data.CreateDefaultAudibleData(playbook);
+                return defaultAudibles;
+            }
+        }
         public SourceMovementData Movement { get { LoadMovement(); return movement; } }
         public SourceInterfaceMovementData MovementRuntime { get { LoadMovement(); return movementRuntime; } }
         public SourceInterfaceMovementBootstrap MovementBootstrap
@@ -276,6 +290,16 @@ namespace Blitz.Runtime
                 soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
         }
 
+        public void InitializeContact282C2M1DefaultAudibles(SourceAnimationLibraryAsset animationAsset, SourceHudAsset hud, TextAsset playbookText,
+            SourceMatchConfiguration configuration, SourcePresentationSettings actualPresentation, bool enableNativeGamepads,
+            TextAsset movementBootstrapText, string trustedMovementBootstrapSha256,
+            TextAsset soundVmFunctions, string trustedSoundVmSHA, TextAsset callbacks, TextAsset hitExtension)
+        {
+            InitializeProfile(SourceTeamResourceProfile.Contact282C2M1DefaultAudibles, animationAsset, hud, playbookText, configuration,
+                actualPresentation, enableNativeGamepads, movementBootstrapText, trustedMovementBootstrapSha256,
+                soundVmFunctions, trustedSoundVmSHA, callbacks, hitExtension);
+        }
+
         private void InitializeProfile(SourceTeamResourceProfile profile, SourceAnimationLibraryAsset animationAsset,
             SourceHudAsset hud, TextAsset playbookText, SourceMatchConfiguration configuration,
             SourcePresentationSettings actualPresentation, bool enableNativeGamepads, TextAsset movementBootstrapText,
@@ -297,7 +321,7 @@ namespace Blitz.Runtime
             {
                 if (callbacks == null || hitExtension == null)
                     throw new SourceInterfaceException("C2 initialization requires actual canonical callback JSON and ONE7538 extension.");
-                if (profile.IsContact282C2M1PreSnapSwitch)
+                if (profile.UsesPreSnapSwitchPayload)
                     SourceInterfacePackagePlan.ReadPreSnapSwitchCallbacks(callbacks.bytes, hitExtension.bytes);
                 else if (profile.IsContact281C2M1)
                     SourceInterfacePackagePlan.ReadC2M1Callbacks(callbacks.bytes, hitExtension.bytes);
@@ -374,6 +398,15 @@ namespace Blitz.Runtime
             {
                 SourceC2Bootstrap bootstrap = SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);
                 Debug.LogWarning("Explicit C2 original sound-bank entry consumes announcer then taunt draws BEFORE initial AI. Pre-boundary boot RNG and old golden trajectories are not claimed equivalent.");
+                if (Profile.IsContact282C2M1DefaultAudibles)
+                {
+                    originalHud.Data.BindDefaultAudiblePresentation(teams.Rosters, MovementBootstrap);
+                    return SourceC2Composition.CreateDefaultAudiblesSimulation(animations, pivots, playbook, Configuration(),
+                        teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
+                        compatibility: compatibility, fireEffects: fireEffects, kickMeterMetrics: kickMetrics,
+                        defaultAudibles: DefaultAudibles,
+                        impactLibrary: SourcePlayerProvider.ResolveRequiredCinematicLibrary(prefab));
+                }
                 if (Profile.IsContact282C2M1PreSnapSwitch)
                     return SourceC2Composition.CreatePreSnapSwitchSimulation(animations, pivots, playbook, Configuration(),
                         teams.Rosters, PresentationSettings, MovementData, MovementSettings, SoundVmData, bootstrap,
@@ -415,7 +448,10 @@ namespace Blitz.Runtime
             ISourceAnimationLibrary actual = originalAnimations.Load();
             profile.RequireLibrary(actual);
             SourcePlaybook book;
-            using (var reader = new StringReader(originalPlaybook.text)) book = SourcePlaybook.LoadConverted(reader);
+            if (profile.IsContact282C2M1DefaultAudibles)
+                book = SourceInterfaceData.ReadDefaultAudiblePlaybook(originalPlaybook.bytes);
+            else
+                using (var reader = new StringReader(originalPlaybook.text)) book = SourcePlaybook.LoadConverted(reader);
             originalHud.Load(); Configuration();
             animations = actual; playbook = book;
         }

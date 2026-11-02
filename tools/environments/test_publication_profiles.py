@@ -122,10 +122,28 @@ class PreviewGuardTests(unittest.TestCase):
         self.assertEqual(len(receipt["sourceFiles"]), 6)
         self.assertEqual(len(receipt["copiedInputs"]), 12)
         self.assertEqual(receipt["sourceSnapshotProfile"], "public-frozen-default")
+        self.assertEqual(receipt["sourceSnapshotSchema"], self.metadata["schema"])
+        self.assertEqual(receipt["sourceSnapshotGeneration"], self.metadata["generation"])
         self.assertFalse(receipt["editorStarted"])
         self.assertFalse(receipt["copiedHotGameplayOrAnimationFiles"])
         self.assertFalse((output / "Assets/Imported").exists())
         self.assertFalse((output / "Assets/Scripts/Gameplay").exists())
+
+    def test_historical_metadata_cannot_authorize_changed_current_sources(self):
+        historical = (PROJECT / preview.HISTORICAL_SNAPSHOT["path"]).read_bytes()
+        self.assertEqual(preview.HISTORICAL_SNAPSHOT["sha256"], env.digest(historical))
+        self.snapshot_path.write_bytes(historical)
+        with self.assertRaisesRegex(env.EnvironmentError,
+                                   "World source changed before isolated copy: Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs"):
+            preview.create_preview_project(self.project)
+        self.assertFalse(self.destination.exists())
+
+    def test_current_generation_requires_the_preserved_historical_identity(self):
+        self.metadata["supersedes"]["sha256"] = "0" * 64
+        self.save_metadata()
+        with self.assertRaisesRegex(env.EnvironmentError, "historical snapshot identity"):
+            preview.create_preview_project(self.project)
+        self.assertFalse(self.destination.exists())
 
     def test_missing_default_snapshot_does_not_search_ignored_session_state(self):
         self.snapshot_path.unlink()

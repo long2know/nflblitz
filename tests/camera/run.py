@@ -21,12 +21,14 @@ expected_assertions = 3568
 model = root / "Assets/Scripts/Presentation/NormalCameraModel.cs"
 selector = root / "Assets/Scripts/Presentation/SourceAudioFunctions.cs"
 c2_selector = root / "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"
+original_selector = root / "Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs"
 def production_files():
     paths = [model, root / "Assets/Scripts/Editor/NormalCameraChecks.cs",
-             root / "Assets/Scripts/Presentation/PlayCamera.cs", selector, c2_selector]
+             root / "Assets/Scripts/Presentation/PlayCamera.cs", selector, c2_selector, original_selector]
     paths += sorted((root / "Assets/Scripts/Contracts").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/Gameplay").rglob("*.cs"))
     paths += sorted((root / "Assets/Scripts/AssetImport").glob("*.cs"))
+    paths += sorted((root / "Assets/Scripts/Storage").glob("*.cs"))
     return paths
 
 def hashes():
@@ -122,6 +124,9 @@ try:
         ("missing-c2-selector", c2_selector,
          "Actual SourceC2SoundFunctions is a required pure Core VM dependency; no stub or omitted selector.",
          "focal-with-missing-real-c2-selector"),
+        ("missing-original-selector", original_selector,
+         "Actual SourceOriginalAudioFunctions is a required pure Core VM dependency; no stub or omitted selector.",
+         "focal-with-missing-real-original-selector"),
     ):
         missing_selector_root = snapshot(label, mutations[0])
         (missing_selector_root / omitted.relative_to(root)).unlink()
@@ -154,7 +159,9 @@ try:
                                  "same_root_selector_sha256": hashlib.sha256(
                                      (source_root / selector.relative_to(root)).read_bytes()).hexdigest(),
                                  "same_root_c2_selector_sha256": hashlib.sha256(
-                                     (source_root / c2_selector.relative_to(root)).read_bytes()).hexdigest()})
+                                     (source_root / c2_selector.relative_to(root)).read_bytes()).hexdigest(),
+                                 "same_root_original_selector_sha256": hashlib.sha256(
+                                     (source_root / original_selector.relative_to(root)).read_bytes()).hexdigest()})
     final_assertions = check_success(run(root, "final-baseline"))
 finally:
     shutil.rmtree(workspace)

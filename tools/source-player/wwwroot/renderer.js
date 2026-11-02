@@ -20,16 +20,31 @@ function program(gl, vertex, fragment) {
   return result;
 }
 
+export function sourceObservation(status, audioReceiver, ready, failed) {
+  const { cameraTrace, ...camera } = status?.camera ?? {};
+  return structuredClone({
+    ready, failed, state: status ? { ...status, camera } : status, audioReceiver,
+  });
+}
+
 const sceneVertex = `#version 300 es
 layout(location=0) in vec3 position;
 layout(location=1) in vec2 uv;
 uniform mat4 viewProjection;
 uniform mat4 model;
+uniform vec4 cameraDepthRow;
 out vec2 texcoord;
-void main() { texcoord=uv; gl_Position=viewProjection*model*vec4(position,1.0); }`;
+out float cameraDepth;
+void main() {
+  texcoord=uv;
+  vec4 world=model*vec4(position,1.0);
+  cameraDepth=dot(cameraDepthRow,world);
+  gl_Position=viewProjection*world;
+}`;
 const sceneFragment = `#version 300 es
 precision highp float;
 in vec2 texcoord;
+in float cameraDepth;
 uniform sampler2D atlas;
 uniform float cutoff;
 uniform bool constantAlpha;
@@ -37,6 +52,9 @@ uniform float constantAlphaValue;
 uniform bool textureTimesAlpha;
 uniform float playerFlashAdd;
 uniform vec4 identityOutput;
+uniform bool fogEnabled;
+uniform vec3 fogColor;
+uniform vec2 fogRange;
 out vec4 pixel;
 void main() {
   vec4 color=texture(atlas,texcoord);
@@ -44,6 +62,7 @@ void main() {
   if(color.a<=cutoff) discard;
   if(textureTimesAlpha) color.rgb*=color.a;
   color.rgb=clamp(color.rgb+playerFlashAdd,0.0,1.0);
+  if(fogEnabled) color.rgb=mix(color.rgb,fogColor,clamp((cameraDepth-fogRange.x)/(fogRange.y-fogRange.x),0.0,1.0));
   pixel=identityOutput.a>0.0?identityOutput:color;
 }`;
 const hudVertex = `#version 300 es
@@ -73,16 +92,57 @@ layout(location=0) in vec3 position;
 layout(location=1) in vec2 uv;
 uniform mat4 sourceProjection;
 out vec2 texcoord;
-void main() { texcoord=uv; gl_Position=sourceProjection*vec4(position,1.0); }`;
+out float cameraDepth;
+void main() { texcoord=uv; cameraDepth=position.z; gl_Position=sourceProjection*vec4(position,1.0); }`;
 export const fireFragment = `#version 300 es
 precision highp float;
 in vec2 texcoord;
+in float cameraDepth;
 uniform sampler2D atlas;
 uniform bool proofMask;
+uniform bool fogEnabled;
+uniform vec3 fogColor;
+uniform vec2 fogRange;
 out vec4 pixel;
 void main() {
   vec4 texel=texture(atlas,texcoord);
-  pixel=proofMask?vec4(texel.a):vec4(texel.rgb*texel.a,texel.a);
+  vec4 color=vec4(texel.rgb*texel.a,texel.a);
+  if(fogEnabled) color.rgb=mix(color.rgb,fogColor,clamp((cameraDepth-fogRange.x)/(fogRange.y-fogRange.x),0.0,1.0));
+  pixel=proofMask?vec4(texel.a):color;
+}`;
+
+export const shadowVertex = `#version 300 es
+layout(location=0) in vec3 raster;
+layout(location=1) in vec2 st;
+uniform mat4 sourceProjection;
+uniform vec2 rasterSize;
+uniform float normalizedDepthBias;
+out vec2 texcoord;
+out float cameraDepth;
+void main() {
+  cameraDepth=1.0/raster.z;
+  vec4 projected=sourceProjection*vec4(0.0,0.0,cameraDepth,1.0);
+  gl_Position=vec4((2.0*raster.xy/rasterSize-1.0)*cameraDepth,
+    projected.z-2.0*normalizedDepthBias*cameraDepth,cameraDepth);
+  texcoord=vec2(st.x/256.0,1.0-st.y/256.0);
+}`;
+export const shadowFragment = `#version 300 es
+precision highp float;
+in vec2 texcoord;
+in float cameraDepth;
+uniform sampler2D atlas;
+uniform float cutoff;
+uniform bool identityPass;
+uniform bool fogEnabled;
+uniform vec3 fogColor;
+uniform vec2 fogRange;
+out vec4 pixel;
+void main() {
+  vec4 texel=texture(atlas,texcoord);
+  if(texel.a<=cutoff) discard;
+  vec4 color=vec4(texel.rgb*texel.a,texel.a);
+  if(fogEnabled) color.rgb=mix(color.rgb,fogColor,clamp((cameraDepth-fogRange.x)/(fogRange.y-fogRange.x),0.0,1.0));
+  pixel=identityPass?vec4(190.0/255.0,0.0,0.0,1.0):color;
 }`;
 
 export class SourceRenderer {
@@ -99,9 +159,10 @@ export class SourceRenderer {
     this.hud = program(gl, hudVertex, hudFragment);
     this.fire = program(gl, fireVertex, fireFragment);
     this.sceneUniforms = Object.fromEntries(['viewProjection', 'model', 'atlas', 'cutoff', 'constantAlpha',
-      'constantAlphaValue', 'textureTimesAlpha', 'identityOutput', 'playerFlashAdd'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
+      'constantAlphaValue', 'textureTimesAlpha', 'identityOutput', 'playerFlashAdd',
+      'cameraDepthRow', 'fogEnabled', 'fogColor', 'fogRange'].map(name => [name, gl.getUniformLocation(this.scene, name)]));
     this.hudUniforms = Object.fromEntries(['contentSize', 'atlas', 'highlightAdd'].map(name => [name, gl.getUniformLocation(this.hud, name)]));
-    this.fireUniforms = Object.fromEntries(['sourceProjection', 'atlas', 'proofMask']
+    this.fireUniforms = Object.fromEntries(['sourceProjection', 'atlas', 'proofMask', 'fogEnabled', 'fogColor', 'fogRange']
       .map(name => [name, gl.getUniformLocation(this.fire, name)]));
     this.fireBuffer = gl.createBuffer(); this.fireVao = gl.createVertexArray();
     gl.bindVertexArray(this.fireVao); gl.bindBuffer(gl.ARRAY_BUFFER, this.fireBuffer);
@@ -231,6 +292,11 @@ export class SourceRenderer {
 
   effects(projection, vertices, textures, rawFlags, flashAlpha, metadata) {
     const styles = JSON.parse(metadata), frame = styles.frame;
+    if (styles.world) {
+      SourceRenderer.prototype.worldPresentation.call(this, projection, styles.world);
+      requireValue(this.worldFx.metadata.shadows.actors.every((actor, i) => actor.rawFlags === rawFlags[i]),
+        'SOURCE_WORLD_ACTOR_FLAGS: world and existing effects must retain the same actual source actor flags.');
+    } else requireValue(!this.worldFx, 'SOURCE_WORLD_PACKET_MISSING: an enabled world composition must supply every frame.');
     requireValue(projection.length === 16 && rawFlags.length === 14 && flashAlpha.length === 14 &&
       vertices.length === textures.length * 6 * 5, 'Incomplete authoritative C# effect/actor-flash packet.');
     requireValue(styles.hudConstantColor === 0xc0000000 && styles.hudCombiner === 'DECAL_TEXTURE_ADD_CCALPHA' &&
@@ -249,6 +315,132 @@ export class SourceRenderer {
       hudHighlight: new Set(styles.hudHighlight), hudStyle: styles,
       helmets, helmetAsset: styles.helmetAsset,
     };
+  }
+
+  worldPresentation(projection, packet) {
+    const state = packet?.state, shadow = state?.shadows, fog = state?.fog;
+    const integer = value => Number.isSafeInteger(value) && value >= 0;
+    requireValue(state?.schema === 'blitz-source-world/v1' && state.enabled === true &&
+      integer(state.epoch) && integer(state.presentSequence) && state.presentSequence > 0 &&
+      integer(state.sourceTick) && (integer(state.cameraSourceTick) || state.cameraSourceTick === -1 && state.sourceTick === 0) &&
+      state.cameraSourceTick <= state.sourceTick &&
+      integer(state.sourceFramesObserved) && state.sourceFramesObserved > 0 &&
+      state.hres === 512 && [256, 384].includes(state.vres) &&
+      Number.isFinite(state.renderInterpolation01) && state.renderInterpolation01 >= 0 && state.renderInterpolation01 <= 1 &&
+      state.sourceRevision === '89f840d58d152a2a9f230cb8d0cdffbd554c8ded' &&
+      state.playerGitBlob === '5744c51f30b625b9f80b92388ab49ff0ebc5bb2c' &&
+      state.fieldGitBlob === '2821ba68986cb7e62c42cf920747c5ba9b91ea37',
+    'SOURCE_WORLD_SCHEMA: explicit v1 source frame, raster and pinned source identities required.');
+    const previous = this.worldFx?.metadata;
+    requireValue(!previous || state.presentSequence > previous.presentSequence &&
+      (state.epoch === previous.epoch && state.sourceTick >= previous.sourceTick &&
+        state.sourceFramesObserved === previous.sourceFramesObserved + Number(state.sourceTick !== previous.sourceTick) ||
+       state.epoch > previous.epoch && state.sourceFramesObserved === 1),
+    'SOURCE_WORLD_CLOCK: duplicate, reordered or stale world frame/epoch; renderer clocks never advance source state.');
+    requireValue(projection?.length === 16 && Array.from(projection).every(Number.isFinite) &&
+      state.cameraDepthRow?.length === 4 && state.cameraDepthRow.every(Number.isFinite) &&
+      state.venue?.stableId === 'source-field2-stadpie' && /^[0-9a-f]{64}$/.test(state.venue.manifest) &&
+      state.venue.field === 0 && state.venue.stadium === 0 && state.venue.homePrefix === 'BEA' &&
+      state.venue.fieldTextureTable === 'field2_textures' && state.venue.stadiumTextureTable === 'day_stadium_textures' &&
+      state.venue.alternateVenuesAdmitted === false && state.venue.teamEndZonesBound === false &&
+      this.world.length > 0 && this.world.every(draw => [0x10000, 0x48000].includes(draw.state.sourceDrawOrder)),
+    'SOURCE_WORLD_VENUE: actual camera depth row and admitted field0/stadium0/BEA required; no alternate-world fallback.');
+    requireValue(fog && typeof fog.configurationBound === 'boolean' && typeof fog.enabled === 'boolean' &&
+      ['Unbound', 'Versus', 'UserConfiguration'].includes(fog.origin) &&
+      fog.configurationBound === (fog.origin !== 'Unbound') &&
+      integer(fog.colorRgb) && fog.colorRgb <= 0xffffff &&
+      fog.onDrawOrder === 0x8000 && fog.offDrawOrder === 0x58000 &&
+      (fog.origin === 'UserConfiguration' ?
+        [null, true, false].includes(fog.sourceEnabled) && fog.enabled === (fog.sourceEnabled === true) &&
+        fog.userConfiguration?.sourceKey === 4 && integer(fog.userConfiguration.selection) &&
+        fog.userConfiguration.selection <= 4 && fog.userConfiguration.initializations === 1 &&
+        [fog.isFoggy, fog.fogMask, fog.thickFogMask].every(value => value === null || integer(value)) &&
+        (!fog.enabled || fog.isFoggy === 1) :
+       fog.configurationBound ? [fog.isFoggy, fog.fogMask, fog.thickFogMask].every(integer) :
+        fog.isFoggy === null && fog.fogMask === null && fog.thickFogMask === null && !fog.enabled) &&
+      (fog.enabled ? fog.configurationBound && fog.start === 1 && Number.isFinite(fog.end) && fog.end > 1 :
+        fog.start === 0 && fog.end === 0 && fog.colorRgb === 0),
+    'SOURCE_WORLD_FOG: source-owned enable/disable, exact range/color and explicit bound/unbound operands required.');
+    requireValue(shadow?.rasterStride === 5 && shadow.selectorStride === 4 &&
+      shadow.sourceDrawOrder === 0x20200 && shadow.inheritedCull === 'GR_CULL_NEGATIVE' &&
+      shadow.alphaSource === 'GR_ALPHASOURCE_TEXTURE_ALPHA' && shadow.alphaFunction === 'GR_CMP_GREATER' &&
+      shadow.alphaValue === 100 && shadow.colorFunction === 'GR_COLORCOMBINE_TEXTURE_TIMES_ALPHA' &&
+      shadow.textureFunction === 'GR_TEXTURECOMBINE_DECAL' && shadow.clampMode === 'GR_TEXTURECLAMP_WRAP' &&
+      shadow.filter === 'BILINEAR' && shadow.depthMode === 'GR_DEPTHBUFFER_WBUFFER' &&
+      shadow.depthFunction === 'GR_CMP_GREATER' && shadow.depthWrite === true &&
+      shadow.rgbSource === 'GR_BLEND_SRC_ALPHA' && shadow.rgbDestination === 'GR_BLEND_ONE_MINUS_SRC_ALPHA' &&
+      shadow.alphaSourceBlend === 'GR_BLEND_SRC_ALPHA' && shadow.alphaDestinationBlend === 'GR_BLEND_ONE_MINUS_SRC_ALPHA',
+    'SOURCE_WORLD_SHADOW_MATERIAL: exact source alpha100, texture-times-alpha, blend, inherited cull and requested WBUFFER state required.');
+    const names = ['psshould.wms', 'pslimb.wms', 'pstorso.wms', 'pshand.wms'];
+    const paths = ['img3d/PSSHOULD.TGA', 'img3d/PSLIMB.TGA', 'img3d/PSTORSO.TGA', 'img3d/PSHAND.TGA'];
+    const blobs = ['b05993dc691d1c6d7632c26fa37092d09ebba4d9', 'a589bfe2eb87dea0fff00421fdd81c25aad65ea4',
+      'cbe1aebd1249da69cf6136e1072c20dc532901c2', 'e6f69144c2ff170d25afcc0398c0f2d68ed2c700'];
+    requireValue(Array.isArray(shadow.textures) && shadow.textures.length === 4 &&
+      shadow.textures.every((resource, slot) => resource.slot === slot && resource.sourceName === names[slot] &&
+        resource.authoringPath === paths[slot] && resource.authoringGitBlob === blobs[slot] && typeof resource.missing === 'boolean' &&
+        (resource.missing ? resource.texture === null :
+          this.textures.has(resource.texture) &&
+          /^[0-9a-f]{64}$/.test(resource.textureSha256) &&
+          this.textures.get(resource.texture).sha256 === resource.textureSha256 &&
+          this.textures.get(resource.texture).repeat === true && this.textures.get(resource.texture).linear === true &&
+          this.textures.get(resource.texture).origin.includes(resource.authoringPath))) &&
+      shadow.materialReady === shadow.textures.every(resource => !resource.missing) &&
+      (shadow.materialReady || shadow.blocker?.startsWith('SOURCE_WORLD_SHADOW_TEXTURES_NOT_ADMITTED:')),
+    'SOURCE_WORLD_SHADOW_RESOURCES: all four exact admitted original resources or explicit named missing-art status required; no substitute.');
+    const vertices = packet.vertices, links = packet.links;
+    requireValue(Array.isArray(vertices) && Array.isArray(links) && links.length % 4 === 0 &&
+      links.length <= 14 * 10 * 4 && vertices.length === links.length / 4 * 30 &&
+      vertices.every(value => Number.isFinite(Math.fround(value))) && integer(shadow.acceptedLinks) &&
+      shadow.acceptedLinks === links.length / 4 && shadow.actors?.length === 14 &&
+      shadow.actors.every((actor, i) => actor.id === i && integer(actor.rawFlags) &&
+        actor.onScreen === Boolean(actor.rawFlags & 2) && integer(actor.acceptedLinks) && actor.acceptedLinks <= 10),
+    'SOURCE_WORLD_SHADOW_SIZE: fourteen actors, at most ten source links each, six finite raster/ST vertices and four selectors per link required.');
+    const seen = new Set(), counts = Array(14).fill(0), slots = [2, 0, 1, 3, 1, 3, 1, 1, 1, 1];
+    for (let draw = 0; draw < links.length / 4; draw++) {
+      const [actor, link, texture, bias] = links.slice(draw * 4, draw * 4 + 4), key = `${actor}/${link}`;
+      requireValue(integer(actor) && actor < 14 && integer(link) && link < 10 &&
+        texture === slots[link] && bias === 28 - 2 * link && shadow.actors[actor].onScreen && !seen.has(key),
+      'SOURCE_WORLD_SHADOW_LINK: unique on-screen actor/source linkage, material selector and source bias28..10 required.');
+      seen.add(key); counts[actor]++;
+      const v = vertices.slice(draw * 30, draw * 30 + 30);
+      requireValue([0, 1, 2].every(corner => v[corner * 5 + 2] > 0 && v[corner * 5 + 2] <= 1 &&
+        v[corner * 5] >= -state.hres && v[corner * 5] < 2 * state.hres &&
+        v[corner * 5 + 1] >= -state.vres && v[corner * 5 + 1] < 2 * state.vres) &&
+        [[255, 255], [255, 0], [0, 0], [0, 0], [0, 255], [255, 255]]
+          .every(([s, t], corner) => v[corner * 5 + 3] === s && v[corner * 5 + 4] === t) &&
+        v.slice(10, 15).every((value, i) => value === v[15 + i]) &&
+        v.slice(0, 5).every((value, i) => value === v[25 + i]),
+      'SOURCE_WORLD_SHADOW_GEOMETRY: source A/B/C trivial acceptance and ABC/CDA raster/ST triangles required.');
+    }
+    requireValue(counts.every((count, actor) => count === shadow.actors[actor].acceptedLinks),
+      'SOURCE_WORLD_SHADOW_COUNTS: each actual actor must account for its own accepted source links.');
+    const gl = this.gl;
+    if (!this.worldBuffer) {
+      this.worldBuffer = gl.createBuffer(); this.worldVao = gl.createVertexArray();
+      gl.bindVertexArray(this.worldVao); gl.bindBuffer(gl.ARRAY_BUFFER, this.worldBuffer);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
+      this.shadow = program(gl, shadowVertex, shadowFragment);
+      this.shadowUniforms = Object.fromEntries(['sourceProjection', 'rasterSize', 'normalizedDepthBias', 'atlas', 'cutoff', 'identityPass',
+        'fogEnabled', 'fogColor', 'fogRange'].map(name => [name, gl.getUniformLocation(this.shadow, name)]));
+      this.worldResourceCreations = (this.worldResourceCreations || 0) + 1;
+    }
+    const packed = Float32Array.from(vertices);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.worldBuffer); gl.bufferData(gl.ARRAY_BUFFER, packed, gl.DYNAMIC_DRAW);
+    gl.bindVertexArray(null);
+    this.worldUploads = (this.worldUploads || 0) + 1;
+    this.worldFx = { projection: Float32Array.from(projection), vertices: packed, links: Array.from(links), metadata: state };
+  }
+
+  fogUniforms(uniforms, diagnosticWithoutFog = false) {
+    const gl = this.gl, state = this.worldFx?.metadata;
+    gl.uniform1i(uniforms.fogEnabled, !diagnosticWithoutFog && state?.fog.enabled === true);
+    if (!state) return;
+    const fog = state.fog, color = fog.colorRgb;
+    gl.uniform3f(uniforms.fogColor, ((color >>> 16) & 255) / 255, ((color >>> 8) & 255) / 255, (color & 255) / 255);
+    gl.uniform2f(uniforms.fogRange, fog.start, fog.end);
+    if (Object.hasOwn(uniforms, 'cameraDepthRow'))
+      gl.uniform4fv(uniforms.cameraDepthRow, state.cameraDepthRow);
   }
 
   helmetPackets(styles) {
@@ -291,6 +483,10 @@ export class SourceRenderer {
   present(camera, joints, models, appearances, ball, hudVertices, hudColors, hudTextures, hudCounts, status) {
     const start = performance.now();
     const snapshot = JSON.parse(status);
+    requireValue(Boolean(snapshot.world) === Boolean(this.worldFx) &&
+      (!snapshot.world || snapshot.world.sourceTick === snapshot.sourceTick && snapshot.world.epoch === snapshot.epoch &&
+        JSON.stringify(snapshot.world) === JSON.stringify(this.worldFx.metadata)),
+    'SOURCE_WORLD_PRESENT: the staged GPU packet must be the same actual source frame/epoch as Present.');
     requireValue(camera.length === 16 && joints.length === 14 * 15 * 16 && models.length === 14 &&
       appearances.length === 14 && this.world.length > 0 && this.ball, 'Incomplete actual kernel/render frame.');
     const trails = snapshot.ballTrails || [];
@@ -370,9 +566,11 @@ export class SourceRenderer {
     this.drawCalls++;
   }
 
-  drawScene(identityPass, poppedHeadIdentityPass = false, observeMaterial = false) {
+  drawScene(identityPass, poppedHeadIdentityPass = false, observeMaterial = false,
+    diagnosticWithoutFog = false, diagnosticWithoutShadows = false) {
     const gl = this.gl, frame = this.current;
     gl.useProgram(this.scene);
+    SourceRenderer.prototype.fogUniforms.call(this, this.sceneUniforms, diagnosticWithoutFog);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
     // Raster X now uses the approved source geom.s negation, not a camera/cache reflection.
     gl.frontFace(gl.CW);
@@ -382,7 +580,7 @@ export class SourceRenderer {
     gl.uniformMatrix4fv(this.sceneUniforms.viewProjection, false, frame.camera);
     gl.clearColor(0, 0, 0, 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this.drawCalls = 0;
-    for (const draw of this.world) {
+    for (const draw of this.world.filter(draw => !this.worldFx || draw.state.sourceDrawOrder !== 0x48000)) {
       const state = draw.state;
       gl.depthFunc(state.depthFunction === 'GR_CMP_ALWAYS' ? gl.ALWAYS : gl.LESS);
       gl.uniform1f(this.sceneUniforms.cutoff, state.alphaFunction === 'GR_CMP_GREATER' ? state.alphaValue / 255 : -1);
@@ -398,6 +596,9 @@ export class SourceRenderer {
       else gl.disable(gl.POLYGON_OFFSET_FILL);
       this.draw(draw.mesh, draw.texture, identity, identityPass ? 0 : null);
     }
+    if (!diagnosticWithoutShadows)
+      SourceRenderer.prototype.drawShadows.call(this, identityPass, diagnosticWithoutFog);
+    gl.useProgram(this.scene);
     gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
     gl.uniform1f(this.sceneUniforms.cutoff, 1 / 255);
     gl.uniform1i(this.sceneUniforms.constantAlpha, false);
@@ -426,6 +627,7 @@ export class SourceRenderer {
       this.draw(appearance.numberMesh, appearance.numberTexture, torso, identityPass ? poppedHeadIdentityPass ? 0 : actor + 1 : null);
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
+    if (this.worldFx) SourceRenderer.prototype.drawLateWorld.call(this, identityPass);
     this.lastBallDraw = null;
     this.lastBallTrailDraws = [];
     if (frame.ball[0]) {
@@ -458,6 +660,69 @@ export class SourceRenderer {
       SourceRenderer.prototype.drawBallTrails.call(this, identityPass, poppedHeadIdentityPass, observeMaterial);
     SourceRenderer.prototype.drawLooseHelmets.call(this, identityPass, poppedHeadIdentityPass, observeMaterial);
     gl.bindVertexArray(null);
+  }
+
+  drawShadows(identityPass, diagnosticWithoutFog = false) {
+    this.lastShadowDraws = [];
+    const fx = this.worldFx;
+    if (!fx?.metadata.shadows.materialReady || !fx.links.length) return;
+    const gl = this.gl, material = fx.metadata.shadows;
+    gl.useProgram(this.shadow);
+    SourceRenderer.prototype.fogUniforms.call(this, this.shadowUniforms, diagnosticWithoutFog);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(material.depthWrite);
+    // Source raster quads are already projected; they do not have the imported mesh reflection.
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.frontFace(gl.CCW);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    if (identityPass) gl.disable(gl.BLEND);
+    else {
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(this.blend(material.rgbSource), this.blend(material.rgbDestination),
+        this.blend(material.alphaSourceBlend), this.blend(material.alphaDestinationBlend));
+    }
+    gl.uniformMatrix4fv(this.shadowUniforms.sourceProjection, false, fx.projection);
+    gl.uniform2f(this.shadowUniforms.rasterSize, fx.metadata.hres, fx.metadata.vres);
+    gl.uniform1f(this.shadowUniforms.cutoff, material.alphaValue / 255);
+    gl.uniform1i(this.shadowUniforms.identityPass, identityPass);
+    gl.activeTexture(gl.TEXTURE0); gl.uniform1i(this.shadowUniforms.atlas, 0);
+    gl.bindVertexArray(this.worldVao);
+    for (let draw = 0; draw < fx.links.length / 4; draw++) {
+      const [actor, link, texture, bias] = fx.links.slice(draw * 4, draw * 4 + 4);
+      const id = material.textures[texture].texture;
+      gl.bindTexture(gl.TEXTURE_2D, this.textures.get(id).texture);
+      gl.uniform1f(this.shadowUniforms.normalizedDepthBias, bias / 65535);
+      gl.drawArrays(gl.TRIANGLES, draw * 6, 6);
+      this.drawCalls++;
+      this.lastShadowDraws.push({ actor, link, texture: id, bias, sourceTick: fx.metadata.sourceTick,
+        frontFace: 'CCW-source-raster', depthConversion: material.depthConversion });
+    }
+    gl.bindVertexArray(null); gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.BLEND); gl.frontFace(gl.CW);
+  }
+
+  drawLateWorld(identityPass) {
+    const gl = this.gl;
+    this.lastLateWorldDraws = [];
+    gl.uniform1f(this.sceneUniforms.playerFlashAdd, 0);
+    gl.uniform1f(this.sceneUniforms.constantAlphaValue, 1);
+    for (const draw of this.world.filter(draw => draw.state.sourceDrawOrder === 0x48000)) {
+      const state = draw.state;
+      gl.depthFunc(state.depthFunction === 'GR_CMP_ALWAYS' ? gl.ALWAYS : gl.LESS);
+      gl.depthMask(state.depthMask === 'FXTRUE');
+      gl.uniform1f(this.sceneUniforms.cutoff, state.alphaFunction === 'GR_CMP_GREATER' ? state.alphaValue / 255 : -1);
+      gl.uniform1i(this.sceneUniforms.constantAlpha, state.alphaSource === 'GR_ALPHASOURCE_CC_ALPHA');
+      gl.uniform1i(this.sceneUniforms.textureTimesAlpha, state.colorFunction === 'GR_COLORCOMBINE_TEXTURE_TIMES_ALPHA');
+      if (identityPass) gl.disable(gl.BLEND);
+      else {
+        gl.enable(gl.BLEND);
+        gl.blendFuncSeparate(this.blend(state.rgbSource), this.blend(state.rgbDestination),
+          this.blend(state.alphaSourceBlend), this.blend(state.alphaDestinationBlend));
+      }
+      if (state.depthBias) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, -state.depthBias); }
+      else gl.disable(gl.POLYGON_OFFSET_FILL);
+      this.draw(draw.mesh, draw.texture, identity, identityPass ? 0 : null);
+      this.lastLateWorldDraws.push({ mesh: draw.mesh, sourceDrawOrder: state.sourceDrawOrder,
+        depthFunction: state.depthFunction, depthMask: state.depthMask });
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS); gl.depthMask(true);
   }
 
   ballUniformProof(texture) {
@@ -555,6 +820,7 @@ export class SourceRenderer {
     const fx = this.fx, gl = this.gl;
     if (!fx?.metadata.enabled || fx.textures.length === 0) return;
     gl.useProgram(this.fire); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
+    SourceRenderer.prototype.fogUniforms.call(this, this.fireUniforms);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     if (fx.metadata.cull === 0) gl.disable(gl.CULL_FACE);
     else { gl.enable(gl.CULL_FACE); gl.cullFace(fx.metadata.cull === 1 ? gl.FRONT : gl.BACK); }
@@ -644,30 +910,87 @@ export class SourceRenderer {
       gl.viewport(0, 0, width, height);
       this.drawScene(false, false, true);
       const cameraUniform = Array.from(gl.getUniform(this.scene, this.sceneUniforms.viewProjection));
+      let worldProof = null;
+      if (this.worldFx) {
+        const fx = this.worldFx, uploaded = new Float32Array(fx.vertices.length);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.worldBuffer);
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, uploaded);
+        worldProof = {
+          metadata: fx.metadata, sourceShadowDraws: this.lastShadowDraws,
+          gpuBufferBytes: gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE),
+          gpuBufferMatchesActualPacket: uploaded.every((value, i) => value === fx.vertices[i]),
+          firstActualRasterVertices: Array.from(uploaded.slice(0, 30)), firstActualLinkSelectors: fx.links.slice(0, 16),
+          gpuShadowShaderLinked: gl.getProgramParameter(this.shadow, gl.LINK_STATUS),
+          resourceCreations: this.worldResourceCreations, uploads: this.worldUploads,
+          fogEnabled: gl.getUniform(this.scene, this.sceneUniforms.fogEnabled),
+          fogColor: Array.from(gl.getUniform(this.scene, this.sceneUniforms.fogColor)),
+          fogRange: Array.from(gl.getUniform(this.scene, this.sceneUniforms.fogRange)),
+          cameraDepthRow: Array.from(gl.getUniform(this.scene, this.sceneUniforms.cameraDepthRow)),
+          lateWorldDraws: this.lastLateWorldDraws,
+          qualification: fx.metadata.shadows.materialReady ?
+            'Actual current source-linked material draws; portable depth/fog arithmetic, not native pixels.' :
+            'Actual current source-linked C# packet/GPU buffer only. Four original textures are not admitted: zero shadow material draws/pixels, no substitute. Unbound fog remains off.',
+        };
+      }
       const proofViewport = Array.from(gl.getParameter(gl.VIEWPORT));
       const ballTrailMaterialDraws = this.lastBallTrailDraws;
       const looseHelmetMaterialDraws = this.lastHelmetDraws;
       const materialPixels = new Uint8Array(width * height * 4);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, materialPixels);
+      let withoutShadows = null;
+      if (worldProof && this.worldFx.metadata.shadows.materialReady) {
+        this.drawScene(false, false, false, false, true);
+        withoutShadows = new Uint8Array(width * height * 4);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, withoutShadows);
+      }
+      if (worldProof && this.worldFx.metadata.fog.enabled) {
+        this.drawScene(false, false, false, true);
+        const withoutFog = new Uint8Array(width * height * 4);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, withoutFog);
+        let changedPixels = 0, absoluteRgbDifference = 0;
+        const samples = [];
+        for (let i = 0; i < materialPixels.length; i += 4) {
+          let difference = 0;
+          for (let channel = 0; channel < 3; channel++)
+            difference += Math.abs(materialPixels[i + channel] - withoutFog[i + channel]);
+          if (difference) {
+            changedPixels++; absoluteRgbDifference += difference;
+            if (samples.length < 5) samples.push({
+              pixel: i / 4, suppliedFog: Array.from(materialPixels.slice(i, i + 3)),
+              diagnosticWithoutFog: Array.from(withoutFog.slice(i, i + 3)),
+            });
+          }
+        }
+        worldProof.fogPixels = { changedPixels, absoluteRgbDifference, samples,
+          method: 'Actual supplied user-fog material pass versus an explicitly labelled no-fog diagnostic using the SAME current source geometry/camera/depth. Neither diagnostic replaces the gameplay screenshot or changes C# state.' };
+        this.assertHealthy('actual user-fog material GPU differential');
+      }
       this.drawScene(true);
       const ballDraw = this.lastBallDraw;
       const ballTrailDraws = this.lastBallTrailDraws;
       const looseHelmetDraws = this.lastHelmetDraws;
       const pixels = new Uint8Array(width * height * 4), actorPixels = Array(14).fill(0);
-      let ballPixels = 0, ballTrailPixels = 0, ballTrailColoredPixels = 0, ballTrailNonWhitePixels = 0;
+      let ballPixels = 0, ballTrailPixels = 0, ballTrailColoredPixels = 0, ballTrailNonWhitePixels = 0, shadowPixels = 0;
       let looseHelmetPixels = 0, looseHelmetColoredPixels = 0, looseHelmetNonWhitePixels = 0;
       const ballTrailColorBounds = { min: [255, 255, 255], max: [0, 0, 0] };
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let shadowMaterialPixels = 0;
       for (let i = 0; i < pixels.length; i += 4) {
         if (pixels[i + 1] !== 0 || pixels[i + 2] !== 0) continue;
         if (pixels[i] >= 1 && pixels[i] <= 14) actorPixels[pixels[i] - 1]++;
         if (pixels[i] === 200) ballPixels++;
+        if (pixels[i] === 190) {
+          shadowPixels++;
+          if (withoutShadows && [0, 1, 2].some(channel =>
+            materialPixels[i + channel] !== withoutShadows[i + channel])) shadowMaterialPixels++;
+        }
         if (pixels[i] === 202) {
           looseHelmetPixels++;
           if (materialPixels[i] || materialPixels[i + 1] || materialPixels[i + 2]) looseHelmetColoredPixels++;
           if (materialPixels[i] !== 255 || materialPixels[i + 1] !== 255 || materialPixels[i + 2] !== 255)
             looseHelmetNonWhitePixels++;
         }
+        if (worldProof) worldProof.shadowMaterialPixels = shadowMaterialPixels;
         if (pixels[i] === 201) {
           ballTrailPixels++;
           if (materialPixels[i] || materialPixels[i + 1] || materialPixels[i + 2]) ballTrailColoredPixels++;
@@ -724,6 +1047,7 @@ export class SourceRenderer {
         actorFlash: this.fx?.flashAlpha, actorRawFlags: this.fx?.rawFlags,
         meterHighlightPrimitives: this.fx ? Array.from(this.fx.hudHighlight) : [],
         meterCombiner: this.fx?.hudStyle.hudCombiner, meterConstantColor: this.fx?.hudStyle.hudConstantColor,
+        world: worldProof, shadowPixels,
       };
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);

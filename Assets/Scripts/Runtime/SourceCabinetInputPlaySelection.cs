@@ -9,6 +9,9 @@ namespace Blitz.Runtime
 
     public readonly struct SourceCabinetMenuEvent
     {
+        private readonly string bank;
+        public SourceProcessSoundCall Output { get; }
+        public long OutputSequence { get { return Output == null ? 0 : Output.OutputSequence; } }
         public long SourceTick { get; }
         public int StationId { get; }
         public TeamId Side { get; }
@@ -17,7 +20,8 @@ namespace Blitz.Runtime
         public int PageIndex { get; }
         public int SlotIndex { get; }
         public bool OffenseFlipped { get; }
-        public string SoundBank { get { return SoundCall.HasValue || SoundSymbol != null ? IsRandomSelection ? "cursors" : "CURSORS" : null; } }
+        public string SoundBank { get { return SoundCall.HasValue || SoundSymbol != null
+            ? bank ?? (IsRandomSelection ? "cursors" : "CURSORS") : null; } }
         public string SoundSymbol { get; }
         public int? SoundCall { get; }
         public int? SoundVolume { get { return SoundCall.HasValue ? (int?)235 : null; } }
@@ -25,10 +29,13 @@ namespace Blitz.Runtime
         public int? SoundPriority { get { return SoundCall.HasValue ? (int?)(Kind == SourceCabinetMenuEventKind.Edge ? 15 :
             Kind == SourceCabinetMenuEventKind.PageChanged ? 5 : 10) : null; } }
         internal SourceCabinetMenuEvent(long tick, int station, TeamId side, SourceCabinetMenuEventKind kind,
-            string symbol, int? call, bool random, int page, int slot, bool flipped)
+            string symbol, int? call, bool random, int page, int slot, bool flipped, SourceProcessSoundCall output = null,
+            string bank = null)
         {
             SourceTick = tick; StationId = station; Side = side; Kind = kind; SoundSymbol = symbol; SoundCall = call;
             IsRandomSelection = random; PageIndex = page; SlotIndex = slot; OffenseFlipped = flipped;
+            Output = output;
+            this.bank = bank;
         }
     }
 
@@ -36,6 +43,7 @@ namespace Blitz.Runtime
     {
         private readonly SourceInterfaceData data;
         private readonly Func<SourcePlaySelection, bool, SourceCommand> select;
+        private readonly ISourceCustomPlaySelection customPlays;
         private readonly int[] cursor = new int[2];
         private readonly int[] page = new int[2];
         private readonly int[] previousJoy = { -1, -1 };
@@ -48,15 +56,20 @@ namespace Blitz.Runtime
         private int menuSleepRemaining;
         private long lastSourceTick = -1;
         private bool inMenu;
+        private ISourceCabinetSelectionSoundProducer soundProducer;
         public bool Flipped { get; private set; }
         public TeamId LastInteractedSide { get; private set; }
         public event Action<SourceCabinetMenuEvent> EventRaised;
 
         public SourceCabinetPlaySelection(SourceInterfaceData data,
-            Func<SourcePlaySelection, bool, SourceCommand> selectionCommand = null)
+            Func<SourcePlaySelection, bool, SourceCommand> selectionCommand = null,
+            ISourceCustomPlaySelection customPlaySelection = null)
         {
             this.data = data ?? throw new ArgumentNullException(nameof(data));
             select = selectionCommand ?? SelectionCommand;
+            if (customPlaySelection != null && customPlaySelection.SourceCustomPlaySession == null)
+                throw new SourceInterfaceException("Bind explicit custom session inventory before constructing its cabinet selector.");
+            customPlays = customPlaySelection;
         }
 
         public int Cursor(TeamId side) { return cursor[(int)side]; }
@@ -73,10 +86,12 @@ namespace Blitz.Runtime
                 throw new SourceInterfaceException("Source play selection must execute once for every ordered SOURCE tick, never per render/host tick.");
             if (sourceTick != source.SourceTick)
                 throw new SourceInterfaceException("Source selection needs the current dispatched SOURCE snapshot.");
+            soundProducer = frame.SelectionSoundProducer;
             lastSourceTick = sourceTick;
             SourceMatchView match = source.Match;
             bool menu = match.Phase == SourceMatchPhase.PlaySelection || match.Phase == SourceMatchPhase.PatSelection;
             if (!menu) { inMenu = false; return frame; }
+            if (frame.PlaySelectionContinuationBlocked) return frame;
             if (!MenuConsumerAwake(state, sourceTick)) return frame;
             if (!inMenu)
             {
@@ -125,12 +140,12 @@ namespace Blitz.Runtime
                     }
                 }
                 output[i] = new SourceStationInput(input.StationId, input.StickX, input.StickZ, input.Held,
-                    input.Pressed, input.Released, command);
+                    input.Pressed, input.Released, command, input.DigitalCurrent);
             }
-            if (!randomOrder) return new SourceInputFrame(output);
+            if (!randomOrder) return new SourceInputFrame(output, frame.PhysicalSwitches);
             var ordered = new SourceStationInput[output.Length];
             for (int i = 0; i < order.Length; i++) ordered[i] = output[order[i]];
-            return new SourceInputFrame(ordered);
+            return new SourceInputFrame(ordered, frame.PhysicalSwitches);
         }
 
         private static bool MenuConsumerAwake(IGameState state, long sourceTick)
@@ -212,7 +227,7 @@ namespace Blitz.Runtime
                 switch (random.Action)
                 {
                     case SourceRandomSelectionAction.ChangePage:
-                        ChangePage(tick, side, input.StationId, offense);
+                        ChangePage(match, tick, side, input.StationId, offense);
                         break;
                     case SourceRandomSelectionAction.Flip:
                         return Flip(tick, side, input.StationId);
@@ -230,7 +245,7 @@ namespace Blitz.Runtime
                         Emit(tick, input.StationId, side, SourceCabinetMenuEventKind.RandomStarted, null, null);
                         return new SourceCommand(SourceAction.StartRandomPlaySelection);
                     }
-                    ChangePage(tick, side, input.StationId, offense);
+                    ChangePage(match, tick, side, input.StationId, offense);
                     break;
                 case SourceButtons.A:
                     if (offense)
@@ -245,10 +260,16 @@ namespace Blitz.Runtime
             return default(SourceCommand);
         }
 
-        private void ChangePage(long tick, TeamId side, int station, bool offense)
+        private void ChangePage(SourceMatchView match, long tick, TeamId side, int station, bool offense)
         {
             int index = (int)side;
-            page[index] = (page[index] + 1) % (offense ? 4 : 2);
+            int next = page[index] + 1;
+            if (offense && next == 4)
+            {
+                if (customPlays != null) CustomSession(match).InventoryFor(station);
+                if (customPlays == null || !customPlays.IsSourceCustomPageAvailable(station)) next++;
+            }
+            page[index] = next >= (offense ? 5 : 2) ? 0 : next;
             LastInteractedSide = side;
             Emit(tick, station, side, SourceCabinetMenuEventKind.PageChanged, "SWITCH_SND", 23);
         }
@@ -265,16 +286,25 @@ namespace Blitz.Runtime
             SourceMatchView match = ((ISourceMatchState)state).Match;
             int index = (int)side;
             bool offense = side == match.Possession.Offense;
-            SourceInterfacePlaySlot slot = Slot(state, side, page[index], cursor[index]);
             SourceCommand result;
-            if (offense && match.PlayKind == SourcePlayKind.ExtraPoint && page[index] == 0 && cursor[index] == 0)
+            if (offense && page[index] == 4)
+            {
+                if (customPlays == null)
+                    throw new SourceInterfaceException("Custom-play inventory/decompression is unavailable; no saved-play or timeout fallback is assumed.");
+                CustomSession(match).InventoryFor(station);
+                result = customPlays.ResolveSourceCustomPlayChoice(new SourceCustomPlayChoice(tick, side,
+                    SourcePlaybookKind.Offense, page[index], cursor[index], station, forced, Flipped));
+                if (!result.IsSpecified) return result;
+                if (result.Action != SourceAction.SelectPlay && result.Action != SourceAction.SelectPat)
+                    throw new SourceInterfaceException("Core custom choice did not return an actual source selection.");
+            }
+            else if (offense && match.PlayKind == SourcePlayKind.ExtraPoint && page[index] == 0 && cursor[index] == 0)
                 result = new SourceCommand(SourceAction.SelectPat, patChoice: SourcePatOption.FreeKick);
             else
             {
+                SourceInterfacePlaySlot slot = Slot(state, side, page[index], cursor[index]);
                 if (slot.PlaySymbol == null)
-                    throw new SourceInterfaceException(forced
-                        ? "Forced custom selection requires actual custom-play inventory/decompression and play_select_cntrl RNG fallback; no CPU/configured/random substitute is permitted."
-                        : "Original selected play requires unavailable custom-play data; no legacy play substitute is permitted.");
+                    throw new SourceInterfaceException("Original page slot remains unresolved; a null team placeholder is not custom inventory.");
                 SourcePlaybookKind kind = offense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense;
                 result = select(new SourcePlaySelection(slot.PlaySymbol, kind, cursor[index], page[index]), offense && Flipped);
                 if (!result.IsSpecified || result.Action != SourceAction.SelectPlay)
@@ -284,6 +314,14 @@ namespace Blitz.Runtime
             Emit(tick, station, side, forced ? SourceCabinetMenuEventKind.ForcedSelected : SourceCabinetMenuEventKind.Selected,
                 null, randomStarted[index] ? (int?)(side == TeamId.Home ? 63 : 64) : null);
             return result;
+        }
+
+        private SourceCustomPlaySession CustomSession(SourceMatchView match)
+        {
+            SourceCustomPlaySession session = customPlays.SourceCustomPlaySession;
+            if (session == null || !ReferenceEquals(session.Configuration, match.Configuration))
+                throw new SourceInterfaceException("Cabinet custom inventory must belong to this SAME actual match configuration.");
+            return session;
         }
 
         public SourceInterfacePlaySlot Slot(IGameState state, TeamId side, int requestedPage, int requestedSlot)
@@ -316,9 +354,28 @@ namespace Blitz.Runtime
             return result;
         }
 
+        public SourceCustomPlay CustomPlay(IGameState state, TeamId side, int requestedSlot)
+        {
+            if (requestedSlot < 0 || requestedSlot > 8) throw new ArgumentOutOfRangeException(nameof(requestedSlot));
+            if (side != TeamId.Home && side != TeamId.Away) throw new ArgumentOutOfRangeException(nameof(side));
+            var source = state as ISourceMatchState;
+            if (source == null || source.Match == null) throw new SourceInterfaceException("Custom slots require the actual source match.");
+            SourceMatchView match = source.Match;
+            if (side != match.Possession.Offense || customPlays == null) return null;
+            SourceCustomPlaySession session = CustomSession(match);
+            int station = SourceCabinetStations.Captain(match, side);
+            if (session.InventoryFor(station) == SourceCustomPlayInventoryState.Unavailable)
+                throw new SourceInterfaceException("Custom-play inventory is unavailable, not an empty slot.");
+            if (session.SavedRecords == null) return null;
+            SourceSavedCustomChoice choice = session.SavedRecords.ResolveCustom(station, requestedSlot, false);
+            if (choice.Kind == SourceSavedCustomChoiceKind.Existing) return choice.Play;
+            if (choice.Kind == SourceSavedCustomChoiceKind.Missing) return null;
+            throw new SourceInterfaceException("Custom slot observation has no actual saved record inventory.");
+        }
+
         public void Clear()
         {
-            ResetMenu(); inMenu = false; lastSourceTick = -1;
+            ResetMenu(); inMenu = false; lastSourceTick = -1; soundProducer = null;
         }
 
         public void ClearPendingInput()
@@ -340,10 +397,29 @@ namespace Blitz.Runtime
 
         private void Emit(long tick, int station, TeamId side, SourceCabinetMenuEventKind kind, string symbol, int? call)
         {
+            bool random = randomStarted[(int)side] || kind == SourceCabinetMenuEventKind.RandomArmed;
+            SourceProcessSoundCall output = null;
+            if (random && call.HasValue && soundProducer != null)
+            {
+                SourceCabinetSelectionSound sound;
+                switch (kind)
+                {
+                    case SourceCabinetMenuEventKind.Moved: sound = SourceCabinetSelectionSound.Moved; break;
+                    case SourceCabinetMenuEventKind.Edge: sound = SourceCabinetSelectionSound.Edge; break;
+                    case SourceCabinetMenuEventKind.PageChanged: sound = SourceCabinetSelectionSound.PageChanged; break;
+                    case SourceCabinetMenuEventKind.Flipped: sound = SourceCabinetSelectionSound.Flipped; break;
+                    case SourceCabinetMenuEventKind.Hidden: sound = SourceCabinetSelectionSound.Hidden; break;
+                    case SourceCabinetMenuEventKind.Selected:
+                    case SourceCabinetMenuEventKind.ForcedSelected: sound = SourceCabinetSelectionSound.Selected; break;
+                    case SourceCabinetMenuEventKind.RandomArmed: sound = SourceCabinetSelectionSound.RandomArmed; break;
+                    default: throw new SourceInterfaceException("Unknown source random-selection sound operation.");
+                }
+                output = soundProducer.SubmitSourceCabinetSelectionSound(tick, station, side, sound);
+            }
             Action<SourceCabinetMenuEvent> handler = EventRaised;
             if (handler != null) handler(new SourceCabinetMenuEvent(tick, station, side, kind, symbol, call,
-                randomStarted[(int)side] || kind == SourceCabinetMenuEventKind.RandomArmed,
-                page[(int)side], cursor[(int)side], Flipped));
+                random, page[(int)side], cursor[(int)side], Flipped, output,
+                (soundProducer as ISourceCabinetSoundBank)?.SourceCursorSoundBank));
         }
     }
 }

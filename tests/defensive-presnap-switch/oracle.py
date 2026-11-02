@@ -20,6 +20,10 @@ def sha(raw):
 
 def authenticate(root):
     pins = json.loads((HERE / "source-inputs.json").read_bytes())
+    trigs = json.loads((ROOT / "tools/playbooks/recipe.json").read_bytes())["inputs"]["trigs"]
+    if trigs["path"] != "lib/ani3d/TRIGS.H":
+        raise ValueError("The existing original quarter-sine dependency is required.")
+    pins["inputs"][trigs["path"]] = trigs["blob_sha1"]
     result = {}
     for name, expected in pins["inputs"].items():
         path = Path(root).absolute() / name
@@ -129,7 +133,8 @@ def generate(source_root, profile, output):
     names = ("MODE_DBPS","MODE_DB","MODE_UNINT","MODE_INTSTREAM","MODE_ANCHORY","MODE_ANCHORXZ",
              "MODE_SECONDARY","MODE_INTERP","MODE_PUPPET","MODE_PUPPETEER","MODE_TURNHACK","AH_COMPRESSED",
              "AA_TOEND","AA_TOGROUND","AA_VAR_FRAME","AA_VAR_COUNT","AA_PROPFRAME","RF_TURNHACK",
-             "GF_ONSIDE_KICK","GM_IN_PLAY","MAX_HIKE_TIME","GRAVITY","VOLUME2","PRIORITY_LVL1","PRIORITY_LVL2")
+             "GF_ONSIDE_KICK","GM_IN_PLAY","MAX_HIKE_TIME","GRAVITY","VOLUME2","PRIORITY_LVL1","PRIORITY_LVL2",
+             "TRUE","FALSE","PI_RAD","EPSILON","HALFPI")
     for name in names:
         definitions.append("#define " + name + " " + macro(sources,name))
     seq = "\n".join(line.split("#",1)[0] for line in sources["plyrseq.c"].decode("latin1").splitlines())
@@ -170,8 +175,14 @@ def generate(source_root, profile, output):
                          "static float "+key+"_roots[]={"+",".join(map(literal,roots))+"};",
                          "static float "+key+"_rotations[]={"+",".join(map(literal,rotations))+"};"]
     (output/"selected-poses.h").write_text("\n".join(declarations)+"\n")
+    (output/"original-trigs.h").write_bytes(sources["lib/ani3d/TRIGS.H"])
     bodies=[]
     for path,name,signature in [
+        ("lib/ani3d/pipe3D.c","isin","float isin(int t)"),
+        ("lib/ani3d/pipe3D.c","icos","float icos(int t)"),
+        ("lib/ani3d/pipe3D.c","asin_rad","float asin_rad(float x)"),
+        ("lib/ani3d/pipe3D.c","acos_rad","float acos_rad(float x)"),
+        ("lib/ani3d/pipe3D.c","sin_rad","float sin_rad(float x)"),
         ("lib/ani3d/pipe3D.c","qxq","void qxq(float *q1,float *q2,float *q)"),
         ("lib/ani3d/pipe3D.c","slerp","void slerp(float *p,float *q,float t,float *qt)"),
         ("lib/ani3d/ANIM.C","_next_frame","static void _next_frame(obj_3d *pobj,anidata *pani,int count)"),
@@ -238,6 +249,8 @@ def generate(source_root, profile, output):
                 commands=[command],executions=executions,constants=constants,compiler_diagnostics=[],
                 input_sha256={name:sha(raw) for name,raw in sources.items()},
                 extracted_bodies=[dict(path=p,function=n,body_sha256=h) for _,p,n,h in bodies],
-                boundary="Actual source bodies on host C with authoring selected poses/std math; no generated ANI ABI, native scheduler, DSP or fast-trig claim.")
+                pose_math=dict(policy="OriginalPortable",quaternion_comparison="raw-components",
+                    trigs_sha256=sha(sources["lib/ani3d/TRIGS.H"]),unit_normalization=False),
+                boundary="Actual source bodies and portable trig on host C with authoring selected poses; no generated ANI ABI, native scheduler, DSP or hardware math claim.")
     (output/"oracle.json").write_text(json.dumps(result,indent=2)+"\n")
     return result

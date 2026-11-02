@@ -9,6 +9,14 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from prepare import portable, read, require
+from prepare_default_audibles import (PROFILE as AUDIBLES_PROFILE, FEATURE_CONTRACT as AUDIBLES_FEATURE,
+                                      FACTORY as AUDIBLES_FACTORY, require_manifest as require_audibles_manifest)
+from prepare_complete_original import (PROFILE as COMPLETE_PROFILE, FEATURE_CONTRACT as COMPLETE_FEATURE,
+                                      FACTORY as COMPLETE_FACTORY, SOURCE_BANKS_PROFILE, SOURCE_BANKS_FACTORY,
+                                      RECORDS_PROFILE, RECORDS_FACTORY, RECORDS_FEATURE,
+                                      FINAL_PROFILE, FINAL_FACTORY,
+                                      PREMATCH_PROFILE, PREMATCH_FACTORY, PREMATCH_FEATURE,
+                                      require_manifest as require_complete_manifest)
 
 
 HERE = Path(__file__).resolve().parent
@@ -23,7 +31,7 @@ def sha(path):
 
 def source_inventory(root):
     sources = set()
-    for group in ("Contracts", "Gameplay", "AssetImport"):
+    for group in ("Contracts", "Gameplay", "AssetImport", "Storage"):
         sources.update((root / "Assets/Scripts" / group).glob("*.cs"))
     props = ET.parse(HERE / "ProductionSources.props").getroot()
     for item in props.iter("Compile"):
@@ -33,12 +41,16 @@ def source_inventory(root):
     records = [{"path": str(path.relative_to(root)), "sha256": sha(path), "origin": "production"}
                for path in sorted(sources)]
     for path in sorted(list((HERE / "Runtime").glob("*.cs")) + list((HERE / "wwwroot").glob("*")) +
-                       list(HERE.glob("*.props")) + list(HERE.glob("*.csproj")) + [HERE / "Browser.cs"]):
+                       list(HERE.glob("*.props")) + list(HERE.glob("*.csproj")) + list(HERE.glob("Browser*.cs"))):
         records.append({"path": str(path.relative_to(PROJECT)), "sha256": sha(path), "origin": "preview"})
     return records
 
 
 def verify_private_inputs(data, manifest):
+    if manifest.get("profile") == AUDIBLES_PROFILE:
+        require_audibles_manifest(manifest, (data / "manifest.json").read_bytes())
+    if manifest.get("profile") in (COMPLETE_PROFILE, SOURCE_BANKS_PROFILE, RECORDS_PROFILE, FINAL_PROFILE, PREMATCH_PROFILE):
+        require_complete_manifest(manifest, (data / "manifest.json").read_bytes())
     expected = {"manifest.json"}
     aliases = {"manifest.json"}
     for entry in manifest["files"]:
@@ -55,15 +67,15 @@ def verify_private_inputs(data, manifest):
             actual.add(path.relative_to(data).as_posix())
     require(actual == expected, "Private input inventory differs; unexpected=" +
             repr(sorted(actual - expected)) + ", missing=" + repr(sorted(expected - actual)))
-    if manifest["profile"] == PROFILE:
+    if manifest["profile"] in (PROFILE, AUDIBLES_PROFILE):
         require(len(manifest["files"]) == 563, "Pre-snap switch requires the exact563-file successor.")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, required=True, help="Explicit pinned private data output from prepare.py.")
-    parser.add_argument("--profile", choices=(OLD_PROFILE, PROFILE), default=PROFILE,
-                        help="New enabled default; historical M1 data requires its explicit old stable ID.")
+    parser.add_argument("--profile", choices=(OLD_PROFILE, PROFILE, AUDIBLES_PROFILE, COMPLETE_PROFILE, SOURCE_BANKS_PROFILE, RECORDS_PROFILE, FINAL_PROFILE, PREMATCH_PROFILE), default=PROFILE,
+                        help="Keep the pre-snap-switch default; default audibles require their explicit new stable ID.")
     parser.add_argument("--source-root", type=Path, default=PROJECT,
                         help="Immutable accepted production source root (BlitzSourceRoot override).")
     parser.add_argument("--source-handoff", type=Path,
@@ -128,7 +140,13 @@ def main(argv=None):
         "sources": before,
         "dataManifestSha256": sha(data / "manifest.json"),
         "profile": args.profile,
-        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation" if args.profile == PROFILE else
+        "factory": PREMATCH_FACTORY if args.profile == PREMATCH_PROFILE else
+                   FINAL_FACTORY if args.profile == FINAL_PROFILE else
+                   RECORDS_FACTORY if args.profile == RECORDS_PROFILE else
+                   SOURCE_BANKS_FACTORY if args.profile == SOURCE_BANKS_PROFILE else
+                   COMPLETE_FACTORY if args.profile == COMPLETE_PROFILE else
+                   AUDIBLES_FACTORY if args.profile == AUDIBLES_PROFILE else
+                   "SourceC2Composition.CreatePreSnapSwitchSimulation" if args.profile == PROFILE else
                    "SourceC2Composition.CreateM1Simulation",
         "acceptedSourceHandoffSha256": handoff_hash,
         "assemblies": [{"path": "_framework/" + p.name, "bytes": p.stat().st_size, "sha256": sha(p)}
@@ -137,6 +155,14 @@ def main(argv=None):
         "unsafePermission": "JSImport/JSExport generated marshalling only; no original C or unsafe memory execution",
         "nativeUnityBuild": False,
     }
+    if args.profile == AUDIBLES_PROFILE:
+        receipt["featureContract"] = AUDIBLES_FEATURE
+    elif args.profile in (COMPLETE_PROFILE, SOURCE_BANKS_PROFILE):
+        receipt["featureContract"] = COMPLETE_FEATURE
+    elif args.profile in (RECORDS_PROFILE, FINAL_PROFILE):
+        receipt["featureContract"] = RECORDS_FEATURE
+    elif args.profile == PREMATCH_PROFILE:
+        receipt["featureContract"] = PREMATCH_FEATURE
     (output / "build-info.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(json.dumps({"output": str(output), "receiptSha256": sha(output / "build-info.json"),
                       "dataManifestSha256": receipt["dataManifestSha256"], "sourceFiles": len(before)}, indent=2))

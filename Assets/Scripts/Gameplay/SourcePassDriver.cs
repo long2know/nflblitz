@@ -30,8 +30,11 @@ namespace Blitz.Gameplay
 
     internal static class SourcePassDriver
     {
-        internal static int PickReceiver(SimulationState model, ActorState quarterback, int rawStick)
+        internal static int PickReceiver(SimulationState model, ActorState quarterback, int rawStick,
+            bool portableLibraryOrder = false)
         {
+            bool usePortableLibrary = portableLibraryOrder &&
+                model.SourceCompatibility == SourceGameplayCompatibility.Portable;
             var targets = new int[3];
             var forward = new int[3];
             var rear = new int[3];
@@ -84,6 +87,15 @@ namespace Blitz.Gameplay
             var keys = new int[selectedCount];
             for (int i = 0; i < selectedCount; i++)
                 keys[i] = (int)(direction * SourcePlayerDriver.WorldPosition(model.Players[selected[i]]).Z * 10f);
+            if (usePortableLibrary)
+            {
+                // Small-array qsort moves its minimum sentinel before insertion, including tied actors.
+                int minimum = 0;
+                for (int i = 1; i < selectedCount; i++)
+                    if (keys[minimum] > keys[i]) minimum = i;
+                int key = keys[0]; keys[0] = keys[minimum]; keys[minimum] = key;
+                int id = selected[0]; selected[0] = selected[minimum]; selected[minimum] = id;
+            }
             for (int i = 1; i < selectedCount; i++)
                 for (int j = i; j > 0 && keys[j - 1] > keys[j]; j--)
                 {
@@ -91,7 +103,7 @@ namespace Blitz.Gameplay
                     int id = selected[j]; selected[j] = selected[j - 1]; selected[j - 1] = id;
                 }
             int ordinal = side == 0 ? 0 : side == 2 ? selectedCount - 1 : selectedCount > 1 ? 1 : 0;
-            for (int i = 0; i < selectedCount; i++)
+            for (int i = 0; !usePortableLibrary && i < selectedCount; i++)
                 if (keys[i] == keys[ordinal] && selected[i] != selected[ordinal])
                     throw new NotSupportedException("player.c:pick_receiver target_cmp quantized-Z tie needs "
                         + "the unverified original platform libc qsort ordering; no arbitrary actor is substituted.");

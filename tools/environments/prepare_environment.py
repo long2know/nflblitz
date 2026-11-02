@@ -358,6 +358,40 @@ def bottom_first_rgba(width, height, pixels, top_first, right_first=False):
     return b"".join(reversed(rows) if top_first else rows)
 
 
+def tga_tail(data, end, identity):
+    if end == len(data):
+        return
+    require(len(data) >= end + 26 and data[-18:] == b"TRUEVISION-XFILE.\0",
+            identity + ": truncated TGA pixels or invalid TGA v2 footer.")
+    footer = len(data) - 26
+    extension, developer = struct.unpack_from("<II", data, footer)
+    regions = []
+    if extension:
+        require(end <= extension <= footer - 2, identity + ": invalid TGA extension offset.")
+        size = struct.unpack_from("<H", data, extension)[0]
+        require(size == 495 and extension + size <= footer, identity + ": invalid TGA extension extent.")
+        regions.append((extension, extension + size))
+    if developer:
+        require(end <= developer <= footer - 2, identity + ": invalid TGA developer directory.")
+        count = struct.unpack_from("<H", data, developer)[0]
+        directory_end = developer + 2 + count * 10
+        require(0 < count <= 64 and directory_end <= footer, identity + ": invalid TGA developer count.")
+        regions.append((developer, directory_end))
+        tags = set()
+        for n in range(count):
+            tag, offset, size = struct.unpack_from("<HII", data, developer + 2 + n * 10)
+            require(tag not in tags and size > 0 and end <= offset < footer and offset + size <= footer,
+                    identity + ": invalid TGA developer payload.")
+            tags.add(tag)
+            regions.append((offset, offset + size))
+    previous = end
+    for start, stop in sorted(regions):
+        require(start >= previous and not any(data[previous:start]),
+                identity + ": overlapping/unreferenced TGA metadata.")
+        previous = stop
+    require(not any(data[previous:footer]), identity + ": unreferenced TGA trailing bytes.")
+
+
 def decode_tga(data, identity):
     require(len(data) >= 18, identity + ": truncated TGA header.")
     ident, cmap, kind, first, count, depth, x, y, width, height, bpp, desc = struct.unpack_from("<BBBHHBHHHHBB", data)
@@ -368,8 +402,8 @@ def decode_tga(data, identity):
             identity + ": unsupported TGA dimensions/attribute/interleave flags.")
     offset, size = 18 + ident, width * height * (bpp // 8)
     end = offset + size
-    require(end <= len(data) and data[end:] in (b"", b"\0" * 8 + b"TRUEVISION-XFILE.\0"),
-            identity + ": truncated TGA pixels or unsupported extension/trailing bytes.")
+    require(end <= len(data), identity + ": truncated TGA pixels.")
+    tga_tail(data, end, identity)
     rgba = bytearray()
     for pixel in range(width * height):
         p = offset + pixel * (bpp // 8)

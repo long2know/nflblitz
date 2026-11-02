@@ -125,10 +125,14 @@ class ContactInputGuards(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("profile_adapter_guard", fetch_inputs.ROOT / "tests/parity/run.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
-        row = {"status": "passed", "full_kernel_host_adapter_exercised": True, "contract_assertions": 332,
+        row = {"status": "passed", "full_kernel_host_adapter_exercised": True, "contract_assertions": 827,
+               "retained_contract_assertions": 332, "portable_library_contract_assertions": 143,
+               "source_pose_contract_assertions": 352,
                "real_animation_library_sha256": contact_inputs.ANIMATION_SHA}
         runner.require_full_kernel(row, contact_inputs.ANIMATION_SHA)
-        for field, value in (("contract_assertions", 331), ("full_kernel_host_adapter_exercised", False),
+        for field, value in (("contract_assertions", 332), ("retained_contract_assertions", 331),
+                             ("portable_library_contract_assertions", 142), ("source_pose_contract_assertions", 351),
+                             ("full_kernel_host_adapter_exercised", False),
                              ("real_animation_library_sha256", prepare_inputs.MOVEMENT_ANIMATION_SHA)):
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 runner.require_full_kernel(dict(row, **{field: value}), contact_inputs.ANIMATION_SHA)

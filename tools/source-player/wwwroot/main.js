@@ -3,6 +3,9 @@ const details = document.querySelector('#runtime-details'), start = performance.
 const loader = globalThis.sourcePlayerLoader, { fail, progress } = loader;
 let failed = false, ready = false, api, renderer, input, frameHandle, previousTime;
 let diagnostic = false, build, loadMilliseconds;
+let audio, audioDisposalInstalled = false;
+let observedHostClock;
+let copySourceObservation;
 const timings = [], sourceSamples = [];
 const files = new Map(), requests = [];
 
@@ -14,7 +17,33 @@ loader.onFailure(() => {
   cancelAnimationFrame(frameHandle);
   try { api?.SetActive(false); } catch { /* Keep the first explicit kernel/asset failure. */ }
   input?.close();
+  closeAudio();
 });
+
+function closeAudio() {
+  if (audio) void audio.close().catch(error => {
+    console.error('SOURCE_AUDIO_DISPOSE_FAILED', error);
+    fail(error);
+  });
+}
+
+Object.defineProperty(globalThis, 'sourcePlayerAudio', { value: Object.freeze({
+  async unlock(event) {
+    const { SourceAudioReceiver } = await requiredModule('./audio.js');
+    if (failed) throw new Error('The source player has already failed; no audio composition may start.');
+    audio ??= new SourceAudioReceiver({ onFailure: fail });
+    await audio.unlock(event);
+    if (!audioDisposalInstalled) {
+      window.addEventListener('pagehide', () => {
+        try { api?.Shutdown?.(); } catch (error) { fail(error); }
+        closeAudio();
+      }, { once: true });
+      audioDisposalInstalled = true;
+    }
+    return audio.snapshot();
+  },
+  snapshot: () => audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false },
+}), writable: false, configurable: false });
 
 canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); fail(new Error('Actual WebGL context lost')); });
 
@@ -71,24 +100,66 @@ async function loadData() {
   }));
   if (failed) return;
   const settings = JSON.parse(new TextDecoder().decode(files.get(manifest.entrypoints.settings)));
-  return { manifestBytes, stations: settings.stations.map(station => station.id) };
+  return { manifestBytes, profile: manifest.profile, stations: settings.stations.map(station => station.id) };
+}
+
+async function startOriginalAudio() {
+  const { SourceAudioReceiver } = await requiredModule('./audio.js');
+  audio ??= new SourceAudioReceiver({ onFailure: fail });
+  const button = document.querySelector('#start-original-audio');
+  if (!button) throw new Error('The explicit complete-original user-gesture start control is missing.');
+  button.hidden = false;
+  document.querySelector('#audio-qualification').textContent =
+    'Complete-original303: original shadow/cabinet art and executed source playlist PCM. Click Start to unlock audio; native DSP/pixels remain unqualified.';
+  progress('Original resources verified. Click START ORIGINAL GAME WITH SOUND to unlock the real AudioContext.');
+  await new Promise((resolve, reject) => {
+    let starting = false;
+    const launch = event => {
+      if (starting || failed) return;
+      starting = true; button.disabled = true;
+      audio.unlock(event).then(resolve, reject);
+    };
+    button.addEventListener('click', launch, { once: true });
+  });
+  button.hidden = true;
+  window.addEventListener('pagehide', () => {
+    try { api?.Shutdown?.(); } catch (error) { fail(error); }
+    closeAudio();
+  }, { once: true });
+  audioDisposalInstalled = true;
 }
 
 function frame(time) {
   if (failed) return;
   try {
-    const elapsed = previousTime === undefined ? 0 : (time - previousTime) / 1000;
-    previousTime = time;
+    if (audio?.unlocked && !audio.frameReady) {
+      observedHostClock?.sample(performance.now(), false);
+      previousTime = undefined;
+      frameHandle = requestAnimationFrame(frame);
+      return;
+    }
     const dimensions = renderer.resize(), before = performance.now();
     input.poll();
     if (failed) return;
-    const steps = api.Frame(elapsed, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr);
+    const observedTime = observeHostTime();
+    const elapsed = previousTime === undefined ? 0 : observedTime - previousTime;
+    previousTime = observedTime;
+    const steps = api.FrameObserved ?
+      api.FrameObserved(elapsed, observedTime, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr) :
+      api.Frame(elapsed, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr);
     if (failed) return;
     timings.push({ totalMilliseconds: performance.now() - before, webglMilliseconds: renderer.lastMilliseconds, hostSteps: steps });
     if (timings.length > 300) timings.shift();
     const state = renderer.status;
+    const recordTransfers = document.querySelector('#record-transfers');
+    if (recordTransfers) {
+      recordTransfers.hidden = state.records == null;
+      document.querySelector('#records-export').disabled = !api.CanExportRecords();
+      document.querySelector('#records-import').disabled = !api.CanImportRecords();
+    }
     const featureStatus = document.querySelector('#feature-status');
-    if (featureStatus) featureStatus.textContent = `Audio output unqualified · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
+    const audioStatus = audio?.unlocked ? `Original decoded PCM (${audio.started} voices)` : 'Audio output unqualified';
+    if (featureStatus) featureStatus.textContent = `${audioStatus} · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
       `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · ` +
       `Phead ${state.assets.poppedHead ? 'original SDL-derived, NOT native head.h' : 'input absent; required raw flag stops'} · ` +
       'Free ball original medball2/HEDSHU + Core source rotation · ' +
@@ -133,23 +204,31 @@ function frame(time) {
         `kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit)\n` +
         `Popped head ${state.assets.poppedHead ? 'original phead SDL-derived, raw4/HEDSHU1, native head.h unqualified' : 'no input; no fallback'}\n` +
         'Free ball original medball2/HEDSHU, actual source-angle matrix; native header/pixels unqualified\n' +
-        'Audio output unqualified · native Unity / arcade bit-exact acceptance open';
+        `${audioStatus} · native Unity / arcade bit-exact acceptance open`;
     }
     frameHandle = requestAnimationFrame(frame);
   } catch (error) { fail(error); }
 }
 
+function observeHostTime() {
+  return observedHostClock.sample(performance.now(), !input?.paused && !document.hidden &&
+    document.hasFocus() && (!audio?.unlocked || audio.frameReady));
+}
+
 async function startPlayer() {
   if (failed) return;
-  const [{ dotnet }, { SourceRenderer }, { SourceInput }] = await Promise.all([
+  const [{ dotnet }, { SourceRenderer, sourceObservation }, { SourceInput, ObservedHostClock }] = await Promise.all([
     requiredModule('./_framework/dotnet.js'), requiredModule('./renderer.js'), requiredModule('./input.js'),
   ]);
   if (failed) return;
+  copySourceObservation = sourceObservation;
   renderer = new SourceRenderer(canvas);
   const originalData = await loadData();
   if (failed) return;
   progress('Loading the genuine .NET10 WebAssembly runtime and C# production gameplay assembly');
   const runtime = await dotnet.withDiagnosticTracing(false).create();
+  if (failed) return;
+  runtime.setModuleImports('source-player-records', await requiredModule('./records.js'));
   if (failed) return;
   runtime.setModuleImports('source-player', {
     readFile: path => {
@@ -159,6 +238,16 @@ async function startPlayer() {
       return bytes;
     },
     progress,
+    audioReady: () => audio?.ready === true,
+    audioClockElapsed: epoch => audio?.sourceElapsed(epoch) ?? -1,
+    audioSample: (...args) => {
+      if (!audio) throw new Error('Decoded source audio was submitted before public user-gesture unlock.');
+      audio.sample(...args);
+    },
+    audioCommands: commands => {
+      if (!audio) throw new Error('Decoded source audio was submitted before public user-gesture unlock.');
+      audio.commands(commands);
+    },
     texture: (...args) => renderer.texture(...args),
     mesh: (...args) => renderer.mesh(...args),
     worldDraw: (...args) => renderer.worldDraw(...args),
@@ -173,13 +262,47 @@ async function startPlayer() {
   const exports = await runtime.getAssemblyExports(config.mainAssemblyName);
   if (failed) return;
   api = exports.Blitz.SourcePlayer.Browser;
-  if (!api?.Start || !api?.Frame || !api?.Capture) throw new Error('Actual C# browser exports are missing; JavaScript gameplay is not a fallback.');
+  if (!api?.Start || !api?.Frame || !api?.Capture || !api?.CabinetStations)
+    throw new Error('Actual C# browser exports are missing; JavaScript gameplay is not a fallback.');
   await runtime.runMain();
   if (failed) return;
-  api.Start(originalData.manifestBytes, location.href);
+  if (['original-teams-complete-original303', 'original-teams-complete-original303-source-banks',
+    'original-teams-complete-original303-records', 'original-teams-complete-original303-final',
+    'original-teams-complete-original303-prematch'].includes(originalData.profile)) {
+    if (!api.StartCompleteOriginal) throw new Error('The actual complete-original C# data factory/audio entry is missing.');
+    await startOriginalAudio();
+    if (failed) return;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (failed) return;
+    await api.StartCompleteOriginal(originalData.manifestBytes, location.href);
+  } else api.Start(originalData.manifestBytes, location.href);
   if (failed) return;
   if (files.size !== 0) throw new Error(`The real source loaders left ${files.size} unconsumed private input files.`);
-  input = new SourceInput(api, canvas, originalData.stations, fail, () => { previousTime = undefined; });
+  const transferStatus = document.querySelector('#records-transfer-status');
+  document.querySelector('#records-export')?.addEventListener('click', async () => {
+    try {
+      if (!api.CanExportRecords()) return;
+      const envelope = await api.ExportRecords();
+      const blob = new Blob([envelope], { type: 'application/json' }), url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'nflblitz-local-records.json'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      transferStatus.textContent = 'Local record export requested.';
+    } catch { transferStatus.textContent = 'Record export failed; stored data was not replaced.'; }
+  });
+  document.querySelector('#records-import')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !api.CanImportRecords()) return;
+    try {
+      if (file.size > 32 * 1024 * 1024) throw new Error('Bounded local record file required.');
+      api.ImportRecords(await file.text());
+      transferStatus.textContent = 'Import staged; confirm through the current cabinet screen.';
+    } catch { transferStatus.textContent = 'Record import failed; stored data was not replaced.'; }
+  });
+  observedHostClock = new ObservedHostClock();
+  input = new SourceInput(api, canvas, Array.from(api.CabinetStations()), fail,
+    () => { previousTime = undefined; }, observeHostTime);
   canvas.focus();
   if (failed) return;
   input.focus();
@@ -198,8 +321,14 @@ function summary(values) {
 }
 
 Object.defineProperty(globalThis, 'sourcePlayer', { value: Object.freeze({
+  observe: () => {
+    const sound = audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false };
+    return copySourceObservation ? copySourceObservation(renderer?.status, sound, ready, failed) :
+      structuredClone({ ready, failed, state: renderer?.status, audioReceiver: sound });
+  },
   snapshot: () => structuredClone({
     ready, failed, build, state: renderer?.status, device: renderer?.device,
+    audioReceiver: audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false },
     timings: { loadMilliseconds, frames: summary(timings.map(t => t.totalMilliseconds)),
       webgl: summary(timings.map(t => t.webglMilliseconds)), sourceSamples },
     resources: requests,

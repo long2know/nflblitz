@@ -1,5 +1,55 @@
 # Source parity and port evidence
 
+## Portable library behaviors — November 1, 2026
+
+The complete-original303 `Portable` runtime now separates the 31-word additive `random()`
+stream from the independent 64-bit `rand()` state. Zero-bound `randrng` consumes
+neither stream; negative bounds retain the source remainder semantics. The
+pregame owner transfers both streams through VS and rematches without reseeding.
+The historical strict-source preview, older Portable profiles and explicitly
+injected raw tapes remain separate and unchanged.
+
+Portable receiver selection completes equal-quantized-Z cases with the
+small-array minimum-sentinel/insertion ordering instead of throwing. The
+strict-source native-order guard remains. Regressions cover both teams,
+all-equal keys and ties moved by the minimum sentinel.
+
+The additional portable behavioral assertions pass alongside the existing original-C
+matrix. A real named-record four-quarter managed match also completed through
+career/world commit, custom-play reload and rematch using public input only.
+These runtime algorithms remain tagged `ExternalUnverified`: comparisons with
+the published recovered C algorithms establish the portable implementation,
+not independent execution of the original linked arcade library.
+
+## Current near-frame input compatibility — October 23, 2026
+
+The intended current-frame/root near-frame sampling is retained. Older
+state-dependent public menus are not native expected outputs and are not
+rewritten to disguise incompatibility. New explicit Core
+`source-selection-countdown/v4` and defensive
+`source-defensive-presnap-switch/v5` recordings use that same unchanged
+78-source production generation, manifest
+`bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2`.
+Exactly one unchanged seed1, unfiltered-provider/controller authoring per
+profile completed all 12,000 hosts / 11,400 source wakes.
+
+Both full normal qualifications passed all three complete positive replay
+jobs, observer/final byte equality, three cache/eight caller named compiled
+controls, controlled baseline/final and 664 actual post-VM inputs / 5,312
+independent unchanged original-C assertions per profile. Current old-v3 and
+old-v4 negative inputs actually fail their named playbook-side guard at
+zero-based hosts 2878 and 11868 respectively. These are additional current
+compatibility boundaries, not replacements for or reruns of the five immutable
+historical positive/stale boundaries described below.
+
+The [current input identities, operation counts, preparation and qualification
+limits](../tests/movement-callers/README.md#current-near-frame-input-generations--october-23-2026)
+separate public input data from private numerical proof. This repair changes
+no gameplay source, controller policy, physics or independent expected output.
+Local replay/guard evidence is not hosted CI, Unity entitlement, generated HUD
+metrics, DSP/bootstrap, genuine WholeWorld, sourceAll16, native or full 100%
+qualification. Fresh Quality review precedes any publication.
+
 ## Defensive pre-snap fresh-B integration — October 20, 2026
 
 The explicit new portable profile `original-teams-contact282-c2-m1-presnap-switch`
@@ -1608,6 +1658,197 @@ Native font raster/placement, original global scheduling/ABI, tutorial,
 custom/native dependencies, audible PCM/DSP and performance acceptance remain
 unqualified. This closes the bounded portable selection-countdown gap only;
 **all sixteen full/native acceptance rows remain OPEN**.
+
+### Total team touchdowns — bounded source/component/static/NS21 acceptance
+
+The previously authenticated `historicalsource/nflblitz2000` revision
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`, `nfl.c` physical LF1762–1775,
+credits each touchdown to the classified final offense's cumulative team total,
+independently of forward-pass, initial-possession and fourth-down conditions.
+This total is separate from passing touchdowns at LF1548–1559. This
+documentation-only roll-forward imports or reacquires no original source or assets.
+
+`Assets/Scripts/Gameplay/SimulationState.cs` owns the two-entry
+`SourceTouchdowns` array and appends one checked Touchdown-only increment in
+`AccumulateSourcePlayEndStats`, using `resolution.Classification.OffenseSide`.
+All older accumulator statements/writers and the existing applied-result caller
+in `GameSimulation.Source.cs` remain unchanged. In
+`Assets/Scripts/Contracts/SourceMatchContracts.cs`, immutable
+`SourceTouchdownStatsView` exposes copied Home/Away counts through the optional
+`SourceMatchView.TouchdownStats` group and a tenth delegating overload. All nine
+old overloads retain unspecified/null total-touchdown observations and unchanged
+defaults/exception precedence. The actual Match construction in
+`Assets/Scripts/Gameplay/GameSnapshot.cs` prepends the copied Home/Away group;
+all older operands remain intact. This is static adapter evidence, not genuine
+`Capture`/Game or exactly-once caller qualification.
+
+The closed `tests/source-touchdown-stats` campaign observed **28 component/API
+cases / 78 named assertions / zero failures**, four clean-compiled
+actual-production semantic controls, three **STATIC-only** caller/adapter
+negatives and15 real-entry/artifact regression cases. The NS21 library compile
+used77 production sources and121 references. Six csc/five managed starts plus
+two preparer/ten entry-Python starts total23 scoped applications. Actual parent
+controller10649 and unit10651 both completed exit0, as recorded in the
+[parent-observed completion](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/implementation-01/parent-observed-completion.json).
+
+The [Qualityfc70 review](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/quality-review-01/quality-review.json)
+approved the authenticated-source/component/static/production-only NS21 gate
+with zero material findings. The [parent scoped acceptance](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/parent-scoped-acceptance.json)
+records acceptance at2026-10-25T19:35:47Z. Preflight/catalogue `accepted:false`
+and proposed/nonexecuting metadata remain historical; this doc-only status
+roll-forward does not rewrite their old documentation pins or reauthorize the
+closed packet. Inherited rule custody is not a fresh semantic review, and
+**process compliance is not certified**; all recorded deviations remain.
+
+This reports the earlier closed observations, not a fresh test run or actual
+Game/Capture/Resolve, caller reachability/exactly-once timing, selector/scheduler,
+native execution or ABI/overflow qualification. All16 plusE1/E2/E3, genuine
+Core/selector/audible/snap/queue/C2/Step/Restart/natural-idle runtime, original
+assets/rights, whole-game100% and publication remain **OPEN**.
+
+### Tutorial caller admission and parent coordinator — conditionally qualified
+
+The preceding connected conditional admission artifact was actually executed and
+independently **APPROVED**, with zero supported material bugs:
+`source-instruction-original-admission-01/implementation-01/quality-review-01/quality-review.json`.
+Its12 production-component cases/seven separately compiled semantic kills,
+nine **STATIC** guards/five STATIC controls and current-at-that-time Core87
+C#7.3 library typecheck remain distinct evidence classes, not Game/Unity proof.
+Historical authoring metadata/results are immutable and are not replayed here.
+
+The authenticated caller remains the default play-type arm after play selection
+and fourth-down accounting, before player reinitialization: flag1, then ordered
+slots0–3 with games_played strictly below3 before each live participation bit.
+Initialization/restart writes0 for nonzero p_status, otherwise2. The real kickoff
+catch creates the parent with PID0 and no flag reservation; later entry writes1.
+Actual caller hooks, coherent flag/effect ownership and unbound/manual behavior
+are retained. The original instruction wait/page/effect/final-delay body is frozen.
+
+This independently released continuation implements the **parent coordinator**
+instead of requiring its entire opaque suffix. The previously authenticated
+prefix creates slots0,1, reads live four_plr_ver only afterward, optionally creates
+slots2,3, suspends(0,32768), specifically resumes the supplied child PID with-1,
+then polls any matching live PID with the full mask and returns through sleep1.
+The existing host query includes foreign/suspended live matches, not only owned
+children. No child factory/body executes inline during parent creation or spawn.
+
+One fresh exact-commit contents GET authenticated original plyrinfo.c before its
+single25-line LF4491–4515 observation. LF4493–4505 proves resume-all after the loop,
+then live per-slot participation/control checks and current-button followed by
+old-button OR writes with P_A|P_B. Control indices are reread for each write.
+The parent then falls through: no extra flag2, sleep, active new-button write or
+proved native retirement. No child body was acquired; prior GETs remain consumed.
+
+Explicit production opt-in uses the existing binding/message dispatcher and
+global serial namespace. It requires child PID, four-player/control readers,
+MAX_PLYRS and A/B operands, button services and real per-child continuations.
+Numeric native definitions, actor-count inference and no-op/default providers are
+not supplied. The explicit whole-suffix constructor remains compatible.
+Child external fallthrough is not automatically death; an independently owned
+retirement request is a separate external boundary.
+
+The `producer-coordinator-02/validation-fix-02` generation actually passed
+16 production-component cases and twelve separately compiled production-source
+semantic controls. All14 compiler exits were0 with zero diagnostics; the13
+managed exits were the baseline0 and twelve intended assertion failures.
+Six **STATIC** Game guards/five STATIC controls remain a separate evidence class.
+The current actual Core87 C#7.3 warnings-as-errors library also compiled cleanly
+and was **never executed**. Independent Quality **APPROVED** this bounded parent
+and tooling artifact with zero material findings; its report and exact result
+pins are recorded in that generation's metadata. Both earlier failed tooling
+generations remain immutable, not passing evidence or reusable execution grants.
+This is conditional component behavior, source wiring and typechecking, **not
+executed Game or native child/runtime proof**. Child bodies/native SDK/global
+timing, genuine Game/Unity/resources/Q1, assets/rights, all16 and whole100 remain
+**OPEN**.
+
+### Kickoff tutorial child and owned helpers
+
+**October 26, 2026 — conditional component qualification only.** This increment
+supersedes the preceding parent-only section's unimplemented child/helper
+boundary, not its historical evidence or the existing acceptance catalogue.
+
+The [authored child](../tests/source-kickoff-instruction-child/README.md) and
+[owned wait/flash](../tests/source-kickoff-owned-helpers/README.md) implement the
+factual contracts for `historicalsource/nflblitz2000` commit
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`:
+[child/prelude, `plyrinfo.c:4516–4684`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-child-source-01/native-child-contract.json),
+[active-player wait, `attract.c:2054–2067`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-native-helpers-01/active-wait-source-02/native-active-player-wait-contract.json)
+and [flash, `plyrinfo.c:4804–4822`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-native-helpers-01/public-acquisition-01/native-helper-contracts.json).
+No native source or resource payload is reproduced here.
+
+The real opt-in is `GameSimulation.BindSourceKickoffInstructionOwnedHelpers`:
+`WithOwnedHelpers` / `WithSourceChild` feed existing coherent admission, and the
+dispatcher builds factories with its actual host/state before deferred child
+and flash wakes. No whole wait/flash body is supplied on this path. Explicit
+coordinator/child operands, live inputs/buttons, current-switch sampling,
+captured player-object/live flags, numeric button/flash masks, child/flash
+return policies and resource/font/format/sound bindings remain mandatory.
+Constructors do not activate it automatically.
+
+The wait owns sleep1-first, post-resume tick increments, live participation and
+original-player-byte polling, minimum-last evaluation and timeout-after-poll.
+Flash owns the captured original object, unconditional white/clear sleep8 cycle,
+ID22/ANY full-mask query and repeated live-flag preservation. Source-function
+return remains separate from the explicitly bound retirement policy.
+
+[Current baseline evidence](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/baseline-output-01/result.json)
+records **12 new named cases / 908 assertions**, a clean compile, managed exit 0,
+empty stderr and stable pins.
+[Current-source regressions](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/regression-output-01/result.json)
+preserve child18/3,825 and coordinator16 with three clean compiles/two managed
+exit 0 results. The actual 89-unit Core library, including the Game binding, was
+typechecked and **never executed**. The earlier 29 compiled semantic controls
+remain historical older-pin evidence, not new-helper coverage.
+[Quality APPROVE](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/quality-review.json)
+has zero material findings and is conditional component acceptance only.
+
+[Minimal baseline-input metadata](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/baseline-inputs.json)
+describes the pinned component/capture contract; existing outputs are consumed
+one-shot evidence, not blindly reusable commands. The parent did not execute
+the sealed historical all-phases `validate.py`; it is not a current passing
+runner and may reject these helper pins by design.
+
+Rollback/legacy behavior remains the existing unbound/manual, external child or
+helper-factory and whole-suffix paths on a fresh simulation, not a hot rebind.
+The frozen 9,470-byte original instruction-body suffix is unchanged. Genuine
+Game construction/execution, Unity/browser/rendering, native SDK/ABI/scheduling,
+authentic bindings/resources/assets/rights, all 16 and whole100 remain **OPEN**.
+
+### Runtime admission and owned child HUD
+
+**October 26, 2026 — source, portable and genuine-API qualification only.**
+The [runtime admission](../tests/source-kickoff-runtime-integration/README.md)
+now uses the retained actual simulation through its typed program binding.
+Pending initial-bind failures retry the same coherent admission only after an
+actual reset notification; established bindings are not initialized twice.
+The source-profile restart path reports repeated failures instead of silently
+switching to manual behavior. Its captured portable lifecycle passes 218
+assertions in one combined case, not 218 independent scenarios or engine runs.
+
+The [owned child HUD](../tests/source-kickoff-presentation/README.md) adds the
+explicit `BlitzRuntime.BindSourceKickoffInstructionHud` path. Child drawing
+commands use the existing HUD resource, glyph, graphic and retained renderer
+pipeline without a whole external child-effects implementation. Child graphics
+are merged with four-page graphics and can draw before a four-page invocation;
+shared numeric ID/mask cleanup and reset/abort/dispose remain source-owned.
+The external-effects, manual and unbound paths remain available without default
+or URL activation.
+
+The current child-HUD capture passes four portable cases / 240 assertions and
+API-compiles all 138 complete non-Editor player files with C#7.3, `UNITY_WEBGL`
+and warnings as errors, against 121 NetStandard2.1 references and seven genuine
+Unity 6000.3.24f1 modules. The missing audio built-in is now declared in both
+package files. Both runtime and child-HUD scoped reviews pass with no material
+findings; captured generations and source pins are linked from their test READMEs.
+
+Actual native formats, font/atlas/color bindings, sprite transform/defaults,
+object IDs, resolved sound output, input/flag masks and return policies are still
+mandatory. No native values, font metrics or replacement tutorial are inferred.
+This does **not** execute Game, Unity/Editor, original assets, native code or a
+browser. Genuine initialized runtime/HUD behavior, the five native-HUD cases,
+bitmap/GPU output, all 16 acceptance rows, assets/rights and whole-game fidelity
+remain **OPEN**.
 
 ### Available but not fully integrated
 

@@ -8,6 +8,60 @@ prepare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prepare)
 
 
+class DefaultAudiblesPreparationChecks(unittest.TestCase):
+    def test_successor_metadata_is_explicit_and_old_defaults_are_unchanged(self):
+        import inspect
+        import build
+        import prepare_default_audibles as audible
+        self.assertEqual(build.PROFILE, "original-teams-contact282-c2-m1-presnap-switch")
+        self.assertEqual(inspect.signature(prepare.Bundle.persist).parameters["profile"].default,
+                         "original-teams-contact281-c2-m1")
+        self.assertEqual(audible.PROFILE, "original-teams-contact282-c2-m1-default-audibles")
+        self.assertEqual(audible.FEATURE_CONTRACT, "source-default-audibles/v1")
+        self.assertEqual(audible.FACTORY, "SourceC2Composition.CreateDefaultAudiblesSimulation")
+
+    def test_relabeling_without_feature_or_factory_is_rejected_before_payload_access(self):
+        import json
+        import prepare_default_audibles as audible
+        document = dict(profile=audible.PROFILE)
+        with self.assertRaisesRegex(ValueError, "featureContract"):
+            audible.require_manifest(document, json.dumps(document).encode())
+        document["featureContract"] = audible.FEATURE_CONTRACT
+        with self.assertRaisesRegex(ValueError, "factory"):
+            audible.require_manifest(document, json.dumps(document).encode())
+        document["factory"] = "SourceC2Composition.CreatePreSnapSwitchSimulation"
+        with self.assertRaisesRegex(ValueError, "factory"):
+            audible.require_manifest(document, json.dumps(document).encode())
+
+    def test_actual_metadata_bundle_and_manifest_mutations(self):
+        import copy
+        import json
+        import os
+        import build
+        import prepare_default_audibles as audible
+        selected = os.environ.get("SOURCE_PLAYER_TEST_DEFAULT_AUDIBLES_DATA")
+        if not selected:
+            self.skipTest("Explicit ignored default-audibles data is required; no substitute assets are generated.")
+        root = Path(selected)
+        self.assertTrue(root.is_dir(), "The explicitly selected actual metadata-only root is missing.")
+        raw = (root / "manifest.json").read_bytes()
+        document = json.loads(raw)
+        audible.require_manifest(document, raw)
+        build.verify_private_inputs(root, document)
+        self.assertEqual(len(document["files"]), 563)
+        self.assertEqual(document["entrypoints"]["settings"], "settings-presnap-switch.json")
+        for field in ("featureContract", "factory", "files", "entrypoints"):
+            altered = copy.deepcopy(document)
+            if field in ("featureContract", "factory"):
+                del altered[field]
+            elif field == "files":
+                altered[field][0]["sha256"] = "0" * 64
+            else:
+                altered[field]["settings"] = "settings.json"
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                audible.require_manifest(altered, (json.dumps(altered, indent=2, sort_keys=True) + "\n").encode())
+
+
 class PreparationChecks(unittest.TestCase):
     def test_presnap_default_changes_only_existing_station_layout_type(self):
         import json
@@ -233,7 +287,7 @@ for (const variant of cases) {
   const manifestBytes = variant === 'unknown-unconsumed' ? Buffer.from(JSON.stringify(manifest)) : originalManifest;
   const receipt = { ...originalReceipt, dataManifestSha256: hash(manifestBytes) };
   const errors = [], reads = [], stations = [];
-  let failure, startCalls = 0, inputConstructed = 0, scheduled = 0;
+  let failure, cabinetStations, startCalls = 0, inputConstructed = 0, scheduled = 0;
   const canvas = { addEventListener() {}, focus() {} };
   const runtime = {
     withDiagnosticTracing() { return this; }, async create() { return this; },
@@ -250,17 +304,26 @@ for (const variant of cases) {
             const raw = runtime.imports.readFile(path);
             const pin = manifest.files.find(pin => pin.path === path);
             assert.equal(raw.length, pin.bytes); assert.equal(hash(raw), pin.sha256);
+            if (path === manifest.entrypoints.settings)
+              cabinetStations = JSON.parse(new TextDecoder().decode(raw)).stations.map(station => station.id);
             reads.push(path);
           }
         },
         Frame() { throw new Error('Boundary regression must not fake gameplay frames.'); },
+        CabinetStations() {
+          assert(cabinetStations, 'Station export must use the actual verified settings consumed at the Browser boundary.');
+          return Int32Array.from(cabinetStations);
+        },
         Capture() {}, SetActive() {},
       } } } };
     },
   };
   class Renderer { constructor() { this.device = {}; } }
   class Input {
-    constructor(api, target, ids) { inputConstructed++; stations.push(...ids); }
+    constructor(api, target, ids) {
+      assert(Array.isArray(ids), 'The real typed station export must be normalized before SourceInput flatMap.');
+      inputConstructed++; stations.push(...ids);
+    }
     focus() {} close() {}
   }
   const context = vm.createContext({

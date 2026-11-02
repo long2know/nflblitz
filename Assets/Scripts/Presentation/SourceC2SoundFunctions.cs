@@ -33,7 +33,8 @@ namespace Blitz.Presentation
             var execution = new Execution(data, context, state, sameSourceRandom, randomContext);
             if (kind == SourceC2SoundFunctionKind.AttackSoundFixed)
             {
-                if (data.Profile != SourceC2CallbackData.PreSnapSwitchProfile ||
+                if (data.Profile != SourceC2CallbackData.PreSnapSwitchProfile &&
+                    data.Profile != SourceC2CallbackData.CompleteOriginalProfile ||
                     data.RequireBinding(context.OriginalAnimationCue).FunctionKind != kind)
                     throw new ArgumentException("Fixed attack sound requires the explicitly trusted pre-snap binding generation.");
                 if (state.ActorPlayerNumber.HasValue && state.ActorPlayerNumber.Value != context.ActorId)

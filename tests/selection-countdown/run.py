@@ -28,6 +28,22 @@ LIFECYCLE_CONTROLS = {
     "random-output-failure-swallowed": "random-output-failure",
 }
 CONTROL_INVENTORY_SHA256 = "d2334d1977457f6efb67f9a6efecd8a32ec1d1b6e65358c4ad546dd79d87c207"
+CURRENT_CONTROL_BINDINGS = {
+    "suspended-timer-still-runs": (
+        ("Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
+         "if (n.Identity.BirthTick >= SourceTick || (short)n.Sleep <= 0) return false;",
+         "if (n.Identity.BirthTick >= SourceTick || n.Sleep == 0) return false;"),
+        ("Assets/Scripts/Gameplay/SourcePortableProcessHost.cs",
+         "if (n.Identity.BirthTick >= SourceTick && !n.Immediate || (short)n.Sleep <= 0) return false;",
+         "if (n.Identity.BirthTick >= SourceTick && !n.Immediate || n.Sleep == 0) return false;")),
+    "random-draw-from-skipped-consumer": (
+        ("Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+         "command = TransformSourceStationInput(command);\n            Model.SourceCurrentInput = command;",
+         "{ AdvanceSourceRandomSelections(); command = TransformSourceStationInput(command); }\n            Model.SourceCurrentInput = command;"),
+        ("Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+         "command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive);\n            Model.SourceCurrentInput = command;",
+         "{ AdvanceSourceRandomSelections(); command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive); }\n            Model.SourceCurrentInput = command;")),
+}
 CONTROL_SCOPES = {
     "host60-clock": "timer-traces",
     "zero-grace24": "timer-traces",
@@ -183,6 +199,14 @@ def validate_control_inventory(controls):
     require([c[0] for c in controls] == list(CONTROL_SCOPES) == list(EXPECTED_CAUSES) and
             hashlib.sha256(json.dumps(controls, sort_keys=True, separators=(",", ":")).encode()).hexdigest() ==
             CONTROL_INVENTORY_SHA256, "All42 exact immutable control identities/expressions/expected failures are required.")
+
+
+def current_control_binding(control):
+    binding = CURRENT_CONTROL_BINDINGS.get(control[0])
+    if binding is None:
+        return control
+    require(tuple(control[1:4]) == binding[0], "Declared historical control binding changed: " + control[0])
+    return (control[0], *binding[1], *control[4:])
 
 
 def validate_binding(control, scope):
@@ -438,7 +462,7 @@ def main():
         report["originalRandomCases"] = len(random_fixtures)
 
         def mutate(control):
-            label, name, old, new, expected = control[:5]
+            label, name, old, new, expected = current_control_binding(control)[:5]
             group = control_scope(control, random_fixtures)
             changed = dict(files)
             raw = changed[name].decode()
@@ -459,7 +483,11 @@ def main():
         report["runs"].extend(rows)
         for row in rows:
             print(row["name"] + ": " + row["output"][:1000], flush=True)
-        production = {n: b for n, b in files.items() if n.startswith("Assets/")}
+        report["defaultCompatibilitySourceScope"] = dict(
+            comparison_current_commit=compatibility.COMPARISON_CURRENT,
+            comparison_current_tree=compatibility.COMPARISON_CURRENT_TREE,
+            historical_component_diagnostic_not_live_source_qualification=True)
+        production = compatibility.frozen_current_sources()
         post_start = time.monotonic()
         final, default = post_checks(lambda: execute("final-baseline", files, reuse=baseline),
             lambda: compatibility.generate(args, output / "default-compatibility", production,
@@ -503,21 +531,7 @@ def required_random_inventory():
 
 
 def validate_default_compatibility(receipt):
-    require(receipt.get("status") == "passed" and receipt.get("base") == compatibility.BASE and
-            receipt.get("tree") == compatibility.TREE and receipt.get("originalTargetRandomQualified") is False and
-            receipt.get("fullPublicReplayRegenerated") is False and receipt.get("hostedOrFullM1Campaign") is False,
-            "Required byte compatibility is pinned main40/current execution, never a regenerated replay/native claim.")
-    require([r["name"] for r in receipt["runs"]] == ["main40", "current"] and
-            all(r["compile"] == r["exit"] == 0 and not r["diagnostics"] and
-                r["summary"]["hosts"] == 1200 and r["summary"]["rawCalls"] > 0 and
-                r["summary"]["SourceTick"] == 1140 and r["summary"]["rawCalls"] == 491 and
-                r["summary"]["selections"] == 4 and r["summary"]["defaultSeed"] == 1 and
-                r["summary"]["rawVectorFiltered"] is False for r in receipt["runs"]),
-            "Both actual default Core builds must execute the complete unfiltered seed1 input/RNG trace.")
-    require(set(receipt["compared"]) == {"default-host.jsonl", "default-rng.json", "default-menu.json"} and
-            all(r["bytes"] > 0 and re.fullmatch(r"[0-9a-f]{64}", r["sha256"]) and r["byteIdentical"] is True
-                for r in receipt["compared"].values()),
-            "All nonempty actual host/player/process/HUD, menu and raw RNG byte comparisons are required.")
+    compatibility.validate_receipt(receipt)
 
 
 if __name__ == "__main__":

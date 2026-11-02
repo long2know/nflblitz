@@ -24,6 +24,8 @@
              Link="Gameplay/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs"
              Link="AssetImport/%(Filename)%(Extension)" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs"
+             Link="Storage/%(Filename)%(Extension)" />
   </ItemGroup>
   <Import Project="../audio/vm/SourceSoundVmSources.props" />
   <Target Name="RequireProductionSources" BeforeTargets="CoreCompile">
