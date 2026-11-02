@@ -2,7 +2,7 @@ name: nflblitz-original
 
 services:
   game:
-    image: "${NFLBLITZ_IMAGE:-nflblitz-original:20261030-original303-amd64}"
+    image: "${NFLBLITZ_IMAGE:-ghcr.io/long2know/nflblitz:latest}"
     platform: "${NFLBLITZ_PLATFORM:-linux/amd64}"
     pull_policy: never
     user: "101:101"

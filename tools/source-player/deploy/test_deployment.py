@@ -44,7 +44,7 @@ class ConfigurationTests(unittest.TestCase):
         config = json.loads(result)
         self.assertEqual({"game"}, set(config["services"]))
         service = config["services"]["game"]
-        self.assertEqual("nflblitz-original:20261030-original303-amd64", service["image"])
+        self.assertEqual("ghcr.io/long2know/nflblitz:latest", service["image"])
         self.assertEqual("linux/amd64", service["platform"])
         self.assertEqual("never", service["pull_policy"])
         self.assertEqual("101:101", service["user"])

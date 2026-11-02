@@ -2,7 +2,7 @@ name: nflblitz-original
 
 services:
   game:
-    image: nflblitz-original:20261030-original303-amd64
+    image: ghcr.io/long2know/nflblitz:latest
     platform: linux/amd64
     pull_policy: never
     user: "101:101"

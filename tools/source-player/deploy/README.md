@@ -1,5 +1,37 @@
 # Self-contained original303 game image
 
+## GHCR deployment in an existing Compose file
+
+After the owner publishes the qualified image, add this under the existing
+`services:` section:
+
+```yaml
+  nflblitz:
+    image: ghcr.io/long2know/nflblitz:latest
+    container_name: nflblitz
+    platform: linux/amd64
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "18098:8080"
+```
+
+Pull explicitly before the first start or an update:
+
+```sh
+docker pull ghcr.io/long2know/nflblitz:latest
+docker compose up -d nflblitz
+```
+
+A private package requires `docker login ghcr.io` on the host first. Do not put
+registry credentials in Compose. The image sets its own nonroot user and bundles
+all game resources; no `PUID`, `PGID`, ROM mounts or data volumes are needed.
+Saves remain in browser-origin IndexedDB.
+
+The supplied standalone `compose.yaml` retains read-only/container hardening and
+defaults to loopback. `compose.lan.yaml` binds `192.168.0.10:18098` for a separate
+HTTPS proxy. Both use the same registry image and explicit-pull policy.
+
 This deployment is **not** the parent directory's bind-mounted preview. All
 compiled browser/WASM modules and all963 original payload files are inside the
 image. The host needs Docker, not Unity, .NET, converters, a source checkout, a
@@ -14,18 +46,18 @@ examples intentionally bind loopback only.
 
 ## Load and play — linux/amd64
 
-Transfer `nflblitz-original-20261030-amd64.tar.gz` and its `.sha256` file to
+Transfer `nflblitz-original-20261101-r2-amd64.tar.gz` and its `.sha256` file to
 the host. From that directory:
 
 ```sh
-sha256sum -c nflblitz-original-20261030-amd64.tar.gz.sha256
-docker load -i nflblitz-original-20261030-amd64.tar.gz
+sha256sum -c nflblitz-original-20261101-r2-amd64.tar.gz.sha256
+docker load -i nflblitz-original-20261101-r2-amd64.tar.gz
 docker run -d --name nflblitz-original --pull=never --platform=linux/amd64 \
   --user 101:101 --read-only --cap-drop ALL \
   --security-opt no-new-privileges:true --pids-limit 64 \
   --tmpfs /var/cache/nginx:rw,nosuid,nodev,noexec,size=16m,uid=101,gid=101,mode=0700 \
   --restart unless-stopped -p 127.0.0.1:18098:8080 \
-  nflblitz-original:20261030-original303-amd64
+  nflblitz-original:20261101-portable-library-r2-amd64
 docker inspect --format '{{.State.Health.Status}}' nflblitz-original
 ```
 
@@ -37,17 +69,20 @@ Alternatively, after loading, put the supplied `compose.yaml` beside the
 archive and run:
 
 ```sh
-docker compose --env-file /dev/null -f compose.yaml up -d --wait
+NFLBLITZ_IMAGE=nflblitz-original:20261101-portable-library-r2-amd64 \
+  docker compose --env-file /dev/null -f compose.yaml up -d --wait
 ```
 
 Do not run both examples on the same port. Compose never pulls an image and
 mounts no host files. Override `NFLBLITZ_PORT` explicitly if the port is occupied.
 
-### Optional linux/arm64 archive
+### Historical linux/arm64 archive
 
-The separately tagged `nflblitz-original-20261030-arm64.tar.gz` is a
+The separately tagged `nflblitz-original-20261030-arm64.tar.gz`, retained only
+in the October 30 delivery directory, is a
 **build-only** variant; the delivery host is amd64 and cannot runtime-qualify
-arm64. Do not select it for an x86 host or mistake the build for an arm64 play test.
+arm64. It does not contain the November 1 behavior fixes. Do not select it for
+an x86 host or mistake the build for an arm64 play test.
 On an actual arm64 Docker host:
 
 ```sh
