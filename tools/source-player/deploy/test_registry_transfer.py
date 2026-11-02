@@ -292,8 +292,11 @@ class TransferTests(unittest.TestCase):
         self.assertIn("must be private", error)
         self.assertFalse([cmd for cmd in commands if cmd[0] in ("gh", "openssl")])
         self.assert_no_docker_mutation(commands)
-        with mock.patch.object(transfer, "api", side_effect=[None, {"visibility": "public"}]), \
-                self.assertRaisesRegex(ValueError, "visibility is unknown"):
+        opener = mock.Mock()
+        opener.open.return_value = contextlib.nullcontext(mock.Mock(status=200))
+        with mock.patch.object(transfer, "api", return_value=None), \
+                mock.patch.object(transfer, "build_opener", return_value=opener), \
+                self.assertRaisesRegex(ValueError, "Anonymous registry pull token"):
             transfer.private_package("synthetic-job-token", allow_new=True)
         with mock.patch.object(transfer, "api", return_value=None), \
                 self.assertRaisesRegex(ValueError, "visibility is unknown"):
