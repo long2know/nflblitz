@@ -59,9 +59,10 @@ gh run watch RUN_ID --repo long2know/nflblitz --exit-status
 ```
 
 Before any push, authenticated package metadata must show an existing **private**
-package linked to this repository; a new package may return 404, but an
-anonymous public-package check must also return 404. Unauthorized, public, or
-unknown metadata fails closed. First publication through Actions uses GHCR's
+package linked to this repository. A new package may return 404 only when GHCR's
+anonymous pull-token endpoint also returns 403 with exactly one `DENIED` error.
+Anonymous token issuance, unauthorized metadata, and unknown responses fail
+closed. First publication through Actions uses GHCR's
 private default and automatic workflow-repository association. The workflow
 never changes visibility or makes the package public.
 
