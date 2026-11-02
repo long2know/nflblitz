@@ -1324,3 +1324,33 @@ offense. The authentic local negative and separately authenticated historical
 78-source view are retained; no historical-v4 positive is newly claimed.
 All existing five boundaries, v5 compatibility, failed v6, accepted v7 data,
 production files and both current workflow seals remain unchanged.
+
+## Final prevent-defense exhibition v9 window — November 2, 2026
+
+The separately authorized
+`source-running-taunt-exhibition-prevent-controller/v1` wraps, rather than
+edits, the original v7 public controller. It delegates that controller once
+every host. Only LiveBall/Away possession with a published opponent carrier at
+offensive FieldX75 inclusive through95 exclusive changes the human station:
+retreat directly away below8 yards, otherwise hold movement, preserving the
+original C/turbo output and removing defensive A/tackle. Coincident public
+points use the prospectively fixed positive-X escape. All other controls,
+CPU defenders, four running-taunt competitors and production code remain
+unchanged. This is an exhibition, not a competitive-football claim.
+
+The new separate project/entrypoint passed the original157 zero-game checks,
+408 wrapper assertions and six actually compiled named zero-game controls.
+Its policy, source, inputs, wrapper, PE/PDB and failed-v8 history were sealed
+before the one final12000-host window.
+
+That window also exited **1 / UNMET-public-R_SKIP**:11400 source steps,
+25442 raw draws,679 prevent hosts, no faults, **zero R_SKIP frames**.
+Both index1 draws had nonhuman CPU opponents within6 yards in the saved
+pre/post public snapshots while the human was over16 yards away; actual
+instruction-time override/TwoPart flags were not recorded. No production bug
+or directly observed override is claimed.
+
+`provenance/original-m1-v9-prevent-failed-20261102.json` preserves the failure.
+No inputs or recipe were exported, no full graph was qualified, no workflow
+was substituted, and no retry, extension or further policy window is
+authorized. The v8 authority, window and code remain byte-identical.
