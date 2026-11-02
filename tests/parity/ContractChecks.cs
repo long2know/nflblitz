@@ -78,19 +78,21 @@ internal static class ContractChecks
                 SourcePlayerDriver.SetSourcePosition(target,
                     new SourceVector3(team == TeamId.Home ? 10 : -10, 0, 0));
             }
-            Program.Equal("portable all-equal left receiver", quarterback + 1, SourcePassDriver.PickReceiver(model, actor, 21));
-            Program.Equal("portable all-equal middle receiver", quarterback + 2, SourcePassDriver.PickReceiver(model, actor, 24));
-            Program.Equal("portable all-equal right receiver", quarterback + 3, SourcePassDriver.PickReceiver(model, actor, 27));
+            Program.Throws<NotSupportedException>("older portable profiles retain their original admission",
+                () => SourcePassDriver.PickReceiver(model, actor, 24), "qsort");
+            Program.Equal("portable all-equal left receiver", quarterback + 1, SourcePassDriver.PickReceiver(model, actor, 21, true));
+            Program.Equal("portable all-equal middle receiver", quarterback + 2, SourcePassDriver.PickReceiver(model, actor, 24, true));
+            Program.Equal("portable all-equal right receiver", quarterback + 3, SourcePassDriver.PickReceiver(model, actor, 27, true));
             float direction = team == TeamId.Home ? 1f : -1f;
             for (int slot = 0; slot < 3; slot++)
                 SourcePlayerDriver.SetSourcePosition(model.Players[quarterback + slot + 1],
                     new SourceVector3(direction * 10, 0, direction * (slot == 2 ? 10 : 20)));
-            Program.Equal("portable minimum-sentinel receiver", quarterback + 3, SourcePassDriver.PickReceiver(model, actor, 21));
-            Program.Equal("portable tied middle retains sentinel-swap order", quarterback + 2, SourcePassDriver.PickReceiver(model, actor, 24));
-            Program.Equal("portable tied right retains sentinel-swap order", quarterback + 1, SourcePassDriver.PickReceiver(model, actor, 27));
+            Program.Equal("portable minimum-sentinel receiver", quarterback + 3, SourcePassDriver.PickReceiver(model, actor, 21, true));
+            Program.Equal("portable tied middle retains sentinel-swap order", quarterback + 2, SourcePassDriver.PickReceiver(model, actor, 24, true));
+            Program.Equal("portable tied right retains sentinel-swap order", quarterback + 1, SourcePassDriver.PickReceiver(model, actor, 27, true));
             model.SourceCompatibility = SourceGameplayCompatibility.StrictSource;
             Program.Throws<NotSupportedException>("strict source still requires native tie evidence",
-                () => SourcePassDriver.PickReceiver(model, actor, 24), "qsort");
+                () => SourcePassDriver.PickReceiver(model, actor, 24, true), "qsort");
         }
     }
 

@@ -1184,7 +1184,8 @@ namespace Blitz.Gameplay
             if (targetId == -1 && quarterback.SourceControllerStation >= 0)
                 targetId = SourcePassDriver.PickReceiver(Model, quarterback,
                     SourcePlayerDriver.ActorStick(quarterback,
-                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)));
+                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)),
+                    portableLibraryOrder: SourceCompleteOriginalEnabled);
             if (targetId < Model.OffenseOffset + 3 || targetId > Model.OffenseOffset + 6 || targetId == quarterbackId)
                 return;
             ActorState target = Model.Players[targetId];

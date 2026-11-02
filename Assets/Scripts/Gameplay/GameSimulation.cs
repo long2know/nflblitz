@@ -252,7 +252,7 @@ namespace Blitz.Gameplay
             if (Profile == SimulationProfile.OriginalRelease57Hz)
             {
                 sourceRandom = sourceRandomFactory == null
-                    ? Compatibility == SourceGameplayCompatibility.Portable
+                    ? Compatibility == SourceGameplayCompatibility.Portable && SourceCompleteOriginalEnabled
                         ? SourceRandom.CreatePortableLibrary(seed, "GameSimulation.Restart(" + seed + ")")
                         : new SourceInjectedRandom(site => NextInt(16777216),
                         new SourceRandomProvenance("OriginalRelease57Hz/preview",

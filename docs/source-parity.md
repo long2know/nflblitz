@@ -2,19 +2,19 @@
 
 ## Portable library behaviors — November 1, 2026
 
-The explicit `Portable` runtime now separates the 31-word additive `random()`
+The complete-original303 `Portable` runtime now separates the 31-word additive `random()`
 stream from the independent 64-bit `rand()` state. Zero-bound `randrng` consumes
 neither stream; negative bounds retain the source remainder semantics. The
 pregame owner transfers both streams through VS and rematches without reseeding.
-The historical strict-source preview and explicitly injected raw tapes remain
-separate and unchanged.
+The historical strict-source preview, older Portable profiles and explicitly
+injected raw tapes remain separate and unchanged.
 
 Portable receiver selection completes equal-quantized-Z cases with the
 small-array minimum-sentinel/insertion ordering instead of throwing. The
 strict-source native-order guard remains. Regressions cover both teams,
 all-equal keys and ties moved by the minimum sentinel.
 
-The additional 141 behavioral assertions pass alongside the existing original-C
+The additional portable behavioral assertions pass alongside the existing original-C
 matrix. A real named-record four-quarter managed match also completed through
 career/world commit, custom-play reload and rematch using public input only.
 These runtime algorithms remain tagged `ExternalUnverified`: comparisons with
