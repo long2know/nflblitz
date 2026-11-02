@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tarfile
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
@@ -222,11 +223,28 @@ def api(path, token=None):
         raise ValueError("GitHub metadata check failed (HTTP " + str(error.code) + "); refusing publication.") from None
 
 
+def require_anonymous_registry_denial():
+    query = urlencode({"service": "ghcr.io", "scope": "repository:" + REPOSITORY + ":pull"})
+    request = Request("https://ghcr.io/token?" + query, headers={"Accept": "application/json"})
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=30):
+            raise ValueError("Anonymous registry pull token is available; refusing publication.")
+    except HTTPError as error:
+        with error:
+            require(error.code == 403, "Unknown anonymous registry response; refusing publication.")
+            body = json.loads(error.read(8192))
+        errors = body.get("errors") if isinstance(body, dict) else None
+        require(isinstance(errors, list) and len(errors) == 1 and
+                isinstance(errors[0], dict) and errors[0].get("code") == "DENIED",
+                "Unknown anonymous registry denial; refusing publication.")
+
+
 def private_package(token, *, allow_new=False):
     path = "/users/long2know/packages/container/nflblitz"
     package = api(path, token)
     if package is None:
-        require(allow_new and api(path) is None, "Package visibility is unknown; refusing publication.")
+        require(allow_new, "Package visibility is unknown; refusing publication.")
+        require_anonymous_registry_denial()
         return
     require(package.get("visibility") == "private" and package.get("package_type") == "container" and
             package.get("name") == "nflblitz" and package.get("owner", {}).get("login") == "long2know" and

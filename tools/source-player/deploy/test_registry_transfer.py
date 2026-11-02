@@ -12,6 +12,8 @@ import shutil
 import tarfile
 import unittest
 from unittest import mock
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlsplit
 
 
 HERE = Path(__file__).resolve().parent
@@ -154,6 +156,49 @@ class TransferTests(unittest.TestCase):
     def assert_no_docker_mutation(self, commands):
         self.assertFalse([cmd for cmd in commands if cmd[:2] in
                           (["docker", "load"], ["docker", "tag"], ["docker", "push"])], commands)
+
+    def test_new_package_checks_anonymous_registry_not_authenticated_only_metadata_api(self):
+        denial = HTTPError("https://ghcr.io/token", 403, "Forbidden", {},
+                           io.BytesIO(b'{"errors":[{"code":"DENIED"}]}'))
+        opener = mock.Mock()
+        opener.open.side_effect = denial
+        with mock.patch.object(transfer, "api", return_value=None) as api, \
+                mock.patch.object(transfer, "build_opener", return_value=opener), \
+                mock.patch.object(transfer, "run") as process:
+            transfer.private_package("synthetic-job-token", allow_new=True)
+        api.assert_called_once_with("/users/long2know/packages/container/nflblitz", "synthetic-job-token")
+        request = opener.open.call_args.args[0]
+        self.assertEqual("https", urlsplit(request.full_url).scheme)
+        self.assertEqual("ghcr.io", urlsplit(request.full_url).hostname)
+        self.assertEqual({"service": ["ghcr.io"], "scope": ["repository:long2know/nflblitz:pull"]},
+                         parse_qs(urlsplit(request.full_url).query))
+        self.assertNotIn("Authorization", request.headers)
+        process.assert_not_called()
+
+    def test_anonymous_public_registry_access_blocks_new_package_before_mutation(self):
+        opener = mock.Mock()
+        opener.open.return_value = contextlib.nullcontext(mock.Mock(status=200))
+        with mock.patch.object(transfer, "api", return_value=None), \
+                mock.patch.object(transfer, "build_opener", return_value=opener), \
+                mock.patch.object(transfer, "run") as process, \
+                self.assertRaisesRegex(ValueError, "Anonymous registry pull token"):
+            transfer.private_package("synthetic-job-token", allow_new=True)
+        process.assert_not_called()
+
+    def test_unknown_anonymous_responses_never_authorize_new_package(self):
+        for status, body in ((401, b'{"errors":[{"code":"UNAUTHORIZED"}]}'),
+                             (403, b'{"errors":[{"code":"TOOMANYREQUESTS"}]}'),
+                             (403, b'{}'), (503, b'{}')):
+            opener = mock.Mock()
+            opener.open.side_effect = HTTPError("https://ghcr.io/token", status, "Rejected", {},
+                                               io.BytesIO(body))
+            with self.subTest(status=status, body=body), \
+                    mock.patch.object(transfer, "api", return_value=None), \
+                    mock.patch.object(transfer, "build_opener", return_value=opener), \
+                    mock.patch.object(transfer, "run") as process, \
+                    self.assertRaisesRegex(ValueError, "Unknown anonymous registry"):
+                transfer.private_package("synthetic-job-token", allow_new=True)
+            process.assert_not_called()
 
     def test_untrusted_dispatch_inputs_and_wrong_context_are_rejected_before_io(self):
         attacks = {
