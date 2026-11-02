@@ -12,6 +12,7 @@ internal static class Program
     private static readonly List<string> FailureDetails = new List<string>();
     private static readonly Dictionary<string, int> Compared = new Dictionary<string, int>();
     private static readonly Dictionary<string, int> OriginalOnly = new Dictionary<string, int>();
+    internal static int AssertionCount { get { return assertions; } }
 
     internal static void Check(string label, bool condition)
     {
@@ -267,7 +268,8 @@ internal static class Program
             int beforeContracts = assertions;
             FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2],
                 soundFunctionsPath: args.Length == 4 ? args[3] : null, c2InputsPath: c2Inputs) : null;
-            ContractChecks.Run(args[1], fullKernelInputs);
+            int portableLibraryAssertions, sourcePoseAssertions;
+            ContractChecks.Run(args[1], fullKernelInputs, out portableLibraryAssertions, out sourcePoseAssertions);
             int contractAssertions = assertions - beforeContracts;
             Check("nonzero contract assertions", contractAssertions >= 60);
             var summary = new
@@ -278,6 +280,9 @@ internal static class Program
                 original_c_only_no_production_geometry_seam = OriginalOnly,
                 assertions,
                 contract_assertions = contractAssertions,
+                retained_contract_assertions = contractAssertions - portableLibraryAssertions - sourcePoseAssertions,
+                portable_library_contract_assertions = portableLibraryAssertions,
+                source_pose_contract_assertions = sourcePoseAssertions,
                 stream_component_assertions = streamAssertions,
                 full_kernel_host_adapter_exercised = HostAdapterChecks.Enabled,
                 real_input_fixture_sha256 = fullKernelInputs == null ? null : fullKernelInputs.ManifestSha256,

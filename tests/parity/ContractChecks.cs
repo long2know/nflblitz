@@ -9,15 +9,20 @@ using Blitz.Gameplay;
 
 internal static class ContractChecks
 {
-    internal static void Run(string fixturePath, FullKernelInputs fullKernelInputs)
+    internal static void Run(string fixturePath, FullKernelInputs fullKernelInputs,
+        out int portableLibraryAssertions, out int sourcePoseAssertions)
     {
         using (JsonDocument fixture = JsonDocument.Parse(File.ReadAllBytes(fixturePath)))
         {
             Program.Equal("fixture.schema", "synthetic-contract-traces/v1",
                 fixture.RootElement.GetProperty("schema").GetString());
             CheckDtos();
+            int beforePortable = Program.AssertionCount;
             CheckPortableLibraryBehavior();
+            portableLibraryAssertions = Program.AssertionCount - beforePortable;
+            int beforeSourcePose = Program.AssertionCount;
             RunSourcePoseMath();
+            sourcePoseAssertions = Program.AssertionCount - beforeSourcePose;
             CheckProductionClipDetachment();
             var library = new SyntheticLibrary(fixture.RootElement.GetProperty("source_animation"));
             CheckSelectedOrdinalTrace(library, fixture.RootElement.GetProperty("source_animation"));
