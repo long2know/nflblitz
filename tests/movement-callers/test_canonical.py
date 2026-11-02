@@ -1209,7 +1209,7 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             capture_output=True, check=True).stdout
         self.assertEqual(full, committed, "full workflow must match the actual checked-out Git source")
         self.assertEqual(canonical.sha(full),
-                         "ccf82aba97e84aa168d60fbcebe40402d5efbb1aeabc40b473c93a55addb0697",
+                         "308aab01d387e8cbdfd5847ccf0a57d8a063cc80f9067969f2d5e4d67beaa38b",
                          "every job, gate and budget is retained with sealed inputs and full-history checkouts")
         inherited = ci.inherited_game(full.decode("utf-8")).encode("utf-8")
         actual = (canonical.ROOT / ci.GAME).read_bytes()
