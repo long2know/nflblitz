@@ -1299,3 +1299,28 @@ budget/minimum30 guard remains required. Local timing projections and these
 component receipts are **not hosted acceptance**: focused Quality rereview and
 the coordinator's actual complete required CI remain pending. No native, Unity,
 whole-game, target-PRNG, DSP, browser-rebuild or sixteen-row completion is claimed.
+
+## Exhausted original-M1/281 v8 window — November 2, 2026
+
+`OriginalM1OpenSpaceChecks.csproj` is a separate authoring entrypoint importing
+the unchanged twelve-file normal replay harness. It reuses the byte-identical
+`source-trips-rollout-public-controller/v1`, not a new football policy. Its
+distinct original281 factory/configuration/input closure was prospectively
+sealed before the only seed1/unfiltered-vector window. Synthetic policy checks
+performed zero game constructions/steps.
+
+That window exited **1 / UNMET-public-R_SKIP**: 12000 hosts, 11400 source steps,
+27249 raw values, no faults, **zero R_SKIP frames**. It is exhausted: no retry,
+extension, seed/policy change, public input export, recipe or CI substitution
+is authorized. The permanent failure provenance is
+`provenance/original-m1-v8-failed-20261102.json`; full code, PE/PDB, markers and
+private capture remain separately retained. No full-graph/control/original-C
+qualification was run for v8.
+
+The current original-M1 replay gate remains required and blocked, not silently
+historical-only. Its old timer-v4 input still fails the original side guard at
+host4181/source3972: queued station0 Defense `play_suicide_blitz` while Home is
+offense. The authentic local negative and separately authenticated historical
+78-source view are retained; no historical-v4 positive is newly claimed.
+All existing five boundaries, v5 compatibility, failed v6, accepted v7 data,
+production files and both current workflow seals remain unchanged.
