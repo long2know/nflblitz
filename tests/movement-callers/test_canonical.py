@@ -131,9 +131,6 @@ class CompatibilityCliIngressTests(unittest.TestCase):
                     profile = stack.enter_context(patch.object(canonical, "fixture_profile", return_value="contact272"))
                     stack.enter_context(patch.object(canonical, "fixture_hashes", return_value={}))
                     stack.enter_context(patch.object(canonical, "canonical_hashes", return_value={}))
-                    stack.enter_context(patch.object(canonical, "HARNESS", ()))
-                    stack.enter_context(patch.object(canonical, "production_paths",
-                                                    return_value=[canonical.ROOT / canonical.CACHE_SOURCE]))
                     stack.enter_context(patch.object(Path, "read_bytes", read_bytes))
                     process = stack.enter_context(patch.object(canonical.subprocess, "run", side_effect=capture))
                     physics = stack.enter_context(patch.object(canonical, "compare",
@@ -645,7 +642,9 @@ class CanonicalObservationGuards(unittest.TestCase):
         self.assertIn('if args.single_public_attempt:', runner)
 
     def test_exact_frozen_unique_call_site_and_byte_normalization(self):
-        original = (canonical.ROOT / canonical.CACHE_SOURCE).read_bytes()
+        import check_replay_generations as generations
+        files, _ = generations.u2_current_snapshot()
+        original = files[canonical.CACHE_SOURCE]
         self.assertEqual(hashlib.sha256(original).hexdigest(), canonical.U1_CACHE_SOURCE_SHA)
         with self.assertRaisesRegex(ValueError, "exact frozen original production hash"):
             canonical.inject(original)
@@ -655,9 +654,44 @@ class CanonicalObservationGuards(unittest.TestCase):
         self.assertEqual(observed.replace(canonical.OBSERVED_CALL.encode(), canonical.CALL.encode()), original)
 
     def test_hash_change_cannot_be_observed_as_same_generation(self):
-        original = (canonical.ROOT / canonical.CACHE_SOURCE).read_bytes()
+        import check_replay_generations as generations
+        files, _ = generations.u2_current_snapshot()
+        original = files[canonical.CACHE_SOURCE]
         with self.assertRaisesRegex(ValueError, "explicitly frozen historical or U1 generation"):
             canonical.inject_current(original + b"\n")
+
+    def test_current_observer_requires_the_whole_declared_source_and_harness_generation(self):
+        production = {p.relative_to(canonical.ROOT).as_posix(): p.read_bytes()
+                      for p in canonical.production_paths()}
+        harness = {name: (canonical.ROOT / name).read_bytes() for name in canonical.HARNESS}
+        original = production[canonical.CACHE_SOURCE]
+        with self.assertRaisesRegex(ValueError, "complete source/harness closure"):
+            canonical.inject_current(original)
+        binding = canonical.observer_binding(production, harness)
+        self.assertEqual(binding, canonical.CURRENT_OBSERVER_GENERATION)
+        self.assertNotIn(binding["cache_source_sha256"], (canonical.CACHE_SOURCE_SHA, canonical.U1_CACHE_SOURCE_SHA))
+        observed = canonical.inject_current(original, production, harness)
+        self.assertEqual(observed.count(b"geometry.CameraJoints("), original.count(b"geometry.CameraJoints("))
+        self.assertEqual(observed.count(b"CanonicalCacheCapture.Record("), 1)
+        self.assertEqual(observed.replace(canonical.OBSERVED_CALL.encode(), canonical.CALL.encode()), original)
+        for name in (canonical.CACHE_SOURCE, "Assets/Scripts/Gameplay/SourceRandom.cs"):
+            with self.subTest(source=name):
+                changed = dict(production); changed[name] += b"\n"
+                with self.assertRaisesRegex(ValueError, "exact declared103-source c202 generation"):
+                    canonical.inject_current(changed[canonical.CACHE_SOURCE], changed, harness)
+        changed = dict(production); del changed["Assets/Scripts/Gameplay/SourceRandom.cs"]
+        with self.assertRaisesRegex(ValueError, "exact declared103-source c202 generation"):
+            canonical.inject_current(original, changed, harness)
+        import check_replay_generations as generations
+        archived, _ = generations.u2_current_snapshot()
+        changed = dict(production); changed[canonical.CACHE_SOURCE] = archived[canonical.CACHE_SOURCE]
+        with self.assertRaisesRegex(ValueError, "exact declared103-source c202 generation"):
+            canonical.inject_current(changed[canonical.CACHE_SOURCE], changed, harness)
+        changed = dict(harness); changed["tests/movement-callers/Canonical.cs"] += b"\n"
+        with self.assertRaisesRegex(ValueError, "exact declared twelve-file harness generation"):
+            canonical.inject_current(original, production, changed)
+        with self.assertRaisesRegex(ValueError, "supplied complete source/harness snapshot"):
+            canonical.inject_current(original + b"\n", production, harness)
 
     def test_canonical_factory_and_entry_are_actual(self):
         inputs = (canonical.ROOT / "tests/parity/FullKernelInputs.cs").read_text()
@@ -672,7 +706,9 @@ class CanonicalObservationGuards(unittest.TestCase):
         self.assertIn("ReferenceRows == witness.CurrentRows", source)
 
     def test_required_actual_production_compile_closure_is_complete(self):
-        paths = {p.relative_to(canonical.ROOT).as_posix() for p in canonical.production_paths()}
+        import check_replay_generations as generations
+        archived, _ = generations.u2_current_snapshot()
+        paths = set(archived) - set(canonical.HARNESS)
         for name in (
             "Assets/Scripts/Runtime/SourceC2Composition.cs",
             "Assets/Scripts/Runtime/SourceContactComposition.cs",
@@ -698,6 +734,12 @@ class CanonicalObservationGuards(unittest.TestCase):
         self.assertEqual(len(paths), 78)
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.Possession.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs", paths)
+        current = {p.relative_to(canonical.ROOT).as_posix(): p.read_bytes() for p in canonical.production_paths()}
+        harness = {name: (canonical.ROOT / name).read_bytes() for name in canonical.HARNESS}
+        self.assertTrue(paths.issubset(current))
+        binding = canonical.observer_binding(current, harness)
+        self.assertEqual(len(current), binding["source_count"])
+        self.assertEqual(binding["source_count"], 103)
 
 
 class CurrentTrajectoryCaptureTests(unittest.TestCase):
@@ -1054,9 +1096,6 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             stack.enter_context(patch.object(canonical, "fixture_profile"))
             stack.enter_context(patch.object(canonical, "fixture_hashes", return_value={}))
             stack.enter_context(patch.object(canonical, "canonical_hashes", return_value={}))
-            stack.enter_context(patch.object(canonical, "production_paths",
-                                            return_value=[canonical.ROOT / canonical.CACHE_SOURCE]))
-            stack.enter_context(patch.object(canonical, "HARNESS", ()))
             stack.enter_context(patch.object(canonical, "_m1_trajectory_binding", side_effect=self.synthetic_binding))
             stack.enter_context(patch.object(canonical.subprocess, "run", side_effect=process))
             physics = stack.enter_context(patch.object(canonical, "compare",

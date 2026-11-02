@@ -1,5 +1,24 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Integrated current observer generation — November 1, 2026
+
+Current replay admission freezes the complete actual103-source closure at
+`c202cecc114c380ebe53fe98def59f2550461bde`, with manifest
+`a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507`,
+and its separate exact twelve-file current harness
+`9698a817d2f9688c01d989df976436793b9fa1d63d4f1a29bdb23849d04602b7`.
+A recognized cache file alone cannot admit changed, missing or mixed production
+files or a changed harness. The isolated observer still requires its unique real
+call site and byte-exact removal; receipts identify the actual current source
+and full closure, not the historical cache hash.
+
+The original historical/U1 single-file observer contracts and all archived
+78-source/harness generations remain separate and unchanged. Saved public
+recordings retain their original source-generation recipes; replaying those
+bytes against the explicitly declared current code does not relabel or
+regenerate the recording. Faults, missing witnesses and every existing compiled
+cache/caller control remain nonzero.
+
 ## Admitted action tails — October 29, 2026
 
 The independent `AdmittedActionTailChecks.csproj` references the actual portable

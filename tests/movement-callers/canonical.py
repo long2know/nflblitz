@@ -51,6 +51,17 @@ HARNESS = (
     "tests/parity/FullKernelInputs.cs", "tests/parity/FullKernelSources.props",
     "tests/audio/vm/SourceSoundVmSources.props",
 )
+CURRENT_OBSERVER_GENERATION = {
+    "schema": "source-current-cache-observer-generation/v1",
+    "source_generation": "integrated-default-audibles/c202",
+    "source_commit": "c202cecc114c380ebe53fe98def59f2550461bde",
+    "source_tree": "0b4791000b65a5d47886fa495a9810a16f5182be",
+    "source_count": 103,
+    "source_manifest_sha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
+    "harness_count": 12,
+    "harness_manifest_sha256": "9698a817d2f9688c01d989df976436793b9fa1d63d4f1a29bdb23849d04602b7",
+    "cache_source_sha256": "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927",
+}
 CANONICAL_CACHE_MUTANTS = (
     ("refresh-after-contact", "production", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
      "SourceContacts();", "SourceContacts();\n            CacheSourcePlayerCameraJoints();",
@@ -72,6 +83,10 @@ def sha(data):
 def inject(original, expected_sha=CACHE_SOURCE_SHA):
     if expected_sha not in (CACHE_SOURCE_SHA, U1_CACHE_SOURCE_SHA) or sha(original) != expected_sha:
         raise ValueError("Canonical cache observation requires the exact frozen original production hash.")
+    return _insert_observer(original)
+
+
+def _insert_observer(original):
     old, new = CALL.encode(), OBSERVED_CALL.encode()
     if original.count(old) != 1 or b"CanonicalCacheCapture" in original:
         raise ValueError("Canonical observer needs one unique real geometry call/count-guard site.")
@@ -81,11 +96,35 @@ def inject(original, expected_sha=CACHE_SOURCE_SHA):
     return observed
 
 
-def inject_current(original):
+def observer_binding(production, harness):
+    def manifest(files):
+        return sha(json.dumps({name: sha(raw) for name, raw in files.items()},
+                              sort_keys=True, separators=(",", ":")).encode())
+    actual = sha(production[CACHE_SOURCE])
+    identity = dict(source_count=len(production), source_manifest_sha256=manifest(production),
+                    harness_count=len(harness), harness_manifest_sha256=manifest(harness),
+                    cache_source_sha256=actual)
+    expected = CURRENT_OBSERVER_GENERATION
+    if (identity["source_count"] != expected["source_count"] or
+            identity["source_manifest_sha256"] != expected["source_manifest_sha256"]):
+        raise ValueError("Current cache observer requires the exact declared103-source c202 generation.")
+    if (set(harness) != set(HARNESS) or identity["harness_count"] != expected["harness_count"] or
+            identity["harness_manifest_sha256"] != expected["harness_manifest_sha256"]):
+        raise ValueError("Current cache observer requires its exact declared twelve-file harness generation.")
+    return dict(expected)
+
+
+def inject_current(original, production=None, harness=None):
     actual = sha(original)
-    if actual not in (CACHE_SOURCE_SHA, U1_CACHE_SOURCE_SHA):
-        raise ValueError("Current cache observer requires an explicitly frozen historical or U1 generation.")
-    return inject(original, actual)
+    if production is None and harness is None:
+        if actual not in (CACHE_SOURCE_SHA, U1_CACHE_SOURCE_SHA):
+            raise ValueError("Current cache observer requires an explicitly frozen historical or U1 generation; "
+                             "the integrated current generation requires its complete source/harness closure.")
+        return inject(original, actual)
+    if production is None or harness is None or original != production.get(CACHE_SOURCE):
+        raise ValueError("Observer bytes must belong to the supplied complete source/harness snapshot.")
+    observer_binding(production, harness)
+    return _insert_observer(original)
 
 
 M1_COVERAGE_ASSERTION = "M1 full public R_SKIP gate requires after2299 same-instance two ordinals and two real15 poses"
@@ -1306,7 +1345,8 @@ def m1_main(argv):
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
-    observed_source = inject_current(production[CACHE_SOURCE])
+    observed_source = inject_current(production[CACHE_SOURCE], production, harness)
+    observer_identity = observer_binding(production, harness)
     work = output / "work"
     work.mkdir()
     (work / "empty-feed").mkdir()
@@ -1321,6 +1361,7 @@ def m1_main(argv):
     result = {"schema": "source-C2-M1-complete-actual-factory-replay/v1", "status": "failed",
               "whole_M1_or_game_or_native_accepted": False, "commands": [], "runs": {},
               "inputs_before": inputs, "production_before": pins,
+              "observer_source_binding": observer_identity,
               "harness_sha256": {k: sha(v) for k, v in harness.items()},
               "original8_controls_retained": True, "original3_cache_controls_retained": True,
               "no_new_policy_seed_vector_clock_pointer_or_live_source_changes": True}
@@ -1509,7 +1550,8 @@ def main():
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
-    observed_source = inject_current(production[CACHE_SOURCE])
+    observed_source = inject_current(production[CACHE_SOURCE], production, harness)
+    observer_identity = observer_binding(production, harness)
     workspace = output / "isolated"
     work = output / "work"
     work.mkdir()
@@ -1522,7 +1564,8 @@ def main():
               "harness_sha256": {name: sha(data) for name, data in harness.items()},
               "inputs_sha256_before": inputs, "commands": [], "runs": {},
               "instrumentation": {
-                  "original_source": CACHE_SOURCE, "original_sha256": CACHE_SOURCE_SHA,
+                  "original_source": CACHE_SOURCE, "original_sha256": pins[CACHE_SOURCE],
+                  "source_binding": observer_identity,
                   "observed_sha256": sha(observed_source), "unique_call_site": True,
                   "removing_only_insertion_restores_original_bytes": True,
                   "additional_geometry_calls": 0, "replacement_geometry": False,
