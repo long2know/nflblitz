@@ -156,3 +156,15 @@ once, and reset cannot bypass the wait. Runtime owns IO, durable match IDs and
 retry. Partial declined games retain their actual period count and never acquire
 a fabricated four-period save. These are bounded source-process fixtures, not a
 claim of browser persistence, natural full-match or native equivalence.
+
+### Versioned CI source binding
+
+Current CI admits an exact seventeen-contract closure: the retained fourteen
+plus the named introduction, pre-game-sound and saved-record declarations.
+The historical thirteen/fourteen inventories and `pins.json` production hashes
+remain unchanged. Current pure-helper hashes are a separate source generation;
+they never certify the old source identity.
+
+The same frozen public input blobs, producer/catalog pins, original-C matrix,
+expected assertion partitions and all three causal controls still apply.
+Current results explicitly report `historical_source_identity_requalified=false`.

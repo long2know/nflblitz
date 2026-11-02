@@ -300,3 +300,19 @@ dotnet run --project tests/contracts/ContractChecks.csproj --configuration Relea
 ```
 
 These checks do not complete full match/AI/native/browser/art/motion parity.
+
+## Current and historical caller views
+
+The integrated complete-original source has a separate, exact five-file binding.
+Its introduction-only input assignment cannot satisfy the normal game-dispatch
+ordering gate. The original five caller controls still reject their named fields.
+
+Every older whole-file inverse, including `726f513c…`, is also executed against a
+versioned project-source view reconstructed from pinned custody bytes and the
+original fourth-down hook. This is labelled a reconstructed source view, **not**
+a relabelled historical execution. No historical hash or assertion count changes.
+
+The current package-free build links the six explicit clock/rules/flow and
+playbook/direction/random helpers required by the real contract declarations.
+It still does not compile GameSimulation or claim hardware RNG equivalence.
+The baseline remains exactly 1,744 assertions and all 30 compiled controls.

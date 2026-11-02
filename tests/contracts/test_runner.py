@@ -8,6 +8,7 @@ import shutil
 import unittest
 from unittest.mock import patch
 import uuid
+import xml.etree.ElementTree as ET
 
 
 SPEC = importlib.util.spec_from_file_location("contract_runner", Path(__file__).with_name("run.py"))
@@ -99,7 +100,12 @@ class ContractRunnerGuards(unittest.TestCase):
         project = (RUNNER.SUITE / "model/PureContracts.csproj").read_text(encoding="utf-8")
         self.assertIn("Assets/Scripts/Contracts/**/*.cs", project)
         self.assertNotIn("Gameplay/**/*.cs", project)
-        self.assertNotIn("SourceRandom.cs", project)
+        declared = [name for item in ET.fromstring(project).findall(".//Compile")
+                    for name in item.attrib["Include"].split(";")]
+        gameplay = [name for name in declared if "Assets/Scripts/Gameplay/" in name]
+        self.assertCountEqual(gameplay, [
+            "$(BlitzSourceRoot)Assets/Scripts/Gameplay/" + name for name in RUNNER.RULE_SOURCES])
+        self.assertEqual(len(gameplay), 6, "Only the closed pure playbook/direction dependency closure is admitted.")
         self.assertNotIn("Presentation/*.cs", project)
 
     def test_actual_harness_snapshot_prunes_generated_trees_before_traversal(self):
@@ -211,7 +217,43 @@ class ContractRunnerGuards(unittest.TestCase):
         self.assertFalse(result["compiled"])
         self.assertFalse(result["simulation_executed"])
         self.assertEqual(RUNNER.CALLER_SOURCE, result["production_file"])
-        self.assertEqual(RUNNER.CALLER_PREEDIT_SHA256, result["preedit_source_sha256"])
+        self.assertEqual(RUNNER.CALLER_PREEDIT_SHA256, result["historical_preedit_reference_sha256"])
+        self.assertFalse(result["historical_inverses_applied_to_current_source"])
+        self.assertNotIn("preedit_source_sha256", result, "Current source must not be relabelled as a historical inverse.")
+
+    def test_historical_view_executes_every_original_inverse_and_all_five_controls(self):
+        proof = RUNNER.historical_caller_proof()
+        self.assertEqual(proof["status"], "passed")
+        self.assertTrue(proof["original_inverse_assertions_retained"])
+        self.assertEqual(proof["proof"]["preedit_source_sha256"], RUNNER.CALLER_PREEDIT_SHA256)
+        self.assertEqual(len(proof["controls"]), 5)
+        self.assertEqual([row["rejected_by_static_field"] for row in proof["controls"]],
+                         [case[-1] for case in RUNNER.STATIC_CONTROLS])
+        self.assertNotEqual(proof["proof"]["source_sha256"],
+                            RUNNER.HISTORICAL_SOURCE_VIEW["sources"][RUNNER.CALLER_SOURCE]["base_sha256"])
+
+    def test_historical_owner_contract_snapshot_mutations_still_fail_original_inverse_guards(self):
+        original = RUNNER.historical_source_view()
+        for name, field in (
+            ("Assets/Scripts/Gameplay/SimulationState.cs", "touchdown_owner_inverse"),
+            ("Assets/Scripts/Contracts/SourceMatchContracts.cs", "touchdown_contract_inverse"),
+            ("Assets/Scripts/Gameplay/GameSnapshot.cs", "touchdown_snapshot_wiring"),
+        ):
+            changed = dict(original, **{name: original[name] + b"\n"})
+            with self.subTest(source=name), patch.object(RUNNER, "ROOT", RUNNER.HistoricalSourceRoot(changed)):
+                with self.assertRaises(RUNNER.StaticAssertionFailure) as error:
+                    RUNNER.require_caller_wiring(changed[RUNNER.FLOW_SOURCE], changed[RUNNER.CALLER_SOURCE])
+                self.assertEqual(error.exception.field, field)
+
+    def test_instruction_assignment_cannot_substitute_for_normal_dispatch_or_lose_its_own_input(self):
+        flow = (RUNNER.ROOT / RUNNER.FLOW_SOURCE).read_bytes()
+        caller = (RUNNER.ROOT / RUNNER.CALLER_SOURCE).read_text()
+        anchor = "\n                Model.SourceCurrentInput = command;"
+        changed = RUNNER.replace_unique(caller, anchor,
+            "\n                Model.SourceCurrentInput = default(PlayerCommand);", "intro-assignment")
+        with self.assertRaises(RUNNER.StaticAssertionFailure) as error:
+            RUNNER.require_caller_wiring(flow, changed.encode())
+        self.assertEqual(error.exception.field, "caller.current-input.introduction-branch")
 
     def test_all_five_actual_byte_controls_reject_exact_static_fields(self):
         flow = (RUNNER.ROOT / RUNNER.FLOW_SOURCE).read_bytes()

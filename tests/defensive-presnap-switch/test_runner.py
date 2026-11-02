@@ -7,8 +7,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
@@ -142,6 +144,41 @@ def root_boundary(argv):
 
 
 class RunnerTests(unittest.TestCase):
+    def test_player_preparation_binds_current_source_without_relabelling_the_old563_program_payload(self):
+        sys.path.insert(0,str(ROOT/"tools/source-player"))
+        prior=sys.modules.pop("prepare",None)
+        try:
+            spec=importlib.util.spec_from_file_location("presnap_player_binding",
+                ROOT/"tools/source-player/prepare_presnap_switch.py")
+            player=importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(player)
+        finally:
+            sys.path.pop(0)
+            if prior is not None: sys.modules["prepare"]=prior
+            else: sys.modules.pop("prepare",None)
+        binding=player.program_binding()
+        self.assertEqual(binding["selected_historical_programs_sha256"],player.C2_PROGRAMS_SHA256)
+        self.assertNotEqual(binding["source_file_sha256"],player.C2_PROGRAMS_SHA256)
+        self.assertFalse(binding["whole_current_source_is_historical"])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            programs=root/"Assets/Scripts/Gameplay"
+            programs.mkdir(parents=True)
+            for name in ("SourceAnimationPrograms.C2.cs","SourceAnimationPrograms.Movement.cs"):
+                (programs/name).write_bytes((ROOT/"Assets/Scripts/Gameplay"/name).read_bytes())
+            with patch.object(player,"PROJECT",root):
+                self.assertEqual(player.program_binding(),binding)
+                path=programs/"SourceAnimationPrograms.C2.cs"
+                raw=path.read_bytes()
+                path.write_bytes(raw+b"\n")
+                with self.assertRaisesRegex(ValueError,"Exact known C2 source-generation"):
+                    player.program_binding()
+                path.write_bytes(raw)
+                path=programs/"SourceAnimationPrograms.Movement.cs"
+                path.write_bytes(path.read_bytes()+b"\n")
+                with self.assertRaisesRegex(ValueError,"SHA256 mismatch.*SourceAnimationPrograms.Movement"):
+                    player.program_binding()
+
     def test_ten_controls_change_real_unique_production_anchors(self):
         self.assertEqual(len(MUTATIONS),10)
         self.assertEqual(len({m[0] for m in MUTATIONS}),10)

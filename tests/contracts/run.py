@@ -16,7 +16,8 @@ ROOT = SUITE.parents[1]
 ARTIFACTS = SUITE / ".artifacts"
 sys.path.insert(0, str(ROOT / "tests/ci"))
 from isolated_mutations import run_mutations
-RULE_SOURCES = ("SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs")
+RULE_SOURCES = ("SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs",
+                "SourcePlaybook.cs", "SourceDroneAI.cs", "SourceRandom.cs")
 HUMAN_ONSIDE_CONTRACT = "source-human-onside-held-gesture/v1"
 RETAINED_ASSERTIONS = 511
 EXPECTED = {
@@ -195,6 +196,11 @@ STATIC_CONTROLS = (
     ("caller-CPU-half-shortcut", CPU_GUARD, CPU_GUARD.replace("!first &&", "!first && !half &&"),
      "caller.cpu.guard-without-half-shortcut"),
 )
+# A project-source-only historical view, not a relabelled execution receipt.
+# The line-copy deltas require the exact integrated source freeze. Their outputs
+# still have to pass EVERY original whole-file inverse below. The caller is the
+# captured 157596-byte source plus its original 111-byte fourth-down hook.
+HISTORICAL_SOURCE_VIEW = json.loads(r'''{"base_commit":"8ccb4d59bc850269579be9b6365ee973d74c87ed","schema":"contract-historical-source-view/v1","sources":{"Assets/Scripts/Contracts/SourceMatchContracts.cs":{"base_sha256":"49c0bbf30c5497f545a464d5e70103e70f828078779b8bbf4708cb8c7bda9303","bytes":109912,"segments":[[0,6],[188,236],[238,241],"        public string Bank { get { return \"cursors\"; } }\n",[242,249],"        { SourceTick = tick; ProcessSerial = serial; Number = number; }\n",[260,265],"        HandicapConsumerIndex, BlockCountConsumerIndex, TargetlessRunningPush, CarrierlessDefensiveSwitch\n",[269,653],[801,1468],[1541,1780],[1782,2218],[2256,2326],[2476,2486]],"sha256":"6ffa5d633bda5dcc02f83d193bdc3d5cbb4a8a52a1cdedc78b9cb23110058225"},"Assets/Scripts/Gameplay/GameSimulation.Source.cs":{"base_sha256":"5a8a9284cf26b4328b82d7fae1aa413040507bf3ede7cd7f0b3838724acf23a4","bytes":157707,"segments":[[0,1],[2,3],[4,7],"    public sealed partial class GameSimulation\n",[8,9],[146,197],[198,204],[210,223],[224,285],"        private PlayerCommand TransformSourceStationInput(PlayerCommand command)\n",[286,288],"            SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),\n                Model.SourceTick, command.StationInputs);\n",[297,307],[308,314],[315,330],"                command = TransformSourceStationInput(command);\n",[331,480],"            SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);\n",[481,534],"                        Model.SourcePlaySelectionReady[(int)other] ? sourcePlaybook.GetPlay(opponent.PlaySymbol) : null));\n",[535,572],[573,575],[588,660],"                play = sourceDefaultAudibles.Resolve(id, role, sourceTeam, Model.SourceRules, Model.Quarter - 1,\n                    Model.PackedGameTime, a.SuperFieldGoal, a.NoPunt, ref flip);\n",[680,681],"                int ordinal = role == SourceAudibleRole.Offense ? Math.Abs((int)id) - 1 : id - 1;\n                selected = new SourcePlaySelection(play.Identity, role == SourceAudibleRole.Offense\n                    ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense, ordinal % 9, ordinal / 9);\n",[681,877],[878,879],"            Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home\n                ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);\n            Model.SourceDefensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home\n                ? Model.SourceAwayPlay.PlaySymbol : Model.SourceHomePlay.PlaySymbol);\n",[883,884],[885,1032],[1033,1186],"                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)));\n",[1188,1259],[1264,1395],[1396,1582],[1583,1645],[1646,1661],[1676,1698],"                    ChooseSourceCpuPlay(GameplayRules.Opponent(offense), sourcePlaybook.GetPlay(chosen.PlaySymbol)));\n",[1699,1703],[1704,1710],[1715,1718],"                continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate);\n",[1721,1727],"                    continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate,\n",[1728,1742],[1743,1747],[1748,1812],[1814,1921],[1922,2118],"            return new SourceAiFrame(actors, sourcePlaybook.Directions, Model.SourceRules,\n",[2128,2587],"                if (kind != SourcePresentationCueKind.PlayerDownCallback) ExecuteSourceSoundVm(actor, cue);\n",[2590,2858]],"sha256":"efcfddb1936bd2c3c49355a0aa53cc3ddba926e0e20a175c58fe0bab57baa427"},"Assets/Scripts/Gameplay/GameSnapshot.cs":{"base_sha256":"43cd463fa93d9af8a10376015f4094ee1a2a0148ba46fb7ed84d32b4d99c7738","bytes":30356,"segments":[[0,7],"        ISourceAudibleObservationState, ISourceLiveAnimationObservationState\n",[8,41],[42,133],"                Match = new SourceMatchView(new SourceTouchdownStatsView(\n",[156,212],[213,488]],"sha256":"45ca7c7bd0b02e135a11e71ec35a70cba30c9ad081e4c09ebe36d893334d78b1"},"Assets/Scripts/Gameplay/SimulationState.cs":{"base_sha256":"6eeb221c31128c095e387e7adec5860e62f3154db054250c1e95f914ffb555df","bytes":29651,"segments":[[0,180],[181,220],[221,237],[240,310],[313,390],[391,553],[561,595]],"sha256":"fe81ca24879dbfe39c4800fba0391a7ba5c25f8b335dcffd855234df2dd8a835"},"Assets/Scripts/Gameplay/SourceMatchFlow.cs":{"base_sha256":"4ad130bf50e4f27163ec0e56075540664c0ef79cac814cd94e5a056e3dd31721","bytes":37690,"segments":[[0,384],[393,827]],"sha256":"233044d6092aad84e1ed3c516672b4611d08954f66aa6796fe36ac66093de08c"}}}''')
 CSHARP_TOKEN = re.compile(
     r"(?P<space>\s+)|(?P<comment>//[^\n]*|/\*[\s\S]*?\*/)"
     r'|(?P<literal>\$?@"(?:""|[^"])*"|(?:\$)?"(?:\\[\s\S]|[^"\\])*"'
@@ -510,10 +516,11 @@ def restore_fourth_down_attempts_caller(caller):
 
 def require_caller_wiring(flow_bytes, caller_bytes):
     flow, caller = flow_bytes.decode("utf-8"), caller_bytes.decode("utf-8")
-    caller = require_touchdown_stats_additions(caller)
-    caller = restore_fourth_down_attempts_caller(caller)
-    caller = restore_place_kick_stats_caller(caller)
-    caller = restore_play_end_stats_caller(caller)
+    identities = HISTORICAL_SOURCE_VIEW["sources"]
+    actual_root = hashlib.sha256((ROOT / CALLER_SOURCE).read_bytes()).hexdigest()
+    historical = actual_root == identities[CALLER_SOURCE]["sha256"]
+    static_check(historical or actual_root == identities[CALLER_SOURCE]["base_sha256"],
+                 "caller.source-generation.admission")
     _, end, body = method_region(flow, "PrepareKickoff", "SourceKickoffInput input")
     static_check(hashlib.sha256(flow[body:end].encode("utf-8")).hexdigest() == LEGACY_KICKOFF_BODY_SHA256,
                  "flow.legacy-one-argument-body-preserved")
@@ -535,6 +542,18 @@ def require_caller_wiring(flow_bytes, caller_bytes):
     dispatch = token_locations(proc, "switch (Model.Phase)")
     pat = token_locations(proc, "ApplySourcePat(")
     continuation = token_locations(proc, "ContinueSource(")
+    if not historical:
+        # The instruction-introduction branch returns before normal game dispatch.
+        # Its separate assignment must NOT satisfy the normal caller's ordering gate.
+        intro = token_locations(proc, "if (AdvanceSourcePlaySelectionIntroduction()) {")
+        static_check(len(intro) == 1, "caller.current-input.introduction-branch")
+        opening = intro[0] + len(token_values("if (AdvanceSourcePlaySelectionIntroduction())"))
+        closing = matching_token(proc, opening, "{", "}")
+        expected = ("{ command = TransformSourceStationInput(command, true); "
+                    "Model.SourceCurrentInput = command; return command; }")
+        static_check([token[0] for token in proc[opening:closing + 1]] == token_values(expected),
+                     "caller.current-input.introduction-branch")
+        assignment = [index for index in assignment if not opening < index < closing]
     static_check(len(transform) == len(assignment) == len(dispatch) == 1 and pat and continuation
                  and transform[0] < assignment[0] < min(dispatch + pat + continuation),
                  "caller.current-input.before-phase-dispatch")
@@ -549,6 +568,14 @@ def require_caller_wiring(flow_bytes, caller_bytes):
         static_check(len(token_locations(csharp_tokens(method_text(caller, name, parameters)), call_shape)) == 1,
                      "caller.converges." + name)
     static_check(call == CURRENT_CALL and caller.count(CURRENT_CALL) == 1, "caller.plan.exact-authorized-call")
+    if not historical:
+        return require_current_caller_binding(caller_bytes)
+    # Validate semantic mutation fields BEFORE the historical inverse seals.
+    # Otherwise any deliberate caller mutation is misclassified as a hash failure.
+    caller = require_touchdown_stats_additions(caller)
+    caller = restore_fourth_down_attempts_caller(caller)
+    caller = restore_place_kick_stats_caller(caller)
+    caller = restore_play_end_stats_caller(caller)
     completion_before = (
         "            ApplySourceFirePlayEnd(endingInput, resolution);\n"
         "            Model.SourceLastResult = resolution.Classification.Result;\n"
@@ -576,6 +603,102 @@ def require_caller_wiring(flow_bytes, caller_bytes):
     }
 
 
+def require_current_caller_binding(caller_bytes):
+    caller = caller_bytes.decode("utf-8")
+    common = method_text(caller, "ApplySourcePlayEnd",
+        "SourcePlayEndCause cause, int playerId, FieldVector position, "
+        "int attackerId, SourceC2PendingEnd pending = null")
+    commit = ("ApplySourceFirePlayEnd(endingInput, resolution); "
+              "Model.SourceLastPlayEndCause = cause; "
+              "Model.AccumulateSourcePlayEndStats(endingInput, resolution, Model.CarrierId); "
+              "Model.SourceLastResult = resolution.Classification.Result;")
+    static_check(len(token_locations(csharp_tokens(common), commit)) == 1 and
+                 len(token_locations(csharp_tokens(caller),
+                     "Model.AccumulateSourcePlayEndStats(endingInput, resolution, Model.CarrierId);")) == 1,
+                 "touchdown_caller_wiring")
+    selection = csharp_tokens(method_text(caller, "FinishSourcePlaySelection", "TeamId selectingSide"))
+    hook = token_locations(selection,
+        "Model.AccumulateSourceFourthDownAttemptAtSelectionReturn(sourcePlaybook, Model.SourceOffensePlay);")
+    play_type = token_locations(selection, "SourcePlayType type =")
+    static_check(len(hook) == len(play_type) == 1 and hook[0] < play_type[0],
+                 "attempts.caller.selection-return-before-type")
+    fields = {
+        "Assets/Scripts/Gameplay/SimulationState.cs": "touchdown_owner_inverse",
+        "Assets/Scripts/Contracts/SourceMatchContracts.cs": "touchdown_contract_inverse",
+        "Assets/Scripts/Gameplay/GameSnapshot.cs": "touchdown_snapshot_wiring",
+        FLOW_SOURCE: "flow.current-source-binding",
+    }
+    bound = {}
+    for name, field in fields.items():
+        actual = hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+        static_check(actual == HISTORICAL_SOURCE_VIEW["sources"][name]["base_sha256"], field)
+        bound[name] = actual
+    actual = hashlib.sha256(caller_bytes).hexdigest()
+    static_check(actual == HISTORICAL_SOURCE_VIEW["sources"][CALLER_SOURCE]["base_sha256"],
+                 "caller.only-authorized-call-changed-captain-preserved")
+    bound[CALLER_SOURCE] = actual
+    return {
+        "status": "passed-static-only", "compiled": False, "simulation_executed": False,
+        "production_file": CALLER_SOURCE, "source_sha256": actual,
+        "source_generation": "complete-original303-current-caller/v1",
+        "current_source_sha256": bound,
+        "historical_preedit_reference_sha256": CALLER_PREEDIT_SHA256,
+        "historical_inverses_applied_to_current_source": False,
+        "legacy_one_argument_body_sha256": LEGACY_KICKOFF_BODY_SHA256,
+    }
+
+
+class HistoricalSourceRoot:
+    """Closed in-memory source view; never writes archived code over production."""
+    def __init__(self, sources, name=""):
+        self.sources, self.name = sources, name
+
+    def __truediv__(self, name):
+        return HistoricalSourceRoot(self.sources, self.name + ("/" if self.name else "") + str(name))
+
+    def read_bytes(self):
+        return self.sources[self.name]
+
+
+def historical_source_view():
+    result = {}
+    for name, entry in HISTORICAL_SOURCE_VIEW["sources"].items():
+        base = (ROOT / name).read_bytes()
+        static_check(hashlib.sha256(base).hexdigest() == entry["base_sha256"],
+                     "historical-view.exact-base-source")
+        lines, pieces = base.decode("utf-8").splitlines(keepends=True), []
+        for segment in entry["segments"]:
+            if isinstance(segment, str):
+                pieces.append(segment)
+            else:
+                static_check(isinstance(segment, list) and len(segment) == 2 and
+                             all(type(value) is int for value in segment) and
+                             0 <= segment[0] < segment[1] <= len(lines),
+                             "historical-view.bounded-line-copy")
+                pieces.append("".join(lines[segment[0]:segment[1]]))
+        raw = "".join(pieces).encode("utf-8")
+        static_check(len(raw) == entry["bytes"] and hashlib.sha256(raw).hexdigest() == entry["sha256"],
+                     "historical-view.exact-target-source")
+        result[name] = raw
+    return result
+
+
+def historical_caller_proof():
+    global ROOT
+    sources = historical_source_view()
+    original_root = ROOT
+    try:
+        ROOT = HistoricalSourceRoot(sources)
+        proof = require_caller_wiring(sources[FLOW_SOURCE], sources[CALLER_SOURCE])
+        controls = static_caller_controls(sources[FLOW_SOURCE], sources[CALLER_SOURCE])
+    finally:
+        ROOT = original_root
+    return dict(schema="contract-historical-caller-inverses/v1", status="passed",
+                source_view="reconstructed-pinned-project-source; not a requalified historical execution",
+                sources_sha256={name: hashlib.sha256(raw).hexdigest() for name, raw in sources.items()},
+                original_inverse_assertions_retained=True, proof=proof, controls=controls)
+
+
 def replace_unique(text, anchor, replacement, label):
     if text.count(anchor) != 1:
         raise RuntimeError("Actual-source mutation anchor must be unique: " + label)
@@ -587,7 +710,9 @@ def mutate_static_caller(case, caller_bytes):
     caller = caller_bytes.decode("utf-8")
     if name == "caller-current-assignment-late":
         start, end, _ = method_region(caller, "SourceGameProc", "PlayerCommand command")
-        proc = replace_unique(caller[start:end], anchor, "", name)
+        # Exact indentation selects the normal dispatch assignment, not the new
+        # instruction branch's deeper, returning assignment.
+        proc = replace_unique(caller[start:end], "\n" + anchor, "\n", name)
         proc = replace_unique(proc, replacement, anchor + replacement, name + "-placement")
         changed = caller[:start] + proc + caller[end:]
     else:
@@ -760,6 +885,7 @@ def main():
         wiring = (ROOT / CALLER_SOURCE).read_bytes()
         wiring_before = hashlib.sha256(wiring).hexdigest()
         evidence["static_caller_wiring"] = require_caller_wiring(contents[FLOW_SOURCE], wiring)
+        evidence["historical_caller_inverses"] = historical_caller_proof()
         evidence["static_caller_controls"] = static_caller_controls(contents[FLOW_SOURCE], wiring)
         evidence["caller_wiring_sha256_before"] = wiring_before
         if len(COMPILED_MUTATIONS) != 30 or len(STATIC_CONTROLS) != 5:

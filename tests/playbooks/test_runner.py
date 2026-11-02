@@ -28,11 +28,21 @@ class PlaybookCurrentBuildInventory(unittest.TestCase):
         expected = {"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}
         expected.update("Assets/Scripts/Gameplay/" + name for name in support.GAMEPLAY)
         expected.update("tools/playbooks/" + name for name in support.PRODUCER)
-        self.assertEqual(14, len(support.CONTRACTS))
-        self.assertEqual(14, len(set(support.CONTRACTS)))
-        self.assertEqual(26, len(names))
+        self.assertEqual(14, len(support.HISTORICAL_CONTRACTS_14))
+        self.assertEqual(17, len(support.CONTRACTS))
+        self.assertEqual(17, len(set(support.CONTRACTS)))
+        self.assertEqual(set(support.CONTRACTS),
+                         set(support.HISTORICAL_CONTRACTS_14) | set(support.CURRENT_CONTRACT_ADDITIONS))
+        self.assertEqual(support.PINS["production_sha256"], {
+            "Assets/Scripts/Gameplay/SourcePlaybook.cs": "bd51c3452fe49e5f5f8a49ef6e2cbef2cf692f566a0b46f714fb6c5e33b1e54e",
+            "Assets/Scripts/Gameplay/SourceDroneAI.cs": "466d2d7b89737c713d2e233236c98c02365d4a0cc357ec6062f9b8281769f02e",
+            "Assets/Scripts/Gameplay/SourceRandom.cs": "71566e84f0688041f40688e053c91f6239fe75240f8aaf77487fdcb667f69205",
+        }, "Historical production pins remain historical, not overwritten with current-source hashes.")
+        self.assertEqual(set(support.PINS["production_sha256"]), set(support.CURRENT_PRODUCTION_SHA256))
+        self.assertNotEqual(support.PINS["production_sha256"], support.CURRENT_PRODUCTION_SHA256)
+        self.assertEqual(29, len(names))
         self.assertEqual(expected, set(names))
-        self.assertEqual(20, sum(name.endswith(".cs") for name in names))
+        self.assertEqual(23, sum(name.endswith(".cs") for name in names))
         for name in ("SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
                      "SourceKickoffInstructionChildContracts.cs", "SourcePortableProcessContracts.cs"):
             self.assertIn("Assets/Scripts/Contracts/" + name, names)
@@ -79,7 +89,7 @@ class PlaybookCurrentBuildInventory(unittest.TestCase):
         self.assertIsInstance(reports[0], ast.Dict)
         fields = {ast.literal_eval(key): value for key, value in zip(reports[0].keys, reports[0].values)}
         self.assertEqual(
-            "Actual complete thirteen Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; "
+            "Actual complete seventeen Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; "
             "C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
             ast.literal_eval(fields["profile"]))
         self.assertIs(False, ast.literal_eval(fields["full_gameplay_parity_claimed"]))
@@ -227,8 +237,10 @@ class PlaybookRunnerGuards(unittest.TestCase):
         self.assertEqual(expected, set(contents))
         self.assertEqual(expected, set(hashes))
         self.assertEqual(hashes, support.live_hashes())
-        self.assertEqual(13, len(support.CONTRACTS))
-        self.assertEqual(19, sum(name.endswith(".cs") for name in contents))
+        self.assertEqual(13, len(support.HISTORICAL_CONTRACTS_13))
+        self.assertEqual(19, len(support.HISTORICAL_CONTRACTS_13) + len(support.GAMEPLAY))
+        self.assertEqual(17, len(support.CONTRACTS))
+        self.assertEqual(23, sum(name.endswith(".cs") for name in contents))
         for name in ("SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs", "SourceCameraContracts.cs",
                      "SourceInstructionContracts.cs", "SourceInstructionPresentationContracts.cs",
                      "SourcePortableProcessContracts.cs"):
@@ -236,7 +248,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
             self.assertEqual(contents[relative], (support.ROOT / relative).read_bytes())
             self.assertEqual(hashes[relative], support.sha256(contents[relative]))
         runner_source = (support.SUITE / "run.py").read_text()
-        self.assertIn('"profile": "Actual complete thirteen Contracts +', runner_source)
+        self.assertIn('"profile": "Actual complete seventeen Contracts +', runner_source)
+        self.assertIn('"historical_source_identity_requalified": False', runner_source)
         self.assertNotIn('"profile": "Actual complete nine Contracts +', runner_source)
         self.assertNotIn('"profile": "Actual complete seven Contracts +', runner_source)
         self.assertFalse(any("GameSimulation" in name or "Movement" in name for name in contents))
@@ -257,7 +270,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
     def test_live_source_hash_guard_rejects_changed_actual_copied_source(self):
         contents, before = support.snapshot()
         contracts = {name for name in contents if name.startswith("Assets/Scripts/Contracts/")}
-        self.assertEqual(13, len(contracts))
+        self.assertEqual(13, len(support.HISTORICAL_CONTRACTS_13))
+        self.assertEqual(17, len(contracts))
         self.assertIn("Assets/Scripts/Contracts/SourceContactContracts.cs", contracts)
         self.assertEqual({"Assets/Scripts/Contracts/" + name for name in support.CONTRACTS}, contracts)
         for name, data in contents.items():
@@ -267,7 +281,8 @@ class PlaybookRunnerGuards(unittest.TestCase):
         support.require_unchanged(before, self.directory)
         for name in ("SourceContactContracts.cs", "SourceFireSpfxContracts.cs", "SourceKickMeterContracts.cs",
                      "SourceCameraContracts.cs", "SourceInstructionContracts.cs",
-                     "SourceInstructionPresentationContracts.cs", "SourcePortableProcessContracts.cs"):
+                     "SourceInstructionPresentationContracts.cs", "SourcePortableProcessContracts.cs",
+                     *support.CURRENT_CONTRACT_ADDITIONS):
             relative = "Assets/Scripts/Contracts/" + name
             contract = self.directory / relative
             contract.unlink()
