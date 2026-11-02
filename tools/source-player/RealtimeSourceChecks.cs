@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Blitz.Contracts;
 using Blitz.Gameplay;
+using Blitz.Presentation;
 using Blitz.Runtime;
 using Blitz.SourcePlayer;
 
@@ -136,5 +137,84 @@ static partial class Checks
             "Actual player state must remain equivalent, not merely counters/metadata.");
         Console.WriteLine("PASS actual source realtime partition: " + assertions +
             " assertions; physical4/ABC FIFO, real source RNG/output ordinals, bounded debt drain and actual player state.");
+    }
+
+    private static void VerifyRealtimeRenderAdmission(PlayerData data)
+    {
+        var sink = new CompleteAvSink();
+        var store = new SourcePlayerRecordStore(new SourceRecordDelegateStorage(
+            () => Task.FromResult(new SourceRecordStorageImage(null)), (_, _) => Task.FromResult(false)));
+        store.LoadAsync().GetAwaiter().GetResult();
+        var host = new PlayerHost(data, sink, recordStore: store);
+        void Raw(int button = 0, double x = 0) =>
+            host.Capture(new[] { x, 0d, 0d, 0d, 0d, 0d, 0d, 0d }, new[] { button, 0, 0, 0 });
+        void Tap(int button = 0, double x = 0)
+        {
+            Raw(); Raw(button, x); Raw();
+            host.Advance(0, 512, 384, 512, 384, 1);
+            for (int i = 0; i < 70 && host.Session.UsingSourcePreGameInput; i++)
+            {
+                Raw();
+                host.Advance(1d / 57, 512, 384, 512, 384, 1);
+            }
+        }
+        host.Advance(0, 512, 384, 512, 384, 1);
+        Tap(4); Tap(x: 1); Tap(1);
+        Check(host.Session.Stage == SourceCabinetMenuStage.Teams,
+            "Render admission must exercise the real public guest menu, not a phase setter.");
+        Tap(1); Tap(1); Tap(1);
+        Check(host.Session.Playing && host.Game.SourceTick == 0,
+            "Real public team choices must construct the fresh source-zero game.");
+        Raw(); Raw(); host.Advance(0, 512, 384, 512, 384, 1);
+        host.ObserveFrameHostTime(0);
+        long frames = host.Frames, epoch = host.AudioPlayback.Epoch, ticks = host.Game.State.Tick;
+        int commandStart = sink.Audio.Commands.Count;
+
+        // Actual c6 source4716->4722 callback spacing from the rejected public Chrome result.
+        const double elapsed = .239815000;
+        host.CaptureObserved(new double[8], new int[4], elapsed);
+        int steps = host.AdvanceObserved(elapsed, elapsed, 512, 384, 512, 384, 1);
+        Check(steps == FixedStepBridge.MaximumStepsPerFrame && host.Game.State.Tick == ticks + steps &&
+            host.AudioPlayback.SourceTick == host.Game.SourceTick && host.AudioPlayback.PendingCount == 0,
+            "A delayed real callback must still deliver its bounded actual source/audio work immediately.");
+        Check(host.Frames == frames,
+            "Retained whole-step debt must defer presentation instead of paying another full render before source/audio catch-up.");
+
+        int callbacks = 1, total = steps;
+        while (host.Frames == frames && callbacks < 5)
+        {
+            host.CaptureObserved(new double[8], new int[4], elapsed);
+            steps = host.AdvanceObserved(10, elapsed, 512, 384, 512, 384, 1);
+            Check(steps <= FixedStepBridge.MaximumStepsPerFrame,
+                "Deferred rendering must not enlarge the existing per-callback simulation budget.");
+            total += steps; callbacks++;
+        }
+        Check(host.Frames == frames + 1 && total == (int)Math.Floor(elapsed * 60) &&
+            host.Game.State.Tick == ticks + total,
+            "Presentation must resume as soon as the real elapsed debt drains; nominal10 cannot invent elapsed time.");
+        Check(host.AudioPlayback.Epoch == epoch && host.AudioPlayback.Active &&
+            host.AudioPlayback.SourceTick == host.Game.SourceTick &&
+            sink.Audio.Commands.Skip(commandStart).All(c =>
+                c.GetProperty("kind").GetString() is not "reset" and not "clock-start" and not "active"),
+            "Render deferral must neither pause/mute the active transport nor reset its epoch or sample clock.");
+        using var status = JsonDocument.Parse(host.LastStatus);
+        Check(status.RootElement.GetProperty("sourceTick").GetInt64() == host.Game.SourceTick &&
+            status.RootElement.GetProperty("realtimeClock").GetProperty("PendingSeconds").GetDouble() <
+                FixedStepBridge.StepSeconds,
+            "The resumed presentation must contain the actual caught-up source state, not the held older frame.");
+
+        host.CaptureObserved(new double[8], new int[4], elapsed * 2);
+        host.AdvanceObserved(elapsed, elapsed * 2, 512, 384, 512, 384, 1);
+        host.SetActive(false);
+        long pausedTicks = host.Game.State.Tick, pausedFrames = host.Frames;
+        host.AdvanceObserved(10, elapsed * 2, 512, 384, 512, 384, 1);
+        using var paused = JsonDocument.Parse(host.LastStatus);
+        Check(host.Game.State.Tick == pausedTicks && host.Frames == pausedFrames + 1 &&
+            !paused.RootElement.GetProperty("active").GetBoolean() &&
+            paused.RootElement.GetProperty("realtimeClock").GetProperty("PendingSeconds").GetDouble() >=
+                FixedStepBridge.StepSeconds,
+            "A real public pause must render its paused state even while retained source debt remains frozen.");
+        Console.WriteLine("PASS actual Host render admission: retained239.815ms callback debt, unchanged six-step " +
+            "budget, immediate audio delivery, no clock reset/pause, caught-up presentation and paused debt.");
     }
 }

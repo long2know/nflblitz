@@ -43,15 +43,20 @@ use the frozen final profile for a deliberate record-disabled AV probe.
 
 Gameplay elapsed follows measured active host time, not render-ahead
 `AudioContext.currentTime` jumps. Render time, output timestamps and latency
-are separate read-only diagnostics. The audio epoch, sample origin and100ms
-deadline never change during play.
+are separate read-only diagnostics. The active audio epoch, sample origin and
+segment scheduling lead are not retimed to cover missed deadlines.
 The runtime retains measured elapsed debt across normal callbacks while
-keeping the existing0.1-second/six-step bridge budget per callback. Complete
-four-slot physical changes carry observed active-host timestamps; only due
+keeping the existing0.1-second/six-step bridge budget per callback. While a
+playing prematch-profile host retains a whole host step, presentation
+is deferred until a later normal callback catches up; source steps and ordered
+audio commands are still delivered on every callback. Paused/menu frames render
+normally. No extra physics callback, source wake or audio pause is invented.
+Complete four-slot physical changes carry observed active-host timestamps; only due
 FIFO entries are delivered, so new input is not applied retroactively to
 historical debt. Explicit pause/reset/VS boundaries clear transients and
-exclude suspended time. Sustained lag still fails the unchanged100ms audio
-deadline; no midgame clock reanchor or stale-play clamp is used.
+exclude suspended time. An exhausted active-segment audio deadline still fails;
+render deferral does not accept a late command, enlarge the scheduling lead,
+reanchor an active clock or clamp stale plays.
 `sourcePlayer.observe()` provides a defensive, lightweight read-only state
 copy without the immutable source/resource inventories or camera history.
 The full `snapshot()` contract remains available for explicitly paused proof.

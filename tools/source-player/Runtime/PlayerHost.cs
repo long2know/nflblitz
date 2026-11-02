@@ -1084,8 +1084,11 @@ public sealed class PlayerHost
                 elapsed => Bridge.AdvanceSource(elapsed, NextHostInput)) :
                 Bridge.AdvanceSource(elapsedSeconds, NextHostInput) : 0;
         if (gameSoundHandoff != null) gameSoundHandoff.ObserveGameClock(Game);
-        var viewport = new SourceHudViewport(bufferWidth, bufferHeight, cssWidth, cssHeight, dpr);
-        Render(viewport);
+        // Do not add a full presentation to whole-step source debt. The next normal
+        // callback still uses the same bounded bridge and delivers every audio command.
+        if (!Options.PreGameSoundEnabled || !Active || resumeAwaitingPhysicalObservations ||
+            Session?.Playing != true || realtimeClock.PendingSeconds < FixedStepBridge.StepSeconds)
+            Render(new SourceHudViewport(bufferWidth, bufferHeight, cssWidth, cssHeight, dpr));
         AudioPlayback?.Flush();
         return steps;
     }

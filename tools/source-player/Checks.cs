@@ -577,6 +577,8 @@ static partial class Checks
             if (args.Contains("--source-realtime-actual"))
             {
                 VerifyRealtimeSource(data);
+                if (data.Catalog.Profile.StableId == SourceTeamResourceProfile.CompleteOriginalPrematchStableId)
+                    VerifyRealtimeRenderAdmission(data);
                 return 0;
             }
             if (args.Contains("--prematch-inputs-only"))
