@@ -12,6 +12,25 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class LifecycleRunnerGuards(unittest.TestCase):
+    def test_queued_commit_requires_exact_original_cross_los_flag_without_changing_input_flags(self):
+        for profile in ("C1-Strict", "M1-Strict", "M1-Portable"):
+            for scenario, input_flags in ((RUNNER.CAPTAIN_SCENARIOS[0], 0), (RUNNER.CAPTAIN_SCENARIOS[2], 8)):
+                identity = f"captain/{profile}/Home/First/{scenario}"
+                row = self.captain_record(identity)
+                expected_flags = input_flags | (0x4000 if profile != "C1-Strict" and input_flags == 0 else 0)
+                with self.subTest(identity=identity):
+                    self.assertEqual(row["expected"]["flags"], input_flags)
+                    self.assertEqual(row["actual"]["commit"]["flags"], expected_flags)
+                    RUNNER.require_captain_records([row], [identity])
+                    changed = copy.deepcopy(row)
+                    changed["actual"]["commit"]["flags"] ^= 0x4000
+                    with self.assertRaisesRegex(RuntimeError, "commit/rules-dispatch-compatibility"):
+                        RUNNER.require_captain_records([changed], [identity])
+                    changed = copy.deepcopy(row)
+                    changed["actual"]["before"]["flags"] ^= 0x4000
+                    with self.assertRaisesRegex(RuntimeError, "before"):
+                        RUNNER.require_captain_records([changed], [identity])
+
     def captain_record(self, identity):
         expected, configuration, caller, fields = RUNNER.captain_expectation(identity)
         queued = caller == "queued-game_proc"
@@ -21,7 +40,8 @@ class LifecycleRunnerGuards(unittest.TestCase):
                       play_type=expected["saved_ending_type"], phase="LiveBall", match_phase="LiveBall",
                       result_pending=False, end_epoch=0, home_score=7, away_score=3,
                       down=4 if identity.endswith(RUNNER.CAPTAIN_SCENARIOS[0]) else 2, los=30, first_down=60,
-                      flags=expected["flags"], play_end_x=expected["raw_play_end_x"], line_position_z=0,
+                      flags=expected["flags"], ball_x=expected["raw_play_end_x"],
+                      play_end_x=expected["raw_play_end_x"], line_position_z=0,
                       clock_packed=0x3c07, clock_local=0x3c07, clock_active=True, clock_play_time=0,
                       clock_next_wake_tick=58, dispatch_ordinal=24, game_proc_last_wake_tick=57,
                       process_serials=[1, 16, 17, 18], compatibility=configuration["compatibility"],
@@ -33,6 +53,8 @@ class LifecycleRunnerGuards(unittest.TestCase):
                       phase="DeadBall", match_phase="PlayResult", end_epoch=1 if queued else 0,
                       home_score=7 + home_points, away_score=3 + away_points, down=expected["down"], los=expected["los"],
                       first_down=expected["first_down"], clock_packed=0x3c00, clock_active=False,
+                      flags=expected["flags"] | (0x4000 if queued and expected["next_type"] != "Kickoff" else 0),
+                      ball_x=1 if expected["resolved_offense"] == "Home" else -1,
                       clock_next_wake_tick=59 if queued else 58, game_proc_last_wake_tick=58 if queued else 57)
         queue = dict(before, phase="DeadBall", match_phase="PlayResult", result_pending=True, end_epoch=1) if queued else None
         wakes = [dict(commit, host_tick=commit["host_tick"] + offset,

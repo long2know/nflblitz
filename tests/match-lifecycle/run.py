@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -223,12 +224,15 @@ def require_captain_records(rows, identities):
                    name + "/integer-identity-and-invariants")
             demand(observation.get("compatibility") == configuration["compatibility"]
                    and observation.get("first_possession") == first, name + "/configured-profile-and-first-pos")
+            demand(type(observation.get("ball_x")) in (int, float) and math.isfinite(observation["ball_x"]),
+                   name + "/finite-original-ball-position")
         demand(startup["host_tick"] == 60 and startup["source_tick"] == 57 and startup.get("captain") == initial,
                "startup/actual-cycle")
         demand(before["host_tick"] == 60 and before["source_tick"] == 57 and before.get("captain") == initial
                and before.get("offense") == expected["old_offense"] and before.get("initial_offense") == expected["initial_offense"]
                and before.get("last_possession") == expected["last_possession"] and before.get("play_type") == expected["saved_ending_type"]
                and before.get("phase") == "LiveBall" and before.get("match_phase") == "LiveBall"
+               and before["flags"] == expected["flags"]
                and before["clock_packed"] == 0x3c07 and before.get("clock_active") is True
                and before["home_score"] == 7 and before["away_score"] == 3, "before")
         queued = caller == "queued-game_proc"
@@ -240,7 +244,11 @@ def require_captain_records(rows, identities):
                and commit["end_epoch"] == epoch and commit["clock_packed"] == 0x3c00 and commit["clock_local"] == 0x3c07
                and commit.get("clock_active") is False and commit["clock_play_time"] == 0
                and commit["clock_next_wake_tick"] == commit["source_tick"] + 1, "commit/published-captain-possession-clock")
-        demand(all(commit[key] == expected[key] for key in ("down", "los", "first_down", "flags"))
+        signed_ball_x = commit["ball_x"] if expected["resolved_offense"] == "Home" else -commit["ball_x"]
+        post_wake_flags = expected["flags"] | (
+            0x4000 if queued and expected["next_type"] != "Kickoff" and signed_ball_x >= 0 else 0)
+        demand(all(commit[key] == expected[key] for key in ("down", "los", "first_down"))
+               and commit["flags"] == post_wake_flags
                and commit["repair_count"] == before["repair_count"]
                and isinstance(before.get("process_serials"), list) and commit.get("process_serials") == before["process_serials"]
                and commit["game_proc_last_wake_tick"] == commit["source_tick"], "commit/rules-dispatch-compatibility")

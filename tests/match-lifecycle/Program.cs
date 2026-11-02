@@ -327,6 +327,7 @@ internal static class Program
             ["end_epoch"] = game.C2State.EndEpoch, ["home_score"] = m.HomeScore, ["away_score"] = m.AwayScore,
             ["down"] = m.SourceRules.Down, ["los"] = m.SourceRules.LineOfScrimmage,
             ["first_down"] = m.SourceRules.FirstDown, ["flags"] = (int)m.SourceFlags,
+            ["ball_x"] = m.SourceBallPosition.X,
             ["play_end_x"] = m.SourcePlayEndX, ["line_position_z"] = m.SourceLinePosition,
             ["clock_packed"] = m.SourceClock.PackedTime, ["clock_local"] = m.SourceClock.LocalPackedTime,
             ["clock_active"] = m.ClockActive, ["clock_play_time"] = m.SourceClock.PlayTime,
@@ -532,7 +533,12 @@ internal static class Program
             SourceMatchRules.WorldPosition(boundary.ResolvedFirst, boundary.ResolvedOffense));
         actual["displayed_lines"] = new[] { m.LineOfScrimmage, m.FirstDownLine };
         CaptainInvariant(row, "commit/displayed-lines", m.LineOfScrimmage == expectedDisplayLos && m.FirstDownLine == expectedDisplayFirst);
-        CaptainInvariant(row, "commit/flags-and-last-result", m.SourceFlags == boundary.Flags
+        SourceGameFlags postWakeFlags = boundary.Flags;
+        // At the declared LOS50, original player.c:10458 tests the signed held-ball position, not the carrier origin.
+        if (queued && boundary.NextType != SourcePlayType.Kickoff
+            && (boundary.ResolvedOffense == 0 ? m.SourceBallPosition.X : -m.SourceBallPosition.X) >= 0f)
+            postWakeFlags |= SourceGameFlags.BallCrossedLine;
+        CaptainInvariant(row, "commit/flags-and-last-result", m.SourceFlags == postWakeFlags
             && m.SourceLastResult == boundary.Result && m.SourceLastPossession == boundary.LastPossession
             && m.SourceOffenseTurnover == boundary.Turnover);
         CaptainInvariant(row, "commit/clock-fraction-and-stop", !m.ClockActive && m.SourceClock.PackedTime == 0x3c00

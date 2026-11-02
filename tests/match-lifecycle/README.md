@@ -1,12 +1,13 @@
 # Actual source match lifecycle and post-result captain transition
 
-The captain addition is **source-authored, UNEXECUTED** until a distinct
-execution/resource admission and one focused Quality gate. The commands below
-are recommendations, not permission to build, import or run anything.
+The current declared-boundary graph has passed both exact2371-assertion
+baselines, all143 cases, and all13 freshly compiled causal controls with explicit
+SDK assets and one mutation worker. This is component qualification, not a
+naturally played full match or native-hardware proof.
 
 ```sh
 python3 -B tests/match-lifecycle/test_runner.py -q
-python3 -B tests/match-lifecycle/run.py \
+BLITZ_CI_MUTATION_WORKERS=1 python3 -B tests/match-lifecycle/run.py \
   --fixture-manifest "$EXPLICIT_AUTHORIZED_CONTACT272_FIXTURE" \
   --sound-functions "$EXPLICIT_AUTHORIZED_SAFN" \
   --c2-m1-inputs "$EXPLICIT_AUTHORIZED_M1_INPUTS" \
@@ -32,17 +33,18 @@ startup errors, timeouts and unrelated failures also stop. No SDK query,
 restore, install, cache preparation or network fallback is performed by this
 runner. Resource preparation, if needed, needs its own explicit admission.
 No Unity executable, DSP, browser, service or new fixture/package is required.
+The dedicated CI preparation step restores only this SDK project against an
+empty package feed into a named scratch directory, then passes that exact
+assets file and a step-local single-worker setting to the unchanged strict
+runner. Other suites retain their existing worker settings.
 
 This dedicated executable links the actual `FullKernelInputs` M1 factory,
 current kernel and entire production `FixedStepBridge`, not an extracted
 terminal function or an `IGameSimulation` double. The existing shared
-`production_paths()` inventory (currently79 files) plus the bridge is compiled
-unchanged as an80-file production closure. No project, shared source list,
-dependency or source props is changed by the captain addition.
-The local Python guard's stale78 count is synchronized to the already-existing
-79-path inventory, including `SourceInterfaceData.DefaultAudibles.cs`; that file
-is not added or edited here. This is identity metadata, not a shared-closure or
-default-audibles implementation change.
+`production_paths()` inventory (currently103 files) plus the bridge is compiled
+unchanged as a104-file production closure. The earlier79-path generation
+remains historical; the current guard follows the existing expanded inventory,
+without adding the bridge globally or changing production code.
 
 ## Retained partition — unchanged
 
@@ -153,6 +155,16 @@ new global slot. No test-only replacement captain is supplied. Actual boundary
 checks also preserve classification, both score/quarter-score fields,
 spot/down/displayed lines/flags, fractional clock discard/stop, events,
 dispatch/process identities and compatibility repairs. C1 checks the complete
+immediate boundary. A queued M1 observation also includes the subsequent
+original `ball_proc` wake: `player.c:10458-10464` sets `GF_BALL_CROSS_LOS`
+(`include/GAME.H:83`, `0x4000`) for a non-kickoff ball at or beyond LOS.
+At these declared LOS50 boundaries, this uses the signed actual held-ball
+position, not the carrier origin; a wrist can lie on the other side of midfield.
+Original input flags stay unchanged. Both the C# assertion and independent
+receipt validation require the exact post-wake flags from that predicate and
+record a finite ball X; missing or invented bits are rejected.
+
+C1 checks the complete
 inline RNG delta; M1 checks draws attributed to the actual committing
 `game_proc`, retaining whole-wake counters separately. These are not PRNG,
 native scheduler or natural full-match claims.

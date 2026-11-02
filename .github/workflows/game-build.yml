@@ -199,8 +199,14 @@ jobs:
         run: python3 tests/ball/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn
       - name: Test explicit Portable carrierless switching and defined original C
         run: python3 -B tests/movement-callers/compatibility.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --old-c2-inputs .squad/.scratch/SourceData/c2-old9 --carrierless-switch-only --source-root .squad/.scratch/SourceData/source-kernel-original --output .squad/.scratch/carrierless-switch-ci
+      - name: Prepare explicit lifecycle SDK assets
+        run: |
+          mkdir -p .squad/.scratch/match-lifecycle-sdk-assets/empty-feed
+          dotnet restore tests/match-lifecycle/MatchLifecycleChecks.csproj --source "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/empty-feed" --packages "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/nuget" --disable-parallel --verbosity quiet -p:NuGetAudit=false -p:BaseIntermediateOutputPath="$PWD/.squad/.scratch/match-lifecycle-sdk-assets/obj/"
       - name: Test actual source terminal producer and real bridge notification
-        run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls
+        env:
+          BLITZ_CI_MUTATION_WORKERS: '1'
+        run: python3 -B tests/match-lifecycle/run.py --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls --project-assets .squad/.scratch/match-lifecycle-sdk-assets/obj/project.assets.json
       - name: Compare original movement callers and post-animation physics
         # REQUIRED full OPT-IN PORTABLE gate, not native parity; faults/UNMET remain nonzero.
         run: python3 tests/movement-callers/run.py --source-root .squad/.scratch/SourceData/source-kernel-original --input-profile contact272 --fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json --sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn --c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.jsonl --output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable

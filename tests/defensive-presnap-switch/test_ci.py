@@ -89,6 +89,27 @@ LEGACY_BOOTSTRAP = (
     "        working-directory: .\n"
     "        run: " + CI + " workspace --output " + LEGACY_WORKSPACE + " --inherited\n"
 )
+LIFECYCLE_COMMAND = (
+    "python3 -B tests/match-lifecycle/run.py "
+    "--fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json "
+    "--sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn "
+    "--c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls"
+)
+ORIGINAL_LIFECYCLE_STEP = (
+    "      - name: Test actual source terminal producer and real bridge notification\n"
+    "        run: " + LIFECYCLE_COMMAND + "\n"
+)
+LIFECYCLE_ASSETS_STEP = """      - name: Prepare explicit lifecycle SDK assets
+        run: |
+          mkdir -p .squad/.scratch/match-lifecycle-sdk-assets/empty-feed
+          dotnet restore tests/match-lifecycle/MatchLifecycleChecks.csproj --source "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/empty-feed" --packages "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/nuget" --disable-parallel --verbosity quiet -p:NuGetAudit=false -p:BaseIntermediateOutputPath="$PWD/.squad/.scratch/match-lifecycle-sdk-assets/obj/"
+"""
+ADMITTED_LIFECYCLE_STEP = (
+    "      - name: Test actual source terminal producer and real bridge notification\n"
+    "        env:\n          BLITZ_CI_MUTATION_WORKERS: '1'\n"
+    "        run: " + LIFECYCLE_COMMAND +
+    " --project-assets .squad/.scratch/match-lifecycle-sdk-assets/obj/project.assets.json\n"
+)
 HISTORICAL_CORE_BUDGET = (
     "  core-and-tooling:\n"
     "    name: Core inventory and build-tool units (no Unity)\n"
@@ -270,6 +291,8 @@ def remove_once(text, addition, replacement=""):
 def inherited_game(text):
     # Keep historical guards byte-faithful while reversing only the approved current core budget.
     text = remove_once(text, CURRENT_CORE_BUDGET, HISTORICAL_CORE_BUDGET)
+    text = remove_once(text, LIFECYCLE_ASSETS_STEP)
+    text = remove_once(text, ADMITTED_LIFECYCLE_STEP, ORIGINAL_LIFECYCLE_STEP)
     text = remove_once(text, new_job())
     text = remove_once(text, FULL_HISTORY_CHECKOUT_STEP, ORIGINAL_CHECKOUT_STEP)
     text = remove_once(text, LEGACY_DEFAULTS)
@@ -1762,6 +1785,22 @@ print(json.dumps({name: dict({key: identity.get(key) for key in fields},
 
 
 class DefensiveCI(unittest.TestCase):
+    def test_lifecycle_sdk_preparation_and_single_worker_admission_are_exact_and_reversible(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        inherited = validate_workflows(game, player)
+        self.assertIn(ORIGINAL_LIFECYCLE_STEP, inherited)
+        self.assertLess(game.index(LIFECYCLE_ASSETS_STEP), game.index(ADMITTED_LIFECYCLE_STEP))
+        for old, new in (
+                (LIFECYCLE_ASSETS_STEP, ""),
+                (LIFECYCLE_ASSETS_STEP, LIFECYCLE_ASSETS_STEP.replace("--disable-parallel ", "")),
+                (LIFECYCLE_ASSETS_STEP, LIFECYCLE_ASSETS_STEP.replace("--source ", "--ignore-failed-sources --source ")),
+                (ADMITTED_LIFECYCLE_STEP, ORIGINAL_LIFECYCLE_STEP),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("WORKERS: '1'", "WORKERS: '2'")),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("--controls ", "")),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("/obj/project.assets.json", "/other/project.assets.json"))):
+            with self.subTest(change=new), self.assertRaises(AssertionError):
+                validate_workflows(game.replace(old, new, 1), player)
+
     def test_actual_workflows_have_exact_required_parallel_job_and_reversible_old_hashes(self):
         inherited = validate_workflows((ROOT / GAME).read_text(), (ROOT / PLAYER).read_text())
         self.assertEqual(sha(inherited.encode()), INHERITED_GAME_SHA256)
