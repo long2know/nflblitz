@@ -48,6 +48,30 @@ class PortableExportGuards(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "field set differs"):
             export.project_row(row, 0)
 
+    def test_current_constructor_defaults_project_losslessly_but_real_extra_inputs_are_rejected(self):
+        row = captured_row()
+        original_projection = export.project_row(row, 0)
+        row["command"]["Source"]["Play"]["SavedOrigin"] = None
+        frame = row["command"]["StationInputs"]
+        frame.update(PhysicalSwitches=None, SelectionSoundProducer=None, PlaySelectionContinuationBlocked=False)
+        station = frame["Stations"][0]
+        station["DigitalCurrent"] = None
+        station["Command"]["Play"]["SavedOrigin"] = None
+        untouched = copy.deepcopy(row)
+        self.assertEqual(export.project_row(row, 0), original_projection)
+        self.assertEqual(row, untouched)
+        for location, key, value in (
+                (frame, "PhysicalSwitches", {"mask": 1}),
+                (frame, "SelectionSoundProducer", "not-an-unused-default"),
+                (frame, "PlaySelectionContinuationBlocked", True),
+                (station, "DigitalCurrent", 1),
+                (station["Command"]["Play"], "SavedOrigin", {"slot": 1})):
+            before = location[key]
+            location[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "unused default"):
+                export.project_row(row, 0)
+            location[key] = before
+
     def test_observation_fields_count_order_and_missing_positive_are_rejected(self):
         row = captured_row()
         row["rng"] = []

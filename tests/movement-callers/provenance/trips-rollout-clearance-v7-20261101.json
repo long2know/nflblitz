@@ -1,0 +1,460 @@
+{
+  "schema": "unity-source-driven-rskip-scenario-ci/v1",
+  "date": "2026-11-01",
+  "owner": "Unity",
+  "baselineCommit": "c397d6dd8de48a5e82a792fd5d5341b502b77fb2",
+  "status": "local-full-source-scenario-qualified-awaiting-committed-checkout-guards",
+  "scenario": "trips-rollout-clearance-presnap-switch-v7-12000",
+  "controllerPolicy": "source-trips-rollout-public-controller/v1",
+  "recordingGeneration": "source-public-open-space/v7",
+  "policyBeforeSha256": "4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087",
+  "policyFrozenAtUtc": "2026-11-02T02:56:26.229887+00:00",
+  "controllerBeforeSha256": "7dfbfa794319d371b2b5e73a5c4f1d297b2a8788946cdab2041ca30ab56b8da1",
+  "sourceManifestSha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
+  "harnessManifestSha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
+  "sourceCount": 103,
+  "harnessCount": 12,
+  "dataInputCount": 1123,
+  "dataInputManifestSha256": "6d4331545a88491f5b9dc73f9f6bf22d51cc98c2e3d194c955afeacdf3af8556",
+  "configurationSha256": "75b13a866bcbbe9a7ad23bdff425153b985c41141c3dd42868bbeb533e25837d",
+  "entrypointSha256": "ed4b8387a3104d1ac7702d32f5d243289494c15731e4495e4da38242e38f5a33",
+  "pdbSha256": "6608c27aa14738b2f510c0e9c39c9808b5e7a8ba1db46de87bc5396c46d27a4b",
+  "originalCommit": "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+  "sourceCitations": [
+    {
+      "path": "player.c",
+      "lines": "363-367",
+      "behavior": "Four unmodified random running-taunt competitors; R_SKIP is index1."
+    },
+    {
+      "path": "player.c",
+      "lines": "4022-4120",
+      "behavior": "C/plow and stiff-arm precede FIELDX>80/no-TwoPart selection; any enemy under6 yards overrides the result."
+    },
+    {
+      "path": "plyrseq.c",
+      "lines": "6397-6420",
+      "behavior": "Actual r_skip transition, selected sequence and advancing loop."
+    },
+    {
+      "path": "playbook.c",
+      "lines": "74-83,4900-4907",
+      "behavior": "Da Bomb uses original trips formation and three original routes; public play choice, not a formation edit."
+    },
+    {
+      "path": "playbook.c",
+      "lines": "4990-4996",
+      "behavior": "Original 3 Man Cover defensive choice; the human pursues and tackles rather than vacating coverage."
+    },
+    {
+      "path": "player.c",
+      "lines": "2498-2518",
+      "behavior": "A rapid release/repress of C causes a spin; the controller avoids accidental double-C bursts."
+    }
+  ],
+  "originalSourceFilesSha256": {
+    "player.c": "61fb1be76029663294630e8633574ed065496da1ef6329071817e80622870b52",
+    "playbook.c": "fa7cd55d2b69ef271075b2c071a3fcc5728811e3b0ff19f55703b6c8e3c2c690",
+    "plyrseq.c": "8b7040c7a943f537a8a686a3b79b9c281454672203243599819099177bae880e"
+  },
+  "policyDecisions": [
+    "Current Home offensive/defensive menu book from public possession; Da Bomb trips / 3 Man Cover.",
+    "Wait24 menu hosts; one real raw B at75 pre-snap hosts; public Continue at30 dead-ball hosts.",
+    "QB rolls out; no deadline-forced pass. After12 carrier hosts, raw left/right B only for an outlet beyond LOS+5,4..40 yards ahead, inside20 lateral, current/0.5s predicted enemy gap>=8;30-host repeat guard.",
+    "Every carrier takes the best forward12-yard geometric corridor among seven fixed lanes, considering ALL enemies at3/6/9/12 yards and0.125/0.25/0.375/0.5s public-velocity prediction; not game-state simulation or RNG search.",
+    "Approach>=75 with nearest>=8 and predicted corridor>=6 releases C and continues forward; otherwise burst with normal turbo resource hysteresis .05/.25 and12-host minimum C release to avoid accidental spin.",
+    "Defense actively pursues the actual carrier with0.3s public-velocity lead and raw A inside3 yards; chase loose public ball, escort an uncontrolled teammate.",
+    "Never read clock, score, animation, seed, raw cursor, private model, process or observed random outcomes in the controller."
+  ],
+  "provider": {
+    "seed": 1,
+    "profile": "source-sound-smoke/raw-vector-v1",
+    "unfilteredRawVectorSha256": "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827"
+  },
+  "noRetryOrExtension": true,
+  "maximumAuthoringInvocations": 1,
+  "actualAuthoringInvocations": 1,
+  "actualWindowHosts": 12000,
+  "sourceSteps": 11400,
+  "policyChecks": {
+    "schema": "source-open-space-policy-checks/v1",
+    "status": "passed",
+    "assertions": 157,
+    "actualGameConstructions": 0,
+    "actualGameSteps": 0
+  },
+  "pythonFocusedUnitTests": 56,
+  "previousV6": {
+    "status": "UNMET-public-R_SKIP",
+    "completedHosts": 12000,
+    "SourceTick": 11400,
+    "rSkipFrames": 0,
+    "preSnapSwitchWitnesses": 12,
+    "runningTauntDraws": 9,
+    "allNineTauntDrawsWereAway": true,
+    "homeCarrierMaximumFieldX": 73.82243,
+    "bothIndex1DrawsOverriddenTo": "R_EZSPRI",
+    "index1Ticks": [
+      6084,
+      9845
+    ],
+    "index1PostNearestEnemyYards": [
+      1.496050843243638,
+      5.20580642784129
+    ],
+    "artifactsSha256": {
+      ".squad/.scratch/quality-current-input-compatibility-20261101/v6-authority/policy.json": "97fec230104041fb55a12ef4ecbceaf9a01934cb34833a3480ab09a2749ad4f1",
+      ".squad/.scratch/quality-current-input-compatibility-20261101/v6-authority/only-public-window-started.json": "d52da62a89101dd50e46593f3d395e1361b2de28535cef383d72918022822198",
+      ".squad/.scratch/quality-current-input-compatibility-20261101/v6-authority/authoring-result.json": "40fc368c1e809d82c21840447439d1224d1ad2152305c27950a06390ef811a96",
+      ".squad/.scratch/quality-current-input-compatibility-20261101/v6-authority/capture/public-window-result.json": "9319dbc345b5ed288d0780c088e86337316024d0e007338929e071fc005e4a5f"
+    },
+    "offlineFactsSha256": "2c7c03d83bf07c17a1099a4b5068a9987b74c0d74a9d309019c451038a6346b7"
+  },
+  "productionOrImageChanges": false,
+  "fullCurrentCiQualified": false,
+  "nativeOrWholeGameParityClaimed": false,
+  "candidateExported": true,
+  "pushHeldForParent": true,
+  "evidence": ".squad/.scratch/unity-rskip-scenario-20261101/authority",
+  "windowExit": 0,
+  "rawCursor": 25526,
+  "rSkipFrames": 15,
+  "positive": {
+    "actor": 12,
+    "InstanceId": 212,
+    "firstTick": 7321,
+    "secondTick": 7322,
+    "firstOrdinal": 0,
+    "secondOrdinal": 1
+  },
+  "preSnapSwitchWitnesses": 9,
+  "executionCounts": {
+    "schema": "movement-driver-execution-counts/v1",
+    "gameConstructors": 1,
+    "hostStepCalls": 12000,
+    "directAnimationAdvanceCalls": 0,
+    "hostOrAdvanceCalls": 12000,
+    "unfilteredRawNextValues": 25526,
+    "randomDispatches": 25526,
+    "withinPerDriverBudget": true,
+    "noAdditionalRandomDrawsOrSourceWakes": true
+  },
+  "authoringReceiptSha256": "43d4bace07c69785b0f8620eed6152cf9b443b5087b87c35a350e20485da502e",
+  "frozenSourceHarnessToolsInputsAndFailedV6Unchanged": true,
+  "publicInputSha256": "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866",
+  "publicGzipSha256": "6d1202ebe3b1bc50e032cdc67a3978f0abc546a31ddb9e16712696fdd95872fa",
+  "publicRecipeSha256": "eb87373a21cca009125daa948dab37bc9e09b91b224d5e025d8d5435afa1917a",
+  "exportGameplayExecutions": 0,
+  "originalNumericalExpectedArraysExported": false,
+  "localCurrentM1FullGraphQualified": true,
+  "hostedCiPendingParent": true,
+  "normalFullGraph": {
+    "status": "passed-portable-M1-public-caller-gate",
+    "report": ".squad/.scratch/unity-rskip-scenario-20261101/qualification/full/result.json",
+    "reportSha256": "f2599ae0de1f919c176b2a07193274283cd41b2c07b81a737da27a9995e6f7d8",
+    "actualNamedDrivers": 17,
+    "freshZeroDiagnosticBuilds": 17,
+    "totalPublicReplayExecutions": 6,
+    "positiveReplays": {
+      "uninstrumented": {
+        "exit": 0,
+        "completedHosts": 12000,
+        "SourceTick": 11400,
+        "rawCursor": 25526,
+        "rSkipFrames": 15,
+        "preSnapSwitchWitnesses": 9,
+        "positive": {
+          "actor": 12,
+          "InstanceId": 212,
+          "firstTick": 7321,
+          "secondTick": 7335,
+          "firstOrdinal": 0,
+          "secondOrdinal": 14
+        },
+        "assertions": 2270320,
+        "receiptSha256": "137a2ccc1a365add773d2ce43642dafc8ec02b82979df577bc30b524c538b47b"
+      },
+      "isolated-observer": {
+        "exit": 0,
+        "completedHosts": 12000,
+        "SourceTick": 11400,
+        "rawCursor": 25526,
+        "rSkipFrames": 15,
+        "preSnapSwitchWitnesses": 9,
+        "positive": {
+          "actor": 12,
+          "InstanceId": 212,
+          "firstTick": 7321,
+          "secondTick": 7335,
+          "firstOrdinal": 0,
+          "secondOrdinal": 14
+        },
+        "assertions": 9635194,
+        "receiptSha256": "7bb37595761d1a9c3369eb38cde36141f612ff0f95615eb8f5912d05e4dc0399"
+      },
+      "final-uninstrumented": {
+        "exit": 0,
+        "completedHosts": 12000,
+        "SourceTick": 11400,
+        "rawCursor": 25526,
+        "rSkipFrames": 15,
+        "preSnapSwitchWitnesses": 9,
+        "positive": {
+          "actor": 12,
+          "InstanceId": 212,
+          "firstTick": 7321,
+          "secondTick": 7335,
+          "firstOrdinal": 0,
+          "secondOrdinal": 14
+        },
+        "assertions": 2270320,
+        "receiptSha256": "137a2ccc1a365add773d2ce43642dafc8ec02b82979df577bc30b524c538b47b"
+      }
+    },
+    "cacheControlsCompiledAndCausal": 3,
+    "callerControlsCompiledAndCausal": 8,
+    "namedCausalControls": [
+      "cache-control-refresh-after-contact",
+      "cache-control-wrong-current-root-basis",
+      "cache-control-drop-contact-cache-checks",
+      "caller-control-shared-before-script",
+      "caller-control-captured-control-block",
+      "caller-control-weapon-return",
+      "caller-control-camera-cache-not-world",
+      "caller-control-actual-leap-operands",
+      "caller-control-immediate-general-run",
+      "caller-control-caller-original-units",
+      "caller-control-team-powerup-mask"
+    ],
+    "observerFinalStateRngPoseByteEquality": true,
+    "replayEvidenceSha256": {
+      "m1-public-replay.jsonl": "d3b6d5cd15688a446a3410841c3783faa3d1db301dc2aa885484391121e7e50c",
+      "m1-all-raw-draws.json": "546cbc654b6f40ebc48841f02c1468c02d16ec283021e55b14f15dbaf7d4d237",
+      "m1-R_SKIP-real-poses.json": "87eea7417ce3c8eff6077656ddab3cbb0885ab8441e55e57b3e05c560b59900e"
+    },
+    "observedCache": {
+      "observed": true,
+      "Frames": 10603,
+      "Calls": 148442,
+      "CurrentRows": 2226630,
+      "PreviousRows": 2226420,
+      "ReferenceRows": 2226630,
+      "OrdinaryRows": 1999740,
+      "ContactFrames": 6036,
+      "DisplacedActors": 15005,
+      "additionalGeometryCalls": 0,
+      "reference": "offline captured-view pose sampling/matrix arithmetic; not an independent original-C geometry oracle"
+    },
+    "all17DriversWithin12000CombinedCallsAnd32768Raw": true,
+    "aggregateExecutionCounts": {
+      "gameConstructors": 203,
+      "hostStepCalls": 39173,
+      "directAnimationAdvanceCalls": 6128,
+      "hostOrAdvanceCalls": 45301,
+      "unfilteredRawNextValues": 89747
+    },
+    "originalCPostVm": {
+      "status": "passed",
+      "actual_Core_post_animation_inputs": 664,
+      "exact_original_C_assertions": 5312,
+      "source_blob": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+      "source_sha256": "61fb1be76029663294630e8633574ed065496da1ef6329071817e80622870b52",
+      "actual_rows_sha256": "f2119372b02c2edee890ec6dccc5254f428743ca62890edc84e2b21d98b2f367",
+      "exit_code": 0,
+      "MIPS_binary_parity_claimed": false
+    }
+  },
+  "actualResultMutationGuards": {
+    "rejected": 26,
+    "reportSha256": "a042a123c3af1d3ae416db80944c1aa41dd3131a93007010d71b2a59c2333d54"
+  },
+  "historicalFive": {
+    "names": [
+      "main38-old-positive",
+      "main39-old-stale",
+      "main39-possession-positive",
+      "current-possession-stale",
+      "u2-current-possession-stale"
+    ],
+    "allExistingPublicFixturesRecipesAndMetadataByteExactC397": true,
+    "checkerAndAllHistoryPinsUnchanged": true,
+    "reexecuted": false
+  },
+  "freshV5Compatibility": {
+    "status": "passed-separate-v5-compatibility-boundaries",
+    "report": ".squad/.scratch/unity-rskip-scenario-20261101/qualification/v5-compatibility/result.json",
+    "reportSha256": "a32a3fd5c2f921003a577cebd1338fd5292b78fff7eae2642ee723da698a9f9a",
+    "runs": {
+      "historical-v5-positive": {
+        "exit": 0,
+        "completedHosts": 12000,
+        "SourceTick": 11400,
+        "rawCursor": 22463,
+        "rSkipFrames": 59,
+        "preSnapSwitchWitnesses": 15,
+        "sourceIdentity": {
+          "source_count": 78,
+          "source_manifest_sha256": "bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2",
+          "harness_count": 12,
+          "harness_manifest_sha256": "6924a80b7df99e62ab65a9af9503c23472b548cfc21d70463e1fc71777168a13",
+          "files_sha256": {
+            "Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs": "1476f385b2bb6ae1b0e0dca2c2501c88b07795e1703c4155e7d3dccabd7ecf38",
+            "Assets/Scripts/AssetImport/BindPoseMeshBuilder.cs": "1818cab787bd69c1d85b238e61123e7d3c0ec91b4973f4cef7918846f5b07dc1",
+            "Assets/Scripts/AssetImport/GeneratedCInitializer.cs": "7e1d5bd8a8b16414dcff893d05f6fa403af3dd3a52feca5f25907085e3aac0a0",
+            "Assets/Scripts/AssetImport/GeneratedPlayerData.cs": "723a50fb34f0210c96f88692a9f0bb8ec1ac6151beb5aac89fcbe61386a75a49",
+            "Assets/Scripts/AssetImport/GeneratedPlayerReader.cs": "7688c3d4f9bde4687d5b307a3b6dbfcc34e4e084aab4ac673b90c94970f32a65",
+            "Assets/Scripts/AssetImport/PlayerImportPlan.cs": "3ae2992eb7aad3f9d6d50cd999258e614e7ef76f5522e5229ac4b35622a7ffbb",
+            "Assets/Scripts/AssetImport/SourceActorPoseSampler.cs": "0dc3432a1fa2ef3df7d31adfb8b9e94f72c6bbd4010d98cf0f76de80b4499b27",
+            "Assets/Scripts/AssetImport/SourceAnimationLibrary.cs": "bd3881258689ef48190103328ffc789bfac7d732193a7a4f7942c849523a2d10",
+            "Assets/Scripts/AssetImport/SourceAnimationSampling.cs": "8a9386ffc4184d988e50fc765978bb3f5fc310747540fa351ff1d33c42759919",
+            "Assets/Scripts/AssetImport/SourceAudioBankReader.cs": "5065e857bc0b65d44dd93888ae97df897cf19ae233cbc6ade4ffb966cda92504",
+            "Assets/Scripts/AssetImport/SourceAudioFunctionData.cs": "1615247320e0d1d12c3721e68bcd412cf1074f29294c965041e11e4bcae00c73",
+            "Assets/Scripts/AssetImport/SourceC2CallbackData.cs": "c86ad9ec5206003e05758fe63e563f9b2e524a5ab0e0720e4cdc723b53f7c7f7",
+            "Assets/Scripts/AssetImport/SourceCinematicLibrary.cs": "fa664f9710441b63eb14d3632d08ff7a6af296e456b7b70996f9cc4fb86775ba",
+            "Assets/Scripts/AssetImport/SourceEnvironmentData.cs": "4494bfb6cf0e9769e6290fa3a78fc9bfac5fe0d592bba43688696e782f81bb88",
+            "Assets/Scripts/AssetImport/SourceFireSpfxData.cs": "328856295d8c5ae7f0e89338b5a87fc07233e871a97680feb45c4c3ffbef9ae2",
+            "Assets/Scripts/AssetImport/SourceFreeBallData.cs": "d160d3a3629ebb5ad7ba98cf18fa5e11bb97532705cd5a47fe22d3a6ae7df84c",
+            "Assets/Scripts/AssetImport/SourceInterfaceData.cs": "9dacf2b6fcab36e70281b5e231cd8edf6920d82e7550f466325a82fa69cb5837",
+            "Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs": "87cdd47d40abdb036f4a21f259be370b90beff622540acfa6766a6aeb09325fc",
+            "Assets/Scripts/AssetImport/SourceNormalCameraData.cs": "0fb5ad49aa4ee37b86470921e60c0a4e618873166b6ececd27ec6b03d7d45612",
+            "Assets/Scripts/AssetImport/SourcePlayerPose.cs": "3a64fb16a1da91008f29ebd1692631711608add16b963b41e09b2140f6432e3d",
+            "Assets/Scripts/AssetImport/SourceTeamGeneratedModels.cs": "dcfdcfa1ce9fe4f5e86479d468f84570eb4a16fc7c66bb03a600017460b3fb63",
+            "Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs": "528c06635230296588d11cac4b3918f4de2717bf0ca82ff03c64f2374b7e14b0",
+            "Assets/Scripts/AssetImport/SourceTeamPoppedHeadData.cs": "33fd008e00b2ccb640bcf5286b0382af14461e227af06c35817bd5dc1abbee16",
+            "Assets/Scripts/AssetImport/SourceTeamPresentationData.cs": "27909a8afb3430aa4bcca9faff31a508a20851bc61195d71f46a577cfec654b6",
+            "Assets/Scripts/AssetImport/SourceTeamPresentationModel.cs": "57292c31ac2fcce784dc824737c1b62a6cf8b6d3dc22658883864f7a0a6977d3",
+            "Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs": "932788a68dc1b2ea135c1816fd338c36f583a2d65935b1b9a15807e2ae0bda57",
+            "Assets/Scripts/Contracts/GameplayContracts.cs": "5193700b9ff030a957b7350741069192482c85ceb7d4af04fe94470d64c3b045",
+            "Assets/Scripts/Contracts/SourceAnimationContracts.cs": "5c444b0b5c080bdfe0840215e362f1960faca09520cb993ff941042e3ae6ac35",
+            "Assets/Scripts/Contracts/SourceCameraContracts.cs": "bca98780b14c314cf65700c9b34c4f85e305ac8f577c7137c1de3b286024399c",
+            "Assets/Scripts/Contracts/SourceConfigurationContracts.cs": "71cbb7762d0b1a46001fa461338758cfc398d26b044ff3e8f002329077160c37",
+            "Assets/Scripts/Contracts/SourceContactContracts.cs": "69f2c080416174dd8e7674529d47a376ca9292e1f207b2d4520ba6fe31add4b3",
+            "Assets/Scripts/Contracts/SourceFireSpfxContracts.cs": "96f002f9af45db1eb77fad8a6bf70f314ceda913768bb4f7c365bd30a974da6c",
+            "Assets/Scripts/Contracts/SourceInputContracts.cs": "3c0e7cbf988f5b73302cf10e01408be1ebaadae42094f534c144e72a7af34076",
+            "Assets/Scripts/Contracts/SourceKickMeterContracts.cs": "98d75a7d80a909316935bb1d73688fefed69959fe80245ca9dfdfad444bf5cda",
+            "Assets/Scripts/Contracts/SourceMatchContracts.cs": "d2359df641eaa3e9e0b1be9f6d7dc7315981473a517e4c2c520c3835221bfbc4",
+            "Assets/Scripts/Contracts/SourcePresentationContracts.cs": "0c3eaf79476bc55396fb23f4d0a81b6bab4a221dea6a4eb76617d4d9b7f04c0d",
+            "Assets/Scripts/Gameplay/GameSimulation.Contact.cs": "c02d7c846b269238d6fda3eb2ef7f5a4a43e326ef1eeafd6d91de89a17dfb0e7",
+            "Assets/Scripts/Gameplay/GameSimulation.FireHandicap.cs": "166ce0c1a740d20b9dbb175e434048772f8882baa89027e32a264ad479c110a2",
+            "Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs": "806374edcb8701e09008caa3fc7837b6e77604d763ed49f81abca0817e43e5a2",
+            "Assets/Scripts/Gameplay/GameSimulation.Possession.cs": "668c1d3d5b57b9daf8603e123a76ecebb0ea5f93db17526f5e1127343c83f462",
+            "Assets/Scripts/Gameplay/GameSimulation.Source.cs": "dd3baed08acfa02302407b7508a01274b024a108bf1e8e1efce382774eec0b54",
+            "Assets/Scripts/Gameplay/GameSimulation.cs": "9267ec0f7d70890bd18cd9931493e97bb8327bf10ae97dc038bfd861af26e740",
+            "Assets/Scripts/Gameplay/GameSnapshot.cs": "a10d9544d717fa06c66be2b894e9aa161a0120bbe9d3c58dfba918561180d16f",
+            "Assets/Scripts/Gameplay/GameplayRules.cs": "a727fe7fc3e01d4c2ed783f27359bffa20a033151e43bca701f09a13ef873d46",
+            "Assets/Scripts/Gameplay/PlayerSimulation.cs": "e3ce36e7f028f023f09ef0288d331ddc202522cf0184ee9e744eb287627739fc",
+            "Assets/Scripts/Gameplay/SimulationState.cs": "c368e0d6be62883a0c7f1d90c2565f62db8a262db85c4e7261e0e8daa4ce67b4",
+            "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs": "0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc",
+            "Assets/Scripts/Gameplay/SourceAnimationPrograms.Contact.cs": "944da0dc45732eec699f96882694a65c3adc1266b1feaa6d1fe7e5296852ffde",
+            "Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs": "2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef",
+            "Assets/Scripts/Gameplay/SourceAnimationPrograms.cs": "d33cb478f407bbd39e16dfcf8eeb086ccb336bfdaacb325da71493c481c33f61",
+            "Assets/Scripts/Gameplay/SourceAnimationState.cs": "0866f29da7f9287742a93476dee787165baa23f94cb58e08f6f87584739893f4",
+            "Assets/Scripts/Gameplay/SourceBallDriver.cs": "8654b981270ce7af9f1d215b82844c108780d3b2c69441e64a3559047fd4aed7",
+            "Assets/Scripts/Gameplay/SourceC2Callbacks.cs": "5b1b5791e9ac34858a2de71a626bfb07269f40d98025a2967d2f3608df250c0c",
+            "Assets/Scripts/Gameplay/SourceCatchGeometry.cs": "b2aa397cbc42d4960c792e91af99a133f055112f96050610cbc3ad67bff76959",
+            "Assets/Scripts/Gameplay/SourceCatchRules.cs": "98e72c4d58bc93f72d4f73b1b9f555c22aefb41c7a75f7c4704f4ed8b6687c86",
+            "Assets/Scripts/Gameplay/SourceClock.cs": "06eaa3fef8c29a907f25789b8e0b702fbcb548d2d9243c8ed5c6e524fc716941",
+            "Assets/Scripts/Gameplay/SourceContactDriver.Dispatch.cs": "c4c9d9c8b5e617ab81e5bd2ece9f769704c1edafd2f8f3e5f263267342a6644b",
+            "Assets/Scripts/Gameplay/SourceContactDriver.cs": "5a15e178cc1beb253455e2745317a347324640e3cec63f068d977785a18cc942",
+            "Assets/Scripts/Gameplay/SourceDroneAI.cs": "466d2d7b89737c713d2e233236c98c02365d4a0cc357ec6062f9b8281769f02e",
+            "Assets/Scripts/Gameplay/SourceEvasion.cs": "ee30bb1296b3493f08d65a0cb5f325574d0fbfe1c75461e23b1f00675799f62d",
+            "Assets/Scripts/Gameplay/SourceEvasionLeap.cs": "77323e1c26ba1baeaaed202fee8d4f39a48dc33bb15d1c5c8a71b131fe173282",
+            "Assets/Scripts/Gameplay/SourceKickMeterProcess.cs": "fbc1290e73a7a48aa534abaabd58a62d6a41ff3df825eb71087ef06efa39c0cd",
+            "Assets/Scripts/Gameplay/SourceMatchFlow.cs": "d6a36daabc56c737defbc3d6afa7515020ebf67b806804c101079c0187f6bcf1",
+            "Assets/Scripts/Gameplay/SourceMatchRules.cs": "41dbca20ef6736062a2f7c3c3ba34da806155abe82dc2f977a497f825ae87521",
+            "Assets/Scripts/Gameplay/SourceMovement.cs": "9200ab43e661fd8ac8f1c022f9e6bf5e1fd54970c75849393c473c296d7855b6",
+            "Assets/Scripts/Gameplay/SourceMovementIntegration.cs": "9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165",
+            "Assets/Scripts/Gameplay/SourceMovementState.cs": "01cdc1f8d8fb3e9545c411653b37bc48c7afcd781f4fca568b92f9510b59740d",
+            "Assets/Scripts/Gameplay/SourcePassDriver.cs": "2ba924d1cbf7e7fe5d12f2e84c4d50c5059bb6aaa524754923ac363cda797128",
+            "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs": "5c7c88b38c398089a38912f08c21864e6af21c50a13dcd33e6c2229ffd432140",
+            "Assets/Scripts/Gameplay/SourcePlaybook.cs": "bd51c3452fe49e5f5f8a49ef6e2cbef2cf692f566a0b46f714fb6c5e33b1e54e",
+            "Assets/Scripts/Gameplay/SourcePlayerDriver.cs": "5e1f77adecd166c4221e60b74b2c2d9e3af75b843a2facc63b5a5676c057a9e6",
+            "Assets/Scripts/Gameplay/SourceRandom.cs": "71566e84f0688041f40688e053c91f6239fe75240f8aaf77487fdcb667f69205",
+            "Assets/Scripts/Gameplay/SourceSoundVm.cs": "4e41f3c0ecb3f002374090fbfddb92dcbaf51bc79ded50659a1fa1b2c2345ce3",
+            "Assets/Scripts/Presentation/SourceAudioFunctions.cs": "6fd7e8505c9a3f4fbe2608947b368cf0f31803f8273720d7c9ade425ad2fbe81",
+            "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs": "bd90c4a9f37111145242ed8d12189bf252c23ef24579af4fde78269ba932a187",
+            "Assets/Scripts/Presentation/SourceCinematicModel.cs": "1343e6b0a41f18f3798545cb17f7c6d75c707d8413274b8b67f7f19718c57c91",
+            "Assets/Scripts/Runtime/SourceC2Composition.cs": "8f325f11348cae0fa062d1ad50f5daeb1b1bce2e703eea8c961d08c9990a7ed3",
+            "Assets/Scripts/Runtime/SourceContactComposition.cs": "e5b225a7592406784a57e0e2b91e73ddfe98d27a2520bb2f6faa56b5f530d269",
+            "tests/audio/vm/SourceSoundVmSources.props": "1daa33efc62632fe15a2cd05dbe5372872e3b1ec24637893ee7fe3b706e8dac5",
+            "tests/movement-callers/Canonical.cs": "4c412fb08bbd4214c898c71cc51807ac876e08f6d7fa8f4d3823ddbd016571d2",
+            "tests/movement-callers/CompatibilityChecks.cs": "78d66f64b5d891ab13fce4b935f9693e6a569d31c364ffded4115de8bb261f38",
+            "tests/movement-callers/Controlled.cs": "429f596cd6707b51f4f318649490ac918f52f02660e01c68c360e6febbdead02",
+            "tests/movement-callers/Directory.Build.props": "1dd96e405e6c5e6518640eb492265718d16357b24b5cfb0df8ced52237d31f5e",
+            "tests/movement-callers/InputAndStation.cs": "b844d9f3b03a09c2e7e4dd0dddfad3851dc235e83d462b312a4fdc07b9de0c9e",
+            "tests/movement-callers/MovementCallerChecks.csproj": "d1daeb026a18faf2ee7fac47d5e6e53bef730ff8f4d5a3310b19ef17da93f3dc",
+            "tests/movement-callers/PortablePublicPolicy.cs": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+            "tests/movement-callers/Program.cs": "8415ecd7e6e569b2c67571ae63d392a5c621ff5ccad4e54708329723714d28c4",
+            "tests/movement-callers/SnapHikeChecks.cs": "a347b3f4a5d0cbecd1c44ab3eba73313889ba443328adf0d682a821a12ea812a",
+            "tests/parity/FullKernelInputs.cs": "2f6ed6c7bd4bc844f7c31ae9c9e2a249f274edcbd665857eff216adfba5a0ea6",
+            "tests/parity/FullKernelSources.props": "3cfc5d8d31dae2c90907d56b592b543391d76e885e9211e49b4571404a408cfa"
+          },
+          "commit": "45f045612ab52611edea31a782696478cde1aca6",
+          "tree": "e85f0c818386c4821a6c676b2204348e1c9c4ce0",
+          "selected_git_archive_sha256": "c1f8ee3228bdfa2d2fd5a221b09be54f7895bb80779c782a6e572b9db8be6328"
+        },
+        "freshCompileZeroDiagnostics": true,
+        "receiptSha256": "1dab1abd478eb9964e126b9b71332aeb7f3b8e126cef85afe9d0bda110354af4"
+      },
+      "integrated-current-v5-stale": {
+        "exit": 2,
+        "completedHosts": 4913,
+        "SourceTick": 4667,
+        "rawCursor": 8643,
+        "rSkipFrames": 0,
+        "preSnapSwitchWitnesses": 6,
+        "sourceIdentity": {
+          "schema": "source-current-cache-observer-generation/v1",
+          "source_generation": "integrated-default-audibles/c202-v7-open-space-harness",
+          "source_commit": "c202cecc114c380ebe53fe98def59f2550461bde",
+          "source_tree": "0b4791000b65a5d47886fa495a9810a16f5182be",
+          "source_count": 103,
+          "source_manifest_sha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
+          "harness_count": 12,
+          "harness_manifest_sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
+          "cache_source_sha256": "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927"
+        },
+        "freshCompileZeroDiagnostics": true,
+        "receiptSha256": "51536cff84bf1087aef44bf1e6512e6e992fe44c86ece730e5ff0167daa0fd92"
+      }
+    }
+  },
+  "acceptedR2": {
+    "imageId": "sha256:6b65a498215d6f87ae21d8db3ac937b022a164d45abbd351212c6af3b640a682",
+    "buildSha256": "b9a2ebd6fee4f762140d4a67ee66c83a242e452aee60fe8bf28586ca3404d7e8",
+    "sourceRootDigest": "0014c171ab037f2edb375efbfe575047d3b3fff8e5f4fb780d7ce6f9ec183af7",
+    "sourceRevision": "c202cecc114c380ebe53fe98def59f2550461bde",
+    "parentVerifiedCompiledSources": 159,
+    "allNonTestCsProjectAndPropsByteExactC202": 220,
+    "imageRebuiltOrChanged": false
+  },
+  "safeTrajectory": {
+    "rows": 12000,
+    "issues": [
+      "missing_workflow_binding"
+    ],
+    "actualWorkflowRunId": null,
+    "actualWorkflowJobId": null,
+    "localRunDidNotFabricateWorkflowIdentity": true
+  },
+  "pendingValidation": [
+    "exact committed-checkout workflow guards",
+    "final combined Python regression units"
+  ],
+  "preserved": {
+    "all115FrozenCompiledSourceAndHarnessFiles": true,
+    "all1123FrozenDataFiles": true,
+    "failedV6MarkerAndReceipts": true,
+    "physicsRngClocksAudioAndBudgets": true,
+    "sourceSideGuard": true,
+    "numericalAssertionsAndTolerances": true,
+    "allOldFixturesRecipesGoldensAndHistoryPins": true,
+    "workflowPermissionsTriggersTimeouts": true,
+    "acceptedR2CompiledGameSourcesAndImage": true
+  },
+  "limits": [
+    "Source-driven input coverage and bounded portable M1 caller/cache qualification, not native or whole-game equivalence.",
+    "Original-C checks cover the664 actual post-VM physics rows only; cache reference remains offline pose/matrix arithmetic.",
+    "Hosted CI/PR45 merge/GHCR publication belong to parent; no push, PR comment, publisher or image mutation occurred."
+  ]
+}

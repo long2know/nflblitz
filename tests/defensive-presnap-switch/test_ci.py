@@ -42,15 +42,16 @@ WORKSPACE = ".squad/.scratch/defensive-switch-ci/new-workspace"
 LEGACY_WORKSPACE = ".squad/.scratch/defensive-switch-ci/inherited-workspace"
 D = ".squad/.scratch/SourceData/defensive-presnap-switch-ci"
 O = ".squad/.scratch/defensive-presnap-switch-ci"
-CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
+CASE = "trips-rollout-clearance-presnap-switch-v7-12000"
+V5_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
 OLD_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 BASE558_SHA256 = "d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134"
 PLAYER563_SHA256 = "150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6"
-PUBLIC_SHA256 = "3ff126291e7d0e8a8dedf58ba3222a89a04567ae393f42e8168e2c77bf5e270e"
-GZIP_SHA256 = "610ee038927a4a9e40efbd1b5fcb6903c8afc569da0e0f2593255843daa8ba12"
-RECIPE_SHA256 = "2091456af6b5fed3e6e8123f34058ba637e884cc1bcefddba91427bbe4639c47"
+PUBLIC_SHA256 = "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866"
+GZIP_SHA256 = "6d1202ebe3b1bc50e032cdc67a3978f0abc546a31ddb9e16712696fdd95872fa"
+RECIPE_SHA256 = "eb87373a21cca009125daa948dab37bc9e09b91b224d5e025d8d5435afa1917a"
 FOCUSED_CONTROLS = (
     "strict-counter-boundary", "cyclic-not-nearest", "occupied-skip",
     "ten-loop-unconditional-assignment", "fake-B-external-edge-reinjection",
@@ -201,10 +202,13 @@ COMMANDS = {
     ),
     "Prepare closed saved public inputs without authoring or simulation": tuple(
         f"python3 -B tests/movement-callers/prepare_public_replay.py prepare --case {case} --fixture tests/movement-callers/fixtures/{case}.jsonl.gz --recipe tests/movement-callers/fixtures/{case}.recipe.json --output {D}/{case}.jsonl"
-        for case in (OLD_CASE, POSSESSION_CASE, CASE)
+        for case in (OLD_CASE, POSSESSION_CASE, V5_CASE, CASE)
     ),
     "Execute only the fresh current U2 fifth legacy recording probe": (
         history_command(D, O + "/current-history"),
+    ),
+    "Retain the historical v5 positive and integrated v5 stale boundary": (
+        f"python3 -B tests/movement-callers/current_presnap_compatibility.py --fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn --presnap-switch-inputs {D}/profile --replay-commands {D}/{V5_CASE}.jsonl --output {O}/v5-compatibility",
     ),
     "Execute normal full enabled-profile replay and all11 causal controls": (
         f"python3 -B tests/movement-callers/run.py --source-root {D}/original --input-profile contact272 --fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs {D}/profile --replay-commands {D}/{CASE}.jsonl --output {O}/new-full --source-compatibility portable",
@@ -934,9 +938,16 @@ def validate_full(directory, full):
         require(full.get(field) is True, "Mandatory actual full gate missing: " + field)
     require(full.get("public_vector_executions") == 6 and
             full.get("production_before") == full.get("production_after") and
-            len(full.get("production_before", {})) == 78 and len(full.get("harness_sha256", {})) == 12,
-            "The full six-replay/78-source/12-harness generation must be retained")
+            len(full.get("production_before", {})) == 103 and len(full.get("harness_sha256", {})) == 12,
+            "The full six-replay/103-source/12-harness source-driven generation must be retained")
     canonical = load("defensive_ci_full_canonical", "tests/movement-callers/canonical.py")
+    recipe = canonical.public_replay.open_space_recipe()
+    require(sha(json.dumps(full["production_before"], sort_keys=True, separators=(",", ":")).encode()) ==
+            recipe["source_manifest_sha256"] and
+            sha(json.dumps(full["harness_sha256"], sort_keys=True, separators=(",", ":")).encode()) ==
+            recipe["harness_manifest_sha256"] and
+            full.get("observer_source_binding") == canonical.CURRENT_OBSERVER_GENERATION,
+            "The exact reviewed source and new scenario harness seals are mandatory")
     controls = load("defensive_ci_full_controls", "tests/movement-callers/run.py")
     cache = [("cache-control-" + spec[0], spec[-1]) for spec in canonical.CANONICAL_CACHE_MUTANTS]
     callers = [("caller-control-" + spec[0], spec[-1]) for spec in controls.MUTANTS]
@@ -969,16 +980,16 @@ def validate_full(directory, full):
         require(actual == row.get("receipt") and sha(receipt_path.read_bytes()) == row.get("replay_receipt_sha256"),
                 "Actual full replay receipt differs or is absent: " + name)
         require(canonical.require_m1_replay(row["exit_code"], row["summary"], actual, "portable", True) == "positive" and
-                actual.get("replayFileSha256") == PUBLIC_SHA256 and actual.get("preSnapSwitchWitnesses") == 15 and
-                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22463 and
+                actual.get("replayFileSha256") == PUBLIC_SHA256 and actual.get("preSnapSwitchWitnesses") == 9 and
+                actual.get("rSkipFrames") == 15 and actual.get("rawCursor") == 25526 and
                 row["summary"].get("mode") == ("presnap-complete-observed" if name == "isolated-observer" else "presnap-complete") and
                 row["summary"].get("actual_animation_library_manifest") == canonical.PRESNAP_ANIMATION_SHA and
                 row["summary"].get("assertions", 0) > 0,
                 "Actual12000/11400 new factory, same-window B, ordered RNG and authentic R_SKIP required: " + name)
+        canonical.replay_evidence.verify(directory / name, row.get("retained_replay_evidence", {}))
     for filename in ("m1-public-replay.jsonl", "m1-all-raw-draws.json", "m1-R_SKIP-real-poses.json"):
-        raw = (directory / "uninstrumented" / filename).read_bytes()
-        require(raw and all((directory / label / filename).read_bytes() == raw
-                            for label in ("isolated-observer", "final-uninstrumented")),
+        require(all(canonical.replay_evidence.same(directory / "uninstrumented", directory / label, filename)
+                    for label in ("isolated-observer", "final-uninstrumented")),
                 "Actual uninstrumented/observer/final state-input-RNG-pose byte equality required: " + filename)
     for name in ("controlled-baseline", "controlled-final"):
         controls.require_summary(runs[name]["exit_code"], runs[name]["summary"], "controlled", canonical.PRESNAP_ANIMATION_SHA)
@@ -1090,6 +1101,12 @@ def summarize(root, results, output):
             history.get("executed_probe_inventory") == history["selected_probe_inventory"],
             "The actual fresh current U2 fifth historical-boundary probe is mandatory")
     generations.validate_probe_inventory("u2-current-fifth", history.get("probes"))
+    compatibility = load("defensive_ci_v5_compatibility", "tests/movement-callers/current_presnap_compatibility.py")
+    v5 = checked_json(results / "v5-compatibility/result.json")
+    compatibility.validate_report(v5)
+    for label, row in v5["runs"].items():
+        compatibility.canonical.replay_evidence.verify(results / "v5-compatibility" / label,
+                                                       row.get("retained_replay_evidence", {}))
     replay = load("defensive_ci_public", "tests/movement-callers/prepare_public_replay.py")
     require(sha((ROOT / f"tests/movement-callers/fixtures/{CASE}.jsonl.gz").read_bytes()) == GZIP_SHA256 and
             sha((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes()) == RECIPE_SHA256 and
@@ -1118,10 +1135,12 @@ def summarize(root, results, output):
         full_controls=full_controls, actual_original_C_cases=664, exact_original_C_checks=5312,
         public_case=CASE, public_sha256=PUBLIC_SHA256, public_recording_input_only=True,
         authoring_windows=0, private_assets_or_observations_uploaded=False,
-        current_history_probes=list(history["probes"]),
+        current_history_probes=list(history["probes"]), v5_compatibility_boundaries=list(v5["runs"]),
         result_sha256={name: sha(path.read_bytes()) for name, path in {
             "focused": results / "focused/result.json", "full": results / "new-full/result.json",
-            "history": results / "current-history/result.json", "acquisition": root / "acquired/receipt.json"}.items()},
+            "history": results / "current-history/result.json",
+            "v5_compatibility": results / "v5-compatibility/result.json",
+            "acquisition": root / "acquired/receipt.json"}.items()},
         whole_native_or_hosted_qualified=False)
     require(not output.exists(), "Never replace a prior CI privacy receipt")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -1161,7 +1180,7 @@ def failure_guards(root, results, output):
     for name, bad in mutations:
         try:
             validate_full(results / "new-full", bad)
-        except (AssertionError, RuntimeError) as error:
+        except (AssertionError, RuntimeError, ValueError) as error:
             rejected.append(dict(id=name, cause=str(error)[:220], actual_result_sha256=sha(original)))
         else:
             raise AssertionError("Real full-result mutation was accepted: " + name)
@@ -1884,7 +1903,7 @@ class DefensiveCI(unittest.TestCase):
         for field, value in (("rawVector", [1]), ("poses", []), ("state", {}), ("sourceprofile", "old")):
             recipe = json.loads((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes())
             with self.subTest(field=field), self.assertRaises(ValueError):
-                replay.validate_current_recipe(dict(recipe, **{field: value}), CASE)
+                replay.validate_open_space_recipe(dict(recipe, **{field: value}))
 
     def test_actual_helper_compile_and_metadata_closures_are_present(self):
         self.assertTrue((HERE / "oracle.py").is_file())

@@ -25,6 +25,7 @@ from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA
                             PRESNAP_ANIMATION_SHA, PRESNAP_DATA_SHA, successor_hashes)
 from compare_physics import compare
 import prepare_public_replay as public_replay
+import replay_evidence
 
 CACHE_SOURCE = "Assets/Scripts/Gameplay/SourceMovementIntegration.cs"
 CACHE_SOURCE_SHA = "17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b"
@@ -53,14 +54,19 @@ HARNESS = (
 )
 CURRENT_OBSERVER_GENERATION = {
     "schema": "source-current-cache-observer-generation/v1",
-    "source_generation": "integrated-default-audibles/c202-v6-harness",
+    "source_generation": "integrated-default-audibles/c202-v7-open-space-harness",
     "source_commit": "c202cecc114c380ebe53fe98def59f2550461bde",
     "source_tree": "0b4791000b65a5d47886fa495a9810a16f5182be",
     "source_count": 103,
     "source_manifest_sha256": "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507",
     "harness_count": 12,
-    "harness_manifest_sha256": "718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43",
+    "harness_manifest_sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
     "cache_source_sha256": "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927",
+}
+PRE_OPEN_SPACE_OBSERVER_GENERATION = {
+    **CURRENT_OBSERVER_GENERATION,
+    "source_generation": "integrated-default-audibles/c202-v6-harness",
+    "harness_manifest_sha256": "718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43",
 }
 CANONICAL_CACHE_MUTANTS = (
     ("refresh-after-contact", "production", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
@@ -770,6 +776,9 @@ def _m1_trajectory_binding(capture, label, expected, production, harness):
     profile = expected["profile"]
     _m1_trajectory_require(profile in _M1_TRAJECTORY_PROFILES, "conflicting_receipt")
     source_data, factory, case = _M1_TRAJECTORY_PROFILES[profile]
+    if (profile == "original-teams-contact282-c2-m1-presnap-switch" and
+            expected["replayFileSha256"] == public_replay.OPEN_SPACE_PUBLIC_SHA256):
+        case = public_replay.OPEN_SPACE_CASE
     _m1_trajectory_require(expected["sourceData"] == source_data and expected["factory"] == factory,
                            "conflicting_receipt")
     recipe_path = HERE / "fixtures" / (case + ".recipe.json")
@@ -780,7 +789,11 @@ def _m1_trajectory_binding(capture, label, expected, production, harness):
     _m1_trajectory_regular(compressed)
     _m1_trajectory_require(compressed.stat().st_size <= 2 * 1024 * 1024, "capture_bound")
     compressed_hash = sha(compressed.read_bytes())
-    controller = harness["tests/movement-callers/PortablePublicPolicy.cs"]
+    controller = harness[recipe.get("controller_source", "tests/movement-callers/PortablePublicPolicy.cs")]
+    if case == public_replay.OPEN_SPACE_CASE:
+        _m1_trajectory_require(current_source and recipe["source_count"] == 103 and
+                               recipe["harness_count"] == 12 and recipe["harness_manifest_sha256"] ==
+                               sha(_m1_trajectory_json(harness)), "conflicting_inventory")
     _m1_trajectory_require(controller == recipe["controller_sha256"]
                            and compressed_hash == recipe["gzip"]["sha256"]
                            and expected["replayFileSha256"] == recipe["jsonl"]["sha256"], "conflicting_input")
@@ -1349,6 +1362,7 @@ def m1_main(argv):
     inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
     inputs.update(successor_hashes(profile_inputs) if presnap_switch else canonical_hashes(profile_inputs, "contact281-c2-m1"))
     inputs[str(args.replay_commands.absolute())] = sha(args.replay_commands.read_bytes())
+    archive_replays = inputs[str(args.replay_commands.absolute())] == public_replay.OPEN_SPACE_PUBLIC_SHA256
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
@@ -1481,6 +1495,8 @@ def m1_main(argv):
                     result["status"] = "failed-portable-source-fault"
             run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility, presnap_switch)
             run["receipt"] = receipt
+        if archive_replays and section is None:
+            run["retained_replay_evidence"] = replay_evidence.archive(destination)
         shutil.rmtree(copy)
         return run
 
@@ -1495,8 +1511,7 @@ def m1_main(argv):
         else:
             observed = execute("isolated-observer", True)
             for name in ("m1-public-replay.jsonl", "m1-all-raw-draws.json", "m1-R_SKIP-real-poses.json"):
-                a, b = output / "uninstrumented" / name, output / "isolated-observer" / name
-                if a.read_bytes() != b.read_bytes():
+                if not replay_evidence.same(output / "uninstrumented", output / "isolated-observer", name):
                     raise RuntimeError("Passive observer changed actual recorded state/input/pose/RNG: " + name)
             result["uninstrumented_and_actual_observer_state_RNG_and_poses_byte_identical"] = True
             run_mutations(CANONICAL_CACHE_MUTANTS,
@@ -1513,9 +1528,9 @@ def m1_main(argv):
             result["original_C_post_VM"] = compare(args.source_root,
                 output / "existing-caller-physics/actual-caller-physics.tsv", native_output)
             final = execute("final-uninstrumented")
-            if (output / "final-uninstrumented/m1-public-replay.jsonl").read_bytes() != \
-                    (output / "uninstrumented/m1-public-replay.jsonl").read_bytes():
-                raise RuntimeError("Final actual-factory source baseline changed after causal controls.")
+            for name in replay_evidence.FILES:
+                if not replay_evidence.same(output / "final-uninstrumented", output / "uninstrumented", name):
+                    raise RuntimeError("Final actual-factory source baseline changed after causal controls: " + name)
             result["all3_cache_and8_caller_controls_compiled_and_causal"] = True
             result["complete_compiled_control_closure_executed"] = True
             result["status"] = ("passed-portable-M1-public-caller-gate" if args.source_compatibility == "portable"

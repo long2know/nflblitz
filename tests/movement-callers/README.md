@@ -1,5 +1,62 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Source-driven trips/rollout scenario — November 1, 2026
+
+`trips-rollout-clearance-presnap-switch-v7-12000` is a **distinct public-input
+scenario**, not a retry or relabel of the failed v6 controller. Offline inspection
+of v6 found nine running-taunt draws, all for Away actors. Both index1 choices
+were overridden to `R_EZSPRI`; the published nearest enemies were about1.50 and
+5.21 yards away. Home's maximum carrier progress was73.82, below the trigger.
+
+The original pinned `player.c:363-367,4022-4120` requires integer `FIELDX>80`,
+no competing TwoPart/stiff-arm path, and no enemy under6 yards for a selected
+running taunt to survive. `plyrseq.c:6397-6420` supplies the actual `R_SKIP`
+transition/loop. These public original files were independently byte-matched
+against commit `89f840d58d152a2a9f230cb8d0cdffbd554c8ded`.
+
+The separately named controller lives in `InputAndStation.cs`. It uses original
+Da Bomb trips / 3 Man Cover menu choices, rolls out rather than forcing covered
+passes at a deadline, plans forward geometric lanes against **every opponent**,
+and releases C on a clear red-zone approach. A twelve-host release interval
+avoids accidental double-C spins. Defense pursues and tackles normally. Its
+immutable projection contains public positions, velocities, roles, turbo,
+possession, phase, ball, line and play kind—not clock, score, pose, RNG or Model.
+
+Before any gameplay, policy
+`4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087`
+froze the unchanged103 production files and twelve-file harness
+`53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b`,
+seed1, the same unfiltered provider/configuration, and exactly one12,000-host
+window. All157 synthetic policy assertions ran with zero game constructions
+or steps. The sole actual authoring completed12,000/11,400, consumed25,526 raw
+values, witnessed nine fresh defensive B transfers and15 genuine `R_SKIP`
+frames. Actor12/instance212 advanced actual ordinals0→1 at ticks7321→7322
+with two distinct actual fifteen-joint poses. The v6 failed marker is retained.
+
+Only public commands and a new source/harness-bound recipe are exported; every
+old fixture, recipe and history pin remains separate and unchanged:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case trips-rollout-clearance-presnap-switch-v7-12000 \
+  --output .squad/.scratch/SourceData/trips-rollout-v7.jsonl
+```
+
+The normal enabled282 runner retains all three positive executions, exact
+observer/final state/RNG/pose byte comparisons, three cache and eight caller
+controls, and the664-input/5,312-assertion original-C post-VM campaign. Large
+private replay streams are losslessly archived only after a byte-for-byte
+roundtrip; comparisons stream the restored bytes, and CI verifies both raw and
+archive hashes. No assertion, count, tolerance or host/RNG budget is reduced.
+CI separately retains the historical v5 exact59-R_SKIP/15-B positive and its
+integrated-current first side-guard stale negative, as well as the five earlier
+historical boundaries. Local evidence never fabricates GitHub run/job identity.
+
+This is bounded source-driven coverage, **not native or whole-game parity**.
+The detailed receipt is
+`provenance/trips-rollout-clearance-v7-20261101.json`. Production and the
+accepted R2 image are unchanged; publication remains the parent's responsibility.
+
 ## Bounded current-input compatibility — November 1, 2026
 
 The unchanged v5 recording still passes all12,000 hosts/11,400 source wakes
@@ -23,7 +80,7 @@ returned nonzero and was not exported, registered or retried. There is no
 accepted v6 fixture or recipe. No source, policy, seed or coverage requirement
 was adjusted to obtain a positive.
 
-The separately sealed current harness is
+The separately sealed v6 harness was
 `718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43`;
 its only compiled change permits the named v6 authoring request. The103-source
 production manifest is unchanged. The compatibility runner freshly compiles

@@ -56,11 +56,16 @@ def validate_report(result):
                    and old["source_identity"].get("source_count") == 78
                    and old["source_identity"].get("source_manifest_sha256") == generations.U2_CURRENT_SOURCE_SHA256
                    and old["source_identity"].get("harness_manifest_sha256") == generations.NEAR_FRAME_HARNESS_SHA256
-                   and stale.get("source_identity") == canonical.CURRENT_OBSERVER_GENERATION,
+                   and stale.get("source_identity") in (canonical.CURRENT_OBSERVER_GENERATION,
+                                                       canonical.PRE_OPEN_SPACE_OBSERVER_GENERATION),
                    "Historical78 and actual integrated103 source/harness identities must stay separate.")
     replay.require(canonical.require_m1_replay(old["exit"], old["summary"], old["receipt"],
                                               "portable", True) == "positive",
                    "The unchanged v5 recording must retain its actual complete historical positive.")
+    replay.require(old["receipt"].get("completedHosts") == 12000 and old["receipt"].get("SourceTick") == 11400
+                   and old["receipt"].get("rawCursor") == 22463 and old["receipt"].get("rSkipFrames") == 59
+                   and old["receipt"].get("preSnapSwitchWitnesses") == 15,
+                   "The unchanged historical v5 exact12000/11400/22463raw/59R_SKIP/15B counts are mandatory.")
     classify_v5_stale(stale["exit"], stale["summary"], stale["receipt"])
     context = canonical._m1_side_diagnostic_view(stale.get("source_side"),
         "integrated-current-v5-stale", {key: stale["receipt"]["failure"][key]
@@ -153,6 +158,7 @@ def main(argv=None):
             row["source_side"] = canonical._m1_side_evidence(destination, label, receipt_bytes, dict(
                 observed=False, profile=PROFILE, sourceData=canonical.PRESNAP_DATA_SHA, factory=FACTORY,
                 replayFileSha256=inputs[str(args.replay_commands.absolute())]))
+        row["retained_replay_evidence"] = canonical.replay_evidence.archive(destination)
         shutil.rmtree(copy)
 
     code = 1

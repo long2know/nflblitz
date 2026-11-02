@@ -60,11 +60,31 @@ def project_row(row, host):
     result = copy.deepcopy(row)
     public.fields(result, {"host", "command"}, "row")
     public.fields(result["command"], public.COMMAND_FIELDS, "command")
+
+    def remove_default(value, name, expected):
+        if name in value:
+            public.require(type(value[name]) is type(expected) and value[name] == expected,
+                           "captured constructor-only " + name + " is not its unused default")
+            del value[name]
+
+    def play_defaults(source):
+        public.fields(source, public.SOURCE_FIELDS, "captured source command")
+        public.require(type(source["Play"]) is dict, "captured play must be a public object")
+        remove_default(source["Play"], "SavedOrigin", None)
+
+    play_defaults(result["command"]["Source"])
     frame = result["command"]["StationInputs"]
     if frame is not None:
+        public.require(type(frame) is dict, "captured input frame must be a public object")
+        for name, default in (("PhysicalSwitches", None), ("SelectionSoundProducer", None),
+                              ("PlaySelectionContinuationBlocked", False)):
+            remove_default(frame, name, default)
         public.fields(frame, {"Stations"}, "command.StationInputs")
         public.require(type(frame["Stations"]) is list, "public Stations must be a list")
         for station in frame["Stations"]:
+            public.require(type(station) is dict, "captured station must be a public object")
+            remove_default(station, "DigitalCurrent", None)
+            play_defaults(station["Command"])
             public.fields(station, public.STATION_FIELDS | {"IsSpecified"}, "captured station")
             public.require(station["IsSpecified"] is True,
                            "captured station must have constructor-derived IsSpecified=true")

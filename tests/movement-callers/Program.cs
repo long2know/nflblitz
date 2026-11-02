@@ -323,6 +323,7 @@ internal static partial class Program
     {
         if (args.Length == 6 && args[0] == "snap-hike") return SnapHikeChecks(args);
         if (args.Length == 1 && args[0] == "portable-public-policy-checks") return PortablePolicyChecks();
+        if (args.Length == 1 && args[0] == "open-space-policy-checks") return OpenSpacePolicyChecks();
         var result = new Dictionary<string, object> {
             { "schema", "source-movement-caller-checks/v1" }, { "status", "error" },
             { "whole_M1_or_full_gameplay_qualified", false }, { "native_or_browser_qualified", false }
@@ -356,10 +357,11 @@ internal static partial class Program
             bool historicalReplay = m1Replay && args[2].StartsWith("historical-", StringComparison.Ordinal);
             bool portablePolicy = args.Length == 6 && args[2] == "portable-public-policy";
             bool preSnapPolicy = args.Length == 6 && args[2] == "presnap-public-policy";
+            bool openSpacePolicy = args.Length == 6 && args[2] == "open-space-public-policy";
             bool preSnapReplay = m1Replay && args[2].StartsWith("presnap-", StringComparison.Ordinal);
-            if ((portablePolicy || preSnapPolicy) && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
+            if ((portablePolicy || preSnapPolicy || openSpacePolicy) && (!compatibilitySpecified || gameplayCompatibility != SourceGameplayCompatibility.Portable))
                 throw new ArgumentException("Portable public policy requires explicit --source-compatibility portable.");
-            if (!canonical && !m1Replay && !portablePolicy && !preSnapPolicy && (args.Length != 3 && args.Length != 4 ||
+            if (!canonical && !m1Replay && !portablePolicy && !preSnapPolicy && !openSpacePolicy && (args.Length != 3 && args.Length != 4 ||
                 !new[] { "bounded", "complete", "controlled", "cache-contract", "campaigns", "compatibility", "carrierless-switch" }.Contains(args[2])))
                 throw new ArgumentException("MovementCallerChecks actual-fixture.json output-directory bounded|complete|controlled|cache-contract|canonical281|canonical281-observed [oldSAFN] [c2-inputs]");
             outputRoot = Path.GetFullPath(args[1]);
@@ -370,7 +372,7 @@ internal static partial class Program
                 soundFunctionsPath: args.Length >= 4 ? args[3] : null,
                 c2InputsPath: canonical || historicalReplay ? args[4] : c2Inputs,
                 c2M1InputsPath: portablePolicy || m1Replay && !historicalReplay && !preSnapReplay ? args[4] : c2M1Inputs,
-                c2PreSnapSwitchInputsPath: preSnapPolicy || preSnapReplay ? args[4] : c2PreSnapSwitchInputs);
+                c2PreSnapSwitchInputsPath: preSnapPolicy || preSnapReplay || openSpacePolicy ? args[4] : c2PreSnapSwitchInputs);
             library = real.Animations; geometry = real.Geometry; playbook = real.Playbook;
             rosters = real.Rosters; movement = real.MovementRuntime;
             if (gameplayCompatibility == SourceGameplayCompatibility.Portable && !real.IsC2M1Profile && !real.IsPreSnapSwitchProfile)
@@ -380,6 +382,7 @@ internal static partial class Program
             result["actual_animation_library_manifest"] = real.Animations.InventorySha256;
             if (portablePolicy) return AuthorPortablePublicPolicy(args[5], result);
             if (preSnapPolicy) return AuthorPreSnapPublicPolicy(args[5], result);
+            if (openSpacePolicy) return AuthorOpenSpacePublicPolicy(args[5], result);
             if (args[2] == "compatibility" || args[2] == "carrierless-switch")
             {
                 compatibilitySoundFunctions = args[3];

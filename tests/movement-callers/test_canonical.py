@@ -1098,6 +1098,27 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                     canonical._m1_trajectory_binding(canonical._m1_new_trajectory_capture(),"uninstrumented",expected,
                         changed if kind=="production" else production,changed if kind=="harness" else harness)
 
+    def test_new_source_driven_recording_binds_its_actual_controller_not_the_historical_policy(self):
+        production = {p.relative_to(canonical.ROOT).as_posix(): canonical.sha(p.read_bytes())
+                      for p in canonical.production_paths()}
+        harness = {name: canonical.sha((canonical.ROOT / name).read_bytes()) for name in canonical.HARNESS}
+        recipe = canonical.public_replay.open_space_recipe()
+        expected = dict(observed=False, profile="original-teams-contact282-c2-m1-presnap-switch",
+                        sourceData=canonical.PRESNAP_DATA_SHA,
+                        factory="REAL SourceC2Composition.CreatePreSnapSwitchSimulation",
+                        replayFileSha256=recipe["jsonl"]["sha256"])
+        head = canonical.subprocess.CompletedProcess([], 0, "1" * 40 + "\n" + "2" * 40 + "\n", "")
+        with patch.dict(canonical.os.environ, {"GITHUB_RUN_ID": "42", "GITHUB_JOB": "defensive-presnap-switch"}), \
+                patch.object(canonical.subprocess, "run", return_value=head):
+            capture = canonical._m1_new_trajectory_capture()
+            canonical._m1_trajectory_binding(capture, "uninstrumented", expected, production, harness)
+        self.assertEqual(capture["issues"], [])
+        self.assertEqual(capture["attempt"]["controllerSha256"], harness[recipe["controller_source"]])
+        self.assertNotEqual(capture["attempt"]["controllerSha256"],
+                            harness["tests/movement-callers/PortablePublicPolicy.cs"])
+        self.assertEqual(capture["attempt"]["recipeSha256"],
+                         canonical.public_replay.OPEN_SPACE_RECIPE_SHA256)
+
     def test_actual_m1_cli_keeps_first_fault_and_finalizes_capture_before_returning_failure(self):
         case = self.attempt()
         output = self.work / "cli-output"

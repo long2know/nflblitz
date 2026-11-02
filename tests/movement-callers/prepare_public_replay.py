@@ -42,6 +42,12 @@ CURRENT_GENERATIONS = {
     PRESNAP_CURRENT_CASE: ("source-defensive-presnap-switch/v5", True),
 }
 CURRENT_METADATA = FIXTURE.with_name("current-recording-generations.json")
+OPEN_SPACE_CASE = "trips-rollout-clearance-presnap-switch-v7-12000"
+OPEN_SPACE_SOURCE_SHA256 = "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507"
+OPEN_SPACE_HARNESS_SHA256 = "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b"
+OPEN_SPACE_CONTROLLER_SHA256 = "7dfbfa794319d371b2b5e73a5c4f1d297b2a8788946cdab2041ca30ab56b8da1"
+OPEN_SPACE_RECIPE_SHA256 = "eb87373a21cca009125daa948dab37bc9e09b91b224d5e025d8d5435afa1917a"
+OPEN_SPACE_PUBLIC_SHA256 = "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866"
 RECORDINGS = {
     HISTORICAL_CASE: {
         "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
@@ -212,6 +218,11 @@ def encode(rows):
 
 
 def recording(case):
+    if case == OPEN_SPACE_CASE:
+        recipe = open_space_recipe()
+        return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
+                    public_sha256=recipe["jsonl"]["sha256"], public_bytes=recipe["jsonl"]["bytes"],
+                    fixture_sha256=recipe["gzip"]["sha256"], fixture_bytes=recipe["gzip"]["bytes"])
     if case in CURRENT_GENERATIONS:
         recipe = current_recipe(case)
         return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
@@ -255,6 +266,50 @@ def make_current_recipe(case, jsonl, packed):
         "jsonl": {"file": case + ".jsonl", "sha256": sha(jsonl), "bytes": len(jsonl)},
         "gzip": {"file": case + ".jsonl.gz", "sha256": sha(packed), "bytes": len(packed)},
     }
+
+
+def make_open_space_recipe(jsonl, packed):
+    return {
+        **SOURCE_TIMER_EXPECTED_RECIPE, "case": OPEN_SPACE_CASE,
+        "recording_generation": "source-public-open-space/v7",
+        "policy": "source-trips-rollout-public-controller/v1",
+        "controller_source": "tests/movement-callers/InputAndStation.cs",
+        "controller_sha256": OPEN_SPACE_CONTROLLER_SHA256,
+        "c2_profile": "contact282-c2-m1-presnap-switch",
+        "stable_profile": "original-teams-contact282-c2-m1-presnap-switch",
+        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation", "station_layout": 4,
+        "source_manifest_sha256": OPEN_SPACE_SOURCE_SHA256, "source_count": 103,
+        "harness_manifest_sha256": OPEN_SPACE_HARNESS_SHA256, "harness_count": 12,
+        "authoring_policy_sha256": "4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087",
+        "maximum_authoring_windows": 1,
+        "jsonl": {"file": OPEN_SPACE_CASE + ".jsonl", "sha256": sha(jsonl), "bytes": len(jsonl)},
+        "gzip": {"file": OPEN_SPACE_CASE + ".jsonl.gz", "sha256": sha(packed), "bytes": len(packed)},
+    }
+
+
+def validate_open_space_recipe(value):
+    import re
+    fixed = make_open_space_recipe(b"", b"")
+    fields(value, set(fixed), "source-driven open-space recipe")
+    for name in set(fixed) - {"jsonl", "gzip"}:
+        exact_metadata(value[name], fixed[name], "source-driven open-space recipe." + name)
+    for name, limit in (("jsonl", 32 * 1024 * 1024), ("gzip", 2 * 1024 * 1024)):
+        record = value[name]
+        fields(record, {"file", "bytes", "sha256"}, "source-driven open-space recipe." + name)
+        require(record["file"] == fixed[name]["file"] and type(record["bytes"]) is int and
+                0 < record["bytes"] <= limit and type(record["sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None,
+                "source-driven open-space recipe requires exact bounded " + name + " metadata")
+    return value
+
+
+def open_space_recipe():
+    path = FIXTURE.with_name(OPEN_SPACE_CASE + ".recipe.json")
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 8192,
+            "The separately named source-driven recording is missing; no old-vector fallback.")
+    raw = path.read_bytes()
+    require(sha(raw) == OPEN_SPACE_RECIPE_SHA256, "immutable source-driven recipe SHA256 differs")
+    return validate_open_space_recipe(decode(raw))
 
 
 def validate_current_recipe(value, case):
@@ -343,6 +398,14 @@ def exact_metadata(value, expected, where):
 
 
 def load_recipe(path, case=POSITIVE_CASE):
+    if case == OPEN_SPACE_CASE:
+        path = Path(path)
+        require(not path.is_symlink() and path.stat().st_size <= 8192,
+                "source-driven recipe requires bounded regular bytes")
+        raw = path.read_bytes()
+        require(sha(raw) == OPEN_SPACE_RECIPE_SHA256, "immutable source-driven recipe SHA256 differs")
+        exact_metadata(validate_open_space_recipe(decode(raw)), open_space_recipe(), "source-driven recipe")
+        return
     if case in CURRENT_GENERATIONS:
         expected = current_recipe(case)
         path = Path(path)
@@ -393,8 +456,8 @@ def compress(data):
 
 def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
     identity = recording(case)
-    if case in RECIPES or case == PRESNAP_CASE or case in CURRENT_GENERATIONS:
-        registered = (FIXTURE.with_name(case + ".recipe.json") if case in CURRENT_GENERATIONS else
+    if case in RECIPES or case in (PRESNAP_CASE, OPEN_SPACE_CASE) or case in CURRENT_GENERATIONS:
+        registered = (FIXTURE.with_name(case + ".recipe.json") if case in CURRENT_GENERATIONS or case == OPEN_SPACE_CASE else
                       PRESNAP_RECIPE if case == PRESNAP_CASE else RECIPES[case][0])
         load_recipe(registered if recipe is None else recipe, case)
     else:
@@ -457,7 +520,7 @@ def main():
     author.add_argument("--output", type=Path, action="append")
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
-        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE, *CURRENT_GENERATIONS), action="append")
+        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE, *CURRENT_GENERATIONS, OPEN_SPACE_CASE), action="append")
         command.add_argument("--fixture", type=Path, action="append")
         command.add_argument("--recipe", type=Path, action="append")
         if mode == "prepare":
@@ -485,7 +548,8 @@ def main():
         print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
                           "fixture_sha256": identity["fixture_sha256"],
-                          "recipe_sha256": sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
+                          "recipe_sha256": OPEN_SPACE_RECIPE_SHA256 if case == OPEN_SPACE_CASE else
+                              sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
                               current_recipe_hashes()[case] if case in CURRENT_GENERATIONS else
                               RECIPES[case][2] if case in RECIPES else None,
                           "historical_unqualified": case == HISTORICAL_CASE,
