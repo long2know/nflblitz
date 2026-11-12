@@ -16,6 +16,7 @@ namespace Blitz.Presentation
         public string ManifestSha256 { get { return manifestSha256; } }
         public TextAsset Provenance { get { return provenance; } }
         public int DrawCount { get { return orderedDraws == null ? 0 : orderedDraws.Length; } }
+        public SourceEnvironmentSelection Selection { get; private set; }
 
         public void InitializeGenerated(TextAsset manifest, string sha256, Mesh[] meshes,
             Texture2D[] textures, MeshRenderer[] renderers)
@@ -32,6 +33,7 @@ namespace Blitz.Presentation
         {
             if (provenance == null) throw new SourceEnvironmentException("Original environment provenance is missing; no generic world is substituted.");
             SourceEnvironmentManifest manifest = SourceEnvironmentReader.ReadManifest(provenance.bytes, manifestSha256);
+            Selection = SourceEnvironmentReader.ValidateSelection(manifest);
             if (sourceMeshes == null || sourceMeshes.Length != manifest.meshes.Length ||
                 sourceTextures == null || sourceTextures.Length != manifest.textures.Length ||
                 orderedDraws == null || orderedDraws.Length != manifest.draws.Length)
@@ -76,6 +78,14 @@ namespace Blitz.Presentation
                 throw new SourceEnvironmentException("Original environment contains unlisted rendered geometry (visibility boxes must not render).");
         }
 
+        public void RequireSelection(SourceEnvironmentSelection requested)
+        {
+            if (Selection == null) ValidateGeneratedWorld();
+            if (requested == null || requested.Identity != Selection.Identity)
+                throw new SourceEnvironmentException("Requested original environment selection differs from the installed world: " +
+                    (requested == null ? "missing" : requested.Identity) + " != " + Selection.Identity + "; no venue/endzone fallback.");
+        }
+
         internal static SourceEnvironmentProvider ResolveWorldMode()
         {
             string mode = RequestedMode(Application.absoluteURL);
@@ -97,7 +107,7 @@ namespace Blitz.Presentation
             SourceEnvironmentProvider prefab = asset.GetComponent<SourceEnvironmentProvider>();
             if (prefab == null) throw new SourceEnvironmentException("Installed original world has no verified SourceEnvironmentProvider.");
             prefab.ValidateGeneratedWorld();
-            Debug.Log("Environment mode: original field2/stadpie; manifest SHA256=" + prefab.ManifestSha256 +
+            Debug.Log("Environment mode: original " + prefab.Selection.Identity + "; manifest SHA256=" + prefab.ManifestSha256 +
                 ". Gameplay line/control overlays and HUD are separate ports, not original environment artwork.");
             return prefab;
         }

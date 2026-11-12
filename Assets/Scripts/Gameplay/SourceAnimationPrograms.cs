@@ -32,7 +32,7 @@ namespace Blitz.Gameplay
         SetLowerUninterruptible, SelectScript, RandomBranch, JumpProgram, BranchSlowerSpin,
         BranchIfNotHasBall, CameraCue, ShakerCue, PresentationCallback,
         MovementCode, MovementBranchNonzero, MovementBranchZero, LeapAttack, AttackOn, AttackOff, TurnHack,
-        HitFacingVelocity, End
+        HitFacingVelocity, End, SetCelebrate
     }
 
     [Flags]

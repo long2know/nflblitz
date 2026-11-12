@@ -481,6 +481,7 @@ namespace Blitz.Gameplay
             actor.SourceReturnedFromMovementMode = false;
             SourceActorMode mode = actor.SourceMode;
             if (mode == SourceActorMode.Lineup || mode == SourceActorMode.Dead) return;
+            if (mode == SourceActorMode.ReceiverPreSnap && RunSourceQuickKickPreSnap(actor)) return;
             if (mode == SourceActorMode.LinePreSnap)
             {
                 if (Model.Phase == GamePhase.LiveBall)
@@ -495,9 +496,12 @@ namespace Blitz.Gameplay
             if (mode == SourceActorMode.QuarterbackPreSnap)
             {
                 if (actor.AnimationState.Primary.IsUninterruptible) return;
-                Model.PreSnapTicksRemaining--;
                 bool kick = (Model.SourceOffensePlay.Flags & (SourcePlayFlags.FieldGoal | SourcePlayFlags.FakeFieldGoal
                     | SourcePlayFlags.Punt | SourcePlayFlags.FakePunt)) != 0;
+                if (!kick && (!CheckSourceDefaultAudible(actor, SourceAudibleRole.Offense)
+                    || SourceAudibleAction(1 - (int)Model.Possession) == 1))
+                { actor.SourceReturnedFromMovementMode = true; return; }
+                Model.PreSnapTicksRemaining--;
                 int delay = SourceClock.DefaultAutoHikeTicks - (kick ? 10 : SourceClock.SourceTicksPerSecond);
                 if (Model.PreSnapTicksRemaining < 1 || (actor.SourceNewButtons & (SourceDroneButtons.A | SourceDroneButtons.B)) != 0
                     && Model.PreSnapTicksRemaining < delay) SnapSource(Model.PreSnapTicksRemaining == 0);
@@ -506,7 +510,11 @@ namespace Blitz.Gameplay
             if (mode == SourceActorMode.ReceiverPreSnap && Model.Phase == GamePhase.LiveBall)
                 actor.SourceMode = SourceActorMode.Receiver;
             if (mode == SourceActorMode.DefensiveBackPreSnap)
+            {
                 SourceDefensivePreSnapSwitch(actor);
+                if (!CheckSourceDefaultAudible(actor, SourceAudibleRole.Defense))
+                { actor.SourceReturnedFromMovementMode = true; return; }
+            }
             if (mode == SourceActorMode.DefensiveBackPreSnap && Model.Phase == GamePhase.LiveBall)
                 actor.SourceMode = SourceActorMode.DefensiveBack;
             if (mode == SourceActorMode.Quarterback && Model.Phase == GamePhase.LiveBall)
@@ -559,6 +567,7 @@ namespace Blitz.Gameplay
             {
                 TrySourceCatch(actor);
                 SourceCarrierControl(actor);
+                SourceTouchdownCelebration(actor);
                 RunSourceEvasion(actor, 0, false);
                 if (Model.CarrierId == actor.Id) MaybeSourcePlayerFire(actor, "_mode_wpn", 2489);
             }
@@ -585,9 +594,27 @@ namespace Blitz.Gameplay
             {
                 SourceRandomContext random = MovementRandomContext(actor);
                 long draws = Model.SourceRandomDraws;
-                SourceMovementResult jump = SourceEvasion.DefensiveBackJump(CaptureSourceMovement(actor), MovementContext(actor),
-                    sourceMovementData.Movement, new MovementBoundary(this), sourceRandom, random, eligible);
-                CompleteSourceMovement(actor, jump, random, draws);
+                SourceMovementState jumpState = CaptureSourceMovement(actor);
+                SourceMovementContext jumpContext = MovementContext(actor);
+                if (Compatibility == SourceGameplayCompatibility.Portable && sourceCabinetFlowConfiguration != null
+                    && jumpContext.Tick.Execute && eligible && (jumpState.NewButtons & SourceDroneButtons.A) != 0
+                    && (jumpState.UpperMode & SourceMovementModes.RunningPush) == 0
+                    && jumpContext.Carrier == -1 && jumpContext.Phase == SourceMovementPhase.PlayOver)
+                {
+                    // player.c:2901-2902 reads player_blocks[-1]/distxz[-1].
+                    // Defer only that undefined A decision after standard movement;
+                    // raw ABC and the independent B/controller stage remain intact.
+                    Model.RecordCompatibilityRepair(SourceCompatibilityRepairKind.CarrierlessDeadBallLateHit,
+                        actor.Id, -1, -1,
+                        "player.c:_mode_db:2901-2902 carrier -1 during PlayOver; deferred A target read; retained movement/raw controls; no script or RNG",
+                        actor.SourceStick);
+                }
+                else
+                {
+                    SourceMovementResult jump = SourceEvasion.DefensiveBackJump(jumpState, jumpContext,
+                        sourceMovementData.Movement, new MovementBoundary(this), sourceRandom, random, eligible);
+                    CompleteSourceMovement(actor, jump, random, draws);
+                }
                 SourceDefensiveMovementButtons(actor);
             }
             SourceActorActions(actor, input);
@@ -602,6 +629,66 @@ namespace Blitz.Gameplay
                     actor.Id, Model.SourceTeamFire[(int)actor.Team]);
             if (mode == SourceActorMode.DefensiveBack || mode == SourceActorMode.Line)
                 TrySourceCatch(actor);
+        }
+
+        private void SourceTouchdownCelebration(ActorState actor)
+        {
+            if (!SourceCompleteProgramsEnabled || Model.CarrierId != actor.Id
+                || MovementPhase != SourceMovementPhase.PlayOver
+                || Model.SourceLastPlayEndCause != SourcePlayEndCause.CarrierTouchdown
+                || SourcePlayerDriver.WorldPosition(actor).Y != 0f
+                || actor.AnimationState.Primary.IsUninterruptible
+                    && actor.AnimationState.Primary.SequenceName != "SPIN")
+                return;
+            if ((actor.SourceRawFlags & (int)SourceMovementFlags.DraggingPlayer) != 0)
+            {
+                int link = actor.SourcePuppetLinkId;
+                if (link < 0 || link >= Model.Players.Length || Model.Players[link].SourcePuppetLinkId != actor.Id)
+                    throw new InvalidOperationException("Touchdown dragging requires the actual bilateral puppet link.");
+                ActorState other = Model.Players[link];
+                actor.SourcePuppetReleaseTick = Model.SourceTick;
+                const uint unlinkModes = SourceAnimationModes.Reacting | 0x00c00000u;
+                actor.AnimationState.Primary.RemoveMode(unlinkModes);
+                other.AnimationState.Primary.RemoveMode(unlinkModes);
+                actor.SourceRawFlags &= ~(int)SourceMovementFlags.DraggingPlayer;
+                ChangeContactAnimation(other, "h_bsider_anim");
+                other.SourcePuppetLinkId = actor.SourcePuppetLinkId = -1;
+            }
+            ContactAnimationProcess(actor);
+            string script;
+            if (SourceDraw(100, "player.c:_mode_wpn:2389") < 40)
+            {
+                string[] dances = { "endz_06", "endz_08", "endz_20" };
+                script = dances[SourceDraw(3, "player.c:_mode_wpn:2390")];
+            }
+            else if (actor.AnimationState.Primary.SequenceName == "SPIN"
+                && SourceDraw(100, "player.c:_mode_wpn:2393") < 40)
+                script = "end_zone10_anim";
+            else
+            {
+                string[] dances = {
+                    "end_zone1_anim", "end_zone5_anim", "end_zone6_anim", "end_zone9_anim",
+                    "end_zone3_anim", "end_zone2_anim", "end_zone4_anim", "end_zone7_anim",
+                    "end_zone8_anim", "end_zone10_anim", "end_zone11_anim", "end_zone13_anim",
+                    "end_zone14_anim", "end_zone15_anim", "end_zone18_anim", "end_zone19_anim"
+                };
+                script = dances[SourceDraw(16, "player.c:_mode_wpn:2397")];
+            }
+            ChangeContactAnimation(actor, script);
+            actor.Action = ActorAction.Celebrate;
+            for (int id = 0; id < Model.Players.Length; id++)
+            {
+                ActorState defender = Model.Players[id];
+                if (id == actor.Id || defender.Team == actor.Team
+                    || Model.SourceDistances[actor.Id, id] > 50f || defender.AnimationState.Primary.IsUninterruptible)
+                    continue;
+                int reaction = SourceDraw(2, "player.c:_mode_wpn:2416");
+                ChangeContactAnimation(defender, reaction == 0 ? "disapointed1_anim" : "disapointed2_anim");
+                int speech = SourceDraw(2, "sounds.c:disappointed_speech:502");
+                EmitSourceProcessSound(SourceProcessSoundKind.OriginalGameplay, "sounds.c:disappointed_speech:502",
+                    Model.SourceTauntBank, 45 + speech, 235, 127, 5, 1);
+                break;
+            }
         }
 
         private void AssignSourceDefenseMovement(ActorState carrier)
@@ -739,6 +826,11 @@ namespace Blitz.Gameplay
 
         private void EmitSourceMovementSpeech(ActorState actor, SourceMovementCommandKind kind)
         {
+            if (SourceCompleteProgramsEnabled)
+            {
+                EmitSourceOriginalMovementSpeech(actor, kind);
+                return;
+            }
             string function = kind == SourceMovementCommandKind.SpinSpeech ? "spin_move_speech"
                 : kind == SourceMovementCommandKind.HurdleSpeech ? "hurdle_speech" : "stiff_arm_speech";
             int line = kind == SourceMovementCommandKind.SpinSpeech ? actor.SourceMode == SourceActorMode.Quarterback ? 1888 : 2518
@@ -783,6 +875,46 @@ namespace Blitz.Gameplay
             }
         }
 
+        private static readonly int[] SourceDefenseBreakoutChance = { 80, 75, 70, 60, 50, 40, 30, 20, 10, 5, 0, 0 };
+
+        private static bool SourceDefenseBlockSequence(string sequence)
+        {
+            // anim/seattle.mak:27-29: the complete SEQ_SPIN_A..SEQ_PUSH_BL3 range, immediately before SEQ_BREATH.
+            switch (sequence)
+            {
+                case "SPIN_A": case "SPIN_V": case "TIE_LG_A": case "TIE_LG_V":
+                case "PUSHLG1A": case "PUSHLG1V": case "TIE1C_A": case "TIE1C_V":
+                case "TIE2C_A": case "TIE2C_V": case "PUSH_BL3":
+                    return true;
+                default: return false;
+            }
+        }
+
+        private void BreakoutSourceDefensePlayer(ActorState actor)
+        {
+            if (!SourceDefenseBlockSequence(actor.AnimationState.Primary.SequenceName)
+                || actor.SourceMode == SourceActorMode.Line
+                    && SourceDraw(100, "player.c:db_change_player:6360")
+                        >= SourceDefenseBreakoutChance[Model.SourceEffectiveTeamHandicap[(int)Model.Possession]])
+                return;
+            const uint puppetModes = 0x00c00000u;
+            actor.AnimationState.Primary.RemoveMode(puppetModes);
+            if (actor.SourcePuppetLinkId != -1)
+            {
+                ActorState other = Model.Players[actor.SourcePuppetLinkId];
+                other.AnimationState.Primary.RemoveMode(puppetModes);
+                other.SourcePuppetLinkId = -1;
+                ChangeContactAnimation(other, "h_flailm_anim");
+            }
+            actor.SourcePuppetLinkId = -1;
+            SourceRandomContext random = MovementRandomContext(actor);
+            long draws = Model.SourceRandomDraws;
+            SourceMovementResult result = SourceMovement.StandardRun(CaptureSourceMovement(actor),
+                MovementContext(actor), sourceMovementData.Movement, new MovementBoundary(this), sourceRandom,
+                random, Model.SourceBreathControl);
+            CompleteSourceMovement(actor, result, random, draws);
+        }
+
         private int ChangeSourceDefensePlayer(ActorState actor, bool change)
         {
             if (actor.SourceControllerStation < 0) return -1;
@@ -807,12 +939,8 @@ namespace Blitz.Gameplay
             foreach (ActorState candidate in Model.Players)
             {
                 if (candidate.Team != actor.Team || candidate.SourceControllerStation >= 0 && candidate.Id != actor.Id) continue;
-                if (candidate.AnimationState.Primary.IsUninterruptible)
-                {
-                    // This bounded Core has no original block/puppet sequence programs.
-                    // Those C1 programs require their actual SEQ_SPIN_A..SEQ_PUSH_BL3 ordering/breakout inputs.
-                    continue;
-                }
+                if (candidate.AnimationState.Primary.IsUninterruptible
+                    && !SourceDefenseBlockSequence(candidate.AnimationState.Primary.SequenceName)) continue;
                 SourceVector3 point = SourcePlayerDriver.WorldPosition(candidate);
                 float dx = target.X - point.X, dz = target.Z - point.Z;
                 float distance = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -827,7 +955,11 @@ namespace Blitz.Gameplay
                 if (distance < best) { best = distance; selected = candidate.Id; }
             }
             if (selected == actor.Id) return -1;
-            if (change) TransferSourceMovementStation(actor, Model.Players[selected]);
+            if (change)
+            {
+                BreakoutSourceDefensePlayer(Model.Players[selected]);
+                TransferSourceMovementStation(actor, Model.Players[selected]);
+            }
             return 0;
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Blitz.Contracts;
 
 namespace Blitz.Gameplay
@@ -30,8 +31,11 @@ namespace Blitz.Gameplay
 
     internal static class SourcePassDriver
     {
-        internal static int PickReceiver(SimulationState model, ActorState quarterback, int rawStick)
+        internal static int PickReceiver(SimulationState model, ActorState quarterback, int rawStick,
+            bool portableLibraryOrder = false)
         {
+            bool usePortableLibrary = portableLibraryOrder &&
+                model.SourceCompatibility == SourceGameplayCompatibility.Portable;
             var targets = new int[3];
             var forward = new int[3];
             var rear = new int[3];
@@ -84,6 +88,15 @@ namespace Blitz.Gameplay
             var keys = new int[selectedCount];
             for (int i = 0; i < selectedCount; i++)
                 keys[i] = (int)(direction * SourcePlayerDriver.WorldPosition(model.Players[selected[i]]).Z * 10f);
+            if (usePortableLibrary)
+            {
+                // Small-array qsort moves its minimum sentinel before insertion, including tied actors.
+                int minimum = 0;
+                for (int i = 1; i < selectedCount; i++)
+                    if (keys[minimum] > keys[i]) minimum = i;
+                int key = keys[0]; keys[0] = keys[minimum]; keys[minimum] = key;
+                int id = selected[0]; selected[0] = selected[minimum]; selected[minimum] = id;
+            }
             for (int i = 1; i < selectedCount; i++)
                 for (int j = i; j > 0 && keys[j - 1] > keys[j]; j--)
                 {
@@ -91,7 +104,7 @@ namespace Blitz.Gameplay
                     int id = selected[j]; selected[j] = selected[j - 1]; selected[j - 1] = id;
                 }
             int ordinal = side == 0 ? 0 : side == 2 ? selectedCount - 1 : selectedCount > 1 ? 1 : 0;
-            for (int i = 0; i < selectedCount; i++)
+            for (int i = 0; !usePortableLibrary && i < selectedCount; i++)
                 if (keys[i] == keys[ordinal] && selected[i] != selected[ordinal])
                     throw new NotSupportedException("player.c:pick_receiver target_cmp quantized-Z tie needs "
                         + "the unverified original platform libc qsort ordering; no arbitrary actor is substituted.");
@@ -337,6 +350,101 @@ namespace Blitz.Gameplay
             if (first <= 0f && second <= 0f) return 150f;
             if (first > 0f && second > 0f) return first <= second ? second : first;
             return first <= 0f ? second : first;
+        }
+    }
+
+    public sealed partial class GameSimulation
+    {
+        private sealed class SourceThrowMonitorProcess
+        {
+            internal long Serial;
+            internal int PlayerId;
+            internal bool WaitingForButtons;
+        }
+
+        private readonly List<SourceThrowMonitorProcess> sourceThrowMonitors = new List<SourceThrowMonitorProcess>();
+        private readonly SourceDroneButtons[] sourceLastPassHistory = new SourceDroneButtons[5];
+        private SourceInputFrame sourceThrowMonitorInput;
+        private bool sourceTargetHuman;
+
+        private void ResetSourceThrowMonitors()
+        {
+            sourceThrowMonitors.Clear();
+            Array.Clear(sourceLastPassHistory, 0, sourceLastPassHistory.Length);
+            sourceThrowMonitorInput = null;
+            sourceTargetHuman = false;
+        }
+
+        private void CaptureSourceThrowMonitorInput(SourceInputFrame input)
+        {
+            sourceThrowMonitorInput = input;
+        }
+
+        private void AdmitSourceThrowMonitor(ActorState actor)
+        {
+            long serial = ++sourceFireNextSerial;
+            Model.SourceProcesses.Create(serial, 0x0591, "qb_throw_monitor", 0);
+            sourceThrowMonitors.Add(new SourceThrowMonitorProcess { Serial = serial, PlayerId = actor.Id });
+        }
+
+        private SourceDroneButtons SourceThrowMonitorButtons(int station)
+        {
+            if (sourceThrowMonitorInput == null) return SourceDroneButtons.None;
+            if (sourceThrowMonitorInput.PhysicalSwitches != null)
+                return (SourceDroneButtons)(int)sourceThrowMonitorInput.PhysicalSwitches.Station(station).Held;
+            foreach (SourceStationInput input in sourceThrowMonitorInput.Stations)
+                if (input.StationId == station) return (SourceDroneButtons)(int)input.Held;
+            return SourceDroneButtons.None;
+        }
+
+        private bool DispatchSourceThrowMonitor(long serial)
+        {
+            SourceThrowMonitorProcess process = sourceThrowMonitors.Find(p => p.Serial == serial);
+            if (process == null) return false;
+            if (!EnterSourceProcess(serial)) return true;
+            BeginSourceProcess("qb_throw_monitor", -1, 0);
+            try
+            {
+                ActorState actor = Model.Players[process.PlayerId];
+                if (!process.WaitingForButtons)
+                {
+                    sourceTargetHuman = false;
+                    if (actor.SourceControllerStation < 0)
+                    {
+                        Model.SourceProcesses.Kill(serial); sourceThrowMonitors.Remove(process);
+                        return true;
+                    }
+                    process.WaitingForButtons = true;
+                    Model.SourceProcesses.Sleep(1);
+                    return true;
+                }
+                Array.Copy(actor.SourceButtonHistory, sourceLastPassHistory, sourceLastPassHistory.Length);
+                if (actor.SourceControllerStation >= 0)
+                {
+                    SourceDroneButtons buttons = SourceThrowMonitorButtons(actor.SourceControllerStation);
+                    if ((buttons & (SourceDroneButtons.A | SourceDroneButtons.B)) ==
+                        (SourceDroneButtons.A | SourceDroneButtons.B))
+                        for (int i = 0; i < 3; i++)
+                            if ((actor.SourceButtonHistory[i] & SourceDroneButtons.A) == 0)
+                            { sourceTargetHuman = true; break; }
+                }
+                Model.SourceProcesses.Kill(serial); sourceThrowMonitors.Remove(process);
+                return true;
+            }
+            finally { CompleteSourceProcess(); }
+        }
+
+        private int ResolveSourceHumanThrowTarget(ActorState actor)
+        {
+            if (actor.SourceControllerStation >= 0 && sourceTargetHuman)
+                for (int id = (int)actor.Team * 7 + 3; id < (int)actor.Team * 7 + 7; id++)
+                {
+                    ActorState candidate = Model.Players[id];
+                    if (candidate.SourceControllerStation < 0 || candidate.SourceMode != SourceActorMode.Receiver
+                        || candidate.Id == actor.Id || candidate.Id == actor.PendingThrowTarget) continue;
+                    actor.PendingThrowTarget = candidate.Id;
+                }
+            return actor.PendingThrowTarget;
         }
     }
 }

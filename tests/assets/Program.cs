@@ -312,7 +312,7 @@ LIMB *unselected[]={&not_supplied};
         byte[] badFooter = Tga(32, true); badFooter[badFooter.Length - 1] = 5;
         Bad(() => TgaImageInfo.Read(badFooter, "bad-footer.tga"), "invalid v2 footer", "invalid footer signature");
         byte[] extension = Tga(32, true); extension[extension.Length - 26] = 1;
-        Bad(() => TgaImageInfo.Read(extension, "extension.tga"), "offsets", "unsupported TGA extensions explicit");
+        Bad(() => TgaImageInfo.Read(extension, "extension.tga"), "invalid extension extent", "invalid TGA extension offset rejected");
     }
 
     private static PlayerImportPlan Plan(string root = null, bool authorized = true, IList<PlayerMaterialBinding> bindings = null)

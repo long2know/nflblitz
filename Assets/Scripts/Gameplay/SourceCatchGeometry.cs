@@ -42,6 +42,12 @@ namespace Blitz.Gameplay
             SourceMovementCameraFrame camera)
         {
             if (camera == null) throw new ArgumentNullException(nameof(camera));
+            SourceAnimationLibrary original = library as SourceAnimationLibrary;
+            if (original != null && actor.Animation.Primary.PoseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable
+                && (original.InventorySha256 == SourceTeamResourceProfile.CompleteOriginalAnimationSha256
+                    || original.InventorySha256 == SourceTeamResourceProfile.CompleteAv306AnimationSha256))
+                return SourceAnimationMatrices.EvaluateSourceCamera(library, referencePivots, actor,
+                    canonicalRoot, camera.Position, camera.Transform);
             SourceEvaluatedPose pose = SourceActorPoseSampler.Evaluate(library, referencePivots, actor, actor, 1f);
             ReadOnlyCollection<float> matrix = camera.Transform;
             float rx = canonicalRoot.X - camera.Position.X;

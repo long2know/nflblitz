@@ -13,13 +13,14 @@ PRESNAP_DATA_SHA = "e9a2ccbfffda0e83ae9ba409e4fbfd6f6c6f074ebd024aa30367d9d06c29
 PRESNAP_IMPACT_SHA = "456d525aa75ba343942613793cc437d6732f0b16d972a981537929daece9f3d7"
 PRESNAP_MOVEMENT_SHA = "2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef"
 PRESNAP_HOP_SHA = "df5e69344d049646e07143c4cbfec0d577e442fe63152099967436fa91c4e2bb"
-PRESENTATION = ("SourceCinematicModel.cs", "SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs")
+PRESENTATION = ("SourceCinematicModel.cs", "SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs",
+                "SourceOriginalAudioFunctions.cs")
 COMPOSITIONS = ("SourceContactComposition.cs", "SourceC2Composition.cs")
 
 
 def production_paths(root=ROOT):
     root = Path(root)
-    return [path for folder in ("Contracts", "Gameplay", "AssetImport")
+    return [path for folder in ("Contracts", "Gameplay", "AssetImport", "Storage")
             for path in sorted((root / "Assets/Scripts" / folder).glob("*.cs"))] + [
                 root / "Assets/Scripts/Presentation" / name for name in PRESENTATION] + [
                 root / "Assets/Scripts/Runtime" / name for name in COMPOSITIONS]

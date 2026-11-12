@@ -3,11 +3,17 @@
 import argparse
 import gzip
 import hashlib
+import importlib.util
 import io
 import json
 import math
 from pathlib import Path
 import sys
+
+_reviewed_spec = importlib.util.spec_from_file_location(
+    "reviewed_q11_recording", Path(__file__).with_name("reviewed_q11_recording.py"))
+reviewed_q11 = importlib.util.module_from_spec(_reviewed_spec)
+_reviewed_spec.loader.exec_module(reviewed_q11)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz"
@@ -34,6 +40,25 @@ SOURCE_TIMER_RECIPE_SHA256 = "a1b817e6842ef49be096fb2e34c2977203c6c8280413479021
 PRESNAP_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-12000"
 PRESNAP_FIXTURE = FIXTURE.with_name(PRESNAP_CASE + ".jsonl.gz")
 PRESNAP_RECIPE = FIXTURE.with_name(PRESNAP_CASE + ".recipe.json")
+CORE_CURRENT_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000"
+PRESNAP_CURRENT_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
+CURRENT_SOURCE_SHA256 = "bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2"
+CURRENT_GENERATIONS = {
+    CORE_CURRENT_CASE: ("source-selection-countdown/v4", False),
+    PRESNAP_CURRENT_CASE: ("source-defensive-presnap-switch/v5", True),
+}
+CURRENT_METADATA = FIXTURE.with_name("current-recording-generations.json")
+OPEN_SPACE_CASE = "trips-rollout-clearance-presnap-switch-v7-12000"
+OPEN_SPACE_SOURCE_SHA256 = "a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507"
+OPEN_SPACE_HARNESS_SHA256 = "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b"
+OPEN_SPACE_CONTROLLER_SHA256 = "7dfbfa794319d371b2b5e73a5c4f1d297b2a8788946cdab2041ca30ab56b8da1"
+OPEN_SPACE_RECIPE_SHA256 = "eb87373a21cca009125daa948dab37bc9e09b91b224d5e025d8d5435afa1917a"
+OPEN_SPACE_PUBLIC_SHA256 = "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866"
+SOURCE_BOUND_CASE = "portable-cabinet-wide-pass-clearance-source-bound-v5-12000"
+SOURCE_BOUND_GENERATION = "source-bound-public-input/v5"
+SOURCE_BOUND_RECIPE_SHA256 = "093224972d3c4ddff71e02bf1a7f0e4b43e0bef91ca81c92158eea3bf79b3248"
+SOURCE_BOUND_SOURCE_SHA256 = "09af7b6fb13cd6812041db81414ce2d4e4d7b9ba6faaafaa4ae8ae19d1c04120"
+SOURCE_BOUND_HARNESS_SHA256 = "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b"
 RECORDINGS = {
     HISTORICAL_CASE: {
         "fixture": FIXTURE, "public_sha256": PUBLIC_SHA256, "public_bytes": PUBLIC_BYTES,
@@ -204,6 +229,26 @@ def encode(rows):
 
 
 def recording(case):
+    if case == reviewed_q11.CASE:
+        manifest = reviewed_q11_manifest()
+        return dict(fixture=reviewed_q11_metadata_paths()["gzip"],
+                    public_sha256=manifest["jsonl"]["sha256"], public_bytes=manifest["jsonl"]["bytes"],
+                    fixture_sha256=manifest["gzip"]["sha256"], fixture_bytes=manifest["gzip"]["bytes"])
+    if case == SOURCE_BOUND_CASE:
+        recipe = source_bound_recipe()
+        return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
+                    public_sha256=recipe["jsonl"]["sha256"], public_bytes=recipe["jsonl"]["bytes"],
+                    fixture_sha256=recipe["gzip"]["sha256"], fixture_bytes=recipe["gzip"]["bytes"])
+    if case == OPEN_SPACE_CASE:
+        recipe = open_space_recipe()
+        return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
+                    public_sha256=recipe["jsonl"]["sha256"], public_bytes=recipe["jsonl"]["bytes"],
+                    fixture_sha256=recipe["gzip"]["sha256"], fixture_bytes=recipe["gzip"]["bytes"])
+    if case in CURRENT_GENERATIONS:
+        recipe = current_recipe(case)
+        return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
+                    public_sha256=recipe["jsonl"]["sha256"], public_bytes=recipe["jsonl"]["bytes"],
+                    fixture_sha256=recipe["gzip"]["sha256"], fixture_bytes=recipe["gzip"]["bytes"])
     if case == PRESNAP_CASE:
         recipe = presnap_recipe()
         return dict(fixture=PRESNAP_FIXTURE,public_sha256=recipe["jsonl"]["sha256"],
@@ -211,6 +256,25 @@ def recording(case):
                     fixture_bytes=recipe["gzip"]["bytes"])
     require(case in RECORDINGS, "unknown public recording identity")
     return RECORDINGS[case]
+
+
+def reviewed_q11_metadata_paths():
+    return {key: FIXTURE.with_name(reviewed_q11.CASE + suffix) for key, suffix in (
+        ("manifest", ".manifest.json"), ("gzip", ".jsonl.gz"),
+        ("source", ".source104.json"), ("harness", ".harness12.json"))}
+
+
+def reviewed_q11_manifest(path=None):
+    path = reviewed_q11_metadata_paths()["manifest"] if path is None else Path(path)
+    require(not path.is_symlink() and path.is_file() and path.stat().st_size <= 8192,
+            "reviewed q11 manifest requires bounded regular bytes")
+    raw = path.read_bytes()
+    require(sha(raw) == reviewed_q11.MANIFEST_SHA256, "reviewed q11 manifest/epoch seal differs")
+    manifest = decode(raw)
+    require(manifest["case"] == reviewed_q11.CASE and
+            manifest["source_epoch"]["publicHead"] == reviewed_q11.PUBLIC_HEAD,
+            "reviewed q11 actual authoring epoch differs")
+    return manifest
 
 
 def make_presnap_recipe(source_manifest_sha256, jsonl, packed):
@@ -225,6 +289,149 @@ def make_presnap_recipe(source_manifest_sha256, jsonl, packed):
         "jsonl": {"file": PRESNAP_CASE+".jsonl","sha256":sha(jsonl),"bytes":len(jsonl)},
         "gzip": {"file": PRESNAP_FIXTURE.name,"sha256":sha(packed),"bytes":len(packed)},
     }
+
+
+def make_current_recipe(case, jsonl, packed):
+    require(case in CURRENT_GENERATIONS, "exact current recording generation required")
+    generation, presnap = CURRENT_GENERATIONS[case]
+    return {
+        **SOURCE_TIMER_EXPECTED_RECIPE, "case": case, "recording_generation": generation,
+        "c2_profile": "contact282-c2-m1-presnap-switch" if presnap else "contact281-c2-m1",
+        "stable_profile": "original-teams-contact282-c2-m1-presnap-switch" if presnap else
+                          "original-teams-contact281-c2-m1",
+        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation" if presnap else
+                   "SourceC2Composition.CreateM1Simulation",
+        "station_layout": 4 if presnap else 2,
+        "source_manifest_sha256": CURRENT_SOURCE_SHA256,
+        "jsonl": {"file": case + ".jsonl", "sha256": sha(jsonl), "bytes": len(jsonl)},
+        "gzip": {"file": case + ".jsonl.gz", "sha256": sha(packed), "bytes": len(packed)},
+    }
+
+
+def make_open_space_recipe(jsonl, packed):
+    return {
+        **SOURCE_TIMER_EXPECTED_RECIPE, "case": OPEN_SPACE_CASE,
+        "recording_generation": "source-public-open-space/v7",
+        "policy": "source-trips-rollout-public-controller/v1",
+        "controller_source": "tests/movement-callers/InputAndStation.cs",
+        "controller_sha256": OPEN_SPACE_CONTROLLER_SHA256,
+        "c2_profile": "contact282-c2-m1-presnap-switch",
+        "stable_profile": "original-teams-contact282-c2-m1-presnap-switch",
+        "factory": "SourceC2Composition.CreatePreSnapSwitchSimulation", "station_layout": 4,
+        "source_manifest_sha256": OPEN_SPACE_SOURCE_SHA256, "source_count": 103,
+        "harness_manifest_sha256": OPEN_SPACE_HARNESS_SHA256, "harness_count": 12,
+        "authoring_policy_sha256": "4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087",
+        "maximum_authoring_windows": 1,
+        "jsonl": {"file": OPEN_SPACE_CASE + ".jsonl", "sha256": sha(jsonl), "bytes": len(jsonl)},
+        "gzip": {"file": OPEN_SPACE_CASE + ".jsonl.gz", "sha256": sha(packed), "bytes": len(packed)},
+    }
+
+
+def validate_open_space_recipe(value):
+    import re
+    fixed = make_open_space_recipe(b"", b"")
+    fields(value, set(fixed), "source-driven open-space recipe")
+    for name in set(fixed) - {"jsonl", "gzip"}:
+        exact_metadata(value[name], fixed[name], "source-driven open-space recipe." + name)
+    for name, limit in (("jsonl", 32 * 1024 * 1024), ("gzip", 2 * 1024 * 1024)):
+        record = value[name]
+        fields(record, {"file", "bytes", "sha256"}, "source-driven open-space recipe." + name)
+        require(record["file"] == fixed[name]["file"] and type(record["bytes"]) is int and
+                0 < record["bytes"] <= limit and type(record["sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None,
+                "source-driven open-space recipe requires exact bounded " + name + " metadata")
+    return value
+
+
+def open_space_recipe():
+    path = FIXTURE.with_name(OPEN_SPACE_CASE + ".recipe.json")
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 8192,
+            "The separately named source-driven recording is missing; no old-vector fallback.")
+    raw = path.read_bytes()
+    require(sha(raw) == OPEN_SPACE_RECIPE_SHA256, "immutable source-driven recipe SHA256 differs")
+    return validate_open_space_recipe(decode(raw))
+
+def source_bound_recipe(path=None):
+    path = FIXTURE.with_name(SOURCE_BOUND_CASE + ".recipe.json") if path is None else Path(path)
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 8192,
+            "The separately authored source-bound recording is missing; no historical-vector fallback.")
+    raw = path.read_bytes()
+    require(sha(raw) == SOURCE_BOUND_RECIPE_SHA256, "immutable source-bound recipe SHA256 differs")
+    value = decode(raw)
+    require(value["schema"] == "source-public-replay-recording/v1"
+            and value["epoch"] == "OriginalRelease57Hz"
+            and value["input_profile"] == "contact272"
+            and value["source_compatibility"] == "portable"
+            and value["commands_only"] is True and value["native_equivalent"] is False
+            and value["case"] == SOURCE_BOUND_CASE
+            and value["recording_generation"] == SOURCE_BOUND_GENERATION
+            and value["controller_sha256"] == SOURCE_CURRENT_EXPECTED_RECIPE["controller_sha256"]
+            and value["c2_profile"] == "contact281-c2-m1"
+            and value["stable_profile"] == "original-teams-contact281-c2-m1"
+            and value["factory"] == "SourceC2Composition.CreateM1Simulation"
+            and value["station_layout"] == 2 and value["hosts"] == HOSTS
+            and value["source_count"] == 104 and value["harness_count"] == 12
+            and value["source_manifest_sha256"] == SOURCE_BOUND_SOURCE_SHA256
+            and value["harness_manifest_sha256"] == SOURCE_BOUND_HARNESS_SHA256
+            and value["seed"] == 1 and value["provider_profile"] == "source-sound-smoke/raw-vector-v1"
+            and value["raw_vector_sha256"] ==
+                "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827"
+            and value["retained_negative_case"] == CORE_CURRENT_CASE
+            and value["retained_negative_public_sha256"] ==
+                "5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa"
+            and value["public_snapshot_binding"] ==
+                "same-pre-Step-snapshot/station0-Home-captain/playbook-side",
+            "The explicit source-bound public recording contract changed.")
+    return value
+
+
+def validate_current_recipe(value, case):
+    import re
+    fixed = make_current_recipe(case, b"", b"")
+    fields(value, set(fixed), "current recipe")
+    for name in set(fixed) - {"jsonl", "gzip"}:
+        exact_metadata(value[name], fixed[name], "current recipe." + name)
+    for name, limit in (("jsonl", 32 * 1024 * 1024), ("gzip", 2 * 1024 * 1024)):
+        record = value[name]
+        fields(record, {"file", "bytes", "sha256"}, "current recipe." + name)
+        require(record["file"] == fixed[name]["file"] and type(record["bytes"]) is int and
+                0 < record["bytes"] <= limit and type(record["sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None,
+                "current recipe requires exact bounded computed " + name + " metadata")
+    return value
+
+
+def current_recipe(case):
+    pins = current_recipe_hashes()
+    require(case in CURRENT_GENERATIONS, "exact current recording generation required")
+    path = FIXTURE.with_name(case + ".recipe.json")
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 8192,
+            "current source-versioned recipe is missing")
+    raw = path.read_bytes()
+    require(sha(raw) == pins[case], "immutable current recipe SHA256 differs")
+    return validate_current_recipe(decode(raw), case)
+
+
+def current_recipe_hashes():
+    import re
+    require(CURRENT_METADATA.is_file() and not CURRENT_METADATA.is_symlink() and
+            CURRENT_METADATA.stat().st_size <= 8192,
+            "current recording is not sealed; no archived-vector fallback")
+    metadata = decode(CURRENT_METADATA.read_bytes())
+    fields(metadata, {"schema", "source_manifest_sha256", "recordings"}, "current generations")
+    require(metadata["schema"] == "source-current-public-input-generations/v1" and
+            metadata["source_manifest_sha256"] == CURRENT_SOURCE_SHA256,
+            "exact current input-generation source identity required")
+    fields(metadata["recordings"], set(CURRENT_GENERATIONS), "current generation inventory")
+    result = {}
+    for case, (generation, _) in CURRENT_GENERATIONS.items():
+        entry = metadata["recordings"][case]
+        fields(entry, {"recording_generation", "recipe_sha256"}, "current generation entry")
+        require(entry["recording_generation"] == generation and type(entry["recipe_sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}", entry["recipe_sha256"]) is not None,
+                "exact explicit current input generation/recipe hash required")
+        result[case] = entry["recipe_sha256"]
+    return result
 
 
 def validate_presnap_recipe(value):
@@ -264,6 +471,29 @@ def exact_metadata(value, expected, where):
 
 
 def load_recipe(path, case=POSITIVE_CASE):
+    if case == reviewed_q11.CASE:
+        reviewed_q11_manifest(path)
+        return
+    if case == SOURCE_BOUND_CASE:
+        source_bound_recipe(path)
+        return
+    if case == OPEN_SPACE_CASE:
+        path = Path(path)
+        require(not path.is_symlink() and path.stat().st_size <= 8192,
+                "source-driven recipe requires bounded regular bytes")
+        raw = path.read_bytes()
+        require(sha(raw) == OPEN_SPACE_RECIPE_SHA256, "immutable source-driven recipe SHA256 differs")
+        exact_metadata(validate_open_space_recipe(decode(raw)), open_space_recipe(), "source-driven recipe")
+        return
+    if case in CURRENT_GENERATIONS:
+        expected = current_recipe(case)
+        path = Path(path)
+        require(not path.is_symlink() and path.stat().st_size <= 8192,
+                "current recipe requires bounded regular bytes")
+        raw = path.read_bytes()
+        require(sha(raw) == current_recipe_hashes()[case], "immutable current recipe SHA256 differs")
+        exact_metadata(validate_current_recipe(decode(raw), case), expected, "current recipe")
+        return
     if case == PRESNAP_CASE:
         expected=presnap_recipe()
         raw=Path(path).read_bytes()
@@ -285,6 +515,14 @@ def audit_public(data, case=HISTORICAL_CASE):
     identity = recording(case)
     require(len(data) <= identity["public_bytes"] + 65536, "public replay exceeds bounded input size")
     require(data.endswith(b"\n"), "public JSONL must end in LF")
+    if case == reviewed_q11.CASE:
+        require(len(data) == identity["public_bytes"] and sha(data) == identity["public_sha256"],
+                "reviewed q11 unchanged command bytes differ")
+        rows = [decode(line) for line in data.splitlines()]
+        require(len(rows) == HOSTS and all(type(row) is dict and type(row.get("host")) is int
+                and row["host"] == host for host, row in enumerate(rows)),
+                "reviewed q11 complete input span differs")
+        return rows
     rows = [decode(line) for line in data.decode("ascii").splitlines()]
     require(len(rows) == HOSTS, "exact12000 public command count required")
     for host, row in enumerate(rows):
@@ -305,8 +543,12 @@ def compress(data):
 
 def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
     identity = recording(case)
-    if case in RECIPES or case == PRESNAP_CASE:
-        load_recipe((PRESNAP_RECIPE if case == PRESNAP_CASE else RECIPES[case][0]) if recipe is None else recipe, case)
+    if case == reviewed_q11.CASE:
+        load_recipe(reviewed_q11_metadata_paths()["manifest"] if recipe is None else recipe, case)
+    elif case in RECIPES or case in (PRESNAP_CASE, OPEN_SPACE_CASE, SOURCE_BOUND_CASE) or case in CURRENT_GENERATIONS:
+        registered = (FIXTURE.with_name(case + ".recipe.json") if case in CURRENT_GENERATIONS or case in (OPEN_SPACE_CASE, SOURCE_BOUND_CASE) else
+                      PRESNAP_RECIPE if case == PRESNAP_CASE else RECIPES[case][0])
+        load_recipe(registered if recipe is None else recipe, case)
     else:
         require(recipe is None, "historical unqualified recording has no portable recipe")
     path = Path(path)
@@ -367,7 +609,8 @@ def main():
     author.add_argument("--output", type=Path, action="append")
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
-        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE,), action="append")
+        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE, *CURRENT_GENERATIONS,
+                            OPEN_SPACE_CASE, SOURCE_BOUND_CASE, reviewed_q11.CASE), action="append")
         command.add_argument("--fixture", type=Path, action="append")
         command.add_argument("--recipe", type=Path, action="append")
         if mode == "prepare":
@@ -395,7 +638,11 @@ def main():
         print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
                           "fixture_sha256": identity["fixture_sha256"],
-                          "recipe_sha256": sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
+                          "recipe_sha256": reviewed_q11.MANIFEST_SHA256 if case == reviewed_q11.CASE else
+                              SOURCE_BOUND_RECIPE_SHA256 if case == SOURCE_BOUND_CASE else
+                              OPEN_SPACE_RECIPE_SHA256 if case == OPEN_SPACE_CASE else
+                              sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
+                              current_recipe_hashes()[case] if case in CURRENT_GENERATIONS else
                               RECIPES[case][2] if case in RECIPES else None,
                           "historical_unqualified": case == HISTORICAL_CASE,
                           "simulation_executed": False}))

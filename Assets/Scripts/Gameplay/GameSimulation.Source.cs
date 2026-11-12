@@ -1,10 +1,179 @@
 using System;
+using Blitz.AssetImport;
 using Blitz.Contracts;
+using Blitz.Storage;
 
 namespace Blitz.Gameplay
 {
-    public sealed partial class GameSimulation
+    public sealed partial class GameSimulation : ISourceCustomPlaySelection
     {
+        private SourceCustomPlaySession sourceCustomPlaySession;
+        private SourceInterfaceData sourceCustomPlayPages;
+        private SourceDefaultAudibleSpecialPlays sourceCustomSpecialPlays;
+        private SourcePlayDefinition[,] sourceSavedCustomPlays;
+        public SourceCustomPlaySession SourceCustomPlaySession { get { return sourceCustomPlaySession; } }
+
+        public void BindSourceCustomPlaySession(SourceCustomPlaySession session, SourceInterfaceData playPages)
+        {
+            if (session == null) throw new ArgumentNullException(nameof(session));
+            bool twoStationKnownNone = sourceConfiguration != null
+                && sourceConfiguration.StationLayout == SourceStationLayout.TwoStation
+                && sourceConfiguration.Stations.Count == 2;
+            if (twoStationKnownNone)
+            {
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (station.StationId != (int)station.Team) twoStationKnownNone = false;
+                foreach (SourceStationCustomPlayInventory inventory in session.Stations)
+                    if (inventory.State != SourceCustomPlayInventoryState.KnownNone) twoStationKnownNone = false;
+                if (session.SavedRecords != null)
+                    foreach (SourceStationRecordSelection station in session.SavedRecords.Stations)
+                        if (station.Record != null) twoStationKnownNone = false;
+            }
+            if (!SourceDefensivePreSnapSwitchEnabled || Compatibility != SourceGameplayCompatibility.Portable
+                || sourceConfiguration.StationLayout != SourceStationLayout.FourStation && !twoStationKnownNone)
+                throw new NotSupportedException("Custom session inventory requires the explicit Portable pre-snap-switch FourStation composition"
+                    + " or complete mapped TwoStation KnownNone session.");
+            BindSourceCustomPlayInventory(session, playPages);
+        }
+
+        public void BindSourceTwoStationSavedRecords(SourceSavedRecordSession records, SourceInterfaceData playPages)
+        {
+            if (records == null) throw new ArgumentNullException(nameof(records));
+            if (!ReferenceEquals(sourceTwoStationRecordProfile, SourceTeamResourceProfile.CompleteAv306TwoStationRecords)
+                || !SourceCompleteAv306Enabled || Compatibility != SourceGameplayCompatibility.Portable)
+                throw new NotSupportedException("Named TwoStation records require their explicit constructor creation capability.");
+            if (!ReferenceEquals(records.Configuration, sourceConfiguration))
+                throw new ArgumentException("Saved records must belong to this SAME actual match configuration.", nameof(records));
+            BindSourceCustomPlayInventory(SourceCustomPlaySession.FromTwoStationSavedRecords(records), playPages);
+        }
+
+        private void BindSourceCustomPlayInventory(SourceCustomPlaySession session, SourceInterfaceData playPages)
+        {
+            if (Model.Tick != 0 || Model.SourceTick != 0 || sourceCustomPlaySession != null)
+                throw new InvalidOperationException("Bind custom session inventory once, before the first source wake.");
+            if (!ReferenceEquals(session.Configuration, sourceConfiguration))
+                throw new ArgumentException("Custom inventory must belong to this SAME actual match configuration.", nameof(session));
+            if (playPages == null || playPages.ContentSha256 != SourceInterfacePackagePlan.HudSha256
+                || sourcePlaybook == null || sourcePlaybook.Revision != SourceInterfaceData.SourceRevision
+                || sourcePlaybook.Profile != SourceDefaultAudibleData.RequiredPlaybookProfile)
+                throw new ArgumentException("Custom selection requires the actual authenticated original HUD and normal57 catalog.", nameof(playPages));
+            var specials = new SourceDefaultAudibleSpecialPlays(
+                sourcePlaybook.GetPlay(playPages.PlaySlots["def_slots"][21].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["off_slots"][38].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["def_slots"][19].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["off_slots"][39].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["off_slots"][36].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["off_slots"][37].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["def_slots"][20].PlaySymbol),
+                sourcePlaybook.GetPlay(playPages.PlaySlots["off_slots"][40].PlaySymbol));
+            var saved = new SourcePlayDefinition[4, 9];
+            if (session.SavedRecords != null)
+                foreach (SourceStationRecordSelection station in session.SavedRecords.Stations)
+                    if (station.Record != null)
+                        for (int slot = 0; slot < 9; slot++)
+                        {
+                            SourceCustomPlay play = station.Record.CustomPlays[slot];
+                            if (play == null) continue;
+                            if (((int)play.Flags & ~127) != 0)
+                                throw new ArgumentException("Saved custom play has invalid flags.", nameof(session));
+                            foreach (SourceCustomPoint point in play.Points)
+                                if (((int)point.Flags & ~15) != 0)
+                                    throw new ArgumentException("Saved custom route has invalid flags.", nameof(session));
+                            if (play.Exists)
+                                saved[station.StationId, slot] = SourceCustomPlayCodec.ConvertToPlay(
+                                    play, station.StationId, slot, sourcePlaybook);
+                        }
+            sourceCustomPlayPages = playPages;
+            sourceCustomSpecialPlays = specials;
+            sourceSavedCustomPlays = saved;
+            sourceCustomPlaySession = session;
+        }
+
+        public bool IsSourceCustomPageAvailable(int stationId)
+        {
+            return sourceCustomPlaySession != null
+                && sourceCustomPlaySession.InventoryFor(stationId) == SourceCustomPlayInventoryState.KnownSaved
+                && (Model.SourceAudibleState == null || Model.SourceAudibleState.PlaybookMode != 2);
+        }
+
+        private int SourceControllingCaptain(TeamId team)
+        {
+            int first = -1, second = -1;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                if (station.Team == team)
+                {
+                    if (first < 0) first = station.StationId;
+                    else second = station.StationId;
+                }
+            return second < 0 || Model.SourceCaptain == SourceCaptainSlot.First ? first : second;
+        }
+
+        private SourcePlaySelection SourceSavedSelection(int station, int slot)
+        {
+            return new SourcePlaySelection(new SourceSavedPlayOrigin(sourceCustomPlaySession.SavedRecords, station, slot));
+        }
+
+        private SourcePlayDefinition ResolveSourcePlay(SourcePlaySelection selection, TeamId side)
+        {
+            if (selection.SavedOrigin == null) return sourcePlaybook.GetPlay(selection.PlaySymbol);
+            SourceSavedPlayOrigin origin = selection.SavedOrigin;
+            if (sourceCustomPlaySession == null || !origin.BelongsTo(sourceCustomPlaySession.SavedRecords)
+                || side != Model.Possession || origin.StationId != SourceControllingCaptain(side)
+                || selection.Playbook != SourcePlaybookKind.Offense || selection.PageIndex != 4
+                || selection.SlotIndex != origin.SlotIndex || selection.Pool.HasValue)
+                throw new InvalidOperationException("Saved play requires its SAME session, offensive captain and custom page/slot.");
+            SourcePlayDefinition play = sourceSavedCustomPlays[origin.StationId, origin.SlotIndex];
+            if (play == null || play.Identity != selection.PlaySymbol)
+                throw new InvalidOperationException("Saved play requires its actual converted station definition.");
+            return play;
+        }
+
+        public SourceCommand ResolveSourceCustomPlayChoice(SourceCustomPlayChoice choice)
+        {
+            if (sourceCustomPlaySession == null)
+                throw new NotSupportedException("Custom-play inventory is unavailable; saved plays cannot be assumed absent.");
+            if (!choice.IsSpecified || Model.SourceProcesses.Caller != GameProcess
+                || Model.SourceProcesses.Require(GameProcess).LastWakeTick != Model.SourceTick
+                || Model.SourceRandomProcess != "game_proc" || Model.SourceRandomActor != -1
+                || choice.SourceTick != Model.SourceTick || Model.Phase != GamePhase.PlaySelect
+                || choice.Team != Model.Possession || choice.Playbook != SourcePlaybookKind.Offense
+                || choice.PageIndex != 4 || Model.SourcePlaySelectionReady[(int)choice.Team])
+                throw new InvalidOperationException("Custom choice requires the actual unselected offense/custom-page game_proc wake.");
+            if (choice.StationId != SourceControllingCaptain(choice.Team))
+                throw new InvalidOperationException("Custom choice requires the actual controlling captain station.");
+            bool forced = SourceSelectionTimedOut && sourceSelectionTimer.ForceTick < Model.SourceTick;
+            if (choice.Forced != forced)
+                throw new InvalidOperationException("Custom choice force must match the actual selection timer continuation.");
+            if (sourceCustomPlaySession.InventoryFor(choice.StationId) == SourceCustomPlayInventoryState.Unavailable)
+                throw new NotSupportedException("Custom-play inventory is unavailable; it cannot be assumed empty.");
+            if (sourceCustomPlaySession.SavedRecords != null)
+            {
+                SourceSavedCustomChoice saved = sourceCustomPlaySession.SavedRecords.ResolveCustom(
+                    choice.StationId, choice.SlotIndex, choice.Forced);
+                if (saved.Kind == SourceSavedCustomChoiceKind.Existing)
+                    return new SourceCommand(SourceAction.SelectPlay, SourceSavedSelection(choice.StationId, saved.SlotIndex),
+                        offenseFlipped: choice.OffenseFlipped);
+                if (saved.Kind == SourceSavedCustomChoiceKind.Missing) return default(SourceCommand);
+                if (saved.Kind != SourceSavedCustomChoiceKind.SharedFirstPageDrawRequired)
+                    throw new NotSupportedException("Custom-play inventory is unavailable; it cannot be assumed empty.");
+            }
+            if (!choice.Forced) return default(SourceCommand);
+            int slot = SourceDraw(9, "playsel.c:PlaySel__MakeChoice:2847");
+            int sourceTeam = choice.Team == TeamId.Home
+                ? sourceConfiguration.HomeTeam.TeamIndex : sourceConfiguration.AwayTeam.TeamIndex;
+            SourceAudibleState audibles = Model.SourceAudibleState;
+            SourcePlayDefinition ordinary = sourcePlaybook.GetPlay(sourceCustomPlayPages.PageSlot(
+                SourcePlaybookKind.Offense, 0, slot, sourceTeam).PlaySymbol);
+            SourcePlayDefinition play = SourcePlaybook.CurrentPagePlay(ordinary, sourceCustomSpecialPlays,
+                true, 0, slot, Model.SourceRules, Model.Quarter - 1, Model.PackedGameTime,
+                audibles != null && audibles.SuperFieldGoal, audibles != null && audibles.NoPunt);
+            if (ReferenceEquals(play, sourceCustomSpecialPlays.ExtraPointOffense))
+                return new SourceCommand(SourceAction.SelectPat, patChoice: SourcePatOption.FreeKick);
+            return new SourceCommand(SourceAction.SelectPlay,
+                new SourcePlaySelection(play.Identity, SourcePlaybookKind.Offense, slot, 0),
+                offenseFlipped: choice.OffenseFlipped);
+        }
+
         private void InitializeSource()
         {
             if (sourceMovementData == null || sourceMovementSettings == null)
@@ -56,12 +225,19 @@ namespace Blitz.Gameplay
             InitializeSourceFire();
             PrepareSourceKickoff(true, false);
             UpdateSourceClockView();
+            InitializeSourceCabinetFlow();
         }
 
         private PlayerCommand SourceGameProc(PlayerCommand command)
         {
             BeginSourceProcess("game_proc", -1, 0);
             CommitSourceC2PlayEnd();
+            if (AdvanceSourcePlaySelectionIntroduction())
+            {
+                command = TransformSourceStationInput(command, true);
+                Model.SourceCurrentInput = command;
+                return command;
+            }
             try
             {
                 AdvanceSourceRandomSelections();
@@ -75,6 +251,9 @@ namespace Blitz.Gameplay
                 throw;
             }
             Model.SourceCurrentInput = command;
+            if (StepSourceFreePointContinuation(command)) return command;
+            if (StepSourceCabinetFlow(command)) return command;
+            if (ContinueSourceAudibleRestart()) return command;
             if (command.Source.OffenseFlipped.HasValue && Model.Phase == GamePhase.PlaySelect)
                 Model.SourceOffenseFlipped = command.Source.OffenseFlipped.Value;
             SourceAction action = SourceActionFor(command);
@@ -86,7 +265,7 @@ namespace Blitz.Gameplay
                     {
                         sourceSelectionCpuPatPending = false;
                         ApplySourcePat(DecideSourcePat(SourcePatChoice.Unselected));
-                        if (Model.Phase != GamePhase.PlaySelect) break;
+                        if (Model.Phase != GamePhase.PlaySelect || SourceFreePointPending) break;
                     }
                     if (SourceSelectionTimedOut && SourceStationInputTransform == null)
                         throw new InvalidOperationException("Source selection timeout requires the actual cabinet selector; no configured/CPU play substitutes for a human highlight.");
@@ -94,6 +273,7 @@ namespace Blitz.Gameplay
                         ApplySourcePat(DecideSourcePat((SourcePatChoice)command.Source.PatChoice));
                     if (action == SourceAction.SelectPlay)
                         SelectSourcePlay(command.Play, command.Source.Play);
+                    if (SourceFreePointPending) break;
                     ApplySourceStationMenuCommands(command);
                     ObserveSourceRandomSelectionCaller();
                     if (Model.Phase == GamePhase.PlaySelect && sourceSelectionFinishPending)
@@ -101,15 +281,13 @@ namespace Blitz.Gameplay
                     CaptureSourceSelectionTimer();
                     break;
                 case GamePhase.PreSnap:
-                    if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
+                    if (Model.SourceRules.PlayType == SourcePlayType.Kickoff
+                        && Model.SourceKickoffKind != SourceKickoffKind.Quick)
                     {
                         if (Model.PreSnapTicksRemaining-- < 1)
                         {
                             Model.PreSnapTicksRemaining = 0;
-                            if (Model.SourceKickoffKind == SourceKickoffKind.Quick)
-                                BeginSourceKick();
-                            else
-                                Model.SourceKickApproach = true;
+                            Model.SourceKickApproach = true;
                         }
                     }
                     break;
@@ -130,14 +308,23 @@ namespace Blitz.Gameplay
                         + " at sourceTick=" + Model.SourceTick);
             }
 
+            if (Model.Phase == GamePhase.PreSnap && Model.SourceAudibleState != null)
+                PollSourceAudibleRestart();
             return command;
         }
 
-        private PlayerCommand TransformSourceStationInput(PlayerCommand command)
+        private PlayerCommand TransformSourceStationInput(PlayerCommand command, bool selectionBlocked = false)
         {
             if (SourceStationInputTransform == null) return command;
-            SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),
-                Model.SourceTick, command.StationInputs);
+            if (sourceSelectionSoundCallback)
+                throw new InvalidOperationException("Source station input cannot reenter its executing sound producer.");
+            SourceInputFrame frame = command.StationInputs;
+            if (selectionBlocked) frame = frame.WithPlaySelectionContinuationBlocked();
+            sourceSelectionSoundCallback = Model.SourceProcesses.Caller == GameProcess;
+            if (sourceSelectionSoundCallback) frame = frame.WithSelectionSoundProducer(this);
+            SourceInputFrame transformed;
+            try { transformed = SourceStationInputTransform(new GameSnapshot(Model), Model.SourceTick, frame); }
+            finally { sourceSelectionSoundCallback = false; }
             if (transformed == null)
                 throw new InvalidOperationException("The dispatched source station transform returned no input frame.");
             return new PlayerCommand(command.Move, command.Turbo, command.Action, command.Play,
@@ -147,11 +334,16 @@ namespace Blitz.Gameplay
         private void SourceStep(PlayerCommand command)
         {
             RequireSourceSoundVmBinding();
+            if (Model.SourceDefaultAudiblesEnabled) Model.SourceAudibleReinitializations.Clear();
+            PublishSourceConsumedSwitches(command.StationInputs);
+            CaptureSourceThrowMonitorInput(command.StationInputs);
+            ScanSourceDigitalInputs(command.StationInputs);
             sourcePossessionSpeech.Clear();
             sourceSelectionSounds.Clear();
             Model.SourceProcesses.BeginTick(Model.SourceTick);
             Model.SourceDispatchOrdinal = 0;
             Model.SourcePresentationOrder = 0;
+            DispatchSourceCabinetChildren(command.StationInputs);
             StepSourceSelectionTimer();
             if (SourceFireEnabled) command = DispatchSourceFireLevelZero(command);
             else
@@ -167,7 +359,7 @@ namespace Blitz.Gameplay
             // Goose switch.c scanning is independent of suspended process bodies.
             // Observe this tick without running game_proc or replaying its skipped input.
             if (Model.SourceProcesses.Require(GameProcess).LastWakeTick != Model.SourceTick)
-                command = TransformSourceStationInput(command);
+                command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive);
             Model.SourceCurrentInput = command;
             StepSourceClockProcess();
             StepSourceKickMeter();
@@ -205,7 +397,6 @@ namespace Blitz.Gameplay
             {
                 UpdateSourceStationMovementResources(command);
                 foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;
-                CacheSourceGeometry();
                 Model.SourceAiFrame = BuildSourceAiFrame();
                 if (Model.Phase == GamePhase.LiveBall)
                 {
@@ -293,7 +484,12 @@ namespace Blitz.Gameplay
                 : play != PlayId.Cover && play != PlayId.Blitz))
                 return;
             if (original.IsSpecified && (original.Playbook == SourcePlaybookKind.Offense) != selectingOffense)
-                throw new ArgumentException("The selected original playbook does not belong to the submitting source side.");
+                throw new ArgumentException("The selected original playbook does not belong to the submitting source side."
+                    + string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                        "\nSOURCE_SIDE_GUARD_V1 possession={0} phase={1} selectingSide={2} playbook={3} selectingOffense={4} requestingTeam={5}",
+                        (int)Model.Possession, (int)Model.Phase, (int)selectingSide, (int)original.Playbook,
+                        selectingOffense ? 1 : 0, requestingTeam.HasValue
+                            ? ((int)requestingTeam.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : "null"));
             RequireSourcePlaybook();
             BeginSourcePlay();
             if (Model.SourceRules.PlayType == SourcePlayType.ExtraPoint && Model.SourcePatStatus != SourcePatStatus.RunTwoPointPlay)
@@ -312,7 +508,7 @@ namespace Blitz.Gameplay
                 selectingOffense ? play == PlayId.Run ? "play_zigzag" : "play_spider"
                     : play == PlayId.Blitz ? "play_suicide_blitz" : "play_safe_cover",
                 selectingOffense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense);
-            SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);
+            SourcePlayDefinition chosen = ResolveSourcePlay(selected, selectingSide);
             StoreSourceSelection(selectingSide, selected);
             if (HasSourceRandomSelection)
             {
@@ -366,31 +562,366 @@ namespace Blitz.Gameplay
                         !HasSourceRandomSelection)
                         throw new InvalidOperationException("Timed selection has no actual human opponent choice for cpu_pick_play.");
                     StoreSourceSelection((TeamId)side, ChooseSourceCpuPlay((TeamId)side,
-                        Model.SourcePlaySelectionReady[(int)other] ? sourcePlaybook.GetPlay(opponent.PlaySymbol) : null));
+                        Model.SourcePlaySelectionReady[(int)other] ? ResolveSourcePlay(opponent, other) : null));
                 }
             FinishSourcePlaySelection(sourceSelectionFinishSide);
         }
 
+        private int SourceAudibleAction(int team)
+        {
+            return SourceDefaultAudiblesEnabled && Model.SourceAudibleState != null
+                ? Model.SourceAudibleState.Actions[team] : 0;
+        }
+
+        private void ResetSourceDefaultAudibles()
+        {
+            if (!SourceDefaultAudiblesEnabled) return;
+            bool installDefaults = Model.SourceAudibleState == null;
+            var a = Model.SourceAudibleState ?? new SourceAudibleState();
+            a.OriginalFlip = Model.SourceOffenseFlipped;
+            a.OffenseSide = (int)Model.Possession;
+            a.RestartStage = SourceAudibleRestartStage.Polling;
+            Array.Clear(a.Choices, 0, 2); Array.Clear(a.Pending, 0, 2);
+            Array.Clear(a.Timers, 0, 2); Array.Clear(a.Actions, 0, 2);
+            a.Children.RemoveAll(child => !Model.SourceProcesses.Contains(child.Serial));
+            a.Objects.RemoveAll(sprite => !a.NonAlpha.Contains(sprite) && !a.Alpha.Contains(sprite)
+                && !a.Children.Exists(child => ReferenceEquals(child.Sprite, sprite)));
+            a.Originals[(int)Model.Possession] = Model.SourceOffensePlay;
+            a.Originals[1 - (int)Model.Possession] = Model.SourceDefensePlay;
+            a.OriginalSelections[0] = Model.SourceHomePlay; a.OriginalSelections[1] = Model.SourceAwayPlay;
+            int status = 0;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations) status |= 1 << station.StationId;
+            for (int team = 0; team < 2; team++)
+            {
+                int bits = status >> (team * 2) & 3;
+                a.Callers[team] = sourceConfiguration.StationLayout == SourceStationLayout.TwoStation ? team
+                    : (bits == 3 ? (int)Model.SourceCaptain : bits - 1) + team * 2;
+            }
+            if (installDefaults)
+                for (int station = 0; station < 4; station++)
+                {
+                    // select.c:960-972 initializes these rows before read_plays_hd.
+                    for (int slot = 0; slot < 3; slot++) a.Ids[station, 0, slot] = (short)(slot + 1);
+                    a.Ids[station, 1, 0] = 1; a.Ids[station, 1, 1] = 8; a.Ids[station, 1, 2] = 7;
+                }
+            if (installDefaults && sourceCustomPlaySession != null && sourceCustomPlaySession.SavedRecords != null)
+                foreach (SourceStationRecordSelection station in sourceCustomPlaySession.SavedRecords.Stations)
+                {
+                    if (station.State == SourceRecordSelectionState.Unavailable)
+                        throw new NotSupportedException("Saved audible inventory is unavailable; source defaults cannot be inferred.");
+                    if (station.Record == null) continue;
+                    for (int role = 0; role < 2; role++)
+                    {
+                        var ids = role == 0 ? station.Record.Audibles.Offense : station.Record.Audibles.Defense;
+                        if (ids[0] == 0) continue;
+                        for (int slot = 0; slot < 3; slot++) a.Ids[station.StationId, role, slot] = ids[slot];
+                    }
+                }
+            Model.SourceAudibleState = a;
+            RebuildSourceAudibleControls();
+        }
+
+        private bool CheckSourceDefaultAudible(ActorState actor, SourceAudibleRole role)
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            int team = (int)actor.Team, pos = (int)role, station = actor.SourceControllerStation;
+            if (!SourceDefaultAudiblesEnabled || a == null
+                || (Model.SourceFlags & (SourceGameFlags.OnsideKick | SourceGameFlags.QuickKick | SourceGameFlags.HikingBall)) != 0
+                || Model.Phase != GamePhase.PreSnap || a.NoPlaySelection || station < 0
+                || a.Ids[station, pos, 0] == 0 || Model.PreSnapTicksRemaining > SourceClock.DefaultAutoHikeTicks - 3)
+                return true;
+            if (a.Callers[team] != station) return true;
+            if ((actor.SourceButtons & SourceDroneButtons.C) != 0)
+            {
+                if (a.Timers[team] > 0 && a.Timers[team] < 10)
+                { a.Timers[team] = -1; if (!a.Shown[team]) a.Actions[team] = 1; }
+                else if (!a.Shown[team]) a.Timers[team] = 0;
+            }
+            else a.Timers[team]++;
+            int commit = 0;
+            if (a.Actions[team] == 1)
+            {
+                if (!a.Shown[team])
+                {
+                    PrintSourceAudible(actor, true);
+                    SubmitSourceAudibleSound(actor, 100, 11278);
+                    a.Shown[team] = true;
+                }
+                else
+                {
+                    SourceDigitalDirections close = Model.SourceDigitalScans[station].Close;
+                    int direction = (close & SourceDigitalDirections.Up) != 0 ? -1
+                        : (close & SourceDigitalDirections.Down) != 0 ? 1 : 0;
+                    if (direction != 0)
+                    {
+                        int original = a.Choices[pos];
+                        do { a.Choices[pos] = (a.Choices[pos] + direction + 4) % 4; }
+                        while (role == SourceAudibleRole.Offense && a.PlaybookMode == 2 && a.Choices[pos] != 0
+                            && (Math.Abs((int)a.Ids[station, pos, a.Choices[pos] - 1]) - 1) / 9 == 4);
+                        commit = original == a.Choices[pos] ? -1 : 1;
+                    }
+                    if (a.Timers[team] > 3 && ((actor.SourceButtons &
+                        (SourceDroneButtons.A | SourceDroneButtons.B | SourceDroneButtons.C)) != 0 || a.Timers[team] > 120))
+                    {
+                        a.Actions[team] = 0; commit = 0;
+                        CleanSourceAudibleTeam(team);
+                        SubmitSourceAudibleSound(actor, 102, 11326);
+                        actor.SourceButtons &= ~SourceDroneButtons.C;
+                        Model.PreSnapTicksRemaining = SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond / 2;
+                    }
+                }
+            }
+            if (commit == 0) return true;
+            SubmitSourceAudibleSound(actor, 101, 11342);
+            CleanSourceAudibleTeam(team);
+            PrintSourceAudible(actor, false);
+            if (commit < 0) return true;
+            SourcePlayDefinition play;
+            SourcePlaySelection selected;
+            if (a.Choices[pos] == 0)
+            {
+                play = a.Originals[team]; selected = a.OriginalSelections[team];
+                if (role == SourceAudibleRole.Offense) Model.SourceOffenseFlipped = a.OriginalFlip;
+            }
+            else
+            {
+                short id = a.Ids[station, pos, a.Choices[pos] - 1];
+                int sourceTeam = team == 0 ? sourceConfiguration.HomeTeam.TeamIndex : sourceConfiguration.AwayTeam.TeamIndex;
+                bool flip = Model.SourceOffenseFlipped;
+                if (role == SourceAudibleRole.Offense && Math.Abs((int)id) >= 37)
+                {
+                    int slot = Math.Abs((int)id) - 37;
+                    if (sourceCustomPlaySession == null || sourceCustomPlaySession.SavedRecords == null)
+                        throw new NotSupportedException("Custom audible requires an actual saved record session.");
+                    SourceSavedCustomChoice saved = sourceCustomPlaySession.SavedRecords.ResolveCustom(station, slot, false);
+                    if (saved.Kind != SourceSavedCustomChoiceKind.Existing)
+                        throw new NotSupportedException("Original custom audible returned NULL/unavailable; no forced or random fallback is defined.");
+                    selected = SourceSavedSelection(station, saved.SlotIndex);
+                    play = ResolveSourcePlay(selected, actor.Team);
+                    flip = id < 0;
+                }
+                else
+                {
+                    play = sourceDefaultAudibles.Resolve(id, role, sourceTeam, Model.SourceRules, Model.Quarter - 1,
+                        Model.PackedGameTime, a.SuperFieldGoal, a.NoPunt, ref flip);
+                    int ordinal = role == SourceAudibleRole.Offense ? Math.Abs((int)id) - 1 : id - 1;
+                    selected = new SourcePlaySelection(play.Identity, role == SourceAudibleRole.Offense
+                        ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense, ordinal % 9, ordinal / 9);
+                }
+                if (role == SourceAudibleRole.Offense) Model.SourceOffenseFlipped = flip;
+            }
+            a.Pending[pos] = true;
+            if (role == SourceAudibleRole.Offense) Model.SourceOffensePlay = play; else Model.SourceDefensePlay = play;
+            if (team == 0) Model.SourceHomePlay = selected; else Model.SourceAwayPlay = selected;
+            Model.SourceProcesses.Record("AudibleCommitted", Model.SourceProcesses.Caller, pos, a.Choices[pos]);
+            return false;
+        }
+
+        private void CleanSourceDefaultAudiblesAtSnap()
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            if (a == null) return;
+            for (int team = 0; team < 2; team++)
+            {
+                CleanSourceAudibleTeam(team);
+                a.Actions[team] = a.Timers[team] = 0; a.Shown[team] = false;
+            }
+        }
+
+        private bool ContinueSourceAudibleRestart()
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            if (a == null || Model.Phase != GamePhase.PreSnap) return false;
+            if (a.RestartStage == SourceAudibleRestartStage.SleepBeforeStartEnable)
+            {
+                Model.SourceStartsEnabled = !Model.SourceFirstKickoff && !Model.SourceHalfKickoff
+                    && !Model.SourceProcesses.Exists(0x0f9b, -1);
+                Model.SourceProcesses.Record("StartEnable", GameProcess, 0, Model.SourceStartsEnabled ? 1 : 0);
+                Model.SourceProcesses.Sleep(1);
+                a.RestartStage = SourceAudibleRestartStage.SleepAfterStartEnable;
+                return true;
+            }
+            a.RestartStage = SourceAudibleRestartStage.Polling;
+            return false;
+        }
+
+        private void PollSourceAudibleRestart()
+        {
+            SourceAudibleState a = Model.SourceAudibleState;
+            if (a.Pending[0] || a.Pending[1])
+            {
+                Model.SourceProcesses.Record("AudibleCleanup", GameProcess, 0, 0);
+                FireControl(SourceFireOperation.DeleteObjectGroup, "nfl.c", "game_proc", 1285, SourceFireIds.PuffObject);
+                FireControl(SourceFireOperation.KillProcessGroup, "nfl.c", "game_proc", 1286, SourceFireIds.Spfx);
+                for (int role = 0; role < 2; role++)
+                {
+                    if (!a.Pending[role]) continue;
+                    int side = role == 0 ? (int)Model.Possession : 1 - (int)Model.Possession;
+                    ReinitializeSourceAudibleSide(side);
+                    for (int i = side * 7; i < side * 7 + 7; i++) Model.SourceNameCoordinateInvalidation[i] = Model.SourceTick;
+                    a.Pending[role] = false;
+                    Model.SourceProcesses.Record("AudibleConsumed", GameProcess, role, side);
+                }
+                RebuildSourceAudibleControls();
+            }
+            Model.SourceProcesses.Sleep(1);
+            a.RestartStage = SourceAudibleRestartStage.SleepBeforeStartEnable;
+        }
+
+        private void RebuildSourceAudibleControls()
+        {
+            int status = 0;
+            foreach (SourceStationConfiguration station in sourceConfiguration.Stations) status |= 1 << station.StationId;
+            bool four = sourceConfiguration.StationLayout == SourceStationLayout.FourStation;
+            for (int i = 0; i < 4; i++) { Model.SourceStationTurbo[i] = 100; Model.SourceStationPlayers[i] = -1; }
+            for (int i = 0; i < 7; i++)
+                for (int team = 0; team < 2; team++)
+                {
+                    int bits = four ? status >> (team * 2) & 3 : status >> team & 1;
+                    if (bits == 0) continue;
+                    SourceFormationControl control = Model.SourceFormationSlots[team * 7 + i].Control;
+                    if (four && bits == 3)
+                    {
+                        int captain = (int)Model.SourceCaptain + team * 2;
+                        if ((control & SourceFormationControl.Captain) != 0) Model.SourceStationPlayers[captain] = team * 7 + i;
+                        if ((control & SourceFormationControl.SecondPlayer) != 0)
+                            Model.SourceStationPlayers[((int)Model.SourceCaptain ^ 1) + team * 2] = team * 7 + i;
+                    }
+                    else if ((control & SourceFormationControl.Captain) != 0)
+                        Model.SourceStationPlayers[four ? bits - 1 + team * 2 : team] = team * 7 + i;
+                }
+            RecomputeSourceMovementStations();
+            CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.ControlsRebuilt, -1);
+        }
+
+        private void ReinitializeSourceAudibleSide(int side)
+        {
+            CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.BeginSide, side);
+            Model.SourceProcesses.Record("AudibleRoster", GameProcess, side, 0);
+            var actual = sourceRosters as Blitz.AssetImport.SourceTeamRosterLibrary;
+            if (actual == null) throw new InvalidOperationException("Audible reinit requires actual authenticated source roster selectors.");
+            int team = side == 0 ? sourceConfiguration.HomeTeam.TeamIndex : sourceConfiguration.AwayTeam.TeamIndex;
+            SourceTeamSelection roster = actual.Lineups.Select(team, Model.SourceOffensePlay.Identity, side == (int)Model.Possession);
+            for (int i = side * 7; i < side * 7 + 7; i++)
+            {
+                ActorState actor = Model.Players[i];
+                actor.SourceRoster = new SourceRosterIdentity(team, roster.RosterIndices[i % 7]);
+                actor.ModelScale = sourceRosters.GetTeam(team).Players[actor.SourceRoster.RosterIndex].ModelScale;
+            }
+            CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.RosterComplete, side);
+            SourceQuarterbackPlan oldPlan = Model.SourceQuarterbackPlan;
+            Model.SourceQuarterbackPlan = new SourceQuarterbackPlan(oldPlan.DropbackUnits, oldPlan.GainSought,
+                oldPlan.RollDirection, oldPlan.MotionDirection, false, 0);
+            for (int i = 0; i < 14; i++)
+                Model.SourceDrones[i] = Model.SourceDrones[i].WithQuarterbackPlan(Model.SourceQuarterbackPlan);
+            Model.SourceProcesses.Record("AudiblePre", GameProcess, side, 0);
+            for (int i = side * 7; i < side * 7 + 7; i++)
+            {
+                BeginSourceProcess("game_proc", i, 0);
+                Model.SourceProcesses.Record("AudiblePreLineup", GameProcess, i, side);
+                SourceDroneInitialization init = SourceDroneAI.InitializePreLineupActor(BuildSourceAiFrame(),
+                    Model.SourceOffensePlay, Model.SourceDefensePlay, Model.SourceAiParameters, Model.Quarter - 1,
+                    i, Model.SourceDrones[i], CurrentSourceRandomContext(), sourceRandom);
+                Model.SourceDrones[i] = init.States[i];
+                Model.Players[i].SourceTarget = -1;
+                Model.SourceRandomCallIndex += init.RandomCalls; Model.SourceRandomDraws += init.RandomCalls;
+                CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.PreLineupActorComplete, side, i);
+            }
+            var retained = new SourcePlanar[14];
+            for (int i = 0; i < 14; i++)
+            { SourceVector3 p = SourcePlayerDriver.WorldPosition(Model.Players[i]); retained[i] = new SourcePlanar(p.X, p.Z); }
+            SourceFormationLayout layout = SourcePlaybook.LineUpSide(Model.SourceOffensePlay, Model.SourceDefensePlay,
+                new SourceLineupInput((int)Model.Possession, Model.SourceRules.LineOfScrimmage,
+                    Model.SourceLinePosition * SourceTiming.SourceUnitsPerYard, Model.SourceOffenseFlipped), retained, side);
+            Model.SourceProcesses.Record("AudibleLineup", GameProcess, side, 0);
+            SourcePlayerDriver.LineUpSide(Model, side, layout, SourceDraw,
+                id => BeginSourceProcess("game_proc", id, 0), AssignSourceAudibleCoverage,
+                Model.SourceDefaultAudiblesEnabled
+                    ? (Action<SourceAudibleReinitializationPhase, int>)
+                        ((phase, actor) => CaptureSourceAudibleReinitialization(phase, side, actor))
+                    : null);
+            CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.LineupComplete, side);
+            FireLineupScope(side);
+            FireControl(SourceFireOperation.ResetLineupLatches, "nfl.c", "lineup_players", 3369);
+            Model.SourceProcesses.Record("AudiblePost", GameProcess, side, 0);
+            if (side != (int)Model.Possession)
+                for (int i = side * 7; i < side * 7 + 7; i++)
+                {
+                    BeginSourceProcess("game_proc", i, 0);
+                    Model.SourceProcesses.Record("AudibleDefensiveInit", GameProcess, i, (int)Model.Players[i].SourceMode);
+                    SourceRouteState initialState = Model.SourceDrones[i];
+                    var actualInput = new SourceRouteInput(BuildSourceAiFrame(), i, Model.SourceAiParameters,
+                        CurrentSourceRandomContext(), droneStates: Model.SourceDrones,
+                        formationSlot: Model.SourceFormationSlots[i]);
+                    SourceAudibleDbpsInput observedInput = Model.SourceDefaultAudiblesEnabled
+                        ? GameSnapshot.CaptureAudibleDbpsInput(Model, actualInput, initialState) : null;
+                    SourceRouteStep initial = SourceDroneAI.InitializePreSnapDecision(initialState, actualInput, sourceRandom);
+                    ApplySourceDroneStep(Model.Players[i], initial);
+                    CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.DefensivePreSnapActorComplete,
+                        side, i, observedInput);
+                }
+            InitializeSourceAudiblePostRandom(side);
+            CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase.PostInitComplete, side);
+            Model.SourceAiFrame = null;
+        }
+
+        private void CaptureSourceAudibleReinitialization(SourceAudibleReinitializationPhase phase, int side,
+            int actorPlayerId = -1, SourceAudibleDbpsInput dbpsInput = null)
+        {
+            if (!Model.SourceDefaultAudiblesEnabled) return;
+            if (Model.SourceAudibleReinitializations.Count >= SourceAudibleReinitializationCheckpoint.MaximumPerWake)
+                throw new InvalidOperationException("Audible observation exceeded its finite current-wake bound.");
+            Model.SourceAudibleReinitializations.Add(GameSnapshot.CaptureAudibleReinitialization(Model,
+                phase, side, actorPlayerId, dbpsInput));
+        }
+
+        private void InitializeSourceAudiblePostRandom(int side)
+        {
+            for (int i = side * 7; i < side * 7 + 7; i++)
+                if (!SourceContactDriver.IsHumanTeam(Model, (TeamId)side))
+                {
+                    BeginSourceProcess("game_proc", i, 0);
+                    if (SourceDraw(100, "init_drones_postlineup:superman:" + i) < Model.SourceAiParameters.Int("def_superman_ht", side))
+                        Model.Players[i].SourceUnblockable = true;
+                }
+            BeginSourceProcess("game_proc", -1, 0);
+            SourceQuarterbackPlan plan = SourceDroneAI.InitializeQuarterback(BuildSourceAiFrame(), CurrentSourceRandomContext(), sourceRandom);
+            Model.SourceRandomCallIndex += plan.RandomCalls; Model.SourceRandomDraws += plan.RandomCalls;
+            Model.SourceQuarterbackPlan = plan; Model.SourceMotionDirection = plan.MotionDirection;
+            for (int i = 0; i < 14; i++) Model.SourceDrones[i] = Model.SourceDrones[i].WithQuarterbackPlan(plan);
+        }
+
+        private void AssignSourceAudibleCoverage(int defender, int receiver)
+        {
+            SourceCoverageAssignment pair = SourceDroneAI.AssignCoverage(defender, Model.SourceDrones[defender],
+                receiver, Model.SourceDrones[receiver], SourceContactDriver.IsHumanTeam(Model, Model.Players[defender].Team),
+                Model.SourceLastReceiver[(int)Model.Possession], Model.SourceConsecutiveCompletions[(int)Model.Possession]);
+            Model.SourceDrones[defender] = pair.Defender; Model.SourceDrones[receiver] = pair.Receiver;
+            Model.Players[defender].SourceTarget = receiver;
+            Model.Players[receiver].SourceTarget = defender;
+        }
+
+        private void CaptureSourceAudibles() { Model.SourceAudibles = GameSnapshot.CaptureAudibles(Model); }
+
         private void FinishSourcePlaySelection(TeamId selectingSide)
         {
+            SourcePlayType instructionEnteringPlayType = Model.SourceRules.PlayType;
             SourceFireSelectionExit();
-            Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
-                ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);
-            Model.SourceDefensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home
-                ? Model.SourceAwayPlay.PlaySymbol : Model.SourceHomePlay.PlaySymbol);
-            SourcePlayType type = (Model.SourceOffensePlay.Flags & SourcePlayFlags.Punt) != 0 ? SourcePlayType.Punt
-                : (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourcePlayType.FieldGoal
-                : Model.SourceRules.PlayType == SourcePlayType.ExtraPoint ? SourcePlayType.ExtraPoint : SourcePlayType.Normal;
-            if (type != Model.SourceRules.PlayType)
-                SetSourceRules(new SourceRulesState(Model.SourceRules.OffenseSide, Model.SourceRules.InitialOffenseSide,
-                    Model.SourceRules.Down, Model.SourceRules.LineOfScrimmage, Model.SourceRules.FirstDown, type,
-                    Model.SourceRules.NoFirstDown));
+            Model.SourceOffensePlay = ResolveSourcePlay(Model.Possession == TeamId.Home
+                ? Model.SourceHomePlay : Model.SourceAwayPlay, Model.Possession);
+            Model.SourceDefensePlay = ResolveSourcePlay(Model.Possession == TeamId.Home
+                ? Model.SourceAwayPlay : Model.SourceHomePlay, GameplayRules.Opponent(Model.Possession));
+            Model.AccumulateSourceFourthDownAttemptAtSelectionReturn(sourcePlaybook, Model.SourceOffensePlay);
+            AdmitSourceInstructionsAtSelectionReturn(instructionEnteringPlayType);
+            // playsel.c retains play_type: normal ball-kind dispatch handles kicks;
+            // result.c's PT_FIELD_GOAL/PT_PUNT rows are intentionally empty.
             Model.SourcePendingTackleAttacker = Model.SourcePendingTackleVictim = -1;
             Model.Phase = GamePhase.PreSnap;
             LineUpSourceActors();
             Model.PreSnapTicksRemaining = SourceClock.DefaultAutoHikeTicks;
             Model.Phase = GamePhase.PreSnap;
             Model.SourceMatchPhase = SourceMatchPhase.PreSnap;
+            ResetSourceDefaultAudibles();
             Emit(GameEventType.PlaySelected, selectingSide, -1, 0, Model.BallPosition);
         }
 
@@ -405,7 +936,7 @@ namespace Blitz.Gameplay
 
         private void ApplySourceStationMenuCommands(PlayerCommand command)
         {
-            if (command.StationInputs == null) return;
+            if (command.StationInputs == null || SourceFreePointPending) return;
             foreach (SourceStationInput input in command.StationInputs.Stations)
             {
                 if (!input.Command.IsSpecified) continue;
@@ -437,6 +968,7 @@ namespace Blitz.Gameplay
                         Model.SourceRequestedOnside = source.KickoffChoice.Value == SourceKickoffType.Onside;
                     else if (source.Action == SourceAction.Continue) ContinueSource();
                 }
+                if (SourceFreePointPending) return;
             }
         }
 
@@ -457,6 +989,7 @@ namespace Blitz.Gameplay
                     || Model.SourceKickMeter.View.Status != SourceKickMeterStatus.Tracking))
                 throw new InvalidOperationException("The actual offensive portable-authored kick meter is not tracking at snap.");
             Model.SourceHikeCounterAtSnap = automatic ? 0 : Model.PreSnapTicksRemaining;
+            CleanSourceDefaultAudiblesAtSnap();
             if (automatic && sourceKickMeterMetrics == null && SourceContactDriver.IsHumanTeam(Model, Model.Possession)
                 && (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0)
             {
@@ -518,11 +1051,12 @@ namespace Blitz.Gameplay
             }
             SourceKickoffPlan plan = SourceMatchFlow.PrepareKickoff(new SourceKickoffInput(
                 Model.SourceRules, Model.Quarter - 1, Model.SourceClock.PackedTime, first, half,
-                Model.SourceFirstPossession, (int)Model.SourceCaptain, onside));
+                Model.SourceFirstPossession, (int)Model.SourceCaptain, onside), sourceConfiguration, Model.SourceCurrentInput.StationInputs);
             Model.SourceCaptain = (SourceCaptainSlot)plan.Captain;
             Model.SourceRequestedOnside = false;
             Model.SourceKickingSide = plan.KickingSide;
             Model.SourceKickoffKind = plan.Kind;
+            RestartSourceOriginalKickoffMusic(plan.Kind);
             Model.SourceFlags = plan.Flags;
             Model.SourceLastPossession = plan.LastPossession;
             Model.SourceFumblesOnPlay = 0;
@@ -604,13 +1138,32 @@ namespace Blitz.Gameplay
             Model.SourceBallBounceTick = 0;
         }
 
+        private bool RunSourceQuickKickPreSnap(ActorState actor)
+        {
+            if (Model.SourceRules.PlayType != SourcePlayType.Kickoff
+                || (Model.SourceFlags & SourceGameFlags.QuickKick) == 0 || actor.Id % 7 != 3)
+                return false;
+            // player.c:2106-2127 executes after the clock wake, on the receiver.
+            if (--Model.PreSnapTicksRemaining <= 0
+                || (actor.SourceNewButtons & (SourceDroneButtons.A | SourceDroneButtons.B)) != 0
+                    && Model.PreSnapTicksRemaining < SourceClock.DefaultAutoHikeTicks - SourceClock.SourceTicksPerSecond)
+            {
+                Model.ClockActive = true;
+                Model.SourceClock = SourceClock.ResetPlayTime(Model.SourceClock);
+                BeginSourceKick();
+                actor.SourceMode = SourceActorMode.Receiver;
+            }
+            return true;
+        }
+
         private void BeginSourceKick()
         {
             bool quick = Model.SourceKickoffKind == SourceKickoffKind.Quick;
             int kicker = Model.SourceKickingSide * SliceRules.PlayersPerTeam;
             Model.SourceKickApproach = false;
             Model.SourceBallFrozen = false;
-            Model.SourceFlags |= SourceGameFlags.BallKicked;
+            Model.SourceKickReturnCatch = -1;
+            if (!quick) Model.SourceFlags |= SourceGameFlags.BallKicked;
             Model.BallMode = BallMode.InFlight;
             Model.Phase = GamePhase.LiveBall;
             Model.SourceMatchPhase = SourceMatchPhase.LiveBall;
@@ -640,11 +1193,11 @@ namespace Blitz.Gameplay
                 actor.Action = ActorAction.Kick;
                 actor.AnimationState.FullBody("kickball_anim", actor, Model.SourceTick, SourceDraw,
                     AnimationSelectionEvidence.SourceVerified);
+                actor.SourceMode = SourceActorMode.Receiver;
+                Model.SourceBallPitchRate = -45;
+                Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             }
-            Model.Players[kicker].SourceMode = SourceActorMode.Receiver;
             UpdateSourceBallVelocityView();
-            Model.SourceBallPitchRate = -45;
-            Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             if (!quick)
             {
                 float time = -2f * Model.SourceBallVerticalVelocity / SourceBallDriver.Gravity;
@@ -675,7 +1228,8 @@ namespace Blitz.Gameplay
             if (targetId == -1 && quarterback.SourceControllerStation >= 0)
                 targetId = SourcePassDriver.PickReceiver(Model, quarterback,
                     SourcePlayerDriver.ActorStick(quarterback,
-                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)));
+                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)),
+                    portableLibraryOrder: SourceCompleteProgramsEnabled);
             if (targetId < Model.OffenseOffset + 3 || targetId > Model.OffenseOffset + 6 || targetId == quarterbackId)
                 return;
             ActorState target = Model.Players[targetId];
@@ -683,23 +1237,28 @@ namespace Blitz.Gameplay
             float distance = Model.SourceDistances[quarterbackId, targetId] / SourceTiming.SourceUnitsPerYard;
             int fromField = SourceMatchRules.FieldPosition(from.X, (int)Model.Possession);
             int toField = SourceMatchRules.FieldPosition(to.X, (int)Model.Possession);
-            if (distance < 7f && fromField > toField)
+            bool monitoredUpperThrow = !quarterback.SourceCapturedControlBlock
+                && quarterback.AnimationState.Primary.IsUninterruptible && lowerThrow;
+            if (!monitoredUpperThrow) AdmitSourceThrowMonitor(quarterback);
+            if (!monitoredUpperThrow && distance < 7f && fromField > toField)
             {
                 BeginSourceLateral(quarterback, target);
                 return;
             }
             quarterback.PendingThrowTarget = targetId;
             quarterback.SourceThrowing = true;
-            quarterback.PendingThrowTurbo = turbo;
+            quarterback.PendingThrowTurbo = monitoredUpperThrow
+                ? (Model.SourceBallFlags & SourceBallFlags.TurboPass) != 0 : turbo;
             quarterback.Action = ActorAction.Throw;
             int targetHeading = Model.SourceAngles[quarterbackId, targetId];
             int bearing = Math.Abs(((targetHeading - quarterback.Facing + 512) & 1023) - 512);
-            if (quarterback.AnimationState.Primary.IsUninterruptible && lowerThrow)
+            if (monitoredUpperThrow)
             {
                 quarterback.AnimationState.BeginTwoPart(quarterback);
                 quarterback.TargetFacing = quarterback.TargetUpperFacing = targetHeading;
                 quarterback.AnimationState.UpperBody(quarterback.Flipped ? "qb_rthrow_sl_anim" : "qb_rthrow_sr_anim",
                     quarterback, Model.SourceTick, SourceDraw, AnimationSelectionEvidence.SourceVerified);
+                AdmitSourceThrowMonitor(quarterback);
                 return;
             }
             if (distance < 15f && fromField <= toField
@@ -722,11 +1281,23 @@ namespace Blitz.Gameplay
         private void ReleaseSourcePass(int quarterbackId)
         {
             ActorState quarterback = Model.Players[quarterbackId];
-            int targetId = quarterback.PendingThrowTarget;
+            int targetId = ResolveSourceHumanThrowTarget(quarterback);
             if (Model.Phase != GamePhase.LiveBall || Model.CarrierId != quarterbackId || targetId < 0)
                 return;
             ActorState receiver = Model.Players[targetId];
-            SourceVector3 wrist = SourceWorldJoint(quarterback, quarterback.Flipped ? 7 : 4);
+            int wristJoint = quarterback.Flipped ? 7 : 4;
+            SourceVector3 wrist;
+            if (SourceCompleteProgramsEnabled)
+            {
+                if (Model.SourceCameraJointTick < 0 || Model.SourceCameraJointTick != Model.SourceTick - 1 ||
+                    Model.SourceMovementCamera == null || Model.SourceMovementCameraTick != Model.SourceTick)
+                    throw new InvalidOperationException("Original pass release requires the actual preceding player camera cache and current camera.");
+                SourceVector3 cached = Model.SourceCameraJoints[quarterbackId, wristJoint];
+                if (!SourcePoseMath.IsFinite(cached.X) || !SourcePoseMath.IsFinite(cached.Y) || !SourcePoseMath.IsFinite(cached.Z))
+                    throw new InvalidOperationException("Original pass release requires a finite actual cached wrist.");
+                wrist = ContactCachedWorldJoint(quarterback, wristJoint);
+            }
+            else wrist = SourceWorldJoint(quarterback, wristJoint);
             SourcePassDriver.Pass(Model, quarterback, receiver, wrist, SourceDrawFor("player.c:set_ball_vels"));
             Model.BallMode = BallMode.InFlight;
             Model.BallKind = SourceBallKind.Pass;
@@ -747,8 +1318,14 @@ namespace Blitz.Gameplay
                 Model.SourceDrones[targetId] = Model.SourceDrones[targetId].WithCatch(receiver.SourcePendingCatch,
                     receiver.SourceCatchLaunchTime);
             Model.SourceFlags |= SourceGameFlags.PassThrown;
+            // player.c:qb_release_ball counts the predicted ball target, not receiver intent.
+            if (SourceMatchRules.FieldPosition(Model.SourceBallTarget.X, (int)Model.Possession)
+                >= Model.SourceRules.LineOfScrimmage)
+                Model.SourcePassAttempts[(int)Model.Possession] =
+                    checked(Model.SourcePassAttempts[(int)Model.Possession] + 1);
             Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(quarterback).X;
             UpdateSourceBallVelocityView();
+            SourceOriginalThrowBallSounds();
             Emit(GameEventType.PassThrown, quarterback.Team, targetId, 0, Model.BallPosition,
                 quarterbackId, targetId);
             EmitSource(SourceEventType.PassReleased, quarterbackId, targetId);
@@ -809,6 +1386,7 @@ namespace Blitz.Gameplay
                 }
                 if (result == SourceCatchResult.Deflect)
                 {
+                    SourceOriginalDeflectBallSound(false);
                     SourceBallDriver.Deflect(Model, actor, SourceDrawFor("pmisc.c:deflect_pass"));
                     EmitSource(SourceEventType.PassDeflected, actor.Id, Model.TargetPlayerId);
                 }
@@ -826,6 +1404,8 @@ namespace Blitz.Gameplay
                             || actor.AnimationState.Primary.SequenceName == "C_JMPIN3"))
                         actor.AnimationState.FullBody("air_swat_anim", actor, Model.SourceTick, SourceDraw,
                             AnimationSelectionEvidence.SourceVerified);
+                    if (result == SourceCatchResult.Bobble) SourceOriginalBobbleBallSounds();
+                    else SourceOriginalDeflectBallSound(true);
                     EmitSource(result == SourceCatchResult.Bobble ? SourceEventType.Bobbled : SourceEventType.PassDeflected,
                         actor.Id);
                 }
@@ -869,6 +1449,7 @@ namespace Blitz.Gameplay
                     Model.SourceRules.PlayType, Model.SourceRules.NoFirstDown);
                 for (int id = 0; id < Model.Players.Length; id++)
                 {
+                    Model.Players[id].SourceRawFlags &= ~(int)SourceMovementFlags.SpeedOverride;
                     Model.Players[id].Role = Model.Players[id].Team == actor.Team
                         ? ActorRole.Receiver : ActorRole.Defender;
                     Model.Players[id].SourceMode = Model.Players[id].Team == actor.Team
@@ -877,6 +1458,7 @@ namespace Blitz.Gameplay
                         (int)Model.Players[id].Team, (int)actor.Team, sourcePlaybook);
                 }
             }
+            Model.CaptureSourceKickReturnCatch(offense);
             Model.ClockActive = Model.SourceRules.PlayType != SourcePlayType.ExtraPoint;
             int field = SourceMatchRules.FieldPosition(Model.SourceCatchX, (int)Model.Possession);
             if (field < 2 && (!offense || Model.BallKind == SourceBallKind.Kickoff))
@@ -899,6 +1481,8 @@ namespace Blitz.Gameplay
                     Model.SourceConsecutiveCompletions[(int)actor.Team], Model.SourceTeamFire[(int)actor.Team] ? 1 : 0,
                     SourceMatchRules.FieldPosition(SourcePlayerDriver.WorldPosition(actor).X, (int)Model.Possession)
                         >= Model.SourceRules.LineOfScrimmage);
+            SourceOriginalCatchSounds(actor);
+            AdmitSourceKickoffInstructionProducer(actor);
             Model.SourceAiFrame = BuildSourceAiFrame();
             SynchronizeSourceHeldBall();
             Emit(GameEventType.PassCaught, actor.Team, actor.Id, 0, Model.BallPosition, actor.Id, thrower);
@@ -1053,15 +1637,23 @@ namespace Blitz.Gameplay
             Model.ClockActive = false;
             Model.SourceClock = SourceClock.DiscardFraction(Model.SourceClock);
             UpdateSourceClockView();
+            // ball_proc can publish flags after the ending actor and before this game_proc wake.
             SourcePlayEndInput endingInput = pending == null ? new SourcePlayEndInput(
-                Model.SourceRules, cause, SourceBallTypeFor(Model.BallKind), Model.SourceFlags,
+                Model.SourcePlaybook, Model.SourceOffensePlay, Model.SourceRules, cause,
+                SourceBallTypeFor(Model.BallKind), Model.SourceFlags,
                 Model.SourceLastPossession, Model.SourcePlayEndX, Model.SourcePlayEndZ,
-                Model.SourceFumbleX, Model.SourceLastResult) : pending.Input;
+                Model.SourceFumbleX, Model.SourceLastResult) : new SourcePlayEndInput(
+                    pending.Input.SelectedPlaybook, pending.Input.InitialOffensePlay, pending.Input.State,
+                    pending.Input.Cause, pending.Input.BallType, Model.SourceFlags,
+                    pending.Input.LastPossession, pending.Input.PlayEndX, pending.Input.PlayEndZ,
+                    pending.Input.FumbleX, pending.Input.PreviousResult);
             SourcePlayResolution resolution = SourceMatchRules.Resolve(endingInput);
             if (!resolution.TransitionApplied)
                 throw new NotSupportedException("Invalid source result branch: play=" + Model.SourceRules.PlayType
                     + " cause=" + cause + " kind=" + Model.BallKind + " sourceTick=" + Model.SourceTick);
             ApplySourceFirePlayEnd(endingInput, resolution);
+            Model.SourceLastPlayEndCause = cause;
+            Model.AccumulateSourcePlayEndStats(endingInput, resolution, Model.CarrierId);
             Model.SourceLastResult = resolution.Classification.Result;
             if (resolution.TurnoverOnDowns) Model.SourceOffenseTurnover = true;
             Model.SourcePlayEndX = resolution.PlayEndX;
@@ -1088,6 +1680,9 @@ namespace Blitz.Gameplay
                     ? PlayOutcome.OutOfBounds
                 : cause == SourcePlayEndCause.CarrierTackledInBounds || cause == SourcePlayEndCause.CarrierDownInOwnEndZone
                     ? PlayOutcome.Tackled : PlayOutcome.None;
+            if (SourceMatchFlow.ToggleCaptainAfterResult(resolution, endingType, Model.SourceFirstPossession))
+                Model.SourceCaptain = Model.SourceCaptain == SourceCaptainSlot.First
+                    ? SourceCaptainSlot.Second : SourceCaptainSlot.First;
             if (attackerId >= 0)
                 Emit(GameEventType.Tackled, offense, playerId, 0, position, attackerId, playerId);
             else if (cause == SourcePlayEndCause.CarrierOutOfBounds || cause == SourcePlayEndCause.BallOutOfBounds)
@@ -1120,6 +1715,7 @@ namespace Blitz.Gameplay
                 Model.Players[id].SourceInPlay = false;
             }
             EmitSource(SourceEventType.PlayResolved, playerId, attackerId, Model.SourceResultView);
+            BeginSourceCabinetResultWait();
             if (Model.SourceClock.PackedTime == 0 && Model.SourceRules.PlayType != SourcePlayType.ExtraPoint
                 && !Model.QuarterEndEmitted)
             {
@@ -1135,6 +1731,21 @@ namespace Blitz.Gameplay
             // nfl.c:1943-1953 runs after the result box, before the period gate.
             if (Model.SourceForwardCatcher == -1)
                 Model.SourceConsecutiveCompletions[(int)Model.Possession] = 0;
+            if (sourceCabinetFlow != null && Model.SourceRules.PlayType == SourcePlayType.ExtraPoint)
+            {
+                BeginSourcePlay();
+                int offense = Model.Possession == TeamId.Home ? Model.HomeScore : Model.AwayScore;
+                int defense = Model.Possession == TeamId.Home ? Model.AwayScore : Model.HomeScore;
+                SourcePatDecision pat = SourceMatchFlow.SelectPat(new SourcePatInput(Model.SourceRules,
+                    Model.Quarter - 1, Model.SourceClock.PackedTime, offense, defense,
+                    SourceContactDriver.IsHumanTeam(Model, Model.Possession)));
+                if (pat.Disposition == SourcePatDisposition.SkipUnnecessary)
+                {
+                    ApplySourcePat(pat);
+                    return;
+                }
+                Model.SourcePatStatus = (SourcePatStatus)pat.Disposition;
+            }
             if (AdvanceSourcePeriod())
                 return;
             if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
@@ -1157,28 +1768,37 @@ namespace Blitz.Gameplay
                 StoreSourceSelection(offense, ChooseSourceCpuPlay(offense, null));
                 SourcePlaySelection chosen = offense == TeamId.Home ? Model.SourceHomePlay : Model.SourceAwayPlay;
                 StoreSourceSelection(GameplayRules.Opponent(offense),
-                    ChooseSourceCpuPlay(GameplayRules.Opponent(offense), sourcePlaybook.GetPlay(chosen.PlaySymbol)));
+                    ChooseSourceCpuPlay(GameplayRules.Opponent(offense), ResolveSourcePlay(chosen, offense)));
                 FinishSourcePlaySelection(offense);
                 return;
             }
+            SourceOriginalSelectionClockSpeech();
             StartSourceSelectionTimer();
+            BeginSourcePlaySelectionIntroduction();
             sourceSelectionCpuPatPending = Model.SourceRules.PlayType == SourcePlayType.ExtraPoint
                 && !SourceContactDriver.IsHumanTeam(Model, Model.Possession);
         }
 
         private bool AdvanceSourcePeriod()
         {
+            SourceCabinetFlowProcess flow = sourceCabinetFlow;
+            if (flow != null && flow.FinalMatch != null) return true;
+            if (BeginSourceCabinetPeriod()) return true;
+            bool continueAfterGate = flow != null && flow.ApplyingPeriod
+                ? flow.ContinueAfterGate : sourceConfiguration.ContinueAfterCabinetGate;
             SourcePeriodInput input = new SourcePeriodInput(Model.SourceRules, Model.Quarter - 1,
                 Model.SourceClock.PackedTime, Model.HomeScore, Model.AwayScore,
                 Model.SourceFirstPossession, Model.SourceOvertimeKickoff,
-                continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate);
+                currentPlayFinished: flow == null || Model.Phase != GamePhase.LiveBall
+                    && Model.SourceC2PendingResult == null,
+                continueAfterCabinetGate: continueAfterGate);
             SourcePeriodDecision decision = SourceMatchFlow.AdvancePeriod(input);
             if (decision.RandomRequest.IsRequired)
             {
                 decision = SourceMatchFlow.AdvancePeriod(new SourcePeriodInput(Model.SourceRules, Model.Quarter - 1,
                     Model.SourceClock.PackedTime, Model.HomeScore, Model.AwayScore,
                     Model.SourceFirstPossession, Model.SourceOvertimeKickoff,
-                    continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate,
+                    continueAfterCabinetGate: continueAfterGate,
                     overtimeFirstDraw: SourceDraw(decision.RandomRequest.BoundOrModulus,
                         "SourceMatchFlow." + decision.RandomRequest.Call, decision.RandomRequest.Kind)));
             }
@@ -1193,13 +1813,18 @@ namespace Blitz.Gameplay
                 Emit(GameEventType.GameEnded, TeamId.Home, -1, Model.HomeScore.CompareTo(Model.AwayScore),
                     default(FieldVector));
                 EmitSource(SourceEventType.MatchEnded);
+                BeginSourceCabinetFinal();
                 return true;
             }
             if (decision.RestartClockProcess)
             {
+                if (flow != null) ResumeSourceCabinetWorld();
                 ReloadSourceC2Banks(false);
                 Model.Quarter = decision.QuarterIndex + 1;
-                Model.SourceClock = SourceClock.Create(decision.PackedTime, firstWakeTick: Model.SourceTick + 1);
+                Model.SourceClock = SourceClock.Create(decision.PackedTime, Model.SourceClock.PlayTime,
+                    firstWakeTick: Model.SourceTick + 1);
+                if (!Model.SourceProcesses.Contains(ClockProcess))
+                    Model.SourceProcesses.Create(ClockProcess, 0x0f00, "game_clock_proc", 0);
                 Model.SourceOvertimeKickoff = decision.OvertimeKickoff;
                 Model.SourceHalfKickoff = decision.HalfKickoff;
                 Model.SourcePeriodView = new SourcePeriodView(decision.QuarterIndex,
@@ -1250,7 +1875,18 @@ namespace Blitz.Gameplay
             if (pat.Disposition != SourcePatDisposition.FreeKickComplete
                 && pat.Disposition != SourcePatDisposition.SkipUnnecessary)
                 return false;
+            if (pat.Disposition == SourcePatDisposition.FreeKickComplete && SourceCompleteProgramsEnabled)
+            {
+                BeginSourceFreePointContinuation(pat);
+                return true;
+            }
             SourceFireSelectionExit();
+            AwardSourcePat(pat);
+            return FinishSourcePat(pat, false);
+        }
+
+        private void AwardSourcePat(SourcePatDecision pat)
+        {
             AddSourcePoints(pat.Side0Points, pat.Side1Points);
             if (pat.Disposition == SourcePatDisposition.FreeKickComplete)
             {
@@ -1261,6 +1897,13 @@ namespace Blitz.Gameplay
                     Model.Possession, result: Model.SourceResultView, playKind: SourcePlayKind.ExtraPoint,
                     patChoice: (SourcePatOption)pat.Choice));
             }
+        }
+
+        private bool FinishSourcePat(SourcePatDecision pat, bool resumeSelection = true)
+        {
+            if (resumeSelection) SourceFireSelectionExit();
+            if (sourceCabinetFlow != null && pat.Disposition == SourcePatDisposition.SkipUnnecessary)
+                sourceCabinetFlow.SkippedPatCleanupRules = Model.SourceRules;
             SetSourceRules(pat.State);
             if (pat.CheckEndOfPeriod && AdvanceSourcePeriod()) return true;
             if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)
@@ -1328,6 +1971,7 @@ namespace Blitz.Gameplay
             Model.SourceRandomActor = actor;
             Model.SourceRandomProcessOrder = Model.SourceDispatchOrdinal++;
             Model.SourceRandomCallIndex = 0;
+            Model.SourceDirectSoundSubcall = 0;
         }
 
         private static SourceMatchConfiguration DefaultSourceConfiguration()
@@ -1367,6 +2011,7 @@ namespace Blitz.Gameplay
             Model.SourceLastPossession = start.LastPossession;
             Model.SourceOffensivePlays[start.OffensivePlayCounterSide]++;
             Model.SourceFumblesOnPlay = 0;
+            Model.SourceLastPlayEndCause = null;
             Model.SourceHasContactSpot = false;
             Model.SourceBeginPlayInitialized = true;
             Model.SourceResultView = default(SourceMatchResult);
@@ -1555,15 +2200,28 @@ namespace Blitz.Gameplay
                 if (actor.SourceReverseRoute) flags |= SourceAiActorFlags.ReverseRoute;
                 if (actor.SourceThrowing) flags |= SourceAiActorFlags.Throwing;
                 if ((upper & 0x1000u) != 0) flags |= SourceAiActorFlags.RunningPush;
+                if (actor.AnimationState != null
+                    && (actor.AnimationState.Primary.SequenceName == "T_CRZDIV"
+                        || actor.AnimationState.Primary.SequenceName == "T_SPRHED"))
+                    flags |= SourceAiActorFlags.DiveAttack;
                 actors[id] = new SourceAiActor(id,
                     new SourcePlanar(root.X, root.Z),
                     new SourcePlanar(actor.SourceVelocity.X, actor.SourceVelocity.Z), actor.SourceMode,
                     actor.SourceJob, actor.SourceTarget, flags, actor.SourceControllerStation, actor.Facing & 1023,
-                    actor.SourceStick, height: root.Y, rawFacing: actor.Facing);
+                    actor.SourceStick, attackTarget: actor.PendingThrowTarget, height: root.Y, rawFacing: actor.Facing);
             }
             int humans = 0;
             foreach (SourceStationConfiguration station in sourceConfiguration.Stations) humans |= 1 << (int)station.Team;
-            return new SourceAiFrame(actors, sourcePlaybook.Directions, Model.SourceRules,
+            SourceRulesState actorRules = Model.SourceRules;
+            // nfl.c's skipped PAT publishes PT_NORMAL with the real down=-1.
+            // The managed AI DTO admits that sentinel only for PAT/kickoff.
+            // Retain the ACTUAL pre-skip PAT context for finished actor cleanup;
+            // do not clamp football rules or weaken the strict/live AI guard.
+            if (sourceCabinetFlow != null && sourceCabinetFlow.SkippedPatCleanupRules.HasValue
+                && Model.Phase != GamePhase.LiveBall && actorRules.PlayType == SourcePlayType.Normal
+                && actorRules.Down == -1)
+                actorRules = sourceCabinetFlow.SkippedPatCleanupRules.Value;
+            return new SourceAiFrame(actors, sourcePlaybook.Directions, actorRules,
                 new SourceAiBall(SourceBallTypeFor(Model.BallKind),
                     new SourcePlanar(Model.SourceBallPosition.X, Model.SourceBallPosition.Z),
                     new SourcePlanar(Model.SourceBallVelocity.X, Model.SourceBallVelocity.Z),
@@ -1586,9 +2244,7 @@ namespace Blitz.Gameplay
         {
             if (Model.SourceDrones[actor.Id].LastSourceTick == Model.SourceTick)
                 return actor.SourceMove;
-            SourceAiFrame frame = Model.SourceAiFrame ?? BuildSourceAiFrame();
-            if (actor.SourceMode == SourceActorMode.Kicker)
-                frame = CurrentSourceKickerVariables(frame);
+            SourceAiFrame frame = BuildSourceAiFrame();
             int active = 0;
             foreach (SourceStationConfiguration station in sourceConfiguration.Stations) active |= 1 << station.StationId;
             SourceKickerStage kickerStage = Model.Phase == GamePhase.LiveBall ? SourceKickerStage.InPlay
@@ -1618,7 +2274,8 @@ namespace Blitz.Gameplay
                     droneStates: Model.SourceDrones, formationSlot: Model.SourceFormationSlots[actor.Id],
                     targetFacing: actor.TargetFacing & 1023, rawTargetFacing: actor.TargetFacing,
                     snapContext: new SourceDroneSnapContext(active,
-                        sourceConfiguration.StationLayout == SourceStationLayout.FourStation, 0, 0, motionStick),
+                        sourceConfiguration.StationLayout == SourceStationLayout.FourStation,
+                        SourceAudibleAction((int)Model.Possession), SourceAudibleAction(1 - (int)Model.Possession), motionStick),
                     kickerContext: new SourceDroneKickerContext(kickerStage, captainButtons),
                     compatibility: Compatibility), sourceRandom);
             if (step.RetainedTargetlessRunningPush)
@@ -1712,11 +2369,22 @@ namespace Blitz.Gameplay
             if (step.ResetNonAButtonTime) actor.SourceNonATicks = 0;
             if (step.ForceNonTurboOneTick) actor.NonTurboTicks = 1;
             if (step.WaveArm) actor.SourceWaveArm = true;
-            actor.SourceBackpedal = step.Backpedal;
-            actor.SourceBackpedalTarget = step.BackpedalTarget;
-            if (step.Facing >= 0) actor.TargetFacing = step.Facing;
+            ApplySourceDroneSteering(actor, step);
             foreach (SourceDefenderEffect effect in step.DefenderEffects)
                 Model.SourceDrones[effect.ActorId] = Model.SourceDrones[effect.ActorId].Apply(effect);
+        }
+
+        internal static void ApplySourceDroneSteering(ActorState actor, SourceRouteStep step)
+        {
+            actor.SourceBackpedal = step.Backpedal;
+            if (step.BackpedalTargetWritten) actor.SourceBackpedalTarget = step.BackpedalTarget;
+            if (step.Facing < 0) return;
+            if (step.FacingTarget == SourceRouteFacingTarget.DroneFace)
+            {
+                actor.SourceDroneFace = step.Facing;
+                actor.SourceRawFlags |= (int)SourceMovementFlags.DroneFace;
+            }
+            else actor.TargetFacing = step.Facing;
         }
 
         private void ConfigureSourceStations()
@@ -1778,7 +2446,7 @@ namespace Blitz.Gameplay
                     foreach (ActorState teammate in Model.Players)
                     {
                         if (teammate.Team != actor.Team || teammate.SourceControllerStation < 0) continue;
-                        float distance = PlayerSimulation.DistanceSquared(actor.Position, teammate.Position);
+                        float distance = Model.SourceDistances[actor.Id, teammate.Id];
                         if (distance <= farthest) continue;
                         farthest = distance;
                         station = teammate.SourceControllerStation;
@@ -1957,6 +2625,14 @@ namespace Blitz.Gameplay
         {
             actor.AnimationState.Primary.SourceFrameInterpolationRoots =
                 actor.AnimationState.Secondary.SourceFrameInterpolationRoots = SourceDefensivePreSnapSwitchEnabled;
+            if (SourceDefensivePreSnapSwitchEnabled)
+            {
+                if (actor.SourceDirections == null)
+                    throw new InvalidOperationException("Original source pose interpolation requires typed direction data.");
+                actor.AnimationState.BindSourcePoseInterpolation(
+                    Blitz.AssetImport.SourceAnimationSampling.CreateOriginalPoseInterpolation(actor.SourceDirections.Sin));
+            }
+            if (SourceCompleteProgramsEnabled) actor.AnimationState.BindOriginalChangeSemantics();
             actor.AnimationState.BindMovementExecution(SourceMovementAnimationCode, SourceMovementLeapAttack);
             if (SourceC2Enabled) actor.AnimationState.BindC2VoidExecution(ExecuteSourceC2Void);
             actor.AnimationState.BindContactExecution(SetSourcePuppetPosition, SourceContactHitHeading, SourceContactGroundTime,
@@ -1968,6 +2644,7 @@ namespace Blitz.Gameplay
                     SourceAnimationSideEffect(actor.Id, signal);
                     SynchronizeSourceAnimationActor(actor);
                 });
+            InitializeSourceCompleteAvPose(actor);
         }
 
         private void SynchronizeSourceAnimationActor(ActorState actor)
@@ -2004,7 +2681,9 @@ namespace Blitz.Gameplay
                     instruction.A, instruction.B, instruction.C, Model.CarrierId);
                 sourcePresentationCues.Add(cue);
                 if (kind == SourcePresentationCueKind.DustCallback) AdmitSourceDust(actor, instruction.A);
-                if (kind != SourcePresentationCueKind.PlayerDownCallback) ExecuteSourceSoundVm(actor, cue);
+                if (kind == SourcePresentationCueKind.SoundCallback
+                    || kind == SourcePresentationCueKind.DustCallback && !SourceCompleteProgramsEnabled)
+                    ExecuteSourceSoundVm(actor, cue);
             }
         }
 
@@ -2063,7 +2742,9 @@ namespace Blitz.Gameplay
             Model.SourceBallFlags &= ~(SourceBallFlags.Bounce | SourceBallFlags.Bobble | SourceBallFlags.FirePass
                 | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             actor.Role = ActorRole.Receiver;
+            actor.SourceMode = SourceActorMode.Receiver;
             actor.SourcePendingLateral = false;
+            SourceOriginalThrowBallSounds();
             EmitSource(SourceEventType.LateralReleased, actorId, target);
         }
 
@@ -2194,6 +2875,7 @@ namespace Blitz.Gameplay
             Model.TargetPlayerId = -1;
             Model.SourceFumbleX = SourcePlayerDriver.WorldPosition(actor).X;
             Model.SourceFlags |= SourceGameFlags.BallPunted;
+            Model.SourceKickReturnCatch = -1;
             Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.Bounce | SourceBallFlags.Bobble
                 | SourceBallFlags.FirePass | SourceBallFlags.TurboPass | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);
             SourceBallDriver.Punt(Model, actor, ankle, SourceDrawFor("player.c:set_punt_ball_vels"));

@@ -202,8 +202,20 @@ class BallRunnerGuards(unittest.TestCase):
         self.assertEqual("defensive-presnap-switch/post-BeginTick/v1", RUNNER.RAW_NEW_PRESSED_GENERATION)
         self.assertEqual("9d676f882d5e381f92fe456e0c4b11bdb9489b5917d8156b6a9b285de06d7165",
                          RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256)
+        self.assertEqual({
+            RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256: RUNNER.RAW_NEW_PRESSED_GENERATION,
+            "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927":
+                "integrated-default-audibles/post-BeginTick/v2",
+            "d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e":
+                "reviewed-native-cache-release/post-BeginTick/v3",
+        }, RUNNER.RAW_NEW_PRESSED_SOURCE_GENERATIONS)
         data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_bytes()
-        self.assertEqual(RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256, hashlib.sha256(data).hexdigest())
+        self.assertEqual("reviewed-native-cache-release/post-BeginTick/v3",
+                         RUNNER.RAW_NEW_PRESSED_SOURCE_GENERATIONS[hashlib.sha256(data).hexdigest()])
+        mutated = RUNNER.mutation_source(row, data)
+        self.assertEqual(mutated.replace(row[3].encode(), row[2].encode()), data)
+        with self.assertRaisesRegex(RuntimeError, "source SHA256 changed"):
+            RUNNER.mutation_source(row, data + b"\n")
         source = data.decode()
         begin = source.index("private void UpdateSourceMovementPlayers(")
         end = source.index("private void IntegrateSourceMovementPlayer(", begin)
@@ -235,6 +247,19 @@ class BallRunnerGuards(unittest.TestCase):
         self.assertLess(artifact.index("state = SourceMovement.BeginTick(", begin), artifact.index(row[3]))
         self.assertLess(artifact.index(row[3]), artifact.index("ApplySourceMovement(actor, state);", begin))
         self.assertIn(helper, artifact, "The causal control must retain the real same-wake fake-B mask.")
+
+    def test_flip_mutation_targets_normal_lineup_without_changing_audible_lineup(self):
+        row = next(item for item in RUNNER.MUTATIONS if item[0] == "off-flip-real-lineup")
+        data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_bytes()
+        start = data.index(b"SourceFormationLayout layout = SourcePlaybook.LineUpSide(")
+        end = data.index(b'Model.SourceProcesses.Record("AudibleLineup"', start)
+        audible = data[start:end]
+        self.assertIn(b"Model.SourceOffenseFlipped), retained, side);", audible)
+        mutated = RUNNER.mutation_source(row, data)
+        self.assertIn(audible, mutated)
+        self.assertEqual(0, mutated.count(row[2].encode()))
+        self.assertEqual(1, mutated.count(row[3].encode()))
+        self.assertEqual(data, mutated.replace(row[3].encode(), row[2].encode()))
 
     def test_fresh_press_mutation_rejects_mistargeted_metadata_and_stale_source(self):
         row = next(item for item in RUNNER.MUTATIONS if item[0] == "raw-new-pressed")

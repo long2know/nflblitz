@@ -14,12 +14,17 @@ internal static class HostProbe
     internal static Blitz.Runtime.SourceCabinetUnityInput Input;
     internal static Blitz.Presentation.PlayHud Hud;
     internal static int Captures, TrailCaptures, Draws, CommandBuffers, Errors;
+    internal static int? FieldIndex;
+    internal static string HomePrefix;
+    internal static Exception NativeAudioUnbound()
+    { return new NotSupportedException("Native/PCM audio execution is outside managed host lifecycle coverage."); }
     internal static void Record(string call) { Calls.Add(call); }
     internal static int Count(string call) { return Calls.FindAll(value => value == call).Count; }
     internal static void Reset(string fault, bool source)
     {
         Calls.Clear(); Fault = fault; Source = source; Fire = true; CabinetHeld = false;
         Bridge = null; Input = null; Hud = null; Captures = TrailCaptures = Draws = CommandBuffers = Errors = 0;
+        FieldIndex = null; HomePrefix = null;
         UnityEngine.Input.Clear();
         UnityEngine.Application.absoluteURL = source ? "https://managed.invalid/" : "https://managed.invalid/?actors=graybox";
     }
@@ -178,7 +183,17 @@ namespace Blitz.Contracts
         public SourceMatch Match { get; private set; }
         public TestState() { Match = new SourceMatch(); }
     }
-    public sealed class SourceMatch { public readonly object Configuration = new object(); }
+    public sealed class SourceMatch { public readonly SourceMatchConfiguration Configuration = new SourceMatchConfiguration(); }
+    public sealed class SourceMatchConfiguration
+    {
+        public readonly ManagedTeamSelection HomeTeam = new ManagedTeamSelection(5);
+        public readonly ManagedTeamSelection AwayTeam = new ManagedTeamSelection(6);
+    }
+    public sealed class ManagedTeamSelection
+    {
+        public int TeamIndex { get; private set; }
+        public ManagedTeamSelection(int index) { TeamIndex = index; }
+    }
     public interface ISourceAnimationLibrary { }
     public sealed class TestAnimations : ISourceAnimationLibrary { }
     public sealed class GameEvent { }
@@ -187,9 +202,21 @@ namespace Blitz.Contracts
     public sealed class SourceCallbackCue : SourcePresentationCue { public SourcePresentationCueKind Kind; }
     public sealed class SourcePresentationCueBatch
     { public readonly List<SourcePresentationCue> Cues = new List<SourcePresentationCue> { new SourceCallbackCue() }; }
-    public sealed class SourceSoundVmDispatch { public SourceSoundVmStatus Status; }
+    public sealed class SourceSoundVmDispatch
+    {
+        public SourceSoundVmStatus Status;
+        public long OutputSequence { get { throw HostProbe.NativeAudioUnbound(); } }
+        public bool HasOriginalAnimationCue { get { throw HostProbe.NativeAudioUnbound(); } }
+    }
+    public sealed class SourceBootSoundOutput { public long OutputSequence { get { throw HostProbe.NativeAudioUnbound(); } } }
+    public sealed class SourceDirectSoundCall { public long OutputSequence { get { throw HostProbe.NativeAudioUnbound(); } } }
+    public sealed class SourceProcessSoundControl { public long OutputSequence { get { throw HostProbe.NativeAudioUnbound(); } } }
+    public sealed class SourceProcessCameraSelection { }
     public sealed class SourceSoundVmBatch { public readonly List<SourceSoundVmDispatch> Dispatches = new List<SourceSoundVmDispatch>(); }
-    public sealed class SourceContactSoundCue { }
+    public sealed class SourceContactSoundCue
+    { public ManagedContactSoundContext Context { get { throw HostProbe.NativeAudioUnbound(); } } }
+    public sealed class ManagedContactSoundContext
+    { public long SourceTick { get { throw HostProbe.NativeAudioUnbound(); } } }
     public interface ISourceSoundVmOutputConsumer { }
     public sealed class SourceInputFrame { }
     public static class SourceGameplayCompatibilityOptions
@@ -209,7 +236,8 @@ namespace Blitz.AssetImport
     { public SourceInterfaceException(string message) : base(message) { } }
     public sealed class PlayerAssetException : Exception { }
     public sealed class SourceRosterException : Exception { }
-    public sealed class SourceInterfaceMovementBootstrap { public int HorizontalResolution = 512, VerticalResolution = 384; }
+    public sealed class SourceInterfaceMovementBootstrap { public int HorizontalResolution = 512, VerticalResolution = 384, FieldIndex = 0; }
+    public sealed class SourceAudioBank { }
     public static class SourceTeamPresentationModel
     {
         public static SourceLooseHelmetDecal LooseHelmetDecal(object rosters, object catalog, object match,
@@ -221,6 +249,17 @@ namespace Blitz.AssetImport
 namespace Blitz.Contracts
 {
     public readonly struct SourceCameraFeedback { public bool CameraCompleted { get { return true; } } }
+    // Opaque arguments to the unbound instruction collaborator. This lifecycle suite
+    // never executes or qualifies instruction gameplay/presentation.
+    public sealed class SourceInstructionProcessIds { }
+    public interface ISourceInstructionInputs { }
+    public interface ISourceInstructionAdmissionState { }
+    public interface ISourceKickoffInstructionChildInputs { }
+    public interface ISourceKickoffInstructionPlayerButtons { }
+    public sealed class SourceKickoffInstructionChildOperands { }
+    public interface ISourceKickoffInstructionChildEffects { }
+    public sealed class SourceKickoffInstructionOwnedHelpers { }
+    public interface ISourceKickoffInstructionChildReturnBinding { }
 }
 
 namespace Blitz.Gameplay
@@ -230,7 +269,9 @@ namespace Blitz.Gameplay
     public sealed class GameSimulation
     {
         public IGameState State { get; private set; }
+        public long SourceTick { get { return ((ISourceGameState)State).SourceTick; } }
         public bool SourceFireEnabled;
+        public bool SourceCompleteOriginalEnabled { get { return false; } }
         public Func<SourceInputFrame, SourceInputFrame> SourceStationInputTransform;
         public Func<IGameState, long, int> SourceCameraHeadingProvider;
         public int SourceCameraStageOrder = -1, SourceCameraRawGameMode, SourceCameraHeading;
@@ -254,16 +295,33 @@ namespace Blitz.Gameplay
         public void SetSourceMovementCameraFrame(SourceMovementCameraFrame frame, long tick) { }
         public SourceSoundVmBatch TakeSourceSoundVmDispatches()
         { HostProbe.Record("sound.take"); return new SourceSoundVmBatch(); }
+        public IEnumerable<SourceBootSoundOutput> TakeSourceBootSoundOutputs() { throw HostProbe.NativeAudioUnbound(); }
+        public IEnumerable<SourceDirectSoundCall> TakeSourceDirectSoundCalls() { throw HostProbe.NativeAudioUnbound(); }
+        public IEnumerable<SourceProcessSoundCall> TakeSourceProcessSoundCalls() { throw HostProbe.NativeAudioUnbound(); }
+        public IEnumerable<SourceProcessSoundControl> TakeSourceSoundControls() { throw HostProbe.NativeAudioUnbound(); }
+        public IEnumerable<SourceProcessCameraSelection> TakeSourceProcessCameraSelections()
+        { throw new NotSupportedException("Process camera selection execution is outside managed host lifecycle coverage."); }
     }
 }
 
 namespace Blitz.Presentation
 {
+    public sealed class SourceHudViewport { }
+    public sealed class SourceInstructionHudResources { }
+    public sealed class SourceKickoffInstructionHudBindings { }
+    public interface ISourceInstructionObjectFlashBinding { }
+    public enum SourceInstructionPresentationError { InvalidLifecycle }
+    public sealed class SourceInstructionPresentationException : InvalidOperationException
+    {
+        public SourceInstructionPresentationException(SourceInstructionPresentationError error, string message)
+            : base(message) { }
+    }
     public sealed class SourcePlayerRig { }
     public sealed class SourceTeamResourceProfile
     {
         public string StableId { get { return "managed-profile"; } }
         public bool IsContact281C2M1 { get { return HostProbe.Source; } }
+        public bool IsContact282C2M1DefaultAudibles { get { return false; } }
         public bool UsesM1Services { get { return IsContact281C2M1; } }
         public bool UsesC2Data { get { return HostProbe.Source; } }
         public static SourceTeamResourceProfile SelectRuntimeProfile(string url, string stableId) { return new SourceTeamResourceProfile(); }
@@ -277,21 +335,33 @@ namespace Blitz.Presentation
         { return new SourceTeamPresentationAsset(); }
     }
     public sealed class SourceTeamPresentationAsset
-    { public readonly object Rosters = new object(), Catalog = new object(); }
+    { public readonly ManagedRosters Rosters = new ManagedRosters(); public readonly object Catalog = new object(); }
+    public sealed class ManagedRosters
+    {
+        public ManagedTeamData GetTeamData(int team)
+        {
+            if (team != 5 && team != 6) throw new NotSupportedException("Unexpected managed home-team fixture.");
+            return new ManagedTeamData { UniformPrefix = team == 5 ? "BEA" : "BEN" };
+        }
+    }
+    public sealed class ManagedTeamData { public string UniformPrefix; }
     public sealed class SourceHudAsset
     { public readonly HudData Data = new HudData(); public readonly object PossessionSound = new object(); }
     public sealed class HudData { public readonly object Input = new object(); }
-    public sealed class SourcePresentationSettings { public int DesignatedHomeSide; }
+    public sealed class SourcePresentationSettings { public TeamId DesignatedHomeSide; }
     public sealed class SourceCinematicPlayback
     {
         public bool UsesOriginalNormalCamera { get { return false; } }
         public SourceCameraFeedback CameraFeedback { get { return default(SourceCameraFeedback); } }
+        public void ConsumeSourceProcessCamera(SourceProcessCameraSelection selection)
+        { throw new NotSupportedException("Process camera selection execution is outside managed host lifecycle coverage."); }
     }
     public sealed class SourceCinematicTransform { public object Position, Transform; }
     public sealed class FieldScene
     {
-        public FieldScene(UnityEngine.Transform parent, SourcePlayerRig prefab, ISourceAnimationLibrary animations)
-        { HostProbe.Record("field.create"); }
+        public FieldScene(UnityEngine.Transform parent, SourcePlayerRig prefab, ISourceAnimationLibrary animations,
+            int? fieldIndex = null, string homePrefix = null)
+        { HostProbe.Record("field.create"); HostProbe.FieldIndex = fieldIndex; HostProbe.HomePrefix = homePrefix; }
         public void BindSourceTeamDrawState(int side, Func<int, object> state) { }
         public void BindSourceFireFlash(object shader) { }
         public void Render(IGameState previous, IGameState current, float alpha, float delta) { HostProbe.Record("field.render"); }
@@ -385,6 +455,60 @@ namespace Blitz.Presentation
 
 namespace Blitz.Runtime
 {
+    public interface ISourceNativeSoundOutput : ISourceSoundVmOutputConsumer
+    {
+        void Consume(SourceBootSoundOutput value);
+        void Consume(SourceDirectSoundCall value);
+        void Consume(SourceProcessSoundCall value);
+        void Consume(SourceProcessSoundControl value);
+        void AdvanceTo(long tick);
+        void SetActive(bool active);
+        void Reset(long epoch);
+    }
+    // Opaque, fail-closed native audio collaborators; never stand in for audio evidence.
+    public sealed class SourceUnityPcmSoundOutput : ISourceNativeSoundOutput, IDisposable
+    {
+        public SourceUnityPcmSoundOutput(UnityEngine.GameObject owner, IReadOnlyList<Blitz.AssetImport.SourceAudioBank> banks,
+            string authorization, IReadOnlyList<string> loaded, uint reserved, int latency)
+        { throw HostProbe.NativeAudioUnbound(); }
+        public void Consume(SourceBootSoundOutput value) { throw HostProbe.NativeAudioUnbound(); }
+        public void Consume(SourceDirectSoundCall value) { throw HostProbe.NativeAudioUnbound(); }
+        public void Consume(SourceProcessSoundCall value) { throw HostProbe.NativeAudioUnbound(); }
+        public void Consume(SourceProcessSoundControl value) { throw HostProbe.NativeAudioUnbound(); }
+        public void AdvanceTo(long tick) { throw HostProbe.NativeAudioUnbound(); }
+        public void SetActive(bool active) { throw HostProbe.NativeAudioUnbound(); }
+        public void Reset(long epoch) { throw HostProbe.NativeAudioUnbound(); }
+        public void Dispose() { throw HostProbe.NativeAudioUnbound(); }
+    }
+    public interface ISourceInstructionSoundBatchBinding { }
+    public interface ISourceKickoffInstructionSoundBatchBinding { }
+    // Fail closed if a retained lifecycle scenario accidentally enters instruction
+    // execution. Do not manufacture instruction results to satisfy compilation.
+    public sealed class SourceInstructionRuntime
+    {
+        private static Exception Unbound() { return new NotSupportedException("Instruction execution is outside managed host lifecycle coverage."); }
+        public SourceInstructionRuntime(object game, object hud, object resources, object sounds, object transport, object flash)
+        { throw Unbound(); }
+        public UnboundInstructionConsumer Consumer { get { throw Unbound(); } }
+        public object KickoffPresentation { get { throw Unbound(); } }
+        public void BindSourceKickoffInstructionOwnedHelpers(params object[] arguments) { throw Unbound(); }
+        public void BindSourceKickoffInstructionHud(params object[] arguments) { throw Unbound(); }
+        public long Invoke(params object[] arguments) { throw Unbound(); }
+        public void Draw(object viewport) { throw Unbound(); }
+        public void Abort(Exception error) { throw Unbound(); }
+        public void AfterSourceStep(IGameState state) { throw Unbound(); }
+        public void OnSourceProgramReset() { throw Unbound(); }
+        public void Dispose() { throw Unbound(); }
+    }
+    public sealed class UnboundInstructionConsumer
+    {
+        public bool HasInvocation { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+        public UnboundInstructionPresentation Presentation { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+    }
+    public sealed class UnboundInstructionPresentation
+    {
+        public Exception Failure { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+    }
     public sealed class SourceInterfaceServices
     {
         public readonly Blitz.Presentation.SourceHudAsset Hud = new Blitz.Presentation.SourceHudAsset();
@@ -421,7 +545,13 @@ namespace Blitz.Runtime
     public sealed class SourceCabinetUnityInput
     {
         public readonly CabinetBuffer Buffer = new CabinetBuffer();
-        public SourceCabinetUnityInput(object configuration, object input, bool gamepads) { HostProbe.Input = this; }
+        public SourceCabinetUnityInput(object configuration, object input, bool gamepads,
+            bool preserveSourceDigitalChanges = false)
+        {
+            if (preserveSourceDigitalChanges)
+                throw new NotSupportedException("Default-audibles input is outside historical M1 host lifecycle coverage.");
+            HostProbe.Input = this;
+        }
         public void Poll(SourceMatch match)
         { HostProbe.Record("input.poll"); if (!HostProbe.CabinetHeld) Buffer.WaitingForNeutral = false; }
         public void Clear() { HostProbe.Record("input.clear"); Buffer.WaitingForNeutral = true; }
@@ -438,6 +568,7 @@ namespace Blitz.Runtime
         public void BindOutput(ISourceSoundVmOutputConsumer consumer) { }
         public SourceSoundVmDispatch TakeForCue(SourceCallbackCue cue) { return null; }
         public void DeliverResolved(SourceSoundVmDispatch dispatch) { }
+        public void DeliverNextNative(SourceSoundVmDispatch dispatch) { throw HostProbe.NativeAudioUnbound(); }
     }
     public static class SourceFreeBallBinding
     {

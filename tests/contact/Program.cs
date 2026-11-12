@@ -102,7 +102,11 @@ internal static partial class Program
             new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0);
         SourceMovementSettings actualSettings = settings ?? new SourceMovementSettings(0, 0, false, 0, 0, false);
         GameSimulation game;
-        if (!baseOnly && bindSound && real.IsC2Profile)
+        if (!baseOnly && bindSound && real.IsC2M1Profile)
+            game = SourceC2Composition.CreateM1Simulation(library, real.ReferencePivots, real.Playbook,
+                configuration, real.Rosters, actualPresentation, real.MovementRuntime, actualSettings,
+                real.SoundFunctions, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(real.C2Data), random);
+        else if (!baseOnly && bindSound && real.IsC2Profile)
             game = SourceC2Composition.CreateSimulation(library, real.ReferencePivots, real.Playbook,
                 configuration, real.Rosters, actualPresentation, real.MovementRuntime, actualSettings,
                 real.SoundFunctions, SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(real.C2Data), random);
@@ -158,7 +162,7 @@ internal static partial class Program
         GamePhase phase = GamePhase.LiveBall)
     {
         SimulationState m = game.Model;
-        m.SourceTick = 100;
+        if (!contactWindowProductionCallers) m.SourceTick = 100;
         m.SourceRules = new SourceRulesState(0, 0, 1, 30, 100, SourcePlayType.Normal);
         m.SourceOffensePlay = real.Playbook.GetPlay("play_spider");
         m.SourceDefensePlay = real.Playbook.GetPlay("play_safe_cover");
@@ -227,6 +231,37 @@ internal static partial class Program
             {
                 canonicalInputs = args[args.Length - 1];
                 args = args.Take(args.Length - 2).ToArray();
+            }
+            if (args.Length == 7 && (args[2] == "live-drone" || args[2] == "possession-recovery"
+                || args[2] == "throw-monitor" || args[2] == "special-throw" || args[2] == "diver-bridge"
+                || args[2] == "movement-windows" || args[2] == "contact-windows"))
+            {
+                output = Path.GetFullPath(args[3]); Directory.CreateDirectory(output);
+                real = FullKernelInputs.Load(args[0], movementLibrary: true, soundFunctionsPath: args[4],
+                    c2M1InputsPath: args[6]);
+                if (args[2] == "live-drone") LiveDroneCallerChecks(args[5]);
+                else if (args[2] == "possession-recovery") PossessionRecoveryChecks(args[5]);
+                else if (args[2] == "throw-monitor") ThrowMonitorChecks(args[5]);
+                else if (args[2] == "special-throw") SpecialThrowChecks(args[5]);
+                else if (args[2] == "diver-bridge") DiverBridgeChecks(args[5]);
+                else if (args[2] == "movement-windows") MovementWindowChecks(args[5]);
+                else
+                {
+                    inputManifest = args[0]; library = real.Animations; geometry = real.Geometry;
+                    ContactWindowChecks(args[5]);
+                }
+                Console.WriteLine(JsonSerializer.Serialize(new {
+                    schema = args[2] == "live-drone" ? "actual-live-drone-callers/v1"
+                        : args[2] == "possession-recovery" ? "actual-possession-recovery-callers/v1"
+                        : args[2] == "throw-monitor" ? "actual-throw-monitor-callers/v1"
+                        : args[2] == "special-throw" ? "actual-special-throw-callers/v1"
+                        : args[2] == "diver-bridge" ? "actual-diver-bridge-callers/v1"
+                        : args[2] == "movement-windows" ? "actual-movement-windows/v1"
+                        : "actual-contact-windows/v1", status = "passed", assertions,
+                    actual_animation_sha256 = real.Animations.InventorySha256,
+                    real_input_fixture_sha256 = real.ManifestSha256,
+                    full_gameplay_parity_claimed = false, original_target_scheduler_executed = false }));
+                return 0;
             }
             bool heading = args.Length == 6 && args[2] == "heading-boundary";
             bool movementBearing = args.Length == 6 && args[2] == "movement-bearing";

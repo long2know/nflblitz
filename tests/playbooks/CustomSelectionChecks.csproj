@@ -1,0 +1,29 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).artifacts/custom-selection/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory).artifacts/custom-selection/bin/</BaseOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="CustomSelectionChecks.cs" />
+    <Compile Include="../../tools/source-player/Runtime/*.cs" />
+  </ItemGroup>
+  <Import Project="../../tools/source-player/ProductionSources.props" />
+  <ItemGroup Condition="'$(CustomSelectionGameSource)' != ''">
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.Source.cs" />
+    <Compile Include="$(CustomSelectionGameSource)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(CustomSelectionFlowSource)' != ''">
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceCabinetFlowProcess.cs" />
+    <Compile Include="$(CustomSelectionFlowSource)" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

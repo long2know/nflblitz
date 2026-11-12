@@ -30,6 +30,13 @@ EXPECTED_ASSERTIONS = 800735
 EXPECTED_CASES = 15912
 POST_HOST_SELECTION_BINDING = "defensive-presnap-switch/binding-required/v1"
 POST_HOST_SELECTION_SOURCE_SHA256 = "4e41f3c0ecb3f002374090fbfddb92dcbaf51bc79ded50659a1fa1b2c2345ce3"
+POST_HOST_SELECTION_SOURCE_BINDINGS = {
+    POST_HOST_SELECTION_SOURCE_SHA256: POST_HOST_SELECTION_BINDING,
+    "3180b7e8924e65a25e2312cff769443137f88d8e9fd4ba61454728b4f7f33f04":
+        "original303-output-sequence/binding-required/v2",
+    "f7f9b3e1b4b694358b2234d99fdff3903f4211434979d3fd91eef8bed100d9e9":
+        "reviewed-contact-speech/binding-required/v3",
+}
 POST_HOST_SELECTION_ANCHOR = """        private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
         {
             RequireSourceSoundVmBinding();"""
@@ -115,7 +122,7 @@ def mutation_specs():
 
 def mutated_source(current, name, edits):
     if name == "post-host-selection":
-        if (hashlib.sha256(current.encode()).hexdigest() != POST_HOST_SELECTION_SOURCE_SHA256
+        if (hashlib.sha256(current.encode()).hexdigest() not in POST_HOST_SELECTION_SOURCE_BINDINGS
                 or len(edits) != 3
                 or edits[-1] != (POST_HOST_SELECTION_ANCHOR, POST_HOST_SELECTION_DEFERRED)):
             raise RuntimeError("Post-host selection requires the current source and binding-required boundary.")
@@ -288,8 +295,8 @@ def main():
                        "required_assertion": MUTATION_FIELDS[name],
                        "offending_assertion": summary["failed_assertion"]}
                 if name == "post-host-selection":
-                    row.update(binding=POST_HOST_SELECTION_BINDING,
-                               source_identity=POST_HOST_SELECTION_SOURCE_SHA256,
+                    row.update(binding=POST_HOST_SELECTION_SOURCE_BINDINGS[before[relative]],
+                               source_identity=before[relative],
                                original_anchor=POST_HOST_SELECTION_ANCHOR,
                                mutated_anchor=POST_HOST_SELECTION_DEFERRED)
                 if before != {p.relative_to(ROOT).as_posix(): sha(p) for p in source_files()}:

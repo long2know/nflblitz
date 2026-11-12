@@ -660,6 +660,19 @@ namespace Blitz.Presentation
             return lastCarrier;
         }
 
+        public void ConsumeSourceProcessCamera(SourceProcessCameraSelection selection)
+        {
+            if (!UsesOriginalNormalCamera ||
+                (library.ContactAnimationManifestSha256 != SourceTeamResourceProfile.CompleteOriginalAnimationSha256 &&
+                 library.ContactAnimationManifestSha256 != SourceTeamResourceProfile.CompleteAv306AnimationSha256) ||
+                selection.SourceTick <= lastCameraTick || selection.Table != "csi_fs_endqtr" ||
+                selection.SourcePath != "plyrinfo.c" || selection.Function != "show_end_quarter_proc" ||
+                selection.SourceLine != 4121 || selection.SelectedOrdinal != 0)
+                throw new InvalidOperationException("Original EOQ camera requires its actual source-process selection before this camera wake.");
+            Ordered(selection.SourceTick, selection.ProcessOrder, selection.ActorId);
+            Select(selection.Table, selection.SelectedOrdinal, selection.ActorId);
+        }
+
         private bool SelectRawTable(string table, Func<int, string, int> random, string site)
         {
             var entries = library.Tables[table];

@@ -16,6 +16,7 @@ ROOT = HERE.parents[1]
 OUTPUT = HERE / ".artifacts"
 PROJECT = HERE / "SourceAudioChecks.csproj"
 READER = ROOT / "Assets/Scripts/AssetImport/SourceAudioBankReader.cs"
+MIXER = ROOT / "Assets/Scripts/AssetImport/SourceAudioMixerProgram.cs"
 ADAPTER = ROOT / "Assets/Scripts/Presentation/SourceAudioIsolatedPlayer.cs"
 PREPARE = ROOT / "tools/audio/prepare.py"
 
@@ -93,7 +94,7 @@ def unity_compile(editor_data):
                 "-langversion:7.3", "-target:library", "-warnaserror+", "-deterministic+",
                 "-define:" + define, "-out:" + str(output)]
         args += ["-reference:" + str(path) for path in references]
-        args += [READER, ADAPTER]
+        args += [READER, MIXER, ADAPTER]
         command(args, "actual-api-" + define.lower())
         results.append({"define": define, "sha256": digest(output), "errors": 0, "warnings": 0})
     return {
@@ -244,8 +245,8 @@ def mutations():
             "!String.Equals(packageHash, expectedPackageSha256, StringComparison.Ordinal)",
             "!String.Equals(packageHash, packageHash, StringComparison.Ordinal)"),
         "pcm-integrity-bypass": (
-            "!String.Equals(Hash(pcm), pcmHash, StringComparison.Ordinal)",
-            "!String.Equals(pcmHash, pcmHash, StringComparison.Ordinal)"),
+            'if (Hash(pcm) != hash) throw new InvalidDataException("PCM SHA-256 mismatch.");',
+            'if (!String.Equals(hash, hash, StringComparison.Ordinal)) throw new InvalidDataException("PCM SHA-256 mismatch.");'),
         "repeat-accepted": ("p[14] != 1", "p[14] > 2"),
         "nonstandard-end-qualified": (
             "EndWaitFrames == OriginalStreamFrames + 1", "EndWaitFrames >= OriginalStreamFrames"),

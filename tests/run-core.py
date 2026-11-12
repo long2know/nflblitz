@@ -20,12 +20,12 @@ NAMESPACE = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 
 def source_hashes(source_root):
     result = {}
-    for folder in ("Contracts", "Gameplay", "AssetImport"):
+    for folder in ("Contracts", "Gameplay", "AssetImport", "Storage"):
         for path in sorted((source_root / "Assets/Scripts" / folder).rglob("*.cs")):
             result[str(path.relative_to(source_root))] = hashlib.sha256(path.read_bytes()).hexdigest()
     if not any("/Gameplay/" in name for name in result):
         raise RuntimeError("Actual Gameplay sources are missing; no substitute kernel is permitted.")
-    for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+    for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
         selector = source_root / "Assets/Scripts/Presentation" / name
         result[str(selector.relative_to(source_root))] = hashlib.sha256(selector.read_bytes()).hexdigest()
     return result

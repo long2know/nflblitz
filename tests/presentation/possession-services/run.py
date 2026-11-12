@@ -16,6 +16,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "tests/ci"))
 from isolated_mutations import run_mutations
 GAME = "Assets/Scripts/Gameplay/GameSimulation.Possession.cs"
+PROCESSES = "Assets/Scripts/Gameplay/SourcePortableProcessHost.cs"
 PLAYBACK = "Assets/Scripts/Presentation/SourceCinematicPlayback.cs"
 SELECTOR = "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs"
 INHERITED_CONTROLS = {
@@ -138,9 +139,9 @@ def mutations():
          "exact active predicate selects"),
         ("sleep39", PLAYBACK, "services.SleepCamera(40);", "services.SleepCamera(39);",
          "retained camera output requires its real pending sleep(40)"),
-        ("resume-caller-suspended", GAME, "n.Identity.Serial != Caller && (n.Identity.Id & mask) == id",
+        ("resume-caller-suspended", PROCESSES, "n.Identity.Serial != Caller && (n.Identity.Id & mask) == id",
          "(n.Identity.Id & mask) == id", "caller exception and sleeping low bits"),
-        ("suspend-destroys-low-bits", GAME, "n.Sleep |= 0x8000;", "n.Sleep = 0x8001;",
+        ("suspend-destroys-low-bits", PROCESSES, "n.Sleep |= 0x8000;", "n.Sleep = 0x8001;",
          "caller exception and sleeping low bits"),
         ("resume-matches-only-one-hud", PLAYBACK, "services.ResumeMultiple(0x0f80, unchecked((int)0xfffffffe));",
          "services.ResumeMultiple(0x0f80, -1);", "allowed post-player and low-bit HUD continuation really execute"),
@@ -186,7 +187,7 @@ def mutations():
          "normal sleep1 is not permission to retain"),
         ("source-input-observation-skipped", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
          """            if (Model.SourceProcesses.Require(GameProcess).LastWakeTick != Model.SourceTick)
-                command = TransformSourceStationInput(command);
+                command = TransformSourceStationInput(command, SourcePlaySelectionIntroductionActive);
 """, "", "Source play selection must execute once for every ordered SOURCE tick"),
         ("selector-accepts-unexplained-gaps", SELECTOR,
          "if (sourceTick <= lastSourceTick || lastSourceTick >= 0 && sourceTick != lastSourceTick + 1)",

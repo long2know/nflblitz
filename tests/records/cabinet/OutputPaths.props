@@ -1,0 +1,8 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)../../../tools/source-player/Directory.Build.props" />
+  <PropertyGroup>
+    <SourceRecordsCabinetOutputRoot Condition="'$(SourceRecordsCabinetOutputRoot)' == ''">$(MSBuildThisFileDirectory)../../../.squad/.scratch/original-record-ui-20261030/</SourceRecordsCabinetOutputRoot>
+    <BaseIntermediateOutputPath>$(SourceRecordsCabinetOutputRoot)build/$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(SourceRecordsCabinetOutputRoot)build/$(MSBuildProjectName)/bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

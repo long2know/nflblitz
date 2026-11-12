@@ -11,21 +11,85 @@ namespace Blitz.Gameplay
         public SourceC2CallbackData Data { get; }
         public SourceC2EntryKind EntryKind { get; }
         public SourceC2InitialState InitialState { get; }
-        public string EntryProfile { get { return SourceC2CallbackData.EntryProfile; } }
+        public ReadOnlyCollection<string> SourceTeamBankNames { get; }
+        public SourceVersusSoundBankState VersusBankState { get; private set; }
+        public string EntryProfile { get { return Data.Profile == SourceC2CallbackData.CompleteAv306Profile
+            ? "OriginalRelease57Hz-CompleteAv306-VersusSoundBanks-v1"
+            : EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks
+            ? "OriginalRelease57Hz-CompleteOriginal303-VersusSoundBanks-v1" : SourceC2CallbackData.EntryProfile; } }
         public string PreEntryEvidence
-        { get { return "Original InitGameProc sound-bank boundary; preceding original boot/load/coin RNG is unverified input, not replayed."; } }
+        { get { return EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks
+            ? "Named vs_screen sound-load prelude through InitGameProc; preceding boot/coin/load RNG and native bank allocation remain unverified."
+            : "Original InitGameProc sound-bank boundary; preceding original boot/load/coin RNG is unverified input, not replayed."; } }
 
-        private SourceC2Bootstrap(SourceC2CallbackData data, SourceC2EntryKind kind, SourceC2InitialState state)
+        private SourceC2Bootstrap(SourceC2CallbackData data, SourceC2EntryKind kind, SourceC2InitialState state,
+            IReadOnlyList<string> sourceTeamBankNames = null)
         {
             Data = data ?? throw new ArgumentNullException(nameof(data)); EntryKind = kind; InitialState = state;
+            if (sourceTeamBankNames != null)
+            {
+                if (sourceTeamBankNames.Count != SourceMatchLimits.TeamCount)
+                    throw new ArgumentException("Supply all31 actual source team sound-bank names.", nameof(sourceTeamBankNames));
+                var names = new string[sourceTeamBankNames.Count];
+                for (int i = 0; i < names.Length; i++)
+                {
+                    string name = sourceTeamBankNames[i];
+                    if (string.IsNullOrEmpty(name) || name.Length > 8)
+                        throw new ArgumentException("Source team bank names retain the original first eight characters.", nameof(sourceTeamBankNames));
+                    foreach (char c in name)
+                        if (!(c >= 'A' && c <= 'Z') && !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9'))
+                            throw new ArgumentException("Invalid source team sound-bank name.", nameof(sourceTeamBankNames));
+                    names[i] = name;
+                }
+                SourceTeamBankNames = Array.AsReadOnly(names);
+            }
         }
 
         public static SourceC2Bootstrap FromOriginalProgramBootAtSoundBanks(SourceC2CallbackData data)
-        { return new SourceC2Bootstrap(data, SourceC2EntryKind.OriginalProgramBootSoundBanks, null); }
+        {
+            if (data != null && data.HasCompleteProgramCapability)
+                throw new ArgumentException("Complete-original303 requires its named versus sound-bank entry and actual team bank names.", nameof(data));
+            return new SourceC2Bootstrap(data, SourceC2EntryKind.OriginalProgramBootSoundBanks, null);
+        }
+
+        public static SourceC2Bootstrap FromCompleteOriginalVersusSoundBanks(SourceC2CallbackData data,
+            IReadOnlyList<string> sourceTeamBankNames)
+        {
+            if (data == null || data.Profile != SourceC2CallbackData.CompleteOriginalProfile
+                || data.PayloadSha256 != SourceTeamResourceProfile.CompleteOriginalCallbackSha256
+                || data.AnimationManifestSha256 != SourceTeamResourceProfile.CompleteOriginalAnimationSha256)
+                throw new ArgumentException("The named versus sound entry requires its distinct complete-original303 callback data.", nameof(data));
+            if (sourceTeamBankNames == null) throw new ArgumentNullException(nameof(sourceTeamBankNames));
+            return new SourceC2Bootstrap(data, SourceC2EntryKind.CompleteOriginalVersusSoundBanks, null, sourceTeamBankNames);
+        }
+
+        public static SourceC2Bootstrap FromCompleteOriginalVersusSoundBanks(SourceC2CallbackData data,
+            IReadOnlyList<string> sourceTeamBankNames, SourceVersusSoundBankState bankState)
+        {
+            if (bankState == null) throw new ArgumentNullException(nameof(bankState));
+            SourceC2Bootstrap result = FromCompleteOriginalVersusSoundBanks(data, sourceTeamBankNames);
+            result.VersusBankState = bankState;
+            return result;
+        }
+
+        public static SourceC2Bootstrap FromCompleteAv306VersusSoundBanks(SourceC2CallbackData data,
+            IReadOnlyList<string> sourceTeamBankNames, SourceVersusSoundBankState bankState = null)
+        {
+            if (data == null || data.Profile != SourceC2CallbackData.CompleteAv306Profile ||
+                data.PayloadSha256 != SourceTeamResourceProfile.CompleteAv306CallbackSha256 ||
+                data.AnimationManifestSha256 != SourceTeamResourceProfile.CompleteAv306AnimationSha256)
+                throw new ArgumentException("CompleteAv306 requires its own authenticated callback capability, never303 promotion.");
+            if (sourceTeamBankNames == null) throw new ArgumentNullException(nameof(sourceTeamBankNames));
+            var result = new SourceC2Bootstrap(data, SourceC2EntryKind.CompleteOriginalVersusSoundBanks, null, sourceTeamBankNames);
+            result.VersusBankState = bankState;
+            return result;
+        }
 
         public static SourceC2Bootstrap FromVerifiedOriginalState(SourceC2CallbackData data,
             SourceC2InitialState state)
         {
+            if (data != null && data.HasCompleteProgramCapability)
+                throw new NotSupportedException("Complete-original continuation needs actual cursor/tune/team-bank state; use its named versus entry.");
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (!state.ResultPending.HasValue || !state.DeferredProcessCount.HasValue)
                 throw new SourceC2MissingStateException("verified continuation end/process state");
@@ -37,11 +101,19 @@ namespace Blitz.Gameplay
         internal void RequireLibrary(ISourceAnimationLibrary library)
         {
             bool preSnapSwitch = Data.Profile == GameSimulation.SourceDefensivePreSnapSwitchProfile;
+            bool complete = Data.Profile == SourceC2CallbackData.CompleteOriginalProfile;
+            bool av = Data.Profile == SourceC2CallbackData.CompleteAv306Profile;
             SourceAnimationLibrary actual = library as SourceAnimationLibrary;
             if (actual == null || actual.InventorySha256 != Data.AnimationManifestSha256 ||
-                actual.SequenceNames.Count != (preSnapSwitch ? 282 : 281) ||
-                actual.FrameCount != (preSnapSwitch ? 26265 : 26230))
-                throw new ArgumentException(preSnapSwitch
+                complete && (Data.PayloadSha256 != SourceTeamResourceProfile.CompleteOriginalCallbackSha256
+                    || actual.InventorySha256 != SourceTeamResourceProfile.CompleteOriginalAnimationSha256) ||
+                av && (Data.PayloadSha256 != SourceTeamResourceProfile.CompleteAv306CallbackSha256
+                    || actual.InventorySha256 != SourceTeamResourceProfile.CompleteAv306AnimationSha256) ||
+                actual.SequenceNames.Count != (av ? 306 : complete ? 303 : preSnapSwitch ? 282 : 281) ||
+                actual.FrameCount != (av ? 31051 : complete ? 30777 : preSnapSwitch ? 26265 : 26230))
+                throw new ArgumentException(complete
+                    ? "Complete-original requires its distinct actual pinned original303 animation union."
+                    : preSnapSwitch
                     ? "Pre-snap switch requires its actual pinned original282 animation union."
                     : "C2 requires its actual pinned original281 animation union, never the legacy272 alias.");
         }
@@ -79,7 +151,8 @@ namespace Blitz.Gameplay
         internal SourceC2PendingEnd(SimulationState model, SourcePlayEndCause cause, int playerId,
             FieldVector position, int attackerId, SourceBallType ballType)
         {
-            Input = new SourcePlayEndInput(model.SourceRules, cause, ballType, model.SourceFlags,
+            Input = new SourcePlayEndInput(model.SourcePlaybook, model.SourceOffensePlay,
+                model.SourceRules, cause, ballType, model.SourceFlags,
                 model.SourceLastPossession, model.SourcePlayEndX, model.SourcePlayEndZ,
                 model.SourceFumbleX, model.SourceLastResult);
             QueuedTick = model.SourceTick; Epoch = ++model.SourceC2EndEpoch;
@@ -90,8 +163,53 @@ namespace Blitz.Gameplay
 
     public sealed partial class GameSimulation
     {
+        public bool SourceCompleteOriginalEnabled
+        {
+            get { return sourceC2Bootstrap != null
+                && sourceC2Bootstrap.Data.Profile == SourceC2CallbackData.CompleteOriginalProfile
+                && sourceC2Bootstrap.Data.PayloadSha256 == SourceTeamResourceProfile.CompleteOriginalCallbackSha256
+                && sourceC2Bootstrap.Data.AnimationManifestSha256 == SourceTeamResourceProfile.CompleteOriginalAnimationSha256; }
+        }
+        public bool SourceCompleteAv306Enabled
+        {
+            get { return sourceC2Bootstrap != null &&
+                sourceC2Bootstrap.Data.Profile == SourceC2CallbackData.CompleteAv306Profile &&
+                sourceC2Bootstrap.Data.PayloadSha256 == SourceTeamResourceProfile.CompleteAv306CallbackSha256 &&
+                sourceC2Bootstrap.Data.AnimationManifestSha256 == SourceTeamResourceProfile.CompleteAv306AnimationSha256; }
+        }
+        public bool SourceCompleteProgramsEnabled
+        { get { return SourceCompleteOriginalEnabled || SourceCompleteAv306Enabled; } }
+
         private readonly SourceC2Bootstrap sourceC2Bootstrap;
         private readonly List<SourceC2Event> sourceC2Events = new List<SourceC2Event>();
+        private readonly List<SourceProcessCameraSelection> sourceProcessCameras =
+            new List<SourceProcessCameraSelection>();
+        public ReadOnlyCollection<SourceProcessCameraSelection> TakeSourceProcessCameraSelections()
+        {
+            var result = Array.AsReadOnly(sourceProcessCameras.ToArray());
+            sourceProcessCameras.Clear();
+            return result;
+        }
+
+        private void SourceOriginalEndQuarterCamera()
+        {
+            if (!SourceCompleteProgramsEnabled) return;
+            RequireExecutingSourceSoundProcess();
+            int actor = Model.CarrierId >= 0 ? Model.CarrierId : Model.SourceLastCarrierId;
+            if (actor < 0 || actor >= Model.Players.Length)
+                throw new InvalidOperationException("Original EOQ camera requires its actual carrier/last_carrier; no invented target.");
+            int selected = SourceDraw(1, "plyrinfo.c:show_end_quarter_proc:4121/select_csi_item");
+            sourceProcessCameras.Add(new SourceProcessCameraSelection(Model.SourceTick,
+                Model.SourcePresentationOrder++, actor, selected));
+        }
+
+        private void InitializeSourceCompleteAvPose(ActorState actor)
+        {
+            if (SourceCompleteAv306Enabled)
+                actor.AnimationState.FullBody("into_stance_anim", actor, Model.SourceTick, SourceDraw,
+                    AnimationSelectionEvidence.SourceVerified);
+        }
+
         public bool SourceC2Enabled { get { return sourceC2Bootstrap != null; } }
         public ReadOnlyCollection<SourceC2Event> C2Events { get { return Array.AsReadOnly(sourceC2Events.ToArray()); } }
         public SourceC2StateView C2State
@@ -119,11 +237,18 @@ namespace Blitz.Gameplay
             if (!SourceC2Enabled) return;
             sourceC2Bootstrap.RequireLibrary(sourceAnimations);
             Model.SourceC2Enabled = true;
-            Model.SourceC2Programs = SourceAnimationPrograms.CreateC2Extension();
-            if (sourceC2Bootstrap.EntryKind == SourceC2EntryKind.OriginalProgramBootSoundBanks)
+            Model.SourceC2Programs = SourceCompleteAv306Enabled ? SourceAnimationPrograms.CreateCompleteAv306Extension()
+                : SourceCompleteOriginalEnabled
+                ? SourceAnimationPrograms.CreateCompleteOriginalSoundExtension() : SourceAnimationPrograms.CreateC2Extension();
+            if (sourceC2Bootstrap.EntryKind == SourceC2EntryKind.OriginalProgramBootSoundBanks
+                || sourceC2Bootstrap.EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks)
             {
                 Model.SourceTaunted = false; // player.c:293 program BSS, not a per-play reset.
+                if (sourceC2Bootstrap.EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks)
+                    InitializeSourceOriginalVersusSound();
                 ReloadSourceC2Banks(true);
+                if (sourceC2Bootstrap.EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks)
+                    InitializeSourceOriginalGameSound();
             }
             else
             {
@@ -138,10 +263,29 @@ namespace Blitz.Gameplay
         {
             if (!SourceC2Enabled) return;
             string caller = boot ? "InitGameProc" : "start_new_quarter";
+            if (!boot && SourceCompleteProgramsEnabled)
+                EmitSourceSoundControl(SourceProcessSoundControlKind.DeleteBank, "nfl.c", caller, 2658,
+                    SourceOriginalEoqBank());
             int ancr = SourceDraw(2, "nfl.c:" + caller + ":" + (boot ? "556" : "2662") + "/Game.c:get_ancr_str:161");
             Model.SourceAnnouncerSwappedBank = sourceC2Bootstrap.Data.AnnouncerBanks[ancr];
+            if (SourceCompleteProgramsEnabled)
+            {
+                if (boot && sourceC2Bootstrap.EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks)
+                    EmitSourceBootSound("nfl.c", caller, 556, Model.SourceAnnouncerSwappedBank,
+                        control: SourceProcessSoundControlKind.LoadBank);
+                else if (!boot)
+                    EmitSourceSoundControl(SourceProcessSoundControlKind.LoadBank, "nfl.c", caller, 2662,
+                        Model.SourceAnnouncerSwappedBank);
+            }
             int taunt = SourceDraw(2, "nfl.c:" + caller + ":" + (boot ? "560" : "2666") + "/Game.c:get_taunt_str:168");
             Model.SourceTauntBank = sourceC2Bootstrap.Data.TauntBanks[taunt];
+            if (SourceCompleteProgramsEnabled)
+            {
+                if (boot && sourceC2Bootstrap.EntryKind == SourceC2EntryKind.CompleteOriginalVersusSoundBanks)
+                    EmitSourceBootSound("nfl.c", caller, 560, Model.SourceTauntBank,
+                        control: SourceProcessSoundControlKind.LoadBank);
+                else if (!boot) CompleteSourceOriginalQuarterSound();
+            }
             Model.SourceC2BankEpoch++;
             C2Record(boot ? SourceC2EventKind.BootBanksSelected : SourceC2EventKind.QuarterBanksSelected,
                 -1, Model.SourceAnnouncerSwappedBank + "/" + Model.SourceTauntBank,
@@ -274,6 +418,7 @@ namespace Blitz.Gameplay
             if (Model.SourceC2PendingResult != null) throw new InvalidOperationException("Original play-over epoch already queued.");
             Model.SourceC2PendingResult = new SourceC2PendingEnd(Model, cause, playerId, position, attackerId,
                 SourceBallTypeFor(Model.BallKind));
+            Model.SourceLastPlayEndCause = cause;
             Model.Phase = GamePhase.DeadBall;
             Model.SourceMatchPhase = SourceMatchPhase.PlayResult;
             foreach (ActorState actor in Model.Players)
@@ -288,6 +433,7 @@ namespace Blitz.Gameplay
             bool? before = Model.SourceTaunted;
             Model.ClockActive = false;
             Model.SourceTaunted = false;
+            if (SourceCompleteProgramsEnabled) sourceOriginalSaidLateHit = false;
             Model.SourceClock = SourceClock.DiscardFraction(Model.SourceClock);
             ApplySourcePlayEnd(pending.Input.Cause, pending.PlayerId, pending.Position, pending.AttackerId, pending);
             Model.SourceC2PendingResult = null;

@@ -3,6 +3,10 @@ G = "Assets/Scripts/Gameplay/"
 P = "Assets/Scripts/Presentation/"
 RNG = "complete native callback ordered guards and exact RNG count"
 LATCH = "native latch AFTER taunt and BEFORE mad synchronous change_anim"
+PARTIAL_CURSOR = (
+    "AdvanceSourceSoundRandom(execution, error.PartialResult);\n"
+    "                sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,"
+)
 
 
 def m1_specifications():
@@ -50,16 +54,17 @@ def m1_specifications():
          "new SourceAudioResolvedOriginalSoundCall(context, new SourceAudioCalleeSite(call.Site.SourcePath, call.Site.SourceGitBlob, call.Site.FunctionSymbol, call.Site.SourceLine + 1), calls.Count, bank, id,",
          output),
         ("m1-reversed-FIFO", vm,
-         "sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null));",
-         "sourceSoundVmPending.Insert(0, new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null));",
+         "sourceSoundVmPending.Add(new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null, NextSourceOutputSequence()));",
+         "sourceSoundVmPending.Insert(0, new SourceSoundVmDispatch(context, execution, state, actorState,\n                    SourceSoundVmStatus.Resolved, result, null, NextSourceOutputSequence()));",
          "M1 running-taunt actual6401then6508 FIFO and synchronous shared call cursor"),
         ("m1-zero-percent-muted", sound, "int sp = context.Argument0;",
          "int sp = context.Argument0; if (context.Argument1 == 0) return;", chance),
         ("m1-unknown-bank-defaulted", sound, 'Bank(state.CurrentTauntBank, "taunt_bnk_str")',
          'Bank(state.CurrentTauntBank ?? "taunts3", "taunt_bnk_str")',
          "M1 running-taunt unknown bank stays typed failure not invented default"),
-        ("m1-partial-cursor-dropped", vm, "AdvanceSourceSoundRandom(execution, error.PartialResult);",
-         "/* compiled causal control: omit partial source cursor */",
+        ("m1-partial-cursor-dropped", vm, PARTIAL_CURSOR,
+         PARTIAL_CURSOR.replace("AdvanceSourceSoundRandom(execution, error.PartialResult);",
+                                "/* compiled causal control: omit partial source cursor */"),
          "M1 running-taunt partial missing-bank chance+index cursor retained"),
     ]
 
@@ -114,8 +119,10 @@ def specifications(root):
         ("unknown-bank-default", P + "SourceC2SoundFunctions.cs",
          'Bank(state.CurrentTauntBank, "taunt_bnk_str")', 'Bank(state.CurrentTauntBank ?? "taunts3", "taunt_bnk_str")',
          "unknown source taunt bank stays visible after actual partial helper draw"),
-        ("partial-draw-cursor-dropped", G + "SourceSoundVm.cs", "AdvanceSourceSoundRandom(execution, error.PartialResult);",
-         "/* compiled control: omit actual partial cursor advancement */", "partial missing-bank RNG advances shared cursor exactly once"),
+        ("partial-draw-cursor-dropped", G + "SourceSoundVm.cs", PARTIAL_CURSOR,
+         PARTIAL_CURSOR.replace("AdvanceSourceSoundRandom(execution, error.PartialResult);",
+                                "/* compiled control: omit actual partial cursor advancement */"),
+         "partial missing-bank RNG advances shared cursor exactly once"),
         ("native-context-fake-actor0", G + "SourceSoundVm.cs",
          "public SourcePresentationContext OriginalCueContext { get { return OriginalCue.Context; } }",
          "public SourcePresentationContext OriginalCueContext { get { return HasOriginalAnimationCue ? OriginalCue.Context : default(SourcePresentationContext); } }",

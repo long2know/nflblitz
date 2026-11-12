@@ -57,7 +57,7 @@ class InventoryGuardTests(unittest.TestCase):
         self.assertTrue(dependencies, "The actual pure AssetImport dependency must not be omitted.")
         for path in dependencies:
             self.assertIn(path.relative_to(root).as_posix(), actual)
-        for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+        for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
             path = root / "Assets/Scripts/Presentation" / name
             relative = path.relative_to(root).as_posix()
             self.assertIn(relative, actual, "The actual sound selectors must be covered by the legacy source hash guard.")
@@ -100,6 +100,8 @@ class InventoryGuardTests(unittest.TestCase):
             "match-lifecycle/MatchLifecycleChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
+            "playbooks/CustomCallerChecks.csproj",
+            "playbooks/LiveCallerChecks.csproj",
         ], affected)
 
 

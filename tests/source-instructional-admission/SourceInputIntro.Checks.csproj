@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/core-input-intro/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NuGetAudit>false</NuGetAudit>
+    <OutputPath>bin/core-input-intro/</OutputPath>
+  </PropertyGroup>
+  <Import Project="../../tools/source-player/ProductionSources.props" />
+  <ItemGroup>
+    <Compile Include="../parity/FullKernelInputs.cs" />
+    <Compile Include="SourceInputIntroChecks.cs" />
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePlaySelectionIntroductionProcess.cs"
+             Condition="'$(IntroductionProcessOverride)' != ''" />
+    <Compile Include="$(IntroductionProcessOverride)" Condition="'$(IntroductionProcessOverride)' != ''" />
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/GameSimulation.Source.cs"
+             Condition="'$(SourceStepOverride)' != ''" />
+    <Compile Include="$(SourceStepOverride)" Condition="'$(SourceStepOverride)' != ''" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

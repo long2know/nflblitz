@@ -18,6 +18,10 @@ from prepare_inputs import fixture_hashes
 
 GAME = "Assets/Scripts/Gameplay/"
 FACTORY = "Assets/Scripts/Runtime/SourceC2Composition.cs"
+FACTORY_FORWARD = (
+    "                fireEffects, kickMeterMetrics, defaultAudibles: defaultAudibles,\n"
+    "                twoStationRecordProfile: twoStationRecordProfile);"
+)
 EXTRA = (
     "Assets/Scripts/Runtime/SourceCabinetInput.cs",
     "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
@@ -26,13 +30,16 @@ EXTRA = (
     "Assets/Scripts/Presentation/SourceHudModel.cs",
     "Assets/Scripts/Presentation/SourceHudViewport.cs",
     "Assets/Scripts/Presentation/SourceHudComposer.cs",
+    "Assets/Scripts/Presentation/SourceCabinetScreenModel.cs",
+    "Assets/Scripts/Presentation/SourceHudComposer.Records.cs",
+    "Assets/Scripts/Presentation/SourceRecordScreenModel.cs",
 )
 CONTROLS = (
-    ("lost-fire-forwarding", [(FACTORY, "                fireEffects, kickMeterMetrics);",
-                              "                null, kickMeterMetrics);")],
+    ("lost-fire-forwarding", [(FACTORY, FACTORY_FORWARD,
+                              FACTORY_FORWARD.replace("fireEffects, kickMeterMetrics", "null, kickMeterMetrics"))],
      "factory forwards fire independently of kick metrics"),
-    ("lost-kick-forwarding", [(FACTORY, "                fireEffects, kickMeterMetrics);",
-                              "                fireEffects, null);")],
+    ("lost-kick-forwarding", [(FACTORY, FACTORY_FORWARD,
+                              FACTORY_FORWARD.replace("fireEffects, kickMeterMetrics", "fireEffects, null"))],
      "factory forwards kick metrics independently of fire"),
     ("kick-suppresses-fire", [(GAME + "GameSimulation.cs", "sourceFireConfiguration = fireEffects;",
                              "sourceFireConfiguration = kickMeterMetrics == null ? fireEffects : null;")],

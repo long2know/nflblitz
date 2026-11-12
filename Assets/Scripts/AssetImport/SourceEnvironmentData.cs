@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
@@ -137,6 +138,10 @@ namespace Blitz.AssetImport
         [DataMember] public int fieldSelector;
         [DataMember] public int stadiumSelector;
         [DataMember] public string homePrefix;
+        [DataMember] public int homeTeamIndex;
+        [DataMember] public string selectionId;
+        [DataMember] public string fieldTextureTable;
+        [DataMember] public string stadiumTextureTable;
         [DataMember] public SourceEnvironmentInput[] inputs;
         [DataMember] public SourceEnvironmentMeshInfo[] meshes;
         [DataMember] public SourceEnvironmentTextureInfo[] textures;
@@ -177,6 +182,232 @@ namespace Blitz.AssetImport
             ManifestSha256 = sha256;
             Meshes = meshes;
             TextureRgba = rgba;
+        }
+    }
+
+    [DataContract]
+    public sealed class SourceEnvironmentCatalogEntry
+    {
+        [DataMember] public string homePrefix;
+        [DataMember] public int homeTeamIndex;
+        [DataMember] public string manifestPath;
+        [DataMember] public string manifestSha256;
+    }
+
+    [DataContract]
+    public sealed class SourceEnvironmentCatalogFile
+    {
+        [DataMember] public string path;
+        [DataMember] public int bytes;
+        [DataMember] public string sha256;
+    }
+
+    [DataContract]
+    public sealed class SourceEnvironmentCatalogInfo
+    {
+        [DataMember] public string schema;
+        [DataMember] public string sourceRepository;
+        [DataMember] public string sourceCommit;
+        [DataMember] public string sourceRootTree;
+        [DataMember] public string stableId;
+        [DataMember] public int fieldSelector;
+        [DataMember] public int stadiumSelector;
+        [DataMember] public string defaultSelectionId;
+        [DataMember] public string defaultManifestSha256;
+        [DataMember] public SourceEnvironmentCatalogEntry[] entries;
+        [DataMember] public SourceEnvironmentCatalogFile[] files;
+    }
+
+    public sealed class SourceEnvironmentCatalog
+    {
+        private readonly Dictionary<string, SourceEnvironmentBundle> selections =
+            new Dictionary<string, SourceEnvironmentBundle>(StringComparer.Ordinal);
+        public ReadOnlyCollection<SourceEnvironmentBundle> Worlds { get; private set; }
+        public SourceEnvironmentBundle Default { get; private set; }
+        public int Field { get; private set; }
+        public int Stadium { get; private set; }
+        public string ManifestSha256 { get; private set; }
+
+        private SourceEnvironmentCatalog() { }
+
+        public SourceEnvironmentBundle RequireSelection(SourceEnvironmentSelection actual)
+        {
+            SourceEnvironmentBundle world;
+            Require(actual != null && actual.Field == Field && actual.Stadium == Stadium &&
+                selections.TryGetValue(actual.Identity, out world),
+                "SOURCE_WORLD_VENUE_NOT_ADMITTED: the actual field/stadium/designated-home selection is absent from the authenticated catalog.");
+            return selections[actual.Identity];
+        }
+
+        public static SourceEnvironmentCatalog Read(byte[] bytes, string expectedSha256, Func<string, byte[]> readFile)
+        {
+            Require(bytes != null && bytes.Length > 0 && bytes.Length <= 1024 * 1024 &&
+                AuthorizedAssetRoot.Sha256(bytes) == expectedSha256 && readFile != null,
+                "Source venue catalog SHA256/reader differs.");
+            SourceEnvironmentCatalogInfo info;
+            try
+            {
+                using (var stream = new MemoryStream(bytes, false))
+                    info = (SourceEnvironmentCatalogInfo)new DataContractJsonSerializer(typeof(SourceEnvironmentCatalogInfo)).ReadObject(stream);
+            }
+            catch (Exception error) when (error is SerializationException || error is System.Xml.XmlException)
+            {
+                throw new SourceEnvironmentException("Invalid source venue catalog JSON: " + error.Message);
+            }
+            Require(info != null && info.schema == "blitz-source-environment-catalog/v1" &&
+                info.sourceRepository == "historicalsource/nflblitz2000" && info.sourceCommit == SourceEnvironmentReader.SourceCommit &&
+                info.sourceRootTree == "a7e0352125d46075b7d98e87253ab89b9160a4c7" && info.stableId == SourceEnvironmentReader.StableId &&
+                info.entries != null && info.entries.Length == 31 && info.files != null &&
+                info.files.Length >= 130 && info.files.Length <= 512,
+                "The exact original31-team runtime venue catalog is required.");
+            var catalog = new SourceEnvironmentCatalog { Field = info.fieldSelector, Stadium = info.stadiumSelector,
+                ManifestSha256 = expectedSha256 };
+            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var teams = new HashSet<int>();
+            var shared = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            var payloadPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Func<string, byte[]> readShared = path =>
+            {
+                AuthorizedAssetRoot.ValidateRelativePath(path);
+                Require(payloadPaths.Contains(path), "Unpinned source venue catalog payload: " + path);
+                byte[] raw;
+                if (!shared.TryGetValue(path, out raw)) { raw = readFile(path); shared.Add(path, raw); }
+                return raw;
+            };
+            foreach (SourceEnvironmentCatalogFile file in info.files)
+            {
+                Require(file != null, "Missing source venue catalog file pin.");
+                AuthorizedAssetRoot.ValidateRelativePath(file.path);
+                Require(payloadPaths.Add(file.path) && file.bytes > 0 && file.bytes <= 32 * 1024 * 1024 &&
+                    (file.path == "environment.json" || file.path.StartsWith("selections/", StringComparison.Ordinal) ||
+                     file.path.StartsWith("meshes/", StringComparison.Ordinal) || file.path.StartsWith("textures/", StringComparison.Ordinal)),
+                    "Duplicate/oversized source venue catalog file pin: " + file.path);
+            }
+            var worlds = new SourceEnvironmentBundle[info.entries.Length];
+            for (int i = 0; i < worlds.Length; i++)
+            {
+                SourceEnvironmentCatalogEntry entry = info.entries[i];
+                Require(entry != null, "Missing source venue catalog entry.");
+                var selection = new SourceEnvironmentSelection(info.fieldSelector, info.stadiumSelector, entry.homePrefix);
+                AuthorizedAssetRoot.ValidateRelativePath(entry.manifestPath);
+                Require(teams.Add(entry.homeTeamIndex) && entry.homeTeamIndex == selection.HomeTeamIndex &&
+                    paths.Add(entry.manifestPath), "Duplicate/mismatched source venue catalog team/index/path.");
+                SourceEnvironmentBundle world = SourceEnvironmentReader.Read(readShared(entry.manifestPath),
+                    entry.manifestSha256, readShared);
+                Require(world.Manifest.schema == SourceEnvironmentSelection.Schema &&
+                    SourceEnvironmentReader.ValidateSelection(world.Manifest).Identity == selection.Identity,
+                    "Source venue catalog entry differs from its authenticated selected world.");
+                if (i > 0)
+                    for (int mesh = 0; mesh < worlds[0].Manifest.meshes.Length; mesh++)
+                        Require(world.Manifest.meshes[mesh].meshSha256 == worlds[0].Manifest.meshes[mesh].meshSha256 &&
+                            world.Manifest.meshes[mesh].meshPath == worlds[0].Manifest.meshes[mesh].meshPath,
+                            "Runtime team selection cannot replace original geometry or UVs.");
+                worlds[i] = world;
+                catalog.selections.Add(selection.Identity, world);
+                if (selection.Identity == info.defaultSelectionId) catalog.Default = world;
+            }
+            Require(catalog.Default != null && catalog.Default.ManifestSha256 == info.defaultManifestSha256,
+                "The explicit default source venue selection/hash is missing.");
+            Require(shared.Count == payloadPaths.Count, "Unbound/missing source venue catalog payload.");
+            foreach (SourceEnvironmentCatalogFile file in info.files)
+            {
+                byte[] raw;
+                Require(shared.TryGetValue(file.path, out raw) && raw.Length == file.bytes &&
+                    AuthorizedAssetRoot.Sha256(raw) == file.sha256, "Source venue catalog file pin differs: " + file.path);
+            }
+            catalog.Worlds = Array.AsReadOnly(worlds);
+            return catalog;
+        }
+
+        private static void Require(bool condition, string message)
+        {
+            if (!condition) throw new SourceEnvironmentException(message);
+        }
+    }
+
+    public sealed class SourceEnvironmentSelection
+    {
+        public const string Schema = "blitz-source-environment/v2";
+        public const string LegacySchema = "blitz-source-environment/v1";
+        private static readonly string[] prefixes = {
+            "CAR", "FAL", "RAV", "BIL", "PAN", "BEA", "BEN", "BRW", "COW", "BRO", "LIO",
+            "PAC", "COL", "JAG", "CHI", "DOL", "VIK", "PAT", "SAI", "GIA", "JET", "RAI",
+            "EAG", "STE", "CHA", "FOR", "SEA", "RAM", "BUC", "TIT", "RED"
+        };
+        private static readonly string[] fieldNames = {
+            "Beabg.wms", "Beaez1.wms", "Beaez2.wms", "Beaez3.wms", "ads98.wms", "blitz98.wms",
+            "grass198.wms", "grass198.wms", "grass298.wms", "grass398.wms", "grass398.wms",
+            "nfl98.wms", "nflpa98.wms", "nums98.wms", "post98.wms", "roof98.wms"
+        };
+        private static readonly string[] stadiumNames = {
+            "ads98.wms", "blitz98.wms", "ceil98.wms", "crowdd98.wms", "crowdl98.wms",
+            "post98.wms", "roof98.wms", "skybox98.wms", "trim98.wms", "trim98.wms", "wall98.wms"
+        };
+        private static readonly string[] fieldTextures = {
+            "file#11", "File#11", "File#12", "File#13", "File#127", "File#154", "file#8", "file#9",
+            "file#10", "file#14", "file#12", "File#158", "File#156", "file#13", "file#6", "File#113"
+        };
+        private static readonly string[] stadiumTextures = {
+            "File#127", "file#15", "File#114", "File#93", "File#89", "file#6", "File#113",
+            "File#115", "file#3", "file", "File"
+        };
+
+        public int Field { get; }
+        public int Stadium { get; }
+        public string HomePrefix { get; }
+        public int HomeTeamIndex { get; }
+        public string Identity { get { return SourceEnvironmentReader.StableId + "/field-" + Field + "/stadium-" + Stadium + "/" + HomePrefix; } }
+        public string FieldTextureTable { get { return FieldTable(Field); } }
+        public string StadiumTextureTable { get { return StadiumTable(Stadium); } }
+
+        public SourceEnvironmentSelection(int field, int stadium, string homePrefix)
+        {
+            if (field < 0 || field > 6 || stadium < 0 || stadium > 3 || Array.IndexOf(prefixes, homePrefix) < 0)
+                throw new SourceEnvironmentException("Unsupported original field/stadium/teaminfo selector: " + field + "/" + stadium + "/" + homePrefix);
+            Field = field; Stadium = stadium; HomePrefix = homePrefix;
+            HomeTeamIndex = Array.IndexOf(prefixes, homePrefix);
+        }
+
+        public static string FieldTable(int selector)
+        {
+            if (selector < 0 || selector > 6) throw new SourceEnvironmentException("Unsupported original field selector: " + selector);
+            return new[] { "field2_textures", "field2_textures", "astro_turf_field_textures", "dirt_field_textures",
+                "snow_field_textures", "asphalt_field_textures", "mud_field_textures" }[selector];
+        }
+
+        public static string StadiumTable(int selector)
+        {
+            if (selector < 0 || selector > 3) throw new SourceEnvironmentException("Unsupported original stadium selector: " + selector);
+            return selector == 0 ? "day_stadium_textures" : selector == 2 ? "snow_stadium_textures" : "stadium_textures";
+        }
+
+        public static string AuthoredName(int slot)
+        {
+            if (slot < 0 || slot >= 27) throw new SourceEnvironmentException("Unsupported original material slot: " + slot);
+            return slot < 16 ? fieldNames[slot] : stadiumNames[slot - 16];
+        }
+
+        public static string SourceTexture(int slot)
+        {
+            AuthoredName(slot);
+            return slot < 16 ? fieldTextures[slot] : stadiumTextures[slot - 16];
+        }
+
+        public string SelectedName(int slot)
+        {
+            string authored = AuthoredName(slot);
+            if (slot >= 16)
+                return Stadium == 0 || Stadium == 2 ?
+                    authored.Replace("98.wms", Stadium == 0 ? "_d.wms" : "_s.wms") : authored;
+            if (slot < 4) return HomePrefix + authored.Substring(3);
+            if (Field < 2) return authored;
+            string suffix = new[] { "", "", "t", "d", "s", "a", "m" }[Field];
+            if (slot >= 6 && slot <= 10)
+                return (slot < 8 ? "grass1_" : slot == 8 ? "grass2_" : "grass3_") + suffix + ".wms";
+            if (slot == 13 || (Field == 4 || Field == 5 || Field == 6) && (slot == 5 || slot == 11 || slot == 12) ||
+                Field == 4 && (slot == 4 || slot == 14 || slot == 15))
+                return authored.Replace("98.wms", "_" + suffix + ".wms");
+            return authored;
         }
     }
 
@@ -234,8 +465,8 @@ namespace Blitz.AssetImport
             {
                 throw new SourceEnvironmentException("Invalid source environment manifest JSON: " + error.Message);
             }
-            Require(manifest != null && manifest.schema == "blitz-source-environment/v1",
-                "Expected source environment schema blitz-source-environment/v1.");
+            Require(manifest != null && (manifest.schema == SourceEnvironmentSelection.LegacySchema ||
+                manifest.schema == SourceEnvironmentSelection.Schema), "Expected an explicit supported source environment schema.");
             Require(manifest.sourceRepository == "historicalsource/nflblitz2000" && manifest.sourceCommit == SourceCommit &&
                 manifest.sourceRootTree == "a7e0352125d46075b7d98e87253ab89b9160a4c7" &&
                 manifest.toolsRepository == "historicalsource/midwayvideo" && manifest.toolsCommit == ToolsCommit,
@@ -246,9 +477,6 @@ namespace Blitz.AssetImport
                 manifest.sourceTriangleOrder == "Renderer321" && !manifest.reverseDeclaredTriangle &&
                 Equal(manifest.originSource, new[] { 0f, 0f, 0f }) && Equal(manifest.scaleSource, new[] { 65f, 65f, 57.5f }),
                 "Source environment origin/axes/scale/winding differ from the active original recipe.");
-            Require(manifest.fieldSelector >= 0 && manifest.fieldSelector <= 6 &&
-                manifest.stadiumSelector >= 0 && manifest.stadiumSelector <= 3 && manifest.homePrefix == "BEA",
-                "Unsupported source environment selector/home-prefix identity.");
             Require(manifest.inputs != null && manifest.inputs.Length >= RequiredBlobs.Count && manifest.inputs.Length <= 128,
                 "Source environment input fingerprints are missing/oversized.");
             var identities = new Dictionary<string, SourceEnvironmentInput>(StringComparer.Ordinal);
@@ -265,6 +493,10 @@ namespace Blitz.AssetImport
             foreach (KeyValuePair<string, string> required in RequiredBlobs)
                 Require(identities.ContainsKey(required.Key) && identities[required.Key].gitBlobSha1 == required.Value,
                     "Missing/mismatched required original environment input: " + required.Key);
+            if (manifest.schema == SourceEnvironmentSelection.Schema)
+                Require(identities.ContainsKey("teamdata.c") &&
+                    identities["teamdata.c"].gitBlobSha1 == "e5340046b33e1d2addc702feb7a94d1a0f69afdb",
+                    "Missing/mismatched required original environment input: teamdata.c");
             Require(manifest.meshes != null && manifest.meshes.Length == 99 && manifest.slots != null && manifest.slots.Length == 27 &&
                 manifest.textures != null && manifest.textures.Length > 0 && manifest.textures.Length <= 64 &&
                 manifest.draws != null && manifest.draws.Length == (manifest.stadiumSelector == 3 ? 12 : 78) &&
@@ -317,6 +549,7 @@ namespace Blitz.AssetImport
                 AuthorizedAssetRoot.ValidateRelativePath(texture.rgbaPath);
                 Hex(texture.rgbaSha256, 64, texture.rgbaPath);
             }
+            ValidateSelection(manifest);
             var drawn = new HashSet<int>();
             foreach (SourceEnvironmentDraw draw in manifest.draws)
             {
@@ -344,6 +577,47 @@ namespace Blitz.AssetImport
             Require(manifest.conversionNotes != null && !string.IsNullOrEmpty(manifest.upstreamNotice),
                 "Original environment provenance/notices are required.");
             return manifest;
+        }
+
+        public static SourceEnvironmentSelection ValidateSelection(SourceEnvironmentManifest manifest)
+        {
+            Require(manifest != null, "Missing source environment selection.");
+            var selection = new SourceEnvironmentSelection(manifest.fieldSelector, manifest.stadiumSelector, manifest.homePrefix);
+            if (manifest.schema == SourceEnvironmentSelection.LegacySchema)
+                Require(selection.Field == 0 && selection.Stadium == 0 && selection.HomePrefix == "BEA" &&
+                    manifest.selectionId == null, "Historical v1 world identity is grass/day/BEA; use an explicit v2 selection, not a relabeled legacy bundle.");
+            else
+                Require(manifest.schema == SourceEnvironmentSelection.Schema && manifest.selectionId == selection.Identity &&
+                    manifest.homeTeamIndex == selection.HomeTeamIndex && manifest.fieldTextureTable == selection.FieldTextureTable &&
+                    manifest.stadiumTextureTable == selection.StadiumTextureTable,
+                    "Original environment selection/table/team identity mismatch.");
+            Require(manifest.slots != null && manifest.slots.Length == 27 && manifest.textures != null,
+                "Original environment selected material inventory is missing.");
+            var usedTextures = new HashSet<int>();
+            for (int i = 0; i < manifest.slots.Length; i++)
+            {
+                SourceEnvironmentSlot slot = manifest.slots[i];
+                string expected = selection.SelectedName(i);
+                Require(slot != null && slot.sourceSet == (i < 16 ? "field2" : "stadpie") &&
+                    slot.sourceTexture == SourceEnvironmentSelection.SourceTexture(i) &&
+                    string.Equals(slot.authoredName, SourceEnvironmentSelection.AuthoredName(i), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(slot.selectedName, expected, StringComparison.OrdinalIgnoreCase),
+                    "Original environment selected material mismatch at slot" + i + ": expected " + expected);
+                if (i >= 16 && selection.Stadium == 3)
+                {
+                    Require(slot.textureIndex == -1, "Stadium3 must not bind original stadium textures.");
+                    continue;
+                }
+                Require(slot.textureIndex >= 0 && slot.textureIndex < manifest.textures.Length,
+                    "Missing original selected material: " + expected);
+                SourceEnvironmentTextureInfo texture = manifest.textures[slot.textureIndex];
+                Require(texture != null && (string.Equals(texture.sourcePath, "img3d/" + expected, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(texture.sourcePath, "img3d/" + expected.Substring(0, expected.Length - 4) + ".tga", StringComparison.OrdinalIgnoreCase)),
+                    "Original selected material/input mismatch: " + expected);
+                usedTextures.Add(slot.textureIndex);
+            }
+            Require(usedTextures.Count == manifest.textures.Length, "Unbound original environment variant texture.");
+            return selection;
         }
 
         public static SourceEnvironmentMeshData ReadMesh(byte[] data, SourceEnvironmentMeshInfo info, int slotCount)

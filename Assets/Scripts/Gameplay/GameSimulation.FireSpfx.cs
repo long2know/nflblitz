@@ -124,7 +124,7 @@ namespace Blitz.Gameplay
             {
                 int index = 0;
                 while (index < ordered.Count && (ordered[index].Kind == SourceFireSlotKind.EffectProcess ||
-                    ordered[index].Function == "show_message_proc" || ordered[index].Function == "flash_obj_proc") &&
+                    IsSourceMessageFunction(ordered[index].Function)) &&
                     ordered[index].ProcessSerial > message.ProcessSerial) index++;
                 ordered.Insert(index, message);
             }
@@ -133,7 +133,7 @@ namespace Blitz.Gameplay
                 SourceFireCallbacks((slot, ordinal) =>
                 {
                     sourceFireWakeOrdinal = ordinal;
-                    if (slot.Function == "show_message_proc" || slot.Function == "flash_obj_proc")
+                    if (IsSourceMessageFunction(slot.Function))
                         DispatchSourceMessage(slot);
                     else if (slot.Function == "game_proc")
                     {

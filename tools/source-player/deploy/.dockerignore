@@ -1,0 +1,10 @@
+**
+!Dockerfile
+!nginx.conf
+!entrypoint.sh
+!healthcheck.sh
+!runtime-common.sh
+!deployment.json
+!bundle-inventory.json
+!AppBundle/
+!AppBundle/**

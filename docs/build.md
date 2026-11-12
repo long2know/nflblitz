@@ -1,5 +1,12 @@
 # WebGL build and static hosting
 
+**Primary browser route:** [the portable source-player](../tools/source-player/README.md)
+builds the shared C# simulation to .NET browser-WASM and renders directly with
+WebGL2. It does not require the Unity Editor, a Unity build or Unity licensing.
+Use that route for current browser/gameplay work. The Unity route and its
+entitlement/import history below are retained separately, not prerequisites for
+the portable application or excuses to defer its actual browser acceptance.
+
 The root is the Unity project. The recorded deployment route is a **Unity
 6000.3.24f1 host editor**, followed by a **Docker static runtime**.
 The **older live preview** has continuous original animation: **56 clips / 3,731
@@ -37,6 +44,43 @@ stated native limitations. See the
 [published portable-browser evidence](source-parity.md#published-portable-browser-evidence)
 for the actual build identity and bounded match/capture qualification.
 
+## Private default-audibles adapter opt-in
+
+The separate successor `original-teams-contact282-c2-m1-default-audibles` uses
+`source-default-audibles/v1` and
+`SourceC2Composition.CreateDefaultAudiblesSimulation`. It retains the exact
+282-clip/26,265-frame library, fifteen callbacks, 482-site impact catalog and
+all 563 inherited payload files. Admission requires Portable compatibility and
+the same authenticated HUD, interface catalog and playbook-backed audible data;
+declared hashes alone or a static fallback do not admit this profile.
+
+When private-input preparation is separately authorized, the metadata successor
+can be prepared in a fresh ignored output location:
+
+```sh
+python3 -B tools/source-player/prepare_default_audibles.py \
+  --input "$SOURCE_SWITCH_563_DATA" \
+  --input-manifest-sha256 150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6 \
+  --output .squad/.scratch/default-audibles-systems/player
+```
+
+Only manifest profile/feature/factory metadata changes. Entry points, settings,
+the four sealed historical inputs and all copied payload bytes remain unchanged;
+existing output roots are refused. No asset, recording or fixture is regenerated.
+The explicit build option is
+`build.py --profile original-teams-contact282-c2-m1-default-audibles --data DATA_ROOT`.
+The CLI default remains pre-snap-switch, and one-argument
+`PreviewOptions.FromUrl` remains historical M1.
+
+The data-bound managed selector is
+`DATA_ROOT --default-audibles-adapters-only --proof-output IGNORED_PROOF_ROOT`.
+Its constructor-boundary World frame and isolated admission/raw-buffer/HUD/sound
+units are not active audible execution or changed-World proof. The integrated
+source now carries the frozen producer, restart, passive observation and affine
+consumers together with the stream/arm corrections. Fresh compiled/reference
+bindings and focused integration review remain pending; no combined runtime,
+browser, Unity/native, DSP, hosted CI or publication result is implied.
+
 ## Required pre-snap-switch CI
 
 `Game source checks` has two **concurrent, unconditional required jobs**, each
@@ -71,7 +115,13 @@ regeneration.
 ### Historical partitions and frozen guard compatibility
 
 Checkout first initializes the physical `github.workspace`, with no job-wide
-`GIT_DIR` or `GIT_WORK_TREE` override. The later run-directory defaults do not
+`GIT_DIR` or `GIT_WORK_TREE` override. All three production checkouts explicitly
+use `fetch-depth: 0`: the host guard and both Game Git views require the exact
+archived parent `df75bd647b1b7bc902e0eae8520ee42e8af62d1e`, its tree and its
+separately pinned twelve-file harness. The default depth-one PR merge checkout
+does not contain that parent; the existing exact-pin fetches for older
+generations do not make it reachable. There is no missing-history fallback,
+current-as-history substitution or skipped boundary. The later run-directory defaults do not
 apply to the checkout action. Pointing its Git process at a not-yet-created
 `.squad` work tree makes `git init` fail before any test can run. Only after
 checkout, additive-wiring validation and the private workspace copy succeed
@@ -81,6 +131,14 @@ export. The regression starts with genuinely empty runners, exercises real
 `git init` for both Game jobs and Source player, restores the bad binding to
 prove exit128, and runs both actual post-checkout bootstrap commands against
 committed-only fixtures.
+
+The source-only checkout regression uses an isolated proposed-source Git tree and
+a real two-parent PR merge in a separate fixture repository, never a commit in
+the source checkout. It authenticates all four archived source/tree/harness
+identities plus the current source/harness in the host and both actual Game
+bootstrap views. Restoring depth one reproduces the exact missing-parent
+exit128 in all three views; substituting a different reachable generation
+fails the archived tree guard. These checks do not construct or step a Game.
 
 `check_replay_generations.py` defaults to **all five actual probes**, as before.
 Its only CI partitions are `--partition archived-four` in the core job and
@@ -96,15 +154,31 @@ Before the core job executes, the new guard validates the **submitted** two-job
 workflow and the player workflow, then copies actual current code into a private
 compatibility workspace. Every production/harness byte is verified identical.
 Only its workflow file receives the explicitly reversible CI projection:
-remove this new job/bootstrap/default-directory/trigger wiring and
-the archived partition argument. The result must retain the original workflow
-SHA-256 `b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241`
-and pass the untouched inherited sound, possession and timer guards, including
-the timer's `1016fb32…` baseline. No original guard, inventory hash, case ID,
-control, failure rule or recipe is rebased or relaxed. Original commands execute
-unchanged in that isolated workspace; the actual submitted workflow is never
-rewritten. Both workspaces have private outputs, temporary directories, NuGet
+remove this new job/bootstrap/default-directory/trigger wiring, restore the
+historical core budget, remove the archived partition argument and reverse
+only the exact declared full-history checkout addition. After the October 23 current-input-only
+reference update, the result must have SHA-256
+`94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8`.
+The submitted full workflow is
+`ccf82aba97e84aa168d60fbcebe40402d5efbb1aeabc40b473c93a55addb0697`.
+Its four reviewed current fixture/recipe/input-reference lines are retained:
+Core `selection-countdown-v4-12000` and defensive `presnap-switch-v5-12000`.
+The hosted static repair adds only the two Game checkout depth settings.
+The historical `b84fe340…` projection and all historical source, fixture,
+recipe and harness pins keep their dated meanings. Current sound, possession
+and timer guards recognize only the new exact current references; the timer's
+`1016fb32…` baseline, all inventories, controls, failure rules and budgets
+remain unchanged. The projection reverses only declared exact additions, not
+arbitrary checkout settings or a broad legacy normalizer. Commands execute in that isolated workspace; the submitted
+workflow is never rewritten. Both workspaces have private outputs, temporary directories, NuGet
 packages and SDK homes, with nonnested worker limits of at most two.
+The literal14 Stage7 commands and all original100 named-case hash seals remain
+unchanged. The inventory runner separately requires the exact nine
+current-generation additions: four public-input cases, three generation cases
+and two exporter cases. All109 named cases remain in their existing children
+and receipts. Missing, renamed, extra or duplicate original/added cases,
+original-only child summaries, skipped cases and incomplete receipts fail;
+discovery totals alone cannot bless a changed inventory.
 The API preflight first attempts the actual build and an offline restore. Only
 an observed missing `NETStandard.Library.Ref` pack permits restoring the exact
 implicit2.1.0 reference pack from the official NuGet feed into that private
@@ -117,6 +191,16 @@ recording/runner/CI mutation guards and compile closure checks, without original
 assets, a browser, services, credentials or a Unity installation. Both workflows
 cover their own/cross-workflow changes and the new runner, shared parity,
 animation/audio preparation and roster parser dependencies.
+
+The current source-versioned recordings and actual bounded local full
+qualification are documented in
+[`tests/movement-callers/README.md`](../tests/movement-callers/README.md#current-near-frame-input-generations--october-23-2026).
+The asset-free workflow retains every command and adds only `fetch-depth: 0`.
+Its inherited projection still has the exact original player hash. Testing the full/inherited exact
+Git bindings before publication uses an isolated synthetic proposed-source Git
+fixture; its commit is not the actual uncommitted worktree HEAD. Local replay
+proof and focused guard tests are not a hosted three-job CI result or native
+qualification, and do not authorize publication.
 
 ### Budget evidence is not hosted acceptance
 

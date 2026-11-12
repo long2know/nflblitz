@@ -19,6 +19,8 @@ namespace Blitz.Editor
             public string status;
             public string unityVersion;
             public string manifestSha256;
+            public string environmentSchema;
+            public string selectionId;
             public int sourcePolysets;
             public int sourceVertices;
             public int sourceTriangles;
@@ -50,6 +52,8 @@ namespace Blitz.Editor
                 status = "PASS-native-original-source-environment",
                 unityVersion = Application.unityVersion,
                 manifestSha256 = expectedSha256,
+                environmentSchema = bundle.Manifest.schema,
+                selectionId = bundle.Manifest.selectionId,
                 sourcePolysets = bundle.Manifest.meshes.Length,
                 runtimeDrawPieces = bundle.Manifest.draws.Length,
                 visibilityVolumesNotRendered = bundle.Manifest.zoneVolumes.Length,
@@ -128,6 +132,19 @@ namespace Blitz.Editor
                     instance.transform.localPosition == Vector3.zero && instance.transform.localRotation == Quaternion.identity,
                     "Original environment actor/camera yard-space adapter differs.");
                 instance.ValidateGeneratedWorld();
+                SourceEnvironmentSelection selected = SourceEnvironmentReader.ValidateSelection(bundle.Manifest);
+                instance.RequireSelection(selected);
+                foreach (SourceEnvironmentSelection mismatch in new[] {
+                    new SourceEnvironmentSelection((selected.Field + 1) % 7, selected.Stadium, selected.HomePrefix),
+                    new SourceEnvironmentSelection(selected.Field, (selected.Stadium + 1) % 4, selected.HomePrefix),
+                    new SourceEnvironmentSelection(selected.Field, selected.Stadium, selected.HomePrefix == "BEA" ? "EAG" : "BEA")
+                })
+                {
+                    bool rejected = false;
+                    try { instance.RequireSelection(mismatch); }
+                    catch (SourceEnvironmentException error) { rejected = error.Message.Contains("no venue/endzone fallback"); }
+                    Require(rejected, "Mismatched installed original venue was accepted: " + mismatch.Identity);
+                }
                 MeshRenderer firstDraw = instance.transform.GetChild(0).GetComponent<MeshRenderer>();
                 Material[] originalMaterials = firstDraw.sharedMaterials;
                 Material invalid = new Material(originalMaterials[0]) { mainTexture = null };

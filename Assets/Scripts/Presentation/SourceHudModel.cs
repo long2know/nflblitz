@@ -8,7 +8,7 @@ namespace Blitz.Presentation
 {
     public static class SourceHudTextureMask
     {
-        public static byte[] WhiteFlash(byte[] actualRgba)
+        public static byte[] BlackChromaKey(byte[] actualRgba)
         {
             if (actualRgba == null || actualRgba.Length == 0 || actualRgba.Length % 4 != 0)
                 throw new ArgumentException("The actual authored RGBA atlas is required.");
@@ -16,8 +16,15 @@ namespace Blitz.Presentation
             for (int i = 0; i < output.Length; i += 4)
             {
                 if ((output[i] | output[i + 1] | output[i + 2]) == 0) output[i + 3] = 0;
-                output[i] = output[i + 1] = output[i + 2] = 255;
             }
+            return output;
+        }
+
+        public static byte[] WhiteFlash(byte[] actualRgba)
+        {
+            byte[] output = BlackChromaKey(actualRgba);
+            for (int i = 0; i < output.Length; i += 4)
+                output[i] = output[i + 1] = output[i + 2] = 255;
             return output;
         }
     }
@@ -85,6 +92,8 @@ namespace Blitz.Presentation
         public SourcePossessionMessageView PossessionMessage { get; }
         public IReadOnlyList<SourcePossessionMessageView> PossessionMessages { get; }
         public bool StatusProcessSuspended { get; }
+        public SourceCabinetFlowView CabinetFlow { get; }
+        public SourceCabinetStatistics Statistics { get; }
 
         public SourceHudState(IGameState state, SourceInterfaceData data)
         {
@@ -93,6 +102,12 @@ namespace Blitz.Presentation
             if (source == null || source.Match == null || source.Match.Configuration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new SourceInterfaceException("Original HUD requires an actual source-match snapshot; legacy clock/text is not a source-state substitute.");
             Match = source.Match;
+            CabinetFlow = (state as ISourceCabinetFlowState)?.CabinetFlow;
+            Statistics = CabinetFlow == null || !CabinetFlow.CompletedQuarterIndex.HasValue ? null :
+                new SourceCabinetStatistics(CabinetFlow.FinalMatch ?? Match,
+                    CabinetFlow.FinalMatch == null ? state.HomeScore : CabinetFlow.FinalHomeScore,
+                    CabinetFlow.FinalMatch == null ? state.AwayScore : CabinetFlow.FinalAwayScore,
+                    CabinetFlow.CompletedQuarterIndex.Value);
             var processes = state as ISourcePossessionState;
             PossessionMessage = processes == null ? null : processes.PossessionMessage;
             PossessionMessages = processes == null ? (IReadOnlyList<SourcePossessionMessageView>)new SourcePossessionMessageView[0]

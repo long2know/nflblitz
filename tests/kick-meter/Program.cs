@@ -35,10 +35,13 @@ internal static partial class Program
 
     internal static GameSimulation Factory(FullKernelInputs inputs, int profile, SourceMatchConfiguration configuration,
         SourceKickMeterMetrics kickMetrics, SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
-        bool windy = false)
+        bool windy = false, bool publicSeed = false)
     {
         var presentation = new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0);
-        Func<int, ISourceRandom> random = seed => new SourceInjectedRandom(site =>
+        Func<int, ISourceRandom> random = publicSeed
+            ? (Func<int, ISourceRandom>)(seed => SourceRandom.CreatePortableLibrary(seed,
+                "Nov11 raw special-team callers; unchanged seed1; target libc RNG unverified"))
+            : seed => new SourceInjectedRandom(site =>
                 windy && site.SourceIdentity == "plyrinfo.c:kick_meter_proc:wind" ? 7
                 : windy && site.SourceIdentity == "plyrinfo.c:kick_meter_proc:wind_sign" ? 0 : 99,
             new SourceRandomProvenance(windy ? "kick-meter/declared-wind7-sign0" : "kick-meter/controlled-raw99",
@@ -90,12 +93,17 @@ internal static partial class Program
         internal readonly SourceCabinetInputBuffer Buffer;
         private readonly SourceCabinetQuantizer quantizer;
         private readonly SourceMatchConfiguration configuration;
+        private readonly int controlledStation;
         internal long Executed;
         internal Action<SourceKickMeterView> Observe = null;
         internal SourceButtons OtherHeld { get; set; }
-        internal Cabinet(GameSimulation game, SourceMatchConfiguration configuration)
+        internal int OtherX { get; set; }
+        internal int OtherY { get; set; }
+        internal SourceCommand QueuedCommand { get; set; }
+        internal Cabinet(GameSimulation game, SourceMatchConfiguration configuration, int controlledStation = 3)
         {
-            Game = game; this.configuration = configuration; Selection = new SourceCabinetPlaySelection(hud);
+            Game = game; this.configuration = configuration; this.controlledStation = controlledStation;
+            Selection = new SourceCabinetPlaySelection(hud);
             game.SourceStationInputTransform = Selection.ApplyAtSourceTick;
             Buffer = new SourceCabinetInputBuffer(configuration);
             quantizer = new SourceCabinetQuantizer(hud.Input);
@@ -104,8 +112,11 @@ internal static partial class Program
         {
             long before = Game.SourceTick;
             Buffer.Capture(configuration.Stations.Select(station => new SourceCabinetSample(station.StationId,
-                quantizer.SevenLevel(station.StationId == 3 ? x : 0, station.StationId == 3 ? y : 0),
-                station.StationId == 3 ? held : OtherHeld)).ToArray());
+                quantizer.SevenLevel(station.StationId == controlledStation ? x : OtherX,
+                    station.StationId == controlledStation ? y : OtherY),
+                station.StationId == controlledStation ? held : OtherHeld,
+                station.StationId == controlledStation ? QueuedCommand : default(SourceCommand))).ToArray());
+            QueuedCommand = default(SourceCommand);
             Game.Step(new PlayerCommand(stationInputs: Buffer.NextHostFrame()));
             if (Game.SourceTick != before)
             {
@@ -356,7 +367,7 @@ internal static partial class Program
             hud = SourceInterfaceData.Read(File.ReadAllBytes(args[4]), SourceKickMeterMetrics.AuthoredInterfaceSha256);
             metrics = hud.CreatePortableAuthoredKickMeterMetrics();
             string section = args.Length > 6 ? args[6] : "all";
-            if (!new[] { "all", "meters", "physics", "callers", "lifecycle", "additional", "disabled", "options" }.Contains(section))
+            if (!new[] { "all", "meters", "physics", "callers", "lifecycle", "additional", "disabled", "options", "public-s2", "public-s2-block", "public-s2-onside", "public-s2-results", "public-s2-restarts", "public-s2-period-input", "public-s2-final", "public-s2-return-results" }.Contains(section))
                 throw new ArgumentException("Select a declared kick-meter check section.");
             if (args.Length > 7 && args[7] != "-")
                 reference = new NativeReference(Path.GetFullPath(args[7]), output + ".original-C.txt");
@@ -377,9 +388,46 @@ internal static partial class Program
                 LifecycleChecks(inputs);
             if (section == "all" || section == "additional")
                 AdditionalChecks(inputs, args[0], args[1], args[4]);
+            if (section == "public-s2") PublicSpecialTeamsChecks(inputs[2]);
+            if (section == "public-s2-block")
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away }) PublicFieldGoalBlock(inputs[2], side);
+            if (section == "public-s2-onside")
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away })
+                    foreach (int vector in new[] { 0, 1, 2, 3 }) PublicOnsideInput(inputs[2], side, vector);
+            if (section == "public-s2-results")
+                PublicKickResultChecks(inputs[2]);
+            if (section == "public-s2-restarts")
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away })
+                    foreach (bool onside in new[] { false, true }) PublicSafetyRestart(inputs[2], side, onside);
+            if (section == "public-s2-period-input")
+                foreach (TeamId first in new[] { TeamId.Home, TeamId.Away })
+                    foreach (int quarter in new[] { 2, 4 }) PublicPeriodRestartInput(inputs[2], first, quarter);
+            if (section == "public-s2-final")
+            {
+                PublicSpecialTeamsChecks(inputs[2]);
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away })
+                    foreach (int vector in new[] { 0, 1, 2, 3 }) PublicOnsideInput(inputs[2], side, vector);
+                PublicKickResultChecks(inputs[2]);
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away })
+                    foreach (bool onside in new[] { false, true }) PublicSafetyRestart(inputs[2], side, onside);
+                foreach (TeamId first in new[] { TeamId.Home, TeamId.Away })
+                    foreach (int quarter in new[] { 2, 4 }) PublicPeriodRestartInput(inputs[2], first, quarter);
+            }
+            if (section == "public-s2-return-results")
+            {
+                var failures = new List<string>();
+                foreach (TeamId side in new[] { TeamId.Home, TeamId.Away })
+                {
+                    PublicKickResultCase(() => PublicFieldGoalBlock(inputs[2], side, true, true),
+                        "FG-block-return-result/" + side, failures);
+                    PublicKickResultCase(() => PublicKickOutcome(inputs[2], side, "punt-return", true),
+                        "punt-return-result/" + side, failures);
+                }
+                Check(failures.Count == 0, "finite independent complete raw returns: " + string.Join(" | ", failures));
+            }
             if (reference != null) { reference.Dispose(); reference = null; }
             File.WriteAllText(output, JsonSerializer.Serialize(new {
-                status = "passed", assertions, disabledAssertions, observations, meterFlows, physicsCases, referenceCalls, lifecycleCases, additionalCases,
+                status = "passed", assertions, disabledAssertions, observations, meterFlows, physicsCases, referenceCalls, lifecycleCases, additionalCases, publicSpecialTrace,
                 strict_native_generated_metrics_UNKNOWN = true, native_or_browser_proof = false
             }, Json));
             Console.WriteLine("KICK_METER_PASS assertions=" + assertions + " disabled=" + disabledAssertions
@@ -391,7 +439,7 @@ internal static partial class Program
             if (reference != null) { reference.Dispose(); reference = null; }
             File.WriteAllText(output, JsonSerializer.Serialize(new {
                 status = "failed", assertions, disabledAssertions, meterFlows, physicsCases, referenceCalls, lifecycleCases, additionalCases,
-                error = error.ToString(), observations
+                error = error.ToString(), observations, publicSpecialTrace
             }, Json));
             Console.Error.WriteLine(error);
             return 1;

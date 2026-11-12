@@ -1,0 +1,10 @@
+<Project>
+  <Import Project="MovementCallerChecks.csproj" />
+  <PropertyGroup>
+    <StartupObject>OriginalM1OpenSpaceEntry</StartupObject>
+    <AssemblyName>OriginalM1OpenSpaceChecks</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="OriginalM1OpenSpace.cs" />
+  </ItemGroup>
+</Project>

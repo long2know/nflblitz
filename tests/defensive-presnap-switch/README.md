@@ -5,6 +5,24 @@ uses `SourceC2Composition.CreatePreSnapSwitchSimulation`, not an upgraded old M1
 factory or a mutable B-switch option. Old117/157/272/281 data and all three saved
 Portable recordings retain their own identities.
 
+The November11 current-source positive is the separately named
+`portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000`,
+`reviewed-q11-6ad/v1` artifact with unchanged AUTHOR-v6 grammar. Source authoring
+remains public6ad, kernel104 `ff0ee6a6…`, harness12 `53ac07b6…`, raw `ad31c767…`.
+Its actual presnap282/289/Portable full gate reproduces12000/11400/22505raw,
+31R_SKIP and nine switches, retaining all11 compiled caller/cache controls and
+the664/5312 original-C comparison. Both required current full-gate invocations
+select that exact case and actual presnap profile, not a C2-M1/AV306 alias.
+The historical c202/v7 scenario and its15R_SKIP/25526raw expectations below
+remain sealed historical checks, not updated current metrics.
+
+`current_presnap_compatibility.py` retains the authentic78-source v5 positive
+and the separately archived c202103-source stale boundary at host4912, then
+adds the approved104-source current wrong-side boundary at host1523/source1447/
+raw2444. The unchanged old Defense command is not rewritten or blamed on its
+original producer. Neither old boundary can replace the other, and a current
+report cannot omit its third boundary by downgrading its schema.
+
 ```sh
 python3 -B tests/defensive-presnap-switch/run.py \
   --source-root "$PINNED_ORIGINAL" --fixture-manifest "$CONTACT272_FIXTURE" \
@@ -21,6 +39,14 @@ unchanged Contact27278-input union plus only the named missing dependencies in
 Reconstruct inputs locally; do not upload source, WAN, pose, geometry or bundle
 artifacts to move them between CI jobs.
 
+The historical558 reconstruction retains its original world-v1 bytes and
+`4512de8f...` manifest pin. `test_ci.py prepare-world-v1` copies only the converter
+and recipe from public ancestor `6816d64440ac83e4228247a8a571ab930850b5a5`
+into new ignored storage, authenticates both complete SHA256 identities, executes
+that real CLI and verifies the unchanged manifest before moving its output.
+The current world-v2 converter/catalog is not changed or relabelled as v1.
+Current converter or recipe substitution is rejected before conversion.
+
 The runner extracts original `_mode_dbps`, `update_stations`, `attack_snd` and
 the resolved stream/interpolation/RUNTOEND/quaternion bodies dynamically into
 ignored output. Seventy physical-station rows, eighteen bounded caller rows,
@@ -30,6 +56,19 @@ root controls run serially, must freshly compile with zero diagnostics and fail 
 assertions; compiler errors are never successful controls. Baseline/final
 baseline, actual cinematic kind5 delivery and the real raw `PlayerHost` path
 are separate evidence from selector registration.
+
+The current enabled profile explicitly binds `OriginalPortable` pose math.
+Its C oracle extracts the authenticated `isin`, `icos`, `asin_rad`, `acos_rad`
+and `sin_rad` bodies alongside `slerp`, using the unchanged `TRIGS.H` dependency
+already pinned by the inherited playbook inputs. It does not substitute libc
+trigonometry. Every quaternion and retained origin pose is compared component
+by component at the existing `0.00001` tolerance, without normalization: the
+original near-zero sine floor can produce non-unit quaternions. A unit-dot
+comparison would reject authentic results and miss magnitude regressions.
+Both historical VM probes still require their distinct `LegacyNormalized`
+policy; no old input bundle, source pin or saved recording is relabelled.
+Receipts bind the policy, extracted bodies and trig-table hash, and a failed
+runner diagnostic includes the first actual assertion.
 
 ## Completed-stream root/interpolation regression
 

@@ -26,10 +26,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.extend(str(ROOT / name) for name in ("tests/parity", "tools/rosters", "tools/assets"))
 GAME = ".github/workflows/game-build.yml"
 PLAYER = ".github/workflows/source-player.yml"
-INHERITED_GAME_SHA256 = "b84fe34092371010178c74be46d8d7081eb4f1c89823ae64d293169e4c051241"
+INHERITED_GAME_SHA256 = "94cd73144c84814a79e1ec923b7f0c494009f11f322985b1ecee79d70962faa8"
 INHERITED_PLAYER_SHA256 = "4c36ba39d722b1395d61d2be55140faeec4db7dfe17d361a94e7c7f846ebaa3c"
 SDK_COMMAND = r"""printf '{"sdk":{"version":"10.0.100","rollForward":"disable"}}\n' > global.json"""
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+ORIGINAL_CHECKOUT_STEP = (
+    "      - uses: " + CHECKOUT + " # v7\n"
+    "        with:\n          persist-credentials: false\n"
+)
+FULL_HISTORY_CHECKOUT_STEP = ORIGINAL_CHECKOUT_STEP + "          fetch-depth: 0\n"
 NODE = "actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38"
 DOTNET = "actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68"
 CI = "python3 -B tests/defensive-presnap-switch/test_ci.py"
@@ -37,15 +42,27 @@ WORKSPACE = ".squad/.scratch/defensive-switch-ci/new-workspace"
 LEGACY_WORKSPACE = ".squad/.scratch/defensive-switch-ci/inherited-workspace"
 D = ".squad/.scratch/SourceData/defensive-presnap-switch-ci"
 O = ".squad/.scratch/defensive-presnap-switch-ci"
-CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-12000"
+CASE = "trips-rollout-clearance-presnap-switch-v7-12000"
+CURRENT_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000"
+CURRENT_PUBLIC_SHA256 = "ad31c767e1a54af3efc681e0edf93aef88cd76b58bea1869da0df57a62f525e8"
+CURRENT_GZIP_SHA256 = "84856f6a35ad49335395f7c7fa1f59ae59e8075f032b0e6589af96ff1e13b17d"
+CURRENT_MANIFEST_SHA256 = "f74c4fcecee45aac34687382604c2b0c52a2d197428a52c7d84183d0fd22743f"
+CURRENT_REPLAY_SHA256 = "4bc457c72f2c190ae27a60a863cf89ed780e3ad89e38e8a20db8ab5875f9a414"
+V5_CASE = "portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000"
 OLD_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 BASE558_SHA256 = "d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134"
+WORLD_V1_REF = "6816d64440ac83e4228247a8a571ab930850b5a5"
+WORLD_V1_SHA256 = "4512de8fddbc8bafcf57befc1f3f8af303cb6d925a966e86ff0d870df1717191"
+WORLD_V1_SOURCE = {
+    "tools/environments/prepare_environment.py": "e76d1d6db8aa55655a3227077b78309137fc48e4fc1cb082e281f3df7ca8dbd7",
+    "tools/environments/environment_inputs.json": "aca3f73377ed4505f21f1b9c86ba7aeb7fde9f0d3142c317cca71756fe518b87",
+}
 PLAYER563_SHA256 = "150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6"
-PUBLIC_SHA256 = "556ba823b68767e8c6a302d9d59a231fbb457720723a372bf830d57fc8bdd975"
-GZIP_SHA256 = "9a4a17c7fb13907c04889202e80a91416d576c9dc1ac5abf744d3d205a88bf40"
-RECIPE_SHA256 = "33ad526af04fe567f3f9523510c6f394b939a6496f03167e82a87bedd5416fbf"
+PUBLIC_SHA256 = "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866"
+GZIP_SHA256 = "6d1202ebe3b1bc50e032cdc67a3978f0abc546a31ddb9e16712696fdd95872fa"
+RECIPE_SHA256 = "eb87373a21cca009125daa948dab37bc9e09b91b224d5e025d8d5435afa1917a"
 FOCUSED_CONTROLS = (
     "strict-counter-boundary", "cyclic-not-nearest", "occupied-skip",
     "ten-loop-unconditional-assignment", "fake-B-external-edge-reinjection",
@@ -82,6 +99,27 @@ LEGACY_BOOTSTRAP = (
     "      - name: Verify additive wiring and isolate the inherited guard view\n"
     "        working-directory: .\n"
     "        run: " + CI + " workspace --output " + LEGACY_WORKSPACE + " --inherited\n"
+)
+LIFECYCLE_COMMAND = (
+    "python3 -B tests/match-lifecycle/run.py "
+    "--fixture-manifest .squad/.scratch/SourceData/source-kernel-contact272/fixture.json "
+    "--sound-functions .squad/.scratch/SourceData/source-kernel-contact272/audio-functions/sound-functions.safn "
+    "--c2-m1-inputs .squad/.scratch/SourceData/c2-m1 --output .squad/.scratch/match-terminal-ci --controls"
+)
+ORIGINAL_LIFECYCLE_STEP = (
+    "      - name: Test actual source terminal producer and real bridge notification\n"
+    "        run: " + LIFECYCLE_COMMAND + "\n"
+)
+LIFECYCLE_ASSETS_STEP = """      - name: Prepare explicit lifecycle SDK assets
+        run: |
+          mkdir -p .squad/.scratch/match-lifecycle-sdk-assets/empty-feed
+          dotnet restore tests/match-lifecycle/MatchLifecycleChecks.csproj --source "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/empty-feed" --packages "$PWD/.squad/.scratch/match-lifecycle-sdk-assets/nuget" --disable-parallel --verbosity quiet -p:NuGetAudit=false -p:BaseIntermediateOutputPath="$PWD/.squad/.scratch/match-lifecycle-sdk-assets/obj/"
+"""
+ADMITTED_LIFECYCLE_STEP = (
+    "      - name: Test actual source terminal producer and real bridge notification\n"
+    "        env:\n          BLITZ_CI_MUTATION_WORKERS: '1'\n"
+    "        run: " + LIFECYCLE_COMMAND +
+    " --project-assets .squad/.scratch/match-lifecycle-sdk-assets/obj/project.assets.json\n"
 )
 HISTORICAL_CORE_BUDGET = (
     "  core-and-tooling:\n"
@@ -196,13 +234,18 @@ COMMANDS = {
     ),
     "Prepare closed saved public inputs without authoring or simulation": tuple(
         f"python3 -B tests/movement-callers/prepare_public_replay.py prepare --case {case} --fixture tests/movement-callers/fixtures/{case}.jsonl.gz --recipe tests/movement-callers/fixtures/{case}.recipe.json --output {D}/{case}.jsonl"
-        for case in (OLD_CASE, POSSESSION_CASE, CASE)
+        for case in (OLD_CASE, POSSESSION_CASE, V5_CASE, CASE)
+    ) + (
+        f"python3 -B tests/movement-callers/prepare_public_replay.py prepare --case {CURRENT_CASE} --fixture tests/movement-callers/fixtures/{CURRENT_CASE}.jsonl.gz --recipe tests/movement-callers/fixtures/{CURRENT_CASE}.manifest.json --output {D}/{CURRENT_CASE}.jsonl",
     ),
     "Execute only the fresh current U2 fifth legacy recording probe": (
         history_command(D, O + "/current-history"),
     ),
+    "Retain the historical v5 positive and integrated v5 stale boundary": (
+        f"python3 -B tests/movement-callers/current_presnap_compatibility.py --fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn --presnap-switch-inputs {D}/profile --replay-commands {D}/{V5_CASE}.jsonl --output {O}/v5-compatibility",
+    ),
     "Execute normal full enabled-profile replay and all11 causal controls": (
-        f"python3 -B tests/movement-callers/run.py --source-root {D}/original --input-profile contact272 --fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs {D}/profile --replay-commands {D}/{CASE}.jsonl --output {O}/new-full --source-compatibility portable",
+        f"python3 -B tests/movement-callers/run.py --source-root {D}/original --input-profile contact272 --fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn --c2-presnap-switch-inputs {D}/profile --replay-commands {D}/{CURRENT_CASE}.jsonl --replay-case {CURRENT_CASE} --output {O}/new-full --source-compatibility portable",
     ),
     "Reject real corrupted result source and saved-recording artifacts": (
         f"{CI} failure-guards --root {D} --results {O} --output {O}/failure-guards.json",
@@ -241,6 +284,7 @@ def new_job():
         "    steps:\n"
         "      - uses: " + CHECKOUT + " # v7\n"
         "        with:\n          persist-credentials: false\n"
+        "          fetch-depth: 0\n"
         "      - uses: " + NODE + " # v6\n"
         "        with:\n          node-version: '24.11.1'\n"
         "      - uses: " + DOTNET + " # v6\n"
@@ -257,10 +301,60 @@ def remove_once(text, addition, replacement=""):
     return text.replace(addition, replacement, 1)
 
 
+SOURCE_BOUND_V5_PREP = """      - name: Prepare distinct source-bound v5 public replay without simulation
+        run: python3 -B tests/movement-callers/prepare_public_replay.py prepare --case portable-cabinet-wide-pass-clearance-source-bound-v5-12000 --fixture tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl.gz --recipe tests/movement-callers/fixtures/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.recipe.json --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl
+"""
+SOURCE_BOUND_V5_GUARDS = """      - name: Guard source-bound v5 and the retained invalid v4 recording
+        run: |
+          python3 -B tests/movement-callers/test_source_bound_recording.py -q
+          python3 -B tests/movement-callers/test_canonical.py SourceBoundGenerationGuards -q
+"""
+SOURCE_BOUND_V5_SELECTION = "--replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl --replay-case portable-cabinet-wide-pass-clearance-source-bound-v5-12000"
+RETAINED_V4_SELECTION = "--replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000.jsonl"
+CURRENT_Q11_PREP = f"""      - name: Prepare reviewed q11 public input and actual presnap successor
+        run: |
+          python3 -B tools/animation/prepare_player_sequences.py --source-root .squad/.scratch/SourceData/source-kernel-original --catalog tools/animation/presnap_switch_sequences.json --destination .squad/.scratch/SourceData/c2-presnap-q11/hop
+          python3 -B tools/animation/prepare_presnap_switch_profile.py profile --source-root .squad/.scratch/SourceData/source-kernel-original --base-m1-inputs .squad/.scratch/SourceData/c2-m1 --hop-bundle .squad/.scratch/SourceData/c2-presnap-q11/hop --movement-programs Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs --destination .squad/.scratch/SourceData/c2-presnap-q11/profile
+          python3 -B tests/movement-callers/prepare_public_replay.py prepare --case {CURRENT_CASE} --fixture tests/movement-callers/fixtures/{CURRENT_CASE}.jsonl.gz --recipe tests/movement-callers/fixtures/{CURRENT_CASE}.manifest.json --output .squad/.scratch/SourceData/{CURRENT_CASE}.jsonl
+"""
+CURRENT_Q11_SELECTION = (
+    "--c2-presnap-switch-inputs .squad/.scratch/SourceData/c2-presnap-q11/profile "
+    f"--replay-commands .squad/.scratch/SourceData/{CURRENT_CASE}.jsonl --replay-case {CURRENT_CASE} "
+    "--output .squad/.scratch/q11-ci-full-qualification"
+)
+SOURCE_BOUND_V5_PROFILE_SELECTION = (
+    "--c2-m1-inputs .squad/.scratch/SourceData/c2-m1 " + SOURCE_BOUND_V5_SELECTION +
+    " --output .squad/.scratch/m1-ci-full-qualification"
+)
+
+
+def pre_q11_game(text):
+    text = remove_once(text, CURRENT_Q11_PREP)
+    text = remove_once(text, CURRENT_Q11_SELECTION, SOURCE_BOUND_V5_PROFILE_SELECTION)
+    preparation = COMMANDS["Prepare closed saved public inputs without authoring or simulation"][-1]
+    text = remove_once(text, "          " + preparation + "\n")
+    current = COMMANDS["Execute normal full enabled-profile replay and all11 causal controls"][0]
+    historical = (
+        f"python3 -B tests/movement-callers/run.py --source-root {D}/original --input-profile contact272 "
+        f"--fixture-manifest {D}/contact272/fixture.json --sound-functions {D}/contact272/audio-functions/sound-functions.safn "
+        f"--c2-presnap-switch-inputs {D}/profile --replay-commands {D}/{CASE}.jsonl "
+        f"--output {O}/new-full --source-compatibility portable"
+    )
+    return remove_once(text, current, historical)
+
+
 def inherited_game(text):
+    text = remove_once(text, CURRENT_Q11_PREP)
+    text = remove_once(text, CURRENT_Q11_SELECTION, SOURCE_BOUND_V5_PROFILE_SELECTION)
+    text = remove_once(text, SOURCE_BOUND_V5_PREP)
+    text = remove_once(text, SOURCE_BOUND_V5_GUARDS)
+    text = remove_once(text, SOURCE_BOUND_V5_SELECTION, RETAINED_V4_SELECTION)
     # Keep historical guards byte-faithful while reversing only the approved current core budget.
     text = remove_once(text, CURRENT_CORE_BUDGET, HISTORICAL_CORE_BUDGET)
+    text = remove_once(text, LIFECYCLE_ASSETS_STEP)
+    text = remove_once(text, ADMITTED_LIFECYCLE_STEP, ORIGINAL_LIFECYCLE_STEP)
     text = remove_once(text, new_job())
+    text = remove_once(text, FULL_HISTORY_CHECKOUT_STEP, ORIGINAL_CHECKOUT_STEP)
     text = remove_once(text, LEGACY_DEFAULTS)
     text = remove_once(text, LEGACY_BOOTSTRAP)
     text = remove_once(text, BROWSER_STEP, ORIGINAL_BROWSER_STEP)
@@ -275,6 +369,7 @@ def inherited_game(text):
 
 
 def inherited_player(text):
+    text = remove_once(text, FULL_HISTORY_CHECKOUT_STEP, ORIGINAL_CHECKOUT_STEP)
     for path in PLAYER_PATH_ADDITIONS:
         addition = "      - '" + path + "'\n"
         require(text.count(addition) == 2, "Both player triggers must cover: " + path)
@@ -432,7 +527,7 @@ def run_commands(commands, output):
                          log_sha256=sha(raw)))
         (output / "commands.json").write_text(json.dumps(rows, indent=2) + "\n")
         require(process.returncode == 0, "Actual pinned producer failed: " + shlex.join(command) +
-                "; see " + str(output / (str(index) + ".log")))
+                "; see " + str(output / (str(index) + ".log")) + "\n" + process.stderr[-6000:])
     return rows
 
 
@@ -549,12 +644,46 @@ def prepare_kernel(root):
             "The exact actual834 Contact272 fixture must be reconstructed, not relabelled")
 
 
+def verify_world_v1_source(directory):
+    for name, pin in WORLD_V1_SOURCE.items():
+        path = directory / name
+        require(path.resolve() == path and path.is_file() and sha(path.read_bytes()) == pin,
+                "The historical world producer/recipe must remain exact: " + name)
+
+
+def materialize_world_v1_source(directory):
+    directory = new_output(directory)
+    for name, pin in WORLD_V1_SOURCE.items():
+        raw = subprocess.check_output(["git", "show", WORLD_V1_REF + ":" + name], cwd=ROOT)
+        require(sha(raw) == pin, "Public ancestor world-v1 source identity differs: " + name)
+        target = directory / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+    verify_world_v1_source(directory)
+    return directory
+
+
+def prepare_world_v1(root):
+    destination = new_output(root / "world")
+    directory = materialize_world_v1_source(root / "world-v1-source")
+    generated = directory / ".squad/.scratch/world"
+    run_commands([[
+        "python3", "-B", str(directory / "tools/environments/prepare_environment.py"),
+        "--source-root", str(root / "acquired/nfl"),
+        "--source-commit", "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+        "--destination", str(generated), "--confirm-local-use",
+        "--authorization-reference", "owner-directed-source-world-2026-10-16",
+    ]], root / "world-v1-commands")
+    verify_world_v1_source(directory)
+    require(sha((generated / "environment.json").read_bytes()) == WORLD_V1_SHA256,
+            "The historical converter must reproduce the unchanged original world-v1 manifest")
+    generated.rename(destination)
+
+
 def prepare_player(root):
     p = lambda name: str(root / name)
     commands = [
-        ["python3", "-B", "tools/environments/prepare_environment.py", "--source-root", p("acquired/nfl"),
-         "--source-commit", "89f840d58d152a2a9f230cb8d0cdffbd554c8ded", "--destination", p("world"),
-         "--confirm-local-use", "--authorization-reference", "owner-directed-source-world-2026-10-16"],
+        ["python3", "-B", "tests/defensive-presnap-switch/test_ci.py", "prepare-world-v1", "--root", str(root)],
         ["python3", "-B", "tools/assets/prepare_teams.py", "--source-root", p("acquired/nfl"),
          "--rosters", p("kernel/rosters.json"), "--destination", p("teams"), "--confirm-local-use",
          "--authorization-reference", "owner-directed-original-team-presentation-2026-10-16",
@@ -569,7 +698,7 @@ def prepare_player(root):
          "--destination", p("normal-camera.json")],
         ["python3", "-B", "tools/source-player/prepare.py", "--kernel-fixture", p("contact272/fixture.json"),
          "--m1-inputs", p("m1"), "--m1-impact", p("impact-m1/impact-presentation.json"), "--world", p("world"),
-         "--world-sha256", "4512de8fddbc8bafcf57befc1f3f8af303cb6d925a966e86ff0d870df1717191",
+         "--world-sha256", WORLD_V1_SHA256,
          "--teams", p("teams"), "--teams-sha256", "c9e875052544c2d7e30d6cdab4bcf9a3b38d552adfa9deef8da5d35ab0ceb62c",
          "--hud", p("services/hud"), "--settings", "tools/source-player/match-settings.four-player.json",
          "--output", p("player518")],
@@ -924,11 +1053,34 @@ def validate_full(directory, full):
                   "all3_cache_and8_caller_controls_compiled_and_causal", "M1_public_caller_gate_qualified",
                   "live_production_unchanged"):
         require(full.get(field) is True, "Mandatory actual full gate missing: " + field)
+    canonical = load("defensive_ci_full_canonical", "tests/movement-callers/canonical.py")
+    reviewed = full.get("observer_source_binding") == canonical.REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION
     require(full.get("public_vector_executions") == 6 and
             full.get("production_before") == full.get("production_after") and
-            len(full.get("production_before", {})) == 78 and len(full.get("harness_sha256", {})) == 12,
-            "The full six-replay/78-source/12-harness generation must be retained")
-    canonical = load("defensive_ci_full_canonical", "tests/movement-callers/canonical.py")
+            len(full.get("production_before", {})) == (104 if reviewed else 103) and
+            len(full.get("harness_sha256", {})) == 12,
+            "The full six-replay/exact-declared-source/12-harness source-driven generation must be retained")
+    if reviewed:
+        recipe = canonical.public_replay.reviewed_q11_manifest()
+        source_sha = recipe["source_epoch"]["source104Sha256"]
+        harness_sha = recipe["source_epoch"]["harness12Sha256"]
+        generation = canonical.REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION
+        public_sha, rskip, raw_cursor = CURRENT_PUBLIC_SHA256, 31, 22505
+        inputs = [Path(name) for name, pin in full.get("inputs_before", {}).items() if pin == public_sha]
+        require(len(inputs) == 1, "The exact separately named current saved raw input is mandatory.")
+        binding = canonical.reviewed_q11_execution_binding(generation, inputs[0])
+        require(full.get("recording_execution_binding") == binding,
+                "The full gate must retain the actual6ad authoring epoch and distinct reviewed current case.")
+    else:
+        recipe = canonical.public_replay.open_space_recipe()
+        source_sha, harness_sha = recipe["source_manifest_sha256"], recipe["harness_manifest_sha256"]
+        generation = canonical.CURRENT_OBSERVER_GENERATION
+        public_sha, rskip, raw_cursor = PUBLIC_SHA256, 15, 25526
+    require(sha(json.dumps(full["production_before"], sort_keys=True, separators=(",", ":")).encode()) ==
+            source_sha and
+            sha(json.dumps(full["harness_sha256"], sort_keys=True, separators=(",", ":")).encode()) ==
+            harness_sha and full.get("observer_source_binding") == generation,
+            "The exact reviewed source and new scenario harness seals are mandatory")
     controls = load("defensive_ci_full_controls", "tests/movement-callers/run.py")
     cache = [("cache-control-" + spec[0], spec[-1]) for spec in canonical.CANONICAL_CACHE_MUTANTS]
     callers = [("caller-control-" + spec[0], spec[-1]) for spec in controls.MUTANTS]
@@ -961,16 +1113,26 @@ def validate_full(directory, full):
         require(actual == row.get("receipt") and sha(receipt_path.read_bytes()) == row.get("replay_receipt_sha256"),
                 "Actual full replay receipt differs or is absent: " + name)
         require(canonical.require_m1_replay(row["exit_code"], row["summary"], actual, "portable", True) == "positive" and
-                actual.get("replayFileSha256") == PUBLIC_SHA256 and actual.get("preSnapSwitchWitnesses") == 15 and
-                actual.get("rSkipFrames") == 59 and actual.get("rawCursor") == 22781 and
+                actual.get("replayFileSha256") == public_sha and actual.get("preSnapSwitchWitnesses") == 9 and
+                actual.get("rSkipFrames") == rskip and actual.get("rawCursor") == raw_cursor and
                 row["summary"].get("mode") == ("presnap-complete-observed" if name == "isolated-observer" else "presnap-complete") and
                 row["summary"].get("actual_animation_library_manifest") == canonical.PRESNAP_ANIMATION_SHA and
                 row["summary"].get("assertions", 0) > 0,
                 "Actual12000/11400 new factory, same-window B, ordered RNG and authentic R_SKIP required: " + name)
+        canonical.replay_evidence.verify(directory / name, row.get("retained_replay_evidence", {}))
+        if reviewed:
+            output = row["retained_replay_evidence"]["m1-public-replay.jsonl"]
+            require(output["sha256"] == CURRENT_REPLAY_SHA256 and output["bytes"] == 391228619,
+                    "The complete actual12000-row current state/RNG/event/sound/cache stream must reproduce its seal.")
+            witness = recipe["initial_public_R_SKIP_witness"]
+            require(row.get("reviewed_q11_real_pose_witness") == dict(
+                actor=witness["actor"], instance=witness["InstanceId"],
+                firstTick=witness["firstTick"], secondTick=witness["secondTick"],
+                firstOrdinal=witness["firstOrdinal"], secondOrdinal=witness["secondOrdinal"]),
+                "The approved helper must inspect actual distinct fifteen-local-joint poses, not only ordinals.")
     for filename in ("m1-public-replay.jsonl", "m1-all-raw-draws.json", "m1-R_SKIP-real-poses.json"):
-        raw = (directory / "uninstrumented" / filename).read_bytes()
-        require(raw and all((directory / label / filename).read_bytes() == raw
-                            for label in ("isolated-observer", "final-uninstrumented")),
+        require(all(canonical.replay_evidence.same(directory / "uninstrumented", directory / label, filename)
+                    for label in ("isolated-observer", "final-uninstrumented")),
                 "Actual uninstrumented/observer/final state-input-RNG-pose byte equality required: " + filename)
     for name in ("controlled-baseline", "controlled-final"):
         controls.require_summary(runs[name]["exit_code"], runs[name]["summary"], "controlled", canonical.PRESNAP_ANIMATION_SHA)
@@ -1082,12 +1244,26 @@ def summarize(root, results, output):
             history.get("executed_probe_inventory") == history["selected_probe_inventory"],
             "The actual fresh current U2 fifth historical-boundary probe is mandatory")
     generations.validate_probe_inventory("u2-current-fifth", history.get("probes"))
+    compatibility = load("defensive_ci_v5_compatibility", "tests/movement-callers/current_presnap_compatibility.py")
+    v5 = checked_json(results / "v5-compatibility/result.json")
+    compatibility.validate_report(v5)
+    for label, row in v5["runs"].items():
+        compatibility.canonical.replay_evidence.verify(results / "v5-compatibility" / label,
+                                                       row.get("retained_replay_evidence", {}))
     replay = load("defensive_ci_public", "tests/movement-callers/prepare_public_replay.py")
     require(sha((ROOT / f"tests/movement-callers/fixtures/{CASE}.jsonl.gz").read_bytes()) == GZIP_SHA256 and
             sha((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes()) == RECIPE_SHA256 and
             sha((root / (CASE + ".jsonl")).read_bytes()) == PUBLIC_SHA256, "Saved public input/recipe identity changed")
     replay.audit_public((root / (CASE + ".jsonl")).read_bytes(), CASE)
     replay.load_recipe(ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json", CASE)
+    current = full.get("recording_execution_binding", {}).get("recordingCase") == CURRENT_CASE
+    if current:
+        paths = replay.reviewed_q11_metadata_paths()
+        require(sha(paths["gzip"].read_bytes()) == CURRENT_GZIP_SHA256 and
+                sha(paths["manifest"].read_bytes()) == CURRENT_MANIFEST_SHA256,
+                "The approved current fixture and authoring manifest must remain byte-identical.")
+        replay.audit_public((root / (CURRENT_CASE + ".jsonl")).read_bytes(), CURRENT_CASE)
+        replay.load_recipe(paths["manifest"], CURRENT_CASE)
     old = checked_json(root / "player558/manifest.json")
     new = checked_json(root / "player563/manifest.json")
     require(sha((root / "player558/manifest.json").read_bytes()) == BASE558_SHA256 and
@@ -1108,12 +1284,16 @@ def summarize(root, results, output):
     summary = dict(schema="defensive-switch-ci-private-summary/v1", status="passed",
         profile=PROFILE, factory=focused["actual_factory"], focused_controls=expected,
         full_controls=full_controls, actual_original_C_cases=664, exact_original_C_checks=5312,
-        public_case=CASE, public_sha256=PUBLIC_SHA256, public_recording_input_only=True,
+        public_case=CURRENT_CASE if current else CASE,
+        public_sha256=CURRENT_PUBLIC_SHA256 if current else PUBLIC_SHA256,
+        public_recording_input_only=True,
         authoring_windows=0, private_assets_or_observations_uploaded=False,
-        current_history_probes=list(history["probes"]),
+        current_history_probes=list(history["probes"]), v5_compatibility_boundaries=list(v5["runs"]),
         result_sha256={name: sha(path.read_bytes()) for name, path in {
             "focused": results / "focused/result.json", "full": results / "new-full/result.json",
-            "history": results / "current-history/result.json", "acquisition": root / "acquired/receipt.json"}.items()},
+            "history": results / "current-history/result.json",
+            "v5_compatibility": results / "v5-compatibility/result.json",
+            "acquisition": root / "acquired/receipt.json"}.items()},
         whole_native_or_hosted_qualified=False)
     require(not output.exists(), "Never replace a prior CI privacy receipt")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -1127,6 +1307,10 @@ def failure_guards(root, results, output):
     original = full_path.read_bytes()
     full = checked_json(full_path)
     validate_full(results / "new-full", full)
+    current = full.get("recording_execution_binding", {}).get("recordingCase") == CURRENT_CASE
+    case = CURRENT_CASE if current else CASE
+    gzip_sha = CURRENT_GZIP_SHA256 if current else GZIP_SHA256
+    recipe_sha = CURRENT_MANIFEST_SHA256 if current else RECIPE_SHA256
     mutations = []
     for field in ("original8_controls_retained", "original3_cache_controls_retained",
                   "complete_compiled_control_closure_executed",
@@ -1153,14 +1337,14 @@ def failure_guards(root, results, output):
     for name, bad in mutations:
         try:
             validate_full(results / "new-full", bad)
-        except (AssertionError, RuntimeError) as error:
+        except (AssertionError, RuntimeError, ValueError) as error:
             rejected.append(dict(id=name, cause=str(error)[:220], actual_result_sha256=sha(original)))
         else:
             raise AssertionError("Real full-result mutation was accepted: " + name)
     work = new_output(results / "guard-negatives")
     work.mkdir(parents=True)
-    fixture = ROOT / f"tests/movement-callers/fixtures/{CASE}.jsonl.gz"
-    recipe = ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json"
+    fixture = ROOT / f"tests/movement-callers/fixtures/{case}.jsonl.gz"
+    recipe = ROOT / f"tests/movement-callers/fixtures/{case}{'.manifest.json' if current else '.recipe.json'}"
     packed = bytearray(fixture.read_bytes())
     packed[9] ^= 1
     altered_fixture = work / fixture.name
@@ -1175,7 +1359,7 @@ def failure_guards(root, results, output):
         ("changed-recipe", fixture, altered_recipe, "Public replay preparation failed:"),
     ):
         target = work / (label + ".jsonl")
-        command = ["python3", "-B", "tests/movement-callers/prepare_public_replay.py", "prepare", "--case", CASE,
+        command = ["python3", "-B", "tests/movement-callers/prepare_public_replay.py", "prepare", "--case", case,
                    "--fixture", str(supplied_fixture), "--recipe", str(supplied_recipe), "--output", str(target)]
         process = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
         raw = (process.stdout + process.stderr).encode()
@@ -1205,8 +1389,8 @@ def failure_guards(root, results, output):
     commands.append(dict(id="changed-original-source", command=command, exit=process.returncode,
                          log_sha256=sha(raw), managed_or_C_commands_executed=0))
     shutil.rmtree(source)
-    require(full_path.read_bytes() == original and sha(fixture.read_bytes()) == GZIP_SHA256 and
-            sha(recipe.read_bytes()) == RECIPE_SHA256, "Negative controls cannot alter real frozen results or saved inputs")
+    require(full_path.read_bytes() == original and sha(fixture.read_bytes()) == gzip_sha and
+            sha(recipe.read_bytes()) == recipe_sha, "Negative controls cannot alter real frozen results or saved inputs")
     receipt = dict(schema="defensive-switch-ci-actual-artifact-negatives/v1", status="passed",
         actualFullResultSha256=sha(original), artifactMutationsRejected=rejected, commands=commands,
         publicPreparationCLIRejects=2, sourceCLIRejects=1, publicAuthoringWindows=0,
@@ -1254,8 +1438,10 @@ def checkout_context(text, job):
     environment.update(workflow_environment(steps[0], 8))
     directories = re.findall(r"^        working-directory: (.+)$", header, re.M)
     require(len(directories) <= 1, "One explicit run default is allowed")
+    depths = re.findall(r"^          fetch-depth: (\d+)$", steps[0], re.M)
+    require(len(depths) <= 1, "One explicit checkout history depth is allowed")
     return dict(environment=environment, run_directory=directories[0] if directories else ".",
-                steps=steps)
+                steps=steps, fetch_depth=int(depths[0]) if depths else 1)
 
 
 def empty_runner_checkout(text, job, directory):
@@ -1291,11 +1477,50 @@ def populate_checkout(probe):
     _, git_dir = source_git_identity()
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
                           capture_output=True, text=True, check=True).stdout.strip()
-    # Only this newly initialized fixture gets an index/ref; the source checkout is read-only.
-    for command in (["git", "fetch", "--no-tags", "--depth=1", git_dir, head],
-                    ["git", "update-ref", "HEAD", head], ["git", "read-tree", head]):
+    # Propose current code and a PR merge only inside this isolated source-only fixture.
+    origin = checkout.parent / "source-history.git"
+    subprocess.run(["git", "init", "--bare", str(origin)], env=environment,
+                   capture_output=True, check=True, timeout=30)
+    def fixture_git(*args, raw=None):
+        return subprocess.run(["git", *args], cwd=origin, env=environment, input=raw,
+                              capture_output=True, check=True, timeout=60).stdout
+    generations = load("defensive_ci_fixture_generations", "tests/movement-callers/check_replay_generations.py")
+    archived = tuple(dict.fromkeys((generations.U2_ARCHIVE_REF, generations.BASELINE_REF,
+        generations.PREVIOUS_REF, generations.CURRENT_REF, generations.NEAR_FRAME_ARCHIVE_REF)))
+    fixture_git("fetch", "--no-tags", git_dir, head, *archived)
+    for index, ref in enumerate(archived):
+        fixture_git("update-ref", "refs/heads/frozen-source-" + str(index), ref)
+    fixture_git("read-tree", head)
+    paths = code_paths()
+    changed = subprocess.run(["git", "diff", "--name-only", "-z", "HEAD", "--", *paths], cwd=ROOT,
+                             capture_output=True, check=True).stdout
+    for name in (value.decode() for value in changed.split(b"\0") if value):
+        row = fixture_git("ls-tree", head, "--", name).decode().strip()
+        require(row and row.split()[1] == "blob", "Proposed source must already be tracked: " + name)
+        blob = fixture_git("hash-object", "-w", "--stdin", raw=(ROOT / name).read_bytes()).decode().strip()
+        fixture_git("update-index", "--cacheinfo", row.split()[0] + "," + blob + "," + name)
+    tree = fixture_git("write-tree").decode().strip()
+    environment.update(GIT_AUTHOR_NAME="CI fixture", GIT_AUTHOR_EMAIL="fixture.invalid",
+                       GIT_COMMITTER_NAME="CI fixture", GIT_COMMITTER_EMAIL="fixture.invalid",
+                       GIT_AUTHOR_DATE="2026-10-23T00:00:00Z", GIT_COMMITTER_DATE="2026-10-23T00:00:00Z")
+    proposed = fixture_git("commit-tree", tree, "-p", head, raw=b"Proposed static source fixture\n").decode().strip()
+    parent = fixture_git("rev-parse", head + "^").decode().strip()
+    merge = fixture_git("commit-tree", tree, "-p", parent, "-p", proposed,
+                        raw=b"Synthetic pull-request checkout fixture\n").decode().strip()
+    fixture_git("update-ref", "refs/heads/ci-checkout", merge)
+    subprocess.run(["git", "remote", "add", "origin", str(origin)], cwd=checkout, env=environment,
+                   capture_output=True, check=True)
+    fetch = ["git", "fetch", "--no-tags"]
+    if probe["context"]["fetch_depth"]:
+        fetch.append("--depth=" + str(probe["context"]["fetch_depth"]))
+    else:
+        # Actions' depth-zero checkout includes archived source branches, not only HEAD's ancestry.
+        subprocess.run(fetch + ["origin", "+refs/heads/*:refs/remotes/origin/*"],
+                       cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)
+    for command in (fetch + ["origin", merge],
+                    ["git", "update-ref", "HEAD", merge], ["git", "read-tree", merge]):
         subprocess.run(command, cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)
-    archive = subprocess.run(["git", "archive", "--format=tar", head], cwd=checkout, env=environment,
+    archive = subprocess.run(["git", "archive", "--format=tar", merge], cwd=checkout, env=environment,
                              capture_output=True, check=True).stdout
     names = set()
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
@@ -1312,14 +1537,15 @@ def populate_checkout(probe):
                 target.write_bytes(source.extractfile(member).read())
                 target.chmod(stat.S_IMODE(member.mode))
                 names.add(member.name)
-    for name in code_paths():
+    for name in paths:
         if name == "global.json" and name not in names:
             require((ROOT / name).read_bytes() == shlex.split(SDK_COMMAND)[1].replace("\\n", "\n").encode(),
                     "Only the exact workflow-generated SDK selection may be absent from the checkout")
             continue
         require(name in names, "The clean fixture must not borrow an uncommitted/ignored dependency: " + name)
-        (checkout / name).write_bytes((ROOT / name).read_bytes())
-    return head
+        require((checkout / name).read_bytes() == (ROOT / name).read_bytes(),
+                "The proposed Git tree must bind the actual current source bytes: " + name)
+    return merge
 
 
 def browser_step_body(game):
@@ -1507,13 +1733,103 @@ class BrowserRuntimeCI(unittest.TestCase):
                     self.assertEqual(sentinels[0].read_text(), "untouched")
 
 
+class HistoricalWorldProducerCI(unittest.TestCase):
+    def test_exact_public_ancestor_tool_and_recipe_reject_real_current_source_substitution(self):
+        root = ROOT / ".squad/.scratch" / ("world-v1-source-control-" + uuid.uuid4().hex)
+        self.addCleanup(shutil.rmtree, root)
+        directory = materialize_world_v1_source(root)
+        for name in WORLD_V1_SOURCE:
+            path = directory / name
+            original = path.read_bytes()
+            current = (ROOT / name).read_bytes()
+            self.assertNotEqual(original, current)
+            path.write_bytes(current)
+            with self.subTest(path=name), self.assertRaisesRegex(AssertionError, "must remain exact"):
+                verify_world_v1_source(directory)
+            path.write_bytes(original)
+            verify_world_v1_source(directory)
+        command = ["python3", "-B", str(directory / "tools/environments/prepare_environment.py"), "--help"]
+        process = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertIn("--authorization-reference", process.stdout)
+
+
+class ProducerDiagnosticsCI(unittest.TestCase):
+    def test_failed_real_child_preserves_exit_and_surfaces_bounded_stderr(self):
+        directory = ROOT / ".squad/.scratch" / ("producer-diagnostic-" + uuid.uuid4().hex)
+        directory.mkdir(parents=True, mode=0o700)
+        self.addCleanup(shutil.rmtree, directory)
+        script = directory / "producer.py"
+        marker = "actual producer diagnostic sentinel"
+        beginning = "beginning of full retained diagnostic\n"
+        diagnostic = beginning + "x" * 7000 + "\n" + marker + "\n"
+        script.write_text("import sys\nsys.stderr.write(" + repr(diagnostic) +
+                          ")\nraise SystemExit(7)\n")
+        output = directory / "logs"
+        with self.assertRaises(AssertionError) as rejected:
+            run_commands([[sys.executable, "-B", str(script)]], output)
+        self.assertIn(marker, str(rejected.exception))
+        self.assertIn("Actual pinned producer failed:", str(rejected.exception))
+        self.assertNotIn(beginning, str(rejected.exception))
+        self.assertLess(len(str(rejected.exception)), 7000)
+        self.assertEqual((output / "0.log").read_text(), diagnostic)
+        self.assertEqual(json.loads((output / "commands.json").read_bytes())[0]["exit"], 7)
+
+
 class CheckoutBootstrapCI(unittest.TestCase):
     def setUp(self):
         self.directory = ROOT / ".squad/.scratch" / ("ci-checkout-bootstrap-" + uuid.uuid4().hex)
-        self.directory.mkdir(parents=True)
+        self.directory.mkdir(parents=True, mode=0o700)
 
     def tearDown(self):
         shutil.rmtree(self.directory)
+
+    def snapshot_history(self, cwd, environment):
+        script = """
+import json
+import sys
+sys.path.insert(0, "tests/movement-callers")
+import check_replay_generations as g
+snapshots = {
+    "u2": g.u2_current_snapshot()[1],
+    "main38": g.historical_snapshot(g.BASELINE_REF)[1],
+    "main39": g.historical_snapshot(g.PREVIOUS_REF, previous=True)[1],
+    "pr41": g.current_snapshot()[1],
+    "near-frame": g.near_frame_snapshot()[1],
+}
+fields = ("commit", "tree", "source_count", "source_manifest_sha256", "harness_count", "harness_manifest_sha256")
+controller = "tests/movement-callers/PortablePublicPolicy.cs"
+print(json.dumps({name: dict({key: identity.get(key) for key in fields},
+    controller_sha256=identity["files_sha256"][controller]) for name, identity in snapshots.items()}))
+"""
+        return subprocess.run([sys.executable, "-B", "-c", script], cwd=cwd, env=environment,
+                              capture_output=True, text=True, timeout=120)
+
+    def assert_snapshot_history(self, cwd, environment):
+        process = self.snapshot_history(cwd, environment)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        generations = load("defensive_ci_checkout_generations", "tests/movement-callers/check_replay_generations.py")
+        expected = {}
+        for name, ref, tree, count, source, harness in (
+            ("u2", generations.U2_ARCHIVE_REF, generations.U2_ARCHIVE_TREE, 78,
+             generations.U2_CURRENT_SOURCE_SHA256, generations.U2_HARNESS_SHA256),
+            ("main38", generations.BASELINE_REF, generations.BASELINE_TREE, 76,
+             generations.BASELINE_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("main39", generations.PREVIOUS_REF, generations.PREVIOUS_TREE, 77,
+             generations.PREVIOUS_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("pr41", generations.CURRENT_REF, generations.CURRENT_TREE, 78,
+             generations.CURRENT_SOURCE_SHA256, generations.HARNESS_SHA256),
+            ("near-frame", generations.NEAR_FRAME_ARCHIVE_REF, generations.NEAR_FRAME_ARCHIVE_TREE,
+             78, generations.U2_CURRENT_SOURCE_SHA256,
+             generations.NEAR_FRAME_HARNESS_SHA256),
+        ):
+            expected[name] = dict(commit=ref, tree=tree, source_count=count, source_manifest_sha256=source,
+                harness_count=12, harness_manifest_sha256=harness,
+                controller_sha256="e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d")
+        self.assertEqual(json.loads(process.stdout), expected)
+        process = subprocess.run(["git", "rev-parse", "--is-shallow-repository"], cwd=cwd, env=environment,
+                                 capture_output=True, text=True, check=True)
+        self.assertEqual(process.stdout.strip(), "false")
 
     def test_real_empty_runner_checkout_ignores_later_run_defaults_for_all_three_jobs(self):
         for workflow, jobs in ((GAME, ("core-and-tooling", "defensive-presnap-switch")),
@@ -1545,11 +1861,62 @@ class CheckoutBootstrapCI(unittest.TestCase):
                         mutant = game.replace("jobs:\n", "env:\n" + binding + "\njobs:\n", 1)
                     probe = empty_runner_checkout(mutant, job, self.directory / (job + "-" + scope))
                     self.assertEqual(probe["exit"], 128, probe["stderr"])
-                    self.assertIn("fatal: Invalid path '" + str(probe["workspace"] / ".squad") +
-                                  "': No such file or directory", probe["stderr"])
+                    # Git 2.43 names the first missing component; current hosted Git names the work tree.
+                    self.assertIn(probe["stderr"].strip(), (
+                        "fatal: Invalid path '" + str(probe["workspace"] / ".squad") +
+                        "': No such file or directory",
+                        "fatal: Cannot access work tree '" + str(probe["workspace"] / workspace_path) +
+                        "': No such file or directory",
+                    ))
                     self.assertFalse((probe["workspace"] / ".squad").exists())
                     with self.assertRaises(AssertionError):
                         validate_workflows(mutant, player)
+
+    def test_actual_host_full_history_authenticates_archives_and_rejects_substituted_parent(self):
+        probe = empty_runner_checkout((ROOT / PLAYER).read_text(), "asset-free", self.directory / "asset-free")
+        self.assertEqual(probe["exit"], 0, probe["stderr"])
+        merge = populate_checkout(probe)
+        checkout, environment = probe["workspace"], probe["environment"]
+        self.assertFalse((checkout / ".git/objects/info/alternates").exists())
+        parents = subprocess.run(["git", "rev-list", "--parents", "-n", "1", merge], cwd=checkout,
+                                 env=environment, capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(len(parents), 3, "Exercise an actual two-parent PR merge checkout, not a borrowed live HEAD")
+        self.assert_snapshot_history(checkout, environment)
+        path = checkout / "tests/movement-callers/check_replay_generations.py"
+        source = path.read_text()
+        anchor = 'U2_ARCHIVE_REF = "df75bd647b1b7bc902e0eae8520ee42e8af62d1e"'
+        self.assertEqual(source.count(anchor), 1)
+        path.write_text(source.replace(anchor, 'U2_ARCHIVE_REF = "c339efcccc7caf82fb1c3533bf952dc4d3f3600e"', 1))
+        process = self.snapshot_history(checkout, environment)
+        self.assertEqual(process.returncode, 1, process.stdout + process.stderr)
+        self.assertIn("exact archived U2 source/tree required", process.stderr)
+        self.assertNotIn("CalledProcessError", process.stderr)
+
+    def test_shallow_history_reproduces_exact_missing_parent_in_host_and_both_game_views(self):
+        for workflow, job in ((PLAYER, "asset-free"), (GAME, "core-and-tooling"),
+                              (GAME, "defensive-presnap-switch")):
+            with self.subTest(job=job):
+                probe = empty_runner_checkout((ROOT / workflow).read_text(), job, self.directory / job)
+                self.assertEqual(probe["exit"], 0, probe["stderr"])
+                # Keep submitted code fixed while restoring the hosted depth-one object graph.
+                probe["context"]["fetch_depth"] = 1
+                populate_checkout(probe)
+                checkout, environment = probe["workspace"], probe["environment"]
+                cwd = checkout
+                if job != "asset-free":
+                    step = next(step for step in probe["context"]["steps"] if CI + " workspace --output " in step)
+                    command = re.search(r"^        run: (.+)$", step, re.M)[1]
+                    process = subprocess.run(shlex.split(command), cwd=checkout, env=environment,
+                                             capture_output=True, text=True, timeout=120)
+                    self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                    cwd = checkout / probe["context"]["run_directory"]
+                    exported = dict(line.split("=", 1) for line in Path(environment["GITHUB_ENV"]).read_text().splitlines())
+                    environment = dict(environment, **exported)
+                self.assertFalse((checkout / ".git/objects/info/alternates").exists())
+                process = self.snapshot_history(cwd, environment)
+                self.assertEqual(process.returncode, 1, process.stdout + process.stderr)
+                self.assertIn("'rev-parse', 'df75bd647b1b7bc902e0eae8520ee42e8af62d1e^{tree}'", process.stderr)
+                self.assertIn("exit status 128", process.stderr)
 
     def test_both_actual_postcheckout_bootstraps_export_verified_source_and_runtime_git_views(self):
         game = (ROOT / GAME).read_text()
@@ -1597,12 +1964,66 @@ class CheckoutBootstrapCI(unittest.TestCase):
                     process = subprocess.run(["git", "ls-files", "--", *projects], cwd=cwd, env=env,
                                              capture_output=True, text=True, check=True)
                     self.assertEqual(process.stdout.splitlines(), projects)
+                    self.assert_snapshot_history(cwd, env)
+                    process = subprocess.run(["git", "show", "HEAD:" + GAME], cwd=cwd, env=env,
+                                             capture_output=True, check=True)
+                    self.assertEqual(sha(process.stdout), receipt["input_game_sha256"])
 
 
 class DefensiveCI(unittest.TestCase):
+    def test_reviewed_q11_case_requires_actual_presnap_inputs_and_complete_gate_in_both_jobs(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        historical = pre_q11_game(game)
+        self.assertNotIn(CURRENT_CASE, historical)
+        self.assertIn(SOURCE_BOUND_V5_PROFILE_SELECTION, historical)
+        current = COMMANDS["Execute normal full enabled-profile replay and all11 causal controls"][0]
+        preparation = COMMANDS["Prepare closed saved public inputs without authoring or simulation"][-1]
+        for old, new in (
+                (CURRENT_Q11_PREP, ""),
+                (CURRENT_Q11_SELECTION, CURRENT_Q11_SELECTION.replace("--c2-presnap-switch-inputs", "--c2-m1-inputs")),
+                (current, current.replace(" --replay-case " + CURRENT_CASE, "")),
+                (current, current + " --single-public-attempt"),
+                (preparation, preparation.replace(".manifest.json", ".recipe.json"))):
+            with self.subTest(change=new), self.assertRaises(AssertionError):
+                validate_workflows(game.replace(old, new, 1), player)
+
+    def test_lifecycle_sdk_preparation_and_single_worker_admission_are_exact_and_reversible(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        inherited = validate_workflows(game, player)
+        self.assertIn(ORIGINAL_LIFECYCLE_STEP, inherited)
+        self.assertLess(game.index(LIFECYCLE_ASSETS_STEP), game.index(ADMITTED_LIFECYCLE_STEP))
+        for old, new in (
+                (LIFECYCLE_ASSETS_STEP, ""),
+                (LIFECYCLE_ASSETS_STEP, LIFECYCLE_ASSETS_STEP.replace("--disable-parallel ", "")),
+                (LIFECYCLE_ASSETS_STEP, LIFECYCLE_ASSETS_STEP.replace("--source ", "--ignore-failed-sources --source ")),
+                (ADMITTED_LIFECYCLE_STEP, ORIGINAL_LIFECYCLE_STEP),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("WORKERS: '1'", "WORKERS: '2'")),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("--controls ", "")),
+                (ADMITTED_LIFECYCLE_STEP, ADMITTED_LIFECYCLE_STEP.replace("/obj/project.assets.json", "/other/project.assets.json"))):
+            with self.subTest(change=new), self.assertRaises(AssertionError):
+                validate_workflows(game.replace(old, new, 1), player)
+
     def test_actual_workflows_have_exact_required_parallel_job_and_reversible_old_hashes(self):
         inherited = validate_workflows((ROOT / GAME).read_text(), (ROOT / PLAYER).read_text())
         self.assertEqual(sha(inherited.encode()), INHERITED_GAME_SHA256)
+
+    def test_every_production_checkout_requires_exact_full_history_and_reversible_old_views(self):
+        game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
+        self.assertEqual(game.count(FULL_HISTORY_CHECKOUT_STEP), 2)
+        self.assertEqual(player.count(FULL_HISTORY_CHECKOUT_STEP), 1)
+        self.assertEqual(sha(inherited_game(game).encode()), INHERITED_GAME_SHA256)
+        self.assertEqual(sha(inherited_player(player).encode()), INHERITED_PLAYER_SHA256)
+        for workflow, job in ((GAME, "core-and-tooling"), (GAME, "defensive-presnap-switch"), (PLAYER, "asset-free")):
+            text = game if workflow == GAME else player
+            step = checkout_context(text, job)["steps"][0]
+            self.assertEqual(checkout_context(text, job)["fetch_depth"], 0)
+            start = text.index("  " + job + ":\n")
+            for replacement in ("", "          fetch-depth: 1\n", "          fetch-depth: 2\n",
+                                "          fetch-depth: '0'\n", "          fetch-depth: 0\n" * 2):
+                changed = text[:start] + text[start:].replace(step, step.replace("          fetch-depth: 0\n", replacement), 1)
+                with self.subTest(job=job, depth=replacement), self.assertRaises(AssertionError):
+                    validate_workflows(changed if workflow == GAME else game,
+                                       changed if workflow == PLAYER else player)
 
     def test_only_exact_core90_budget_adjustment_is_reversible(self):
         game, player = (ROOT / GAME).read_text(), (ROOT / PLAYER).read_text()
@@ -1723,7 +2144,7 @@ class DefensiveCI(unittest.TestCase):
         for field, value in (("rawVector", [1]), ("poses", []), ("state", {}), ("sourceprofile", "old")):
             recipe = json.loads((ROOT / f"tests/movement-callers/fixtures/{CASE}.recipe.json").read_bytes())
             with self.subTest(field=field), self.assertRaises(ValueError):
-                replay.validate_presnap_recipe(dict(recipe, **{field: value}))
+                replay.validate_open_space_recipe(dict(recipe, **{field: value}))
 
     def test_actual_helper_compile_and_metadata_closures_are_present(self):
         self.assertTrue((HERE / "oracle.py").is_file())
@@ -1774,7 +2195,7 @@ def main():
     fetch = sub.add_parser("acquire")
     fetch.add_argument("--output", type=Path, required=True)
     sub.add_parser("ensure-sdk").add_argument("--output", type=Path, required=True)
-    for name in ("prepare-kernel", "prepare-player"):
+    for name in ("prepare-kernel", "prepare-player", "prepare-world-v1"):
         sub.add_parser(name).add_argument("--root", type=Path, required=True)
     summary = sub.add_parser("summarize")
     summary.add_argument("--root", type=Path, required=True)
@@ -1795,6 +2216,8 @@ def main():
         prepare_kernel(args.root)
     elif args.operation == "prepare-player":
         prepare_player(args.root)
+    elif args.operation == "prepare-world-v1":
+        prepare_world_v1(args.root)
     elif args.operation == "failure-guards":
         failure_guards(args.root, args.results, args.output)
     else:

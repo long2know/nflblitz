@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """Guard tests only: metadata, content pins and confinement; no synthetic geometry/runtime substitution."""
 import hashlib
+import importlib.util
 import json
+import contextlib
+import io
 from pathlib import Path
 import shutil
+import sys
 import unittest
+from unittest import mock
 import uuid
 
 import fetch_inputs
 import prepare_inputs
+
+SPEC = importlib.util.spec_from_file_location("parity_input_runner", Path(__file__).with_name("run.py"))
+RUNNER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(RUNNER)
 
 
 class RealInputGuards(unittest.TestCase):
@@ -18,6 +27,54 @@ class RealInputGuards(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.work)
+
+    def full_kernel_summary(self):
+        return {
+            "status": "passed", "full_kernel_host_adapter_exercised": True,
+            "contract_assertions": 827, "retained_contract_assertions": 332,
+            "portable_library_contract_assertions": 143, "source_pose_contract_assertions": 352,
+            "real_animation_library_sha256": prepare_inputs.ANIMATION_SHA,
+        }
+
+    def test_explicit_prepared_assets_reject_missing_wrong_name_and_symlink_before_build(self):
+        prepared = self.work / "prepared"
+        prepared.mkdir()
+        (prepared / "project.assets.json").write_text("{}")
+        linked = self.work / "linked"
+        linked.symlink_to(prepared, target_is_directory=True)
+        wrong_name = self.work / "wrong.json"
+        wrong_name.write_text("{}")
+        for path in (self.work / "project.assets.json", wrong_name, linked / "project.assets.json"):
+            error = io.StringIO()
+            with self.subTest(path=path), mock.patch.object(sys, "argv", [
+                    "run.py", "--cases", str(self.work / "absent-cases.json"), "--project-assets", str(path)]):
+                with contextlib.redirect_stderr(error), self.assertRaises(SystemExit) as caught:
+                    RUNNER.main()
+                self.assertEqual(2, caught.exception.code)
+                self.assertIn("requires an explicit existing regular project.assets.json", error.getvalue())
+
+    def test_full_kernel_requires_retained_and_separately_added_contract_partitions(self):
+        summary = self.full_kernel_summary()
+        RUNNER.require_full_kernel(summary, prepare_inputs.ANIMATION_SHA)
+        fields = ("contract_assertions", "retained_contract_assertions",
+                  "portable_library_contract_assertions", "source_pose_contract_assertions")
+        for field in fields:
+            for value in (0, summary[field] - 1, summary[field] + 1, None):
+                with self.subTest(field=field, value=value), self.assertRaises(RuntimeError):
+                    RUNNER.require_full_kernel(dict(summary, **{field: value}), prepare_inputs.ANIMATION_SHA)
+        swapped = dict(summary, portable_library_contract_assertions=352, source_pose_contract_assertions=143)
+        with self.assertRaises(RuntimeError):
+            RUNNER.require_full_kernel(swapped, prepare_inputs.ANIMATION_SHA)
+
+    def test_full_kernel_rejects_status_only_old_inventory_wrong_host_and_animation(self):
+        for summary in (
+                None, {}, {"status": "passed"},
+                dict(self.full_kernel_summary(), contract_assertions=332),
+                dict(self.full_kernel_summary(), status="failed"),
+                dict(self.full_kernel_summary(), full_kernel_host_adapter_exercised=False),
+                dict(self.full_kernel_summary(), real_animation_library_sha256="wrong-generation")):
+            with self.subTest(summary=summary), self.assertRaises(RuntimeError):
+                RUNNER.require_full_kernel(summary, prepare_inputs.ANIMATION_SHA)
 
     def test_combined_actual_source_pin_inventory_has_no_conflicts(self):
         pins = fetch_inputs.input_pins()

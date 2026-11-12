@@ -38,6 +38,32 @@ public static class FrameMath
     public static void Joint(double[] destination, int offset, SourceJointTransform joint,
         SourceVector3 root, float scale)
     {
+        if (joint.IsRawAffine)
+        {
+            joint.RequireModelScale(scale);
+            SourceAnimationSampling.Finite(root, "raw packet root");
+            var translation = new SourceVector3(root.X + joint.Position.X, root.Y + joint.Position.Y,
+                root.Z - joint.Position.Z);
+            SourceAnimationSampling.Finite(translation, "raw packet translation");
+            SourceAffineBasis basis = joint.AffineBasis;
+            destination[offset] = basis.M00;
+            destination[offset + 1] = basis.M10;
+            destination[offset + 2] = -basis.M20;
+            destination[offset + 3] = 0;
+            destination[offset + 4] = basis.M01;
+            destination[offset + 5] = basis.M11;
+            destination[offset + 6] = -basis.M21;
+            destination[offset + 7] = 0;
+            destination[offset + 8] = -basis.M02;
+            destination[offset + 9] = -basis.M12;
+            destination[offset + 10] = basis.M22;
+            destination[offset + 11] = 0;
+            destination[offset + 12] = translation.X;
+            destination[offset + 13] = translation.Y;
+            destination[offset + 14] = translation.Z;
+            destination[offset + 15] = 1;
+            return;
+        }
         // Conjugate the unchanged production Unity-basis pose by C=diag(1,1,-1).
         // This is the same local.Z reflection used by SourceCatchGeometry.CameraJoints.
         SourceRotation q = joint.Rotation;

@@ -74,6 +74,20 @@ class PrepareChecks(unittest.TestCase):
         decoded = prepare.wif_images(wiff(image("!Untitled-1"), image("!Untitled-1"), image("active")), "drafts")
         self.assertEqual(set(decoded), {"active"})
 
+    def test_explicit_symbol_selection_skips_named_drafts_but_keeps_structural_guards(self):
+        data = wiff(image("statfade.old"), image("statfade"))
+        with self.assertRaisesRegex(prepare.InterfaceError, "invalid IMG identity"):
+            prepare.wif_images(data, "drafts")
+        selected = prepare.wif_images(data, "drafts", {"statfade"})
+        self.assertEqual(set(selected), {"statfade"})
+        self.assertEqual(selected["statfade"].rgba, b"\x11\x22\x33\x44\x55\x66\x77\x88")
+        with self.assertRaisesRegex(prepare.InterfaceError, "missing selected IMG identity"):
+            prepare.wif_images(data, "drafts", {"absent"})
+        with self.assertRaisesRegex(prepare.InterfaceError, "unsupported IMG payload"):
+            prepare.wif_images(wiff(image("statfade.old", width=3), image("statfade")), "drafts", {"statfade"})
+        with self.assertRaisesRegex(prepare.InterfaceError, "invalid IMG identity"):
+            prepare.wif_images(data, "drafts", {"statfade.old"})
+
     def test_atlas_rows_metrics_and_pixel_identity(self):
         source = prepare.Image("synthetic", 1, 2, -3, 4, b"\xff\0\0\xff\0\xff\0\xff", "synthetic")
         pixels, width, height, records = prepare.pack({"synthetic": source}, 8)

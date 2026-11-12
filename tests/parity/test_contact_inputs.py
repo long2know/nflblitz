@@ -125,13 +125,36 @@ class ContactInputGuards(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("profile_adapter_guard", fetch_inputs.ROOT / "tests/parity/run.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
-        row = {"status": "passed", "full_kernel_host_adapter_exercised": True, "contract_assertions": 332,
+        row = {"status": "passed", "full_kernel_host_adapter_exercised": True, "contract_assertions": 827,
+               "retained_contract_assertions": 332, "portable_library_contract_assertions": 143,
+               "source_pose_contract_assertions": 352,
+               "rules_caller_cases": 20, "rules_caller_assertions": 219,
                "real_animation_library_sha256": contact_inputs.ANIMATION_SHA}
         runner.require_full_kernel(row, contact_inputs.ANIMATION_SHA)
-        for field, value in (("contract_assertions", 331), ("full_kernel_host_adapter_exercised", False),
+        for field, value in (("contract_assertions", 332), ("retained_contract_assertions", 331),
+                             ("portable_library_contract_assertions", 142), ("source_pose_contract_assertions", 351),
+                             ("rules_caller_cases", 0), ("rules_caller_cases", 19),
+                             ("rules_caller_assertions", 218), ("rules_caller_assertions", 220),
+                             ("full_kernel_host_adapter_exercised", False),
                              ("real_animation_library_sha256", prepare_inputs.MOVEMENT_ANIMATION_SHA)):
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 runner.require_full_kernel(dict(row, **{field: value}), contact_inputs.ANIMATION_SHA)
+
+    def test_rules_caller_controls_reject_wrong_partition_or_unrelated_red(self):
+        spec = importlib.util.spec_from_file_location("rules_caller_guard", fetch_inputs.ROOT / "tests/parity/run.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        field = "/field-goal-good/selected-special-stays-normal"
+        row = dict(status="failed", rules_caller_cases=20, rules_caller_assertions=219,
+                   failures=98, failure_details=["StrictSource/Home" + field])
+        runner.require_rules_caller_control(1, row, 98, field)
+        for code in (0, 2, 134):
+            with self.subTest(code=code), self.assertRaises(RuntimeError):
+                runner.require_rules_caller_control(code, row, 98, field)
+        for key, value in (("status", "passed"), ("rules_caller_cases", 0), ("rules_caller_assertions", 218),
+                           ("failures", 14), ("failure_details", ["unrelated"])):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                runner.require_rules_caller_control(1, dict(row, **{key: value}), 98, field)
 
 
 if __name__ == "__main__":

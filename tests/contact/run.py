@@ -156,6 +156,307 @@ def run_m1_sound(argv):
         (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return 0 if result["status"] == "passed-focused-not-full-M1" else 1
 
+LIVE_DRONE_MUTANTS = (
+    ("stale-drone-frame",
+     "            SourceAiFrame frame = BuildSourceAiFrame();\n            int active = 0;",
+     "            SourceAiFrame frame = Model.SourceAiFrame ?? BuildSourceAiFrame();\n            int active = 0;",
+     "earlier-receiver-physics: live original stick"),
+    ("pre-player-cache-refresh",
+     "                foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;\n"
+     "                Model.SourceAiFrame = BuildSourceAiFrame();",
+     "                foreach (ActorState actor in Model.Players) actor.SourceRawFlags &= ~0x40;\n"
+     "                CacheSourceGeometry();\n                Model.SourceAiFrame = BuildSourceAiFrame();",
+     "next real Step pre-player consumes prior detector cache"),
+)
+
+RECOVERY_MUTANTS = (
+    ("retained-defensive-speed",
+     "                    Model.Players[id].SourceRawFlags &= ~(int)SourceMovementFlags.SpeedOverride;",
+     "                    /* isolated control: retain prior defensive speed override */",
+     "public Step recovery clears original speed override"),
+    ("planar-current-catch-controller",
+     "float distance = Model.SourceDistances[actor.Id, teammate.Id];",
+     "float distance = PlayerSimulation.DistanceSquared(actor.Position, teammate.Position);",
+     "catch-control-side0-airborne-distance: original cached farthest controller"),
+)
+
+THROW_MONITOR_MUTANTS = (
+    ("throw-monitor-not-admitted", "Assets/Scripts/Gameplay/GameSimulation.Instructions.cs",
+     '|| function == "qb_throw_monitor"', '/* isolated control: orphan throw monitor */',
+     "throw-monitor-side0-fresh-A: first real monitor wake clears target and sleeps one"),
+    ("throw-monitor-stale-switches",
+     "CaptureSourceThrowMonitorInput(command.StationInputs);",
+     "CaptureSourceThrowMonitorInput(Model.SourceCurrentInput.StationInputs);",
+     "throw-monitor-side0-fresh-A: original late human-target override"),
+    ("throw-monitor-two-history", "Assets/Scripts/Gameplay/SourcePassDriver.cs",
+     "for (int i = 0; i < 3; i++)\n                            if ((actor.SourceButtonHistory[i]",
+     "for (int i = 0; i < 2; i++)\n                            if ((actor.SourceButtonHistory[i]",
+     "throw-monitor-side0-recent-A: original late human-target override"),
+    ("throw-monitor-reset-omitted", "Assets/Scripts/Gameplay/SourcePassDriver.cs",
+     "if (!process.WaitingForButtons)\n                {\n                    sourceTargetHuman = false;",
+     "if (!process.WaitingForButtons)\n                {\n                    /* isolated control: retained previous target flag */",
+     "throw-monitor-side0-fresh-A: first real monitor wake clears target and sleeps one"),
+    ("throw-monitor-release-consumer",
+     "int targetId = ResolveSourceHumanThrowTarget(quarterback);",
+     "int targetId = quarterback.PendingThrowTarget;",
+     "throw-monitor-side0-fresh-A: original late human-target override"),
+    ("lateral-actor-mode-omitted",
+     "            actor.Role = ActorRole.Receiver;\n            actor.SourceMode = SourceActorMode.Receiver;\n"
+     "            actor.SourcePendingLateral = false;",
+     "            actor.Role = ActorRole.Receiver;\n            actor.SourcePendingLateral = false;",
+     "lateral-side0: original release switches QB actor to weapon"),
+)
+
+SPECIAL_THROW_MUTANTS = (
+    ("special-throw-replaces-retained-turbo",
+     "quarterback.PendingThrowTurbo = monitoredUpperThrow\n"
+     "                ? (Model.SourceBallFlags & SourceBallFlags.TurboPass) != 0 : turbo;",
+     "quarterback.PendingThrowTurbo = turbo;",
+     "special-side0-oldFalse-heldTrue: special caller retains prior ball turbo flag"),
+)
+
+DIVER_BRIDGE_MUTANTS = (
+    ("diver-target-not-projected",
+     "attackTarget: actor.PendingThrowTarget,",
+     "attackTarget: -1,",
+     "diver-side0-distance20: production bridge preserves throw_target"),
+    ("diver-sequence-not-projected",
+     "flags |= SourceAiActorFlags.DiveAttack;",
+     "flags |= SourceAiActorFlags.None;",
+     "diver-side0-distance20: production bridge preserves active dive sequence"),
+    ("crazy-dive-sequence-omitted",
+     'Primary.SequenceName == "T_CRZDIV"',
+     'Primary.SequenceName == "__absent_T_CRZDIV"',
+     "diver-side0-distance200: production bridge preserves active dive sequence"),
+)
+
+MOVEMENT_WINDOW_MUTANTS = (
+    ("zero-resource-turbo-admitted", "Assets/Scripts/Gameplay/SourceMovement.cs",
+     "passReceiver || switches.StationTurbo > 0f", "passReceiver || switches.StationTurbo >= 0f",
+     "exhaust/0: exhaustion/repress counters and turbo gate match original"),
+    ("intended-pass-exhaustion-exception-omitted", "Assets/Scripts/Gameplay/SourceMovement.cs",
+     "bool passReceiver = context.Carrier == -1 && context.BallType == SourceBallType.Pass",
+     "bool passReceiver = context.Carrier == -1 && context.BallType == SourceBallType.Lateral",
+     "intended-exhaust/Pass/4: exhaustion/repress counters and turbo gate match original"),
+    ("double-turbo-eight-rejected", "Assets/Scripts/Gameplay/SourceMovement.cs",
+     "return releasedTicks > 0 && releasedTicks < 9 ? -1 : 0;",
+     "return releasedTicks > 0 && releasedTicks < 8 ? -1 : 0;",
+     "repress/8/again: exhaustion/repress counters and turbo gate match original"),
+    ("field-friction-caller-ignores-selection", "Assets/Scripts/Gameplay/SourceMovementIntegration.cs",
+     "sourceMovementData.Friction[sourceMovementSettings.FieldIndex], new MovementBoundary(this), random);",
+     "sourceMovementData.Friction[0], new MovementBoundary(this), random);",
+     "friction/2: public movement/physics velocity matches unchanged original C"),
+    ("actual-AI-backpedal-not-projected", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+     "actor.SourceBackpedal = step.Backpedal;", "actor.SourceBackpedal = false;",
+     "actual-DB-cover-backpedal: public movement/physics velocity matches unchanged original C"),
+)
+
+CONTACT_WINDOW_MUTANTS = (
+    ("uninterruptible-attack-not-dispatched", "Assets/Scripts/Gameplay/SourceContactDriver.Dispatch.cs",
+     "if (d.SourceAttackMode != 0 && AttackIntersects(model, d, a, low[i]))",
+     "if ((Modes(d) & 2u) == 0 && d.SourceAttackMode != 0 && AttackIntersects(model, d, a, low[i]))",
+     "actual UNINT attack ANI_ATTACK_ON capsule executes during DEAD BALL"),
+    ("human-secret-helmet-guard-omitted", "Assets/Scripts/Gameplay/GameSimulation.Contact.cs",
+     "if (sourcePresentation.StationHeads[actor.SourceControllerStation] != -1) return;",
+     "if (actor.SourceControllerStation < 0 && sourcePresentation.StationHeads[actor.SourceControllerStation] != -1) return;",
+     "actual spear->maybe_pop_helmet preserves human secret-head guard True"),
+)
+
+
+def run_live_drone(argv, recovery=False, throw_monitor=False, special_throw=False, diver_bridge=False,
+                   movement_windows=False, contact_windows=False):
+    parser = argparse.ArgumentParser(description="Live actor variables / retained detector-cache caller qualification.")
+    parser.add_argument("--movement-windows-only" if movement_windows else "--contact-windows-only" if contact_windows
+                        else "--diver-bridge-only" if diver_bridge else "--special-throw-only" if special_throw
+                        else "--throw-monitor-only" if throw_monitor
+                        else "--possession-recovery-only" if recovery
+                        else "--live-drone-callers-only",
+                        action="store_true", required=True)
+    for name in ("source-root", "fixture-manifest", "sound-functions", "c2-m1-inputs", "output"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args(argv)
+    output = args.output.absolute()
+    if output.exists() or not any(output.is_relative_to(p) for p in (ARTIFACTS, ROOT / ".squad/.scratch")):
+        parser.error("Use a new ignored output child, never overwrite a prior receipt.")
+    output.mkdir(parents=True)
+    work = output / "work"
+    work.mkdir()
+    (work / "empty-feed").mkdir()
+    env = dict(os.environ, TMPDIR=str(work), TMP=str(work), TEMP=str(work), PYTHONDONTWRITEBYTECODE="1",
+               DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1", MSBUILDDISABLENODEREUSE="1")
+    snapshot = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
+    digest = lambda raw: hashlib.sha256(raw).hexdigest()
+    before = {name: digest(raw) for name, raw in snapshot.items()}
+    harness_paths = list(SUITE.glob("*.cs")) + [
+        SUITE / "ContactChecks.csproj", Path(__file__).resolve(), ROOT / "tests/parity/FullKernelInputs.cs",
+        ROOT / "tests/parity/FullKernelSources.props", ROOT / "tests/audio/vm/SourceSoundVmSources.props",
+        ROOT / "tests/parity/kernel_sources.py", ROOT / "tools/playbooks/recipe.json"]
+    harness_paths += [ROOT / "tests/playbooks" / name
+                      for name in ("oracle.py", "support.py", "pins.json", "driver.c", "boundaries.c")]
+    if movement_windows:
+        harness_paths += [ROOT / "tests/movement" / name for name in
+                          ("oracle.py", "fetch_inputs.py", "pins.json", "driver.c", "boundary_types.c", "boundaries.c")]
+    if contact_windows:
+        harness_paths += [SUITE / name for name in ("source.py", "translate.py")]
+    harness = {p.relative_to(ROOT).as_posix(): digest(p.read_bytes()) for p in harness_paths}
+    inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
+    if movement_windows:
+        movement_pins = json.loads((ROOT / "tests/movement/pins.json").read_text())
+        for name, pin in movement_pins["blobs"].items():
+            path = args.source_root / name
+            raw = path.read_bytes()
+            if hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest() != pin:
+                raise ValueError("Original movement caller source pin differs: " + name)
+            inputs[str(path.absolute())] = digest(raw)
+    if contact_windows:
+        original_contact = read(args.source_root)
+        expected = csharp(translate(original_contact, args.source_root))
+        if (ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.Contact.cs").read_text() != expected:
+            raise RuntimeError("Production C1 ANI programs differ from exact pinned original operands/order.")
+        contact_original_names = list(original_contact) + ["include/ani3d.equ", "include/player.equ", "include/sndcalls.equ"]
+        inputs.update({str((args.source_root / name).absolute()): digest((args.source_root / name).read_bytes())
+                       for name in contact_original_names})
+    origin = args.c2_m1_inputs.absolute()
+    if origin.is_symlink() or any(p.is_symlink() for p in origin.rglob("*")):
+        raise ValueError("Explicit original M1 input copies must be regular files, never symlink aliases.")
+    origin_hashes = {p.relative_to(origin).as_posix(): digest(p.read_bytes())
+                     for p in origin.rglob("*") if p.is_file()}
+    local_inputs = output / "m1-input-copy"
+    shutil.copytree(origin, local_inputs)
+    inputs.update(canonical_hashes(local_inputs, "contact281-c2-m1"))
+    result = {"schema": "movement-window-production-caller-qualification/v1" if movement_windows
+                        else "contact-window-production-caller-qualification/v1" if contact_windows
+                        else "diver-bridge-production-caller-qualification/v1" if diver_bridge
+                        else "special-throw-production-caller-qualification/v1" if special_throw
+                        else "throw-monitor-production-caller-qualification/v1" if throw_monitor
+                        else "possession-recovery-production-caller-qualification/v1" if recovery
+                        else "live-drone-production-caller-qualification/v1", "status": "failed",
+              "source_epoch": "remaining-movement-public-callers-20261110/v1" if movement_windows
+                              else "remaining-contact-public-callers-20261110/v1" if contact_windows
+                              else "actual-dive-ai-data-bridge-20261110/v1" if diver_bridge
+                              else "special-throw-retained-turbo-20261110/v1" if special_throw
+                              else "cooperative-throw-and-lateral-mode-20261110/v1" if throw_monitor
+                              else "catch-control-and-speed-reset-20261110/v1" if recovery
+                              else "live-actor-retained-detector-20261110/v1", "executions": {}, "controls": [],
+              "commands": [], "production_sha256_before": before, "harness_sha256_before": harness,
+              "input_sha256_before": inputs, "origin_m1_sha256_before": origin_hashes,
+              "original_target_scheduler_executed": False, "full_gameplay_parity_claimed": False}
+
+    def execute(label, mutation=None):
+        source = output / "copies" / label
+        for name, raw in snapshot.items():
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        if mutation:
+            if len(mutation) == 5:
+                identity, relative, old, new, expected = mutation
+            else:
+                identity, old, new, expected = mutation
+                relative = "Assets/Scripts/Gameplay/GameSimulation.Source.cs"
+            path = source / relative
+            text = path.read_text()
+            if text.count(old) != 1:
+                raise RuntimeError("Live-drone causal source anchor must be unique: " + identity)
+            path.write_text(text.replace(old, new))
+        build_root = output / "build" / label
+        common = ["-p:BlitzSourceRoot=" + str(source) + "/",
+                  "-p:BaseIntermediateOutputPath=" + str(build_root / "obj") + "/",
+                  "-p:MSBuildProjectExtensionsPath=" + str(build_root / "obj") + "/",
+                  "-p:BaseOutputPath=" + str(build_root / "bin") + "/"]
+        command = ["dotnet", "build", str(SUITE / "ContactChecks.csproj"), "--no-restore",
+                   "--configuration", "Release", "--verbosity", "quiet", *common]
+        result["commands"].append(command)
+        compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+        text = compiled.stdout + compiled.stderr
+        if compiled.returncode and "NETSDK1004" in text:
+            restore = ["dotnet", "restore", str(SUITE / "ContactChecks.csproj"), "--source", str(work / "empty-feed"),
+                       "--verbosity", "quiet", "-p:NuGetAudit=false", *common]
+            result["commands"].append(restore)
+            restored = subprocess.run(restore, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+            if restored.returncode:
+                raise RuntimeError("Live-drone restore failed after missing assets: " + label)
+            compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+            text = compiled.stdout + compiled.stderr
+        (output / (label + "-compile.log")).write_text(text)
+        if compiled.returncode or "0 Warning(s)" not in text or "0 Error(s)" not in text:
+            raise RuntimeError("Live-drone causal controls require successful zero-diagnostic compilation: " + label)
+        assembly = build_root / "bin/Release/net10.0/ContactChecks.dll"
+        command = ["dotnet", str(assembly), str(args.fixture_manifest.absolute()), str(output),
+                   "movement-windows" if movement_windows else "contact-windows" if contact_windows
+                       else "diver-bridge" if diver_bridge else "special-throw" if special_throw else "throw-monitor" if throw_monitor
+                       else "possession-recovery" if recovery else "live-drone",
+                   str(output / label), str(args.sound_functions.absolute()), str(args.source_root.absolute()),
+                   str(local_inputs)]
+        result["commands"].append(command)
+        process = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+        (output / (label + ".log")).write_text(process.stdout + process.stderr)
+        rows = [json.loads(line) for line in process.stdout.splitlines() if line.startswith('{"schema":')]
+        summary = rows[0] if len(rows) == 1 else None
+        if mutation:
+            if (process.returncode != 1 or summary is None or summary.get("status") != "failed"
+                    or expected not in summary.get("failed_assertion", "")):
+                raise RuntimeError("Live-drone compiled mutation missed its exact predicate: " + identity)
+            result["controls"].append({"id": identity, "compiled": True,
+                                       "named_failure": summary["failed_assertion"]})
+        elif (process.returncode or summary is None or summary.get("status") != "passed"
+              or summary.get("assertions") != (691 if movement_windows else 25 if contact_windows
+                                              else 49 if diver_bridge else 37 if special_throw else 91 if throw_monitor
+                                              else 287 if recovery else 825)
+              or summary.get("actual_animation_sha256") != C2_ANIMATION_SHA):
+            raise RuntimeError("Live-drone baseline requires every real caller/native/cache assertion: " + label)
+        result["executions"][label] = {"exit_code": process.returncode, "summary": summary,
+                                        "assembly_sha256": digest(assembly.read_bytes())}
+        print("PASS live-drone " + label, flush=True)
+
+    try:
+        execute("baseline")
+        mutations = MOVEMENT_WINDOW_MUTANTS if movement_windows else CONTACT_WINDOW_MUTANTS if contact_windows \
+            else DIVER_BRIDGE_MUTANTS if diver_bridge else SPECIAL_THROW_MUTANTS if special_throw \
+            else THROW_MONITOR_MUTANTS if throw_monitor \
+            else RECOVERY_MUTANTS if recovery else LIVE_DRONE_MUTANTS
+        for mutation in mutations:
+            execute(mutation[0], mutation)
+        execute("final-baseline")
+        if len(result["controls"]) != len(mutations):
+            raise RuntimeError("Both compiled live-state and cache-order causal controls are mandatory.")
+        result["status"] = "passed-bounded-not-full-game"
+    except (RuntimeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
+        result["error"] = str(error)
+        print(str(error), file=sys.stderr)
+    finally:
+        after = {p.relative_to(ROOT).as_posix(): digest(p.read_bytes()) for p in production_paths()}
+        after_harness = {p.relative_to(ROOT).as_posix(): digest(p.read_bytes()) for p in harness_paths}
+        after_inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
+        after_inputs.update(canonical_hashes(local_inputs, "contact281-c2-m1"))
+        if movement_windows:
+            after_inputs.update({str((args.source_root / name).absolute()): digest((args.source_root / name).read_bytes())
+                                 for name in movement_pins["blobs"]})
+        if contact_windows:
+            after_inputs.update({str((args.source_root / name).absolute()): digest((args.source_root / name).read_bytes())
+                                 for name in contact_original_names})
+        after_origin = {p.relative_to(origin).as_posix(): digest(p.read_bytes())
+                        for p in origin.rglob("*") if p.is_file()}
+        result["production_sha256_after"] = after
+        result["harness_sha256_after"] = after_harness
+        result["input_sha256_after"] = after_inputs
+        result["origin_m1_sha256_after"] = after_origin
+        result["unchanged_during_execution"] = (before == after and harness == after_harness
+                                                  and inputs == after_inputs and origin_hashes == after_origin)
+        if not result["unchanged_during_execution"]:
+            result["status"] = "inconclusive-generation-changed"
+        copies = output / "copies"
+        if copies.exists():
+            shutil.rmtree(copies)
+        result["own_source_copies_removed"] = not copies.exists()
+        (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+        print(json.dumps({"schema": result["schema"], "status": result["status"],
+                          "production_files": len(before), "unchanged": result["unchanged_during_execution"],
+                          "controls": len(result["controls"]), "receipt": str(output / "result.json"),
+                          "error": result.get("error")}), flush=True)
+    return 0 if result["status"] == "passed-bounded-not-full-game" else 1
+
+
 MUTANTS = (
     ("actual-wake-disconnected", "GameSimulation.Source.cs", "SourceContacts();",
      "/* isolated mutation: omitted actual detector wake */", "kernel", "actual kernel strict body10 boundary"),
@@ -646,4 +947,18 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--movement-windows-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], movement_windows=True))
+    if "--contact-windows-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], contact_windows=True))
+    if "--diver-bridge-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], diver_bridge=True))
+    if "--special-throw-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], special_throw=True))
+    if "--throw-monitor-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], throw_monitor=True))
+    if "--possession-recovery-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:], recovery=True))
+    if "--live-drone-callers-only" in sys.argv:
+        sys.exit(run_live_drone(sys.argv[1:]))
     sys.exit(run_m1_sound(sys.argv[1:]) if "--m1-running-sound-only" in sys.argv else main())

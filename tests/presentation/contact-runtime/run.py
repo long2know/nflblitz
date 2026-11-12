@@ -34,6 +34,52 @@ def source_inventory(root=ROOT):
     return result
 
 
+def validate_native_venue_binding(awake, constructor):
+    require("actualSourceField=sourceServices.MovementBootstrap.FieldIndex;" in awake and
+            "SourceInterfacePresentation.Settings(State)" in awake and
+            "actualMatch=((ISourceMatchState)State).Match.Configuration;" in awake and
+            "actualPresentation.DesignatedHomeSide==TeamId.Home?actualMatch.HomeTeam.TeamIndex:actualMatch.AwayTeam.TeamIndex" in awake and
+            ".Rosters.GetTeamData(actualHomeTeam).UniformPrefix;" in awake and
+            "newFieldScene(transform,prefab,animations,actualSourceField,actualSourceHomePrefix)" in awake,
+            "native world request uses actual bootstrap field, designated-home match side and roster prefix")
+    validate = ("sourceWorld.RequireSelection(newSourceEnvironmentSelection(actualSourceField.Value,"
+                "sourceWorld.Selection.Stadium,actualSourceHomePrefix));")
+    attach = "SourceEnvironmentProvider.AttachRequired(sourceWorld,root);"
+    require("sourceWorld!=null&&sourcePrefab!=null" in constructor and
+            "!actualSourceField.HasValue||string.IsNullOrEmpty(actualSourceHomePrefix)" in constructor and
+            validate in constructor and attach in constructor and constructor.index(validate) < constructor.index(attach),
+            "native source world validates actual request before attaching any prepared venue")
+
+
+def native_venue_controls(awake, constructor):
+    validate_native_venue_binding(awake, constructor)
+    controls = (
+        ("constant-field", awake, constructor, "sourceServices.MovementBootstrap.FieldIndex", "0", True),
+        ("wrong-designated-side", awake, constructor, "actualPresentation.DesignatedHomeSide==TeamId.Home",
+         "actualPresentation.DesignatedHomeSide==TeamId.Away", True),
+        ("always-home-slot", awake, constructor, ".Rosters.GetTeamData(actualHomeTeam).UniformPrefix;",
+         ".Rosters.GetTeamData(actualMatch.HomeTeam.TeamIndex).UniformPrefix;", True),
+        ("loaded-prefix-as-request", awake, constructor, "sourceWorld.Selection.Stadium,actualSourceHomePrefix",
+         "sourceWorld.Selection.Stadium,sourceWorld.Selection.HomePrefix", False),
+        ("omit-request-check", awake, constructor,
+         "sourceWorld.RequireSelection(newSourceEnvironmentSelection(actualSourceField.Value,sourceWorld.Selection.Stadium,actualSourceHomePrefix));",
+         "", False),
+    )
+    for name, runtime, field, old, new, change_runtime in controls:
+        target = runtime if change_runtime else field
+        require(target.count(old) == 1, "unique native venue causal control: " + name)
+        try:
+            validate_native_venue_binding(runtime.replace(old, new) if change_runtime else runtime,
+                                          field if change_runtime else field.replace(old, new))
+        except AssertionError as error:
+            require("native world request uses actual bootstrap" in str(error) or
+                    "native source world validates actual request" in str(error),
+                    "native venue control rejects its actual request boundary: " + name)
+        else:
+            require(False, "native venue causal control survived: " + name)
+    return len(controls)
+
+
 def validate_callers(sources):
     def source(name):
         return sources["Assets/Scripts/" + name].decode("utf-8")
@@ -70,8 +116,13 @@ def validate_callers(sources):
             and awake.index("ReferenceEquals(animations,") <
                 awake.index("sourceServices.CreateSimulation(prefab,compatibility,fireEffects:fire,kickMeters:kickMeters)"),
             "renderer/provider/Core use same canonical272 object before factory")
-    require("newFieldScene(transform,prefab,animations)" in awake,
+    require("newFieldScene(transform,prefab,animations,actualSourceField,actualSourceHomePrefix)" in awake,
             "actual field animation consumer receives the same library object")
+    field_constructor = source("Presentation/FieldScene.cs")
+    require(field_constructor.count("internal FieldScene(") == 1, "unique native field constructor")
+    field_constructor = methods.compact(methods.method(
+        field_constructor.replace("internal FieldScene(", "internal void FieldScene(", 1), "FieldScene"))
+    native_venue_controls(awake, field_constructor)
     provider = source("Presentation/SourcePlayerProvider.cs")
     require("profile.RequireImpact(library);" in provider and "SourceTeamResourceProfile.ContactAnimationKey" in provider,
             "provider impact and animation keys must agree with exact new generation")

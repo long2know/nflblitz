@@ -1,5 +1,193 @@
 # Original-source differential and synthetic contract checks
 
+The portable-library regressions in `ContractChecks.cs` exercise independent
+`random()`/`rand()` sequences, zero/high-bit seeds, zero/negative range
+consumption, pregame binding and receiver ties for both teams. The numeric
+sequence vectors come from the separately executed published recovered C
+implementation, not a native arcade binary. Strict-source tie guards remain
+covered. These checks are additional portable behavior evidence, not a
+replacement for the authenticated original-C matrix below.
+
+## Selected special-team result callers — November 10
+
+```sh
+dotnet path/to/ParityChecks.dll --rules-callers path/to/contact272/fixture.json
+```
+
+The existing `HostAdapterChecks.cs` now adds 20 StrictSource C1 cases / 219
+assertions. Eighteen use actual public `Step` selection, then a declared
+`EndSourcePlay` boundary: good/missed/blocked/recovered/returned field goal,
+downed/out-of-bounds/end-zone punt, fake field goal and fake punt, both sides.
+The source is authenticated `playsel.c` blob `f5e87b92...`, `result.c`
+`eaf1201d...` and `nfl.c` `15b49474...` at the pinned revision below.
+
+Selection does **not** promote the global play type to `PT_FIELD_GOAL` or
+`PT_PUNT`; those result-table rows are empty. Normal-play dispatch classifies
+the actual ball type. The regression observes committed result/score/quarter
+score, spot/down/restart, fractional discard, ordered events and zero added
+result RNG/source wakes. A deliberately stale previous touchdown must not
+be replayed as a new score. Before the caller fix the cleanly compiled
+regression reported 98 failures, including a made field goal incorrectly
+reusing touchdown / six points / extra-point restart.
+
+The other two cases exercise actual public Continue and subsequent source
+wakes for quick kicks, both directions. Authenticated `player.c`
+`5744c51f...:2106-2127` pre-decrements the timer in the receiving actor's
+`_mode_wpnps`, not `game_proc`. Release starts the clock after that wake's clock
+process, resets play time, clears freeze and enters live play on the third
+source wake. It does not invent `GF_BALL_KICKED`. Starting at packed `0x3b00`
+with previous play time19, release retains packed time and resets play time0;
+the next two actual clock wakes publish `0x3a14`, then `0x3a13`, before a catch
+or ground contact. The old caller produced 14 exact field failures.
+
+Contact272 full-kernel runs report and require this separate 20/219 partition;
+the retained 332 + portable 143 + source-pose 352 contract partition is unchanged.
+This is not a naturally kicked/blocked/returned match, queued M1 qualification
+or browser evidence. Legitimate explicit empty result-table rows remain empty.
+
+The existing differential runner additionally compiles two isolated actual
+production controls: restore selection-time special-type promotion (98 causal
+field failures), and disconnect the receiving actor's quick-kick callback
+(14 causal field failures). Compile/start failures and unrelated red summaries
+cannot count as kills. These supplement, not replace, its original rounding
+control. An optional `--project-assets` names an existing regular
+`project.assets.json`, selecting `--no-restore`; its hash must remain unchanged.
+
+### Executed November 10 component checkpoint
+
+Core `GameSimulation.Source.cs` SHA256:
+`506ee98400eeea819df76cb399fef97b061d84cb2a3d56b439eaabc9303fcb80`.
+
+```sh
+python3 -B tests/parity/run.py --cases "$EXISTING_ORIGINAL_C_CASES" \
+  --full-kernel --input-profile contact272 \
+  --fixture-manifest "$EXISTING_CONTACT272_FIXTURE" \
+  --project-assets "$EXISTING_PREPARED_PROJECT_ASSETS" \
+  --output tests/parity/.artifacts/lead-rules-controls-20261110-011
+```
+
+Executed on a coherent copied production/harness snapshot under the existing
+private POSIX build wrapper, not changing live inputs or accepted artifacts.
+The source corpus hash was
+`4e66063889a51849618dc776ab90420e348e7e364b90db13a7d1b6cc0e6f0624`.
+Both baseline and final passed 865510 assertions, including all123004 managed
+comparisons /35 C-only cases and the new20/219 caller partition. All three
+compiled controls were rejected; sources, real inputs and prepared assets
+remained unchanged. Receipt SHA256:
+`17d6a3dda1a7e9f31f190507601233b968865a8f008ec44ae9098713aa9d74e4`.
+The synchronous command completed successfully (session Bash1103).
+
+The unchanged `tests/match-lifecycle/run.py` also passed both143-case /
+2371-assertion baselines on genuine Contact272 and exact M1288 inputs copied
+into a new checkout-local scratch root, with all fixture/canonical guards
+intact (Bash1089). Its13 historical controls were **not** rerun. Receipt hash:
+`04a09bffdc58fb62de0ee637f5d25263835d71ee285a5eec609afb4f4efa8a3a`.
+No Unity/browser/native-hardware or complete human special-team proof is
+inferred. FUSE ENOSPC prevented new durable artifact allocation: generated
+namespace-local logs/binaries expired normally; these data-free commands,
+hashes and observed results are retained here, not claimed as an exported
+archive.
+
+Final retained Python guards also passed: input16, Contact272/control10 and
+lifecycle18 (44 total, Bash1116); owned diff whitespace checks passed (Bash1117).
+
+## Focused stream-frame component regression
+
+```sh
+dotnet run --project tests/parity/ParityChecks.csproj --configuration Release -- \
+  --stream-component
+# Optional: only an already admitted decoded PSDLINE1 clip with the pinned hash:
+dotnet run --project tests/parity/ParityChecks.csproj --configuration Release -- \
+  --stream-component path/to/existing/PSDLINE1.json
+```
+
+This selector uses actual `SourceAnimationLayerState.Change/Advance` and standalone
+`ActorState`, never game/host construction, source wakes, original-C/native execution,
+or an original-C corpus. Synthetic checks also run in the existing default runner,
+reported separately from the unchanged host-adapter contract count.
+
+The source authority is `historicalsource/nflblitz2000` revision
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`, `lib/ani3d/ANIM.C` blob
+`97d7856d67a432937e249be274ef67a9ad354dc1`: `_stream_frame` 766-1001,
+especially its strict `fabs(t) < 0.05f` frame-data **and** root selection at
+862-881, plus stream-entry adjustment at 1790-1823. The branch does not round
+the accumulated frame or snap fractions near one.
+
+Toy mathematical roots/rotations check below/at/above the threshold, ordinary
+and near-one interpolation, subsequent progress, duplicate ticks, initial
+negative frames, final frames/completion, compressed/uncompressed flags, and
+primary/secondary anchor behavior. They assert VM roots/poses and public
+sample metadata/poses with an absolute `1e-6` portable tolerance, not native proof.
+
+The optional clip must retain decoded SHA256
+`486f4fe78f13bc2a6c316df521ee6f46b2359e47e5e76ea08f90ed0f1378468e`
+and source WAN blob `5376f528be8489f8e19bec0082fc0fd1ad954769`. It exercises
+only ticks 0-24 of the actual `lm_set1_anim` first `INTSTREAM 50,70` segment.
+The independent source-derived cursor reaches selected ordinal 17 / authoring
+frame 34 at tick 24; expected roots/poses come directly from that authenticated
+clip, never generated numeric goldens or a production sampler. No clip data is
+stored in Git; this optional private-input proof is separate from synthetic
+public test coverage and is not whole-VM/game/Unity/native acceptance.
+
+## Focused source-pose component checks
+
+After an explicitly authorized build, the compiled executable has a standalone
+entry point:
+
+```sh
+dotnet path/to/ParityChecks.dll --source-pose-math-only
+```
+
+This exact selector is handled before file reads, original-C cases, fixture
+loading or host-adapter selection. Extra arguments are rejected. It exercises
+only pure quaternion/pose operations and immutable Contracts layer values:
+no `GameSimulation`, Host, actor/animation-layer-state construction, VM, source
+wake, `SourceActorPoseSampler`, geometry, browser or Unity execution.
+Its separate receipt reports nonzero assertions and explicitly synthetic scope.
+
+The checks author their own monotone quarter table and fifteen-joint poses.
+Their source-derived expectations use a separate linear table scan, never a
+production expected-value helper or private captured pose. They cover endpoint
+bits, source-sign/tie preparation, adjacent float guard branches, injected table
+dependence, polynomial/floor behavior, the raw antipodal branch, no output
+normalization, nested producer/exported-helper arithmetic, source availability,
+transition reference identity and snapshot serialization visibility. They are
+not original-table, private fixed-case, World or native/ABI qualification.
+Private poses, original quarter rows and private-derived golden bundles must
+never be committed or included in public test output.
+
+### Explicit numerical policy
+
+`LegacyNormalized` remains the default for existing layer constructors and
+`SourceAnimationSampling.Sample/Blend/Slerp` APIs, including unrelated render-time
+smoothing. Source interpolation is not inferred from 57 Hz, Portable mode,
+library/table presence, selection evidence or the root-interpolation flight.
+
+Only the existing defensive-pre-snap-switch bootstrap binds
+`OriginalPortable`, before the first animation execution. A single private
+source kernel reads the existing immutable `SourceDirectionMath.Sin` quarter
+accessor. Its opaque operation instance is shared by both producer layers and
+their readonly exported layer values. The source-policy `SampleLayer` uses that
+same kernel, preserves a selected pose at zero/same-frame sampling, and retains
+the exact captured transition-origin reference. It does not normalize source
+inputs or outputs. The original float `PI_RAD`, `EPSILON`, source
+`HALFPI = PI_RAD * 0.5f`, table angle and polynomial arithmetic are intentional.
+The source-defined inverse-table zero bracket is supported: the original search
+reaches row1 then decrements to row0. Orthogonal source quaternions therefore use
+the original polynomial, without a wrapped index, clamp or host-trig fallback.
+Other invalid inputs, unavailable rows and search-budget guards remain explicit.
+
+Snapshots expose only a small numerical-policy tag, not the private operation,
+lookup delegate or table row. That in-process binding is nonserialized.
+A declared source policy without its binding, or an unknown policy, fails
+before fast-path success; serialized metadata alone does not confer numerical
+execution authority. No general snapshot rehydration transport is introduced.
+The code targets C# 7.3/netstandard2.1; compilation, private conjunction checks
+and independent review remain separate requirements, not implied by source
+edits or this synthetic selector.
+
+## Original-source differential runner
+
 ```sh
 python3 tests/source-oracles/run.py --source-root path/to/verified/original/source --full-matrix
 python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json
@@ -9,7 +197,9 @@ python3 tests/parity/run.py --cases tests/source-oracles/.artifacts/cases.json -
 ```
 
 This C# 7.3 project links the **actual production** contracts, complete pure
-gameplay kernel, and pure `AssetImport/*.cs` dependency in both modes.
+gameplay kernel, pure `AssetImport/*.cs` dependency, and saved-record/custom-play
+`Storage/*.cs` dependencies in both modes. Storage files also participate in the
+isolated mutation snapshot and before/after production hashes.
 The complete source inventory keeps adapter dependencies linked as the source
 profile expands; a hand-maintained subset can omit required production types.
 `--full-kernel` selects the host-adapter **checks**, not
@@ -194,3 +384,33 @@ For independently compiled DTO and pure match checks while the complete kernel
 is being edited, use [`../contracts/README.md`](../contracts/README.md).
 Compiling actual playbook/drone/ball dependencies here does not establish their
 AI, catch, motion, or full-match behavior.
+
+## Integrated affine regression entry points
+
+The actual `tests/parity/ParityChecks.csproj` retains `StreamChecks.cs` and
+adds the frozen authored `SourceAffineChecks.cs`, each exactly once. Its
+statically resolved authored inventory is 84. After a separately authorized
+build and finite validation grant:
+
+```sh
+dotnet path/to/ParityChecks.dll --source-affine-math-only
+dotnet path/to/ParityChecks.dll --source-pose-math-only
+```
+
+Both selectors reject extra arguments before data/fixture loading. The affine
+group covers the full scaled float basis and direct joint positions, deep
+hierarchy/pivots/roots, masks/headings, explicit binding errors and actual pure
+sampler/geometry callers. The source-pose group retains its authored interpolation
+expectations unchanged. The existing `--stream-component` helper, normal-path
+stream assertions and separate stream summary remain intact. Neither new pure
+selector enters that stream-state or the normal Game/Host campaign.
+
+The packet/digest project and eight-test recorded-GL inventory, including both
+arm cases and the full non-TRS affine case, are documented in
+`../../tools/source-player/README.md`. Fresh compilation/reference/artifact
+bindings and focused review of this source union remain pending. Historical
+stream and frozen affine results retain their original source scope, not proof
+of the new combination. No fixture, oracle, f89 tolerance or golden is updated.
+E1 lifetime, E2 ancestry, E3 World numerics, real assets/pivot bits,
+Unity/native/GPU and performance remain unqualified.
+FullWorld is STOP; all16 are OPEN; the whole port remains unfinished.

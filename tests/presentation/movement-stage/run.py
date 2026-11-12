@@ -113,8 +113,10 @@ def caller_guards(source_root=ROOT):
     require("executingSourceCamera.Reset();" in compact(method(playback[reset_at:], "Reset")),
             "source restart invalidates old frame generation")
     awake = compact(method(runtime, "Awake"))
-    require(awake.index("ConfigureSourceMovementRaster(") < awake.index("ConfigureSourceStage(") <
-            awake.index("RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick)") <
+    registration = compact(helpers.TEAM_CAMERA_PRODUCER)
+    require(awake.count(registration) == 1 and
+            awake.index("ConfigureSourceMovementRaster(") < awake.index("ConfigureSourceStage(") <
+            awake.index(registration) <
             awake.index("simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading"),
             "actual M1 raster/raw provider registration occurs before source wake")
     require("state=>simulation.SourceCameraRawGameMode" in awake, "use Core's actual GAME.H raw mode, not GamePhase numeric cast")
@@ -148,7 +150,7 @@ def caller_guards(source_root=ROOT):
             all(awake.index(event + "+=" + handler + ";") < awake.index("ForwardInitialSourcePresentationCues();")
                 for event, handler in owners),
             "source-only camera wiring and all sound lifecycle hooks precede initial cues")
-    require(code.count("RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);") == 1 and
+    require(code.count(registration) == 1 and
             code.count("simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;") == 1 and
             not any(token in code for token in (".ResetSourceStage(", ".ObserveSourceCameraSuspension(",
                                                 ".InitializeSourceStage(", ".AdvanceSourceStage(")),
@@ -159,8 +161,12 @@ def caller_guards(source_root=ROOT):
         "if(callback!=null&&callback.Kind!=SourcePresentationCueKind.PlayerDownCallback){"
         "SourceSoundVmDispatchdispatch=soundTransport.TakeForCue(callback);"
         "if(dispatch!=null&&dispatch.Status==SourceSoundVmStatus.Resolved){"
+        "if(nativeSoundOutput!=null&&(nativeSoundPending.Count==0||"
+        "!ReferenceEquals(nativeSoundPending.Peek().Vm,dispatch)))"
+        'thrownewInvalidOperationException("Nativeanimationaudiocannotcrossanearlieroriginaldirect/process/controloutput.");'
         "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);"
-        "soundTransport.FlushNativePrefix();return;}}"
+        "if(nativeSoundOutput!=null){nativeSoundPending.Dequeue();FlushNativeSoundOutputs();}"
+        "elsesoundTransport.FlushNativePrefix();return;}}"
         "playCamera.ConsumeSourceCue(cue);") and code.count("playCamera.ConsumeSourceCue(") == 1,
         "paired resolved sound uses actual output once and returns before the sole generic fallback")
     require(compact(method(camera, "ConsumeResolvedSourceSound")) ==
@@ -194,9 +200,14 @@ def caller_guards(source_root=ROOT):
             initial.index("OnAfterSimulationStep();") < initial.index(initial_cues) < initial.index("CompleteSourceSoundBatch();"),
             "initial/restart batches use the same drain-before-cue and completion protocol")
     require(compact(method(runtime, "CompleteSourceSoundBatch")) ==
+            "if(nativeSoundOutput!=null){FlushNativeSoundOutputs();if(nativeSoundPending.Count!=0)"
+            'thrownewInvalidOperationException("Nativesourceaudiohasanunpairedoriginalanimationcallback.");}'
             "if(soundTransport!=null)soundTransport.CompletePresentationBatch();" and
             compact(method(runtime, "ResetSourceSoundTransport")) ==
             "if(soundTransport!=null)soundTransport.Reset();"
+            "nativeSoundPending.Clear();unboundNativeBootSound=null;"
+            "if(nativeSoundOutput!=null)nativeSoundOutput.Reset(++nativeSoundEpoch);"
+            "if(sourceInstructions!=null)sourceInstructions.OnSourceProgramReset();"
             "if(sourceFireRenderer!=null)sourceFireRenderer.ResetSourceEpoch();",
             "actual sound batch completion and restart hooks are connected to transport, not no-ops")
     cue = compact(method(runtime, "OnSourcePresentationCue"))

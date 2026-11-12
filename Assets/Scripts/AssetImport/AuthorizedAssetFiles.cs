@@ -193,13 +193,59 @@ namespace Blitz.AssetImport
             if (end != bytes.Length)
             {
                 byte[] signature = Encoding.ASCII.GetBytes("TRUEVISION-XFILE.\0");
-                if (bytes.Length - end != 26) throw new PlayerAssetException("TGA '" + label + "' has unsupported trailing/extension data.");
-                for (int i = 0; i < 8; i++)
-                    if (bytes[(int)end + i] != 0) throw new PlayerAssetException("TGA '" + label + "' extension/developer offsets are unsupported.");
+                if (bytes.Length - end < 26) throw new PlayerAssetException("TGA '" + label + "' has truncated trailing data.");
+                int footer = bytes.Length - 26;
                 for (int i = 0; i < signature.Length; i++)
-                    if (bytes[(int)end + 8 + i] != signature[i]) throw new PlayerAssetException("TGA '" + label + "' has an invalid v2 footer.");
+                    if (bytes[footer + 8 + i] != signature[i]) throw new PlayerAssetException("TGA '" + label + "' has an invalid v2 footer.");
+                var regions = new List<int[]>();
+                int extension = Offset(bytes, footer), developer = Offset(bytes, footer + 4);
+                if (extension != 0)
+                {
+                    if (extension < end || extension > footer - 495 ||
+                        (bytes[extension] | bytes[extension + 1] << 8) != 495)
+                        throw new PlayerAssetException("TGA '" + label + "' has an invalid extension extent.");
+                    regions.Add(new[] { extension, extension + 495 });
+                }
+                if (developer != 0)
+                {
+                    if (developer < end || developer > footer - 2)
+                        throw new PlayerAssetException("TGA '" + label + "' has an invalid developer directory.");
+                    int count = bytes[developer] | bytes[developer + 1] << 8;
+                    int directoryEnd = developer + 2 + count * 10;
+                    if (count < 1 || count > 64 || directoryEnd > footer)
+                        throw new PlayerAssetException("TGA '" + label + "' has an invalid developer count.");
+                    regions.Add(new[] { developer, directoryEnd });
+                    var tags = new HashSet<int>();
+                    for (int n = 0; n < count; n++)
+                    {
+                        int entry = developer + 2 + n * 10;
+                        int tag = bytes[entry] | bytes[entry + 1] << 8;
+                        int start = Offset(bytes, entry + 2), size = Offset(bytes, entry + 6);
+                        if (!tags.Add(tag) || size <= 0 || start < end || start >= footer || (long)start + size > footer)
+                            throw new PlayerAssetException("TGA '" + label + "' has an invalid developer payload.");
+                        regions.Add(new[] { start, start + size });
+                    }
+                }
+                regions.Sort((a, b) => a[0].CompareTo(b[0]));
+                int previous = (int)end;
+                foreach (int[] region in regions)
+                {
+                    if (region[0] < previous) throw new PlayerAssetException("TGA '" + label + "' has overlapping metadata.");
+                    for (int i = previous; i < region[0]; i++)
+                        if (bytes[i] != 0) throw new PlayerAssetException("TGA '" + label + "' has unreferenced metadata.");
+                    previous = region[1];
+                }
+                for (int i = previous; i < footer; i++)
+                    if (bytes[i] != 0) throw new PlayerAssetException("TGA '" + label + "' has unreferenced trailing bytes.");
             }
             return new TgaImageInfo(width, height, bits, offset, descriptor);
+        }
+
+        private static int Offset(byte[] bytes, int index)
+        {
+            uint value = (uint)(bytes[index] | bytes[index + 1] << 8 | bytes[index + 2] << 16 | bytes[index + 3] << 24);
+            if (value > int.MaxValue) throw new PlayerAssetException("TGA metadata offset exceeds the bounded input.");
+            return (int)value;
         }
     }
 }

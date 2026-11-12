@@ -409,6 +409,13 @@ namespace Blitz.AssetImport
 
     public sealed class SourceTeamRosterLibrary : ISourceTeamRoster
     {
+        public string GetSourceSoundBankName(int teamIndex)
+        {
+            GetTeam(teamIndex);
+            string name = TeamData[teamIndex].Name;
+            return name.Substring(0, Math.Min(8, name.Length));
+        }
+
         public const string PinnedSourceRevision = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded";
         public const string PinnedSourceTree = "a7e0352125d46075b7d98e87253ab89b9160a4c7";
         public const string PinnedInputManifestSha256 = "608e2e6352470993426b93130a779d014d7bc32b1794c7cb9e2eaf6ba14469a1";

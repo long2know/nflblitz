@@ -121,6 +121,8 @@ internal static class LifecycleChecks
     {
         BlitzRuntime runtime = Start();
         Require(runtime.IsSourceProfile && runtime.SourceFailure == null, "ready source bootstrap succeeds");
+        Require(HostProbe.FieldIndex == 0 && HostProbe.HomePrefix == "BEA",
+            "ready source forwards the actual fixture field and designated home-team venue");
         Require(HostProbe.Bridge.HookCount == 8 && HostProbe.CommandBuffers == 1 && HostProbe.Hud != null,
             "ready source has every actual bridge hook, HUD and required consumer");
         Require(HostProbe.Captures == 1 && HostProbe.TrailCaptures == 1 && HostProbe.Draws == 2,
@@ -207,10 +209,14 @@ internal static class LifecycleChecks
         SourceSelectionTimerSound received = default(SourceSelectionTimerSound);
         Action<SourceSelectionTimerSound> listener = value => { calls++; received = value; };
         timerEvent.AddEventHandler(runtime, listener);
-        var first = new SourceSelectionTimerSound(57, 96, 8);
+        var output = new SourceProcessSoundCall(SourceProcessSoundKind.SelectionTimer, 1, 57, 96,
+            "selection_timer", 0, 0, "timer", "cursors2", 36, 235, 127, 5, 0);
+        var first = new SourceSelectionTimerSound(57, 96, 8, output);
         runtime.SourceSimulation.RaiseSelectionTimerSound(first);
         Require(calls == 1 && received.Equals(first),
             "ready source forwards timer sound exactly once with the actual payload");
+        Require(ReferenceEquals(received.Output, output) && received.OutputSequence == 1 && received.Bank == "cursors2",
+            "ready source preserves the actual process-output identity and original bank");
         Call(runtime, "RestartMatch");
         var second = new SourceSelectionTimerSound(1, 32, 9);
         runtime.SourceSimulation.RaiseSelectionTimerSound(second);

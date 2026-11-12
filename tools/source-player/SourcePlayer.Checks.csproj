@@ -10,13 +10,32 @@
   <ItemGroup>
     <ProjectReference Include="SourcePlayer.Core.csproj" />
     <Compile Include="Checks.cs" />
+    <Compile Include="RealtimeSourceChecks.cs" />
+    <Compile Include="CabinetSessionChecks.cs" />
+    <Compile Include="TwoStationJoinRevisionChecks.cs" />
+    <Compile Include="PortableInstructionChecks.cs" />
+    <Compile Include="WorldPresentationChecks.cs" />
     <Compile Include="ArmRenderingChecks.cs" />
+    <Compile Include="AffinePacketChecks.cs" />
     <Compile Include="PreSnapSwitchChecks.cs" />
+    <Compile Include="DefaultAudiblesChecks.cs" />
     <Compile Include="FeatureChecks.cs" />
     <Compile Include="PoppedHeadChecks.cs" />
     <Compile Include="FreeBallChecks.cs" />
     <Compile Include="BallTrailChecks.cs" />
     <Compile Include="DustChecks.cs" />
     <Compile Include="HelmetChecks.cs" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(NativeUnityEditorData)' != ''">
+    <DefineConstants>$(DefineConstants);BLITZ_NATIVE_AUDIO_API</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NativeUnityEditorData)' != ''">
+    <Compile Include="../../Assets/Scripts/Presentation/SourceUnityPcmSoundOutput.cs" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(NativeUnityEditorData)/Managed/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(NativeUnityEditorData)/Managed/UnityEngine/UnityEngine.AudioModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

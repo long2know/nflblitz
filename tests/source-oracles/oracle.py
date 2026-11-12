@@ -78,13 +78,24 @@ def unique_offset(data: bytes, marker: bytes) -> int:
 
 
 class Oracle:
-    def __init__(self, source_root: Path, artifacts: Path | None = None, compiler: str | None = None):
+    def __init__(self, source_root: Path, artifacts: Path | None = None, compiler: str | None = None,
+                 caller_profile: bool = False):
         self.source_root = source_root.resolve()
         self.artifacts = (artifacts or SUITE / ".artifacts" / "run").resolve()
         if ROOT not in self.artifacts.parents:
             raise OracleError("Oracle artifacts must stay inside this project, never in temporary directories.")
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.sources = verified_sources(self.source_root)
+        self.caller_profile = caller_profile
+        if caller_profile:
+            for name, pin in {
+                "playsel.c": "f5e87b921a4038d03f55174bbd5425241939e798",
+                "player.c": "5744c51f30b625b9f80b92388ab49ff0ebc5bb2c",
+            }.items():
+                raw = (self.source_root / name).read_bytes()
+                if blob_sha1(raw) != pin:
+                    raise OracleError("Caller authority blob mismatch: " + name)
+                self.sources[name] = raw
         self.selections: list[dict] = []
         self.compiler = shutil.which(compiler) if compiler else (shutil.which("gcc") or shutil.which("clang"))
         if not self.compiler:
@@ -158,6 +169,9 @@ class Oracle:
             b"game_info_t game_info;\ntdata_t tdata_blocks[2];\n",
             b"struct { int type; } ball_obj;\nint fpend;\nint clock_active;\n",
         ]
+        if self.caller_profile:
+            generated.insert(0, b"#define SOURCE_RULES_CALLER_PROFILE 1\n")
+            generated.append(self.macros("include/GAME.H", {"FDYARDS", "HASHWIDTH"}))
         result = self.sources["result.c"]
         start = unique_offset(result, b"static void _norm_car_oob( void );")
         generated.append(self.select("result.c", start, len(result), "result_functions + all 30 original functions"))
@@ -185,6 +199,48 @@ class Oracle:
         discard_end = nfl.index(b";", discard_start) + 1
         generated.append(self.select("nfl.c", discard_start, discard_end, "end-of-play fractional discard"))
         generated.append(b"}\n")
+        if self.caller_profile:
+            generated.append(b"\nstatic void original_resolve_caller(void) {\nclock_active = 0;\noriginal_discard_fraction();\n")
+            restore_start = unique_offset(nfl, b"\t\t// if last_pos != off_side, the last team to touch")
+            generated.append(self.select("nfl.c", restore_start, spot_start,
+                                         "game_proc:last_pos restoration and possession flag"))
+            generated.append(b"\noriginal_spot_and_classify();\n")
+            switch_start = unique_offset(nfl, b"\t\t// next play defaults to PT_NORMAL")
+            switch_end = unique_offset(nfl, b"\t\tupdate_status_box = 1;")
+            generated.append(self.select("nfl.c", switch_start, switch_end,
+                                         "game_proc:complete next-play defaults and result switch"))
+            display_end = unique_offset(nfl, b"\t\t// wait for any replay to finish up")
+            generated.append(self.select("nfl.c", switch_end, display_end,
+                                         "game_proc:displayed spots and captain transition"))
+            hash_start = unique_offset(nfl, b"\t\t// spot between hash marks")
+            hash_end = nfl.index(b"#ifdef FG_DEBUG", hash_start)
+            generated.append(self.select("nfl.c", hash_start, hash_end, "game_proc:actual hash-mark spotting"))
+            generated.append(b"}\n")
+            pat_start = nfl.index(b"case PT_EXTRA_POINT:")
+            skip_start = nfl.index(b"\t\t\t\tup_by = compute_score", pat_start)
+            skip_end = nfl.index(b"\t\t\t\tsnd_scall_bank(cursor_bnk_str", skip_start)
+            generated.append(b"\nstatic int original_pat_skip(void) {\nint up_by;\n")
+            generated.append(self.select("nfl.c", skip_start, skip_end, "game_proc:actual terminal PAT skip"))
+            generated.append(b"\nreturn 0;\neoq: return 1;\n}\n")
+            generated.append(self.function("playsel.c", "go_for_two"))
+            playsel = self.sources["playsel.c"]
+            selection_start, selection_end = function_window(playsel, "play_select")
+            miss_start = playsel.index(b"\t\tmiss_kick = 0;", selection_start, selection_end)
+            miss_end = playsel.index(b"\t\tset_text_font(FONTID_BAST18);", miss_start, selection_end)
+            generated.append(b"\nstatic void original_free_pat_miss(void) {\nint i;\n")
+            generated.append(self.select("playsel.c", miss_start, miss_end, "play_select:complete human/CPU miss branch"))
+            generated.append(b"}\nstatic void original_free_pat_award_and_wait(void) {\n")
+            delay_start = playsel.index(b"\t\tsleep(15);", miss_end, selection_end)
+            award_end = playsel.index(b"\t\t// delete old scores", delay_start, selection_end)
+            generated.append(self.select("playsel.c", delay_start, award_end, "play_select:unaltered delay controls sound and point award"))
+            wait_start = playsel.index(b"\t\t// For attract mode display", award_end, selection_end)
+            wait_end = playsel.index(b"\t\tkill(pflasher", wait_start, selection_end)
+            generated.append(self.select("playsel.c", wait_start, wait_end, "play_select:actual post-point wait and exit sound"))
+            generated.append(b"}\nstatic void original_free_pat_return(void) {\n")
+            restore_start = nfl.index(b"\t\t\t\tgame_info.off_side = game_info.off_init;", pat_start)
+            restore_end = nfl.index(b";", nfl.index(b"game_info.play_type = PT_KICKOFF", restore_start)) + 1
+            generated.append(self.select("nfl.c", restore_start, restore_end, "game_proc:actual free-PAT return kickoff state"))
+            generated.append(b"}\n")
         generated.append(self.struct("include/ani3d.h", "_vec3d", "vec3d"))
         generated.append(b"\n#define fsqrt sqrtf\n")
         for symbol in ("vxv", "magv", "det"):
@@ -228,6 +284,12 @@ class Oracle:
             "source": PINS, "compiler": self.compiler_record,
             "field_layout_and_macros": self.execute(["meta"])[0],
             "selections": self.selections,
+            "caller_profile": "source-defined-game-proc-callers-20261110/v1" if self.caller_profile else None,
+            "platform_boundary": {
+                "reference": "Unmodified byte-authenticated C caller statements and declarations",
+                "execution": "Host compiler with 32-bit int/binary32 checks; not vendor ccmips/asmmips/psylib",
+                "not_claimed": "Original external Goose/Glide/SOUND_LIB ABI, native scheduling or underlying RNG algorithm",
+            },
             "limitations": [
                 "Native host compiler, not the original MIPS compiler/ABI or exact arcade binary.",
                 "Original complete game_info_t/tdata_t declarations; play_t is an opaque pointer.",

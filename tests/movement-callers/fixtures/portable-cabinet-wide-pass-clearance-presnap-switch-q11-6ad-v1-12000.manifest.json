@@ -1,0 +1,63 @@
+{
+  "schema": "reviewed-q11-6ad-public-input-artifact/v1",
+  "case": "portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000",
+  "artifact_version": "reviewed-q11-6ad/v1",
+  "recording_grammar": "source-defensive-presnap-switch/v6",
+  "source_epoch": {
+    "publicRepository": "long2know/nflblitz",
+    "publicHead": "6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189",
+    "source104Sha256": "ff0ee6a691a87eb346959fa446e1496a7c9a9d7a4eeb0b368d97c864cb66aefb",
+    "compiled161Sha256": "4f519b55f331581a5c423e893de9d418251271387470d08639474a02e8e485b8",
+    "harness12Sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b"
+  },
+  "controller_sha256": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+  "seed": 1,
+  "raw_vector": [
+    0,
+    1,
+    2,
+    3,
+    17,
+    31,
+    127,
+    257,
+    4096,
+    65537,
+    104729,
+    1234567,
+    2147483645,
+    2147483646,
+    2147483647
+  ],
+  "profile": "original-teams-contact282-c2-m1-presnap-switch",
+  "factory": "REAL SourceC2Composition.CreatePreSnapSwitchSimulation",
+  "source_data_sha256": "e9a2ccbfffda0e83ae9ba409e4fbfd6f6c6f074ebd024aa30367d9d06c29c653",
+  "host_ticks": 12000,
+  "source_ticks": 11400,
+  "raw_cursor": 22505,
+  "maximum_initial_windows": 1,
+  "actual_initial_executions": 1,
+  "jsonl": {
+    "file": "portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000.jsonl",
+    "sha256": "ad31c767e1a54af3efc681e0edf93aef88cd76b58bea1869da0df57a62f525e8",
+    "bytes": 10622753
+  },
+  "gzip": {
+    "file": "portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000.jsonl.gz",
+    "sha256": "84856f6a35ad49335395f7c7fa1f59ae59e8075f032b0e6589af96ff1e13b17d",
+    "bytes": 80015
+  },
+  "policy_plan_sha256": "692b41ba9edd0386a67e89101b7518dd26d7fb405a989ecd77ea842e68b732af",
+  "capture_receipt_sha256": "6bb08c88973f4d1ce4f3d43373d5931beb5ba1405ee5aafbf4de2cea31d46625",
+  "initial_public_R_SKIP_witness": {
+    "actor": 12,
+    "InstanceId": 252,
+    "firstTick": 9503,
+    "secondTick": 9504,
+    "firstOrdinal": 0,
+    "secondOrdinal": 1
+  },
+  "initial_public_R_SKIP_frames": 31,
+  "initial_pre_snap_switch_witnesses": 9,
+  "qualification": "Capture only; exact fresh replay/cache/compiled-control/integrity qualification still pending. No positive registry adoption."
+}

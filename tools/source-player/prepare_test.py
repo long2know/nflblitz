@@ -8,6 +8,171 @@ prepare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prepare)
 
 
+class DefaultAudiblesPreparationChecks(unittest.TestCase):
+    def test_successor_metadata_is_explicit_and_old_defaults_are_unchanged(self):
+        import inspect
+        import build
+        import prepare_default_audibles as audible
+        self.assertEqual(build.PROFILE, "original-teams-contact282-c2-m1-presnap-switch")
+        self.assertEqual(inspect.signature(prepare.Bundle.persist).parameters["profile"].default,
+                         "original-teams-contact281-c2-m1")
+        self.assertEqual(audible.PROFILE, "original-teams-contact282-c2-m1-default-audibles")
+        self.assertEqual(audible.FEATURE_CONTRACT, "source-default-audibles/v1")
+        self.assertEqual(audible.FACTORY, "SourceC2Composition.CreateDefaultAudiblesSimulation")
+
+    def test_relabeling_without_feature_or_factory_is_rejected_before_payload_access(self):
+        import json
+        import prepare_default_audibles as audible
+        document = dict(profile=audible.PROFILE)
+        with self.assertRaisesRegex(ValueError, "featureContract"):
+            audible.require_manifest(document, json.dumps(document).encode())
+        document["featureContract"] = audible.FEATURE_CONTRACT
+        with self.assertRaisesRegex(ValueError, "factory"):
+            audible.require_manifest(document, json.dumps(document).encode())
+        document["factory"] = "SourceC2Composition.CreatePreSnapSwitchSimulation"
+        with self.assertRaisesRegex(ValueError, "factory"):
+            audible.require_manifest(document, json.dumps(document).encode())
+
+    def test_actual_metadata_bundle_and_manifest_mutations(self):
+        import copy
+        import json
+        import os
+        import build
+        import prepare_default_audibles as audible
+        selected = os.environ.get("SOURCE_PLAYER_TEST_DEFAULT_AUDIBLES_DATA")
+        if not selected:
+            self.skipTest("Explicit ignored default-audibles data is required; no substitute assets are generated.")
+        root = Path(selected)
+        self.assertTrue(root.is_dir(), "The explicitly selected actual metadata-only root is missing.")
+        raw = (root / "manifest.json").read_bytes()
+        document = json.loads(raw)
+        audible.require_manifest(document, raw)
+        build.verify_private_inputs(root, document)
+        self.assertEqual(len(document["files"]), 563)
+        self.assertEqual(document["entrypoints"]["settings"], "settings-presnap-switch.json")
+        for field in ("featureContract", "factory", "files", "entrypoints"):
+            altered = copy.deepcopy(document)
+            if field in ("featureContract", "factory"):
+                del altered[field]
+            elif field == "files":
+                altered[field][0]["sha256"] = "0" * 64
+            else:
+                altered[field]["settings"] = "settings.json"
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                audible.require_manifest(altered, (json.dumps(altered, indent=2, sort_keys=True) + "\n").encode())
+
+
+class Av306BuildAdmissionChecks(unittest.TestCase):
+    def test_exact_caller_generations_do_not_alias(self):
+        import build
+        self.assertEqual(build.caller_drain_profile(build.SELECTED_WORLD_PROFILE, build.PRIMARY1114_MANIFEST_SHA256),
+                         "aot-rooted-bounded-caller-drain/v1")
+        self.assertEqual(build.caller_drain_profile(build.AV306_PROFILE, build.AV306_MANIFEST_SHA256),
+                         "aot-rooted-bounded-caller-drain-av306/v1")
+        for profile, pin in [(build.SELECTED_WORLD_PROFILE, build.AV306_MANIFEST_SHA256),
+                             (build.AV306_PROFILE, build.PRIMARY1114_MANIFEST_SHA256),
+                             (build.PROFILE, build.AV306_MANIFEST_SHA256)]:
+            with self.subTest(profile=profile, pin=pin), self.assertRaises(ValueError):
+                build.caller_drain_profile(profile, pin)
+
+    def test_new_generation_cannot_reuse_old_aot_modules(self):
+        import contextlib
+        import io
+        import build
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as result:
+            build.main(["--data", "not-read", "--profile", build.AV306_PROFILE, "--aot",
+                        "--caller-drain", "--reuse-aot-bundle", "not-read"])
+        self.assertEqual(result.exception.code, 2)
+
+    def test_old_default_and_diagnostic_modes_are_not_promoted(self):
+        import build
+        self.assertEqual(build.PROFILE, "original-teams-contact282-c2-m1-presnap-switch")
+        import contextlib
+        import io
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as result:
+            build.main(["--data", "not-read", "--profile", build.AV306_PROFILE, "--caller-drain"])
+        self.assertEqual(result.exception.code, 2)
+
+    def test_actual_authenticated_av306_metadata_and_relabels(self):
+        import os
+        import json
+        import copy
+        import build
+        selected = os.environ.get("SOURCE_PLAYER_TEST_AV306_MANIFEST")
+        if not selected:
+            self.skipTest("An explicit actual authenticated AV306 manifest is required; no synthetic accepted root.")
+        raw = Path(selected).read_bytes()
+        document = json.loads(raw)
+        build.require_av306_manifest(document, raw)
+        self.assertEqual(len(document["files"]), 1153)
+        self.assertEqual(document["features"]["originalSelectedClipInputs"], 306)
+        self.assertEqual(document["features"]["originalCompiledPlaylistPrograms"], 1205)
+        for key in ("profile", "schema", "ancestorManifestSha256", "factory", "files"):
+            altered = copy.deepcopy(document)
+            if key == "files":
+                altered["files"][0]["sha256"] = "0" * 64
+            else:
+                altered[key] = "not-the-authenticated-generation"
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                build.require_av306_manifest(altered, json.dumps(altered).encode())
+
+
+class TwoStationRecordsBuildAdmissionChecks(unittest.TestCase):
+    def test_exact_caller_rejects_all_legacy_data_aliases(self):
+        import build
+        self.assertEqual(build.caller_drain_profile(build.TWO_STATION_RECORDS_PROFILE,
+                         build.TWO_STATION_RECORDS_MANIFEST_SHA256),
+                         "aot-rooted-bounded-caller-drain-av306-two-station-records/v1")
+        for profile, pin in [
+                (build.TWO_STATION_RECORDS_PROFILE, build.AV306_MANIFEST_SHA256),
+                (build.TWO_STATION_RECORDS_PROFILE, build.PRIMARY1114_MANIFEST_SHA256),
+                (build.AV306_PROFILE, build.TWO_STATION_RECORDS_MANIFEST_SHA256),
+                (build.SELECTED_WORLD_PROFILE, build.TWO_STATION_RECORDS_MANIFEST_SHA256)]:
+            with self.subTest(profile=profile, pin=pin), self.assertRaises(ValueError):
+                build.caller_drain_profile(profile, pin)
+
+    def test_new_named_factory_requires_fresh_aot_and_explicit_caller_mode(self):
+        import build
+        import contextlib
+        import io
+        for options in [
+                ["--aot", "--caller-drain", "--reuse-aot-bundle", "not-read"],
+                ["--caller-drain"]]:
+            with self.subTest(options=options), contextlib.redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit) as result:
+                build.main(["--data", "not-read", "--profile", build.TWO_STATION_RECORDS_PROFILE, *options])
+            self.assertEqual(result.exception.code, 2)
+
+    def test_actual_two_station_settings_and_immutable_ancestor_inventory(self):
+        import os
+        import json
+        import copy
+        import build
+        selected = os.environ.get("SOURCE_PLAYER_TEST_TWO_STATION_RECORDS_DATA")
+        if not selected:
+            self.skipTest("An explicit actual authenticated named TwoStation root is required.")
+        root = Path(selected)
+        raw = (root / "manifest.json").read_bytes()
+        document = json.loads(raw)
+        build.require_two_station_records_manifest(document, raw)
+        build.verify_private_inputs(root, document)
+        settings = json.loads((root / document["entrypoints"]["settings"]).read_bytes())
+        self.assertEqual(settings["station_layout"], 2)
+        self.assertEqual(settings["stations"], [
+            dict(id=0, initial_player_id=-1, profile=None, team=0),
+            dict(id=1, initial_player_id=-1, profile=None, team=1)])
+        self.assertEqual(len(document["files"]), 1154)
+        self.assertNotIn("settings-presnap-switch.json", document["entrypoints"].values())
+        for key in ("profile", "factory", "ancestorManifestSha256", "settings"):
+            altered = copy.deepcopy(document)
+            if key == "settings":
+                altered["entrypoints"]["settings"] = "settings-presnap-switch.json"
+            else:
+                altered[key] = "not-the-authenticated-two-station-generation"
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                build.require_two_station_records_manifest(altered, json.dumps(altered).encode())
+
+
 class PreparationChecks(unittest.TestCase):
     def test_presnap_default_changes_only_existing_station_layout_type(self):
         import json
@@ -29,9 +194,12 @@ class PreparationChecks(unittest.TestCase):
         try:
             (root/"manifest.json").write_text(json.dumps(dict(schema="blitz-portable-source-player/v1",
                 profile=build.OLD_PROFILE,files=[])))
-            with patch.object(build.subprocess,"run",side_effect=AssertionError("No publish may run for mismatched data")):
-                with self.assertRaises(SystemExit) as failure:build.main(["--data",str(root)])
-                self.assertEqual(failure.exception.code,2)
+            for options in ([], ["--no-restore"]):
+                with self.subTest(options=options), patch.object(build.subprocess,"run",
+                        side_effect=AssertionError("No publish may run for mismatched data")):
+                    with self.assertRaises(SystemExit) as failure:
+                        build.main(["--data",str(root),*options])
+                    self.assertEqual(failure.exception.code,2)
         finally:shutil.rmtree(root)
 
     def test_build_rejects_unlisted_private_file_before_publish(self):
@@ -49,6 +217,157 @@ class PreparationChecks(unittest.TestCase):
             manifest = json.loads((source / "manifest.json").read_bytes())
             with self.assertRaisesRegex(ValueError, "unlisted.bytes"):
                 build.verify_private_inputs(source, manifest)
+        finally:
+            shutil.rmtree(root)
+
+    def test_build_offline_publish_is_explicit_and_preserves_input_gate(self):
+        import build
+        import shutil
+        from unittest.mock import patch
+        root, source, _, _ = self.camera_fixture()
+        try:
+            for offline in (False, True):
+                with self.subTest(offline=offline):
+                    options = ["--no-restore"] if offline else []
+                    with patch.object(build.subprocess, "run",
+                                      side_effect=RuntimeError("Captured actual SDK publish")) as publish:
+                        with self.assertRaisesRegex(RuntimeError, "Captured actual SDK publish"):
+                            build.main(["--data", str(source), "--profile", build.OLD_PROFILE, *options])
+                        command = publish.call_args.args[0]
+                        self.assertIn("publish", command)
+                        self.assertEqual(int(offline), command.count("--no-restore"))
+            (source / "unlisted.bytes").write_bytes(b"Unlisted synthetic input.")
+            with patch.object(build.subprocess, "run") as publish:
+                with self.assertRaises(SystemExit) as failure:
+                    build.main(["--data", str(source), "--profile", build.OLD_PROFILE, "--no-restore"])
+                self.assertEqual(2, failure.exception.code)
+                publish.assert_not_called()
+        finally:
+            shutil.rmtree(root)
+
+    def test_build_aot_explicit_rooted_trim_does_not_change_default(self):
+        import build
+        import shutil
+        from unittest.mock import patch
+        root, source, _, _ = self.camera_fixture()
+        try:
+            for aot in (False, True):
+                with self.subTest(aot=aot), patch.object(build.subprocess, "run",
+                        side_effect=RuntimeError("Captured actual SDK publish")) as publish:
+                    options = ["--aot"] if aot else []
+                    with self.assertRaisesRegex(RuntimeError, "Captured actual SDK publish"):
+                        build.main(["--data", str(source), "--profile", build.OLD_PROFILE,
+                                    "--no-restore", *options])
+                    command = publish.call_args.args[0]
+                    self.assertIn("publish", command)
+                    self.assertIn("--no-restore", command)
+                    self.assertEqual(aot, "-p:RunAOTCompilation=true" in command)
+                    self.assertEqual(aot, "-p:WasmBuildNative=true" in command)
+                    self.assertEqual(aot, "-p:PublishTrimmed=true" in command)
+                    self.assertEqual(aot, "-p:JsonSerializerIsReflectionEnabledByDefault=true" in command)
+                    self.assertFalse(any(value.startswith("-p:TrimMode=") for value in command))
+            (source / "unlisted.bytes").write_bytes(b"Unlisted synthetic input.")
+            with patch.object(build.subprocess, "run") as publish, self.assertRaises(SystemExit):
+                build.main(["--data", str(source), "--profile", build.OLD_PROFILE, "--aot"])
+            publish.assert_not_called()
+        finally:
+            shutil.rmtree(root)
+
+    def test_republish_replaces_only_generated_data_and_rejects_input_overlap(self):
+        import build
+        import json
+        import shutil
+        root, source, _, _ = self.camera_fixture()
+        try:
+            manifest = json.loads((source / "manifest.json").read_bytes())
+            output = root / "AppBundle"
+            (output / "data/world").mkdir(parents=True)
+            (output / "data/world/old-venue.bytes").write_bytes(b"stale generated world")
+            (output / "main.js").write_bytes(b"keep emitted loader")
+            before = {p.name: p.read_bytes() for p in source.iterdir()}
+            build.stage_private_inputs(source, manifest, output)
+            self.assertEqual({"manifest.json", "first.bytes", "second.bytes"},
+                             {p.relative_to(output / "data").as_posix()
+                              for p in (output / "data").rglob("*") if p.is_file()})
+            self.assertEqual(b"keep emitted loader", (output / "main.js").read_bytes())
+            self.assertEqual(before, {p.name: p.read_bytes() for p in source.iterdir()})
+            with self.assertRaisesRegex(ValueError, "overlap"):
+                build.stage_private_inputs(output / "data", manifest, output)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in (output / "data").iterdir()})
+        finally:
+            shutil.rmtree(root)
+
+    def test_source_step_cost_facade_preserves_terminal_string_and_host_rejections(self):
+        import subprocess
+        probe = r"""
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+const code = await readFile(process.argv[1], 'utf8');
+const start = code.lastIndexOf("Object.defineProperty(globalThis, 'sourcePlayer',");
+assert.ok(start >= 0);
+const packet = '{"schema":"source-player-source-step-cpu/v1","enabled":true}';
+let reads = 0, frames = 0;
+const context = { ready: false, failed: true, api: {
+  SourceStepCosts: () => { reads++; return packet; },
+  Frame: () => { frames++; throw new Error('Diagnostics cannot advance a frame'); },
+}};
+vm.runInNewContext(code.slice(start), context);
+assert.equal(context.sourcePlayer.sourceStepCosts(), packet);
+assert.equal(reads, 1);
+assert.equal(frames, 0);
+const active = new Error('Actual host requires paused or terminal inspection');
+context.api.SourceStepCosts = () => { throw active; };
+assert.throws(() => context.sourcePlayer.sourceStepCosts(), error => error === active);
+context.api = undefined;
+assert.throws(() => context.sourcePlayer.sourceStepCosts(), /not initialized/);
+context.callerTrace = { snapshot: () => ({ schema: 'source-player-bounded-caller-drain-diagnostics/v1' }) };
+context.callerDrain = { generation: 4, pending: null, closed: false };
+context.callerProfile = 'aot-rooted-bounded-caller-drain/v1';
+context.input = { paused: false }; context.failed = false;
+assert.throws(() => context.sourcePlayer.callerDiagnostics(), /public pause/);
+context.input.paused = true;
+const diagnostic = context.sourcePlayer.callerDiagnostics();
+assert.equal(typeof diagnostic, 'string');
+assert.equal(JSON.parse(diagnostic).generation, 4);
+context.input.paused = false; context.failed = true;
+assert.equal(JSON.parse(context.sourcePlayer.callerDiagnostics()).enabled, true);
+assert.equal(frames, 0);
+"""
+        result = subprocess.run(["node", "--input-type=module", "-e", probe,
+                                 str(prepare.HERE / "wwwroot/main.js")],
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_caller_drain_is_explicit_and_never_uses_an_interpreted_or_other_data_profile(self):
+        import build
+        import contextlib
+        import io
+        from unittest.mock import patch
+        for options in (["--caller-drain"], ["--aot", "--caller-drain"],
+                        ["--reuse-aot-bundle", "not-a-bundle", "--reuse-aot-build-sha256", "0" * 64]):
+            with self.subTest(options=options), contextlib.redirect_stderr(io.StringIO()), \
+                    patch.object(build.subprocess, "run") as process, self.assertRaises(SystemExit) as failure:
+                build.main(["--data", "not-a-private-input", *options])
+            self.assertEqual(2, failure.exception.code)
+            process.assert_not_called()
+
+    def test_js_only_aot_reuse_rejects_changed_compiled_csharp_before_copy_or_sdk(self):
+        import build
+        import json
+        import shutil
+        from unittest.mock import patch
+        root, source, _, _ = self.camera_fixture()
+        try:
+            receipt = dict(execution=dict(mode="aot", runAOTCompilation=True, jsonReflectionEnabled=True),
+                           profile=build.SELECTED_WORLD_PROFILE,
+                           sources=[dict(path="Assets/Scripts/Gameplay/GameSimulation.cs", sha256="1" * 64)])
+            raw = json.dumps(receipt).encode()
+            (source / "build-info.json").write_bytes(raw)
+            with patch.object(build.shutil, "copytree") as copy, self.assertRaisesRegex(ValueError, "cannot change C#"):
+                build.reuse_aot_bundle(source, build.hashlib.sha256(raw).hexdigest(), root / "new-output",
+                    [dict(path="Assets/Scripts/Gameplay/GameSimulation.cs", sha256="2" * 64)])
+            copy.assert_not_called()
         finally:
             shutil.rmtree(root)
 
@@ -233,7 +552,7 @@ for (const variant of cases) {
   const manifestBytes = variant === 'unknown-unconsumed' ? Buffer.from(JSON.stringify(manifest)) : originalManifest;
   const receipt = { ...originalReceipt, dataManifestSha256: hash(manifestBytes) };
   const errors = [], reads = [], stations = [];
-  let failure, startCalls = 0, inputConstructed = 0, scheduled = 0;
+  let failure, cabinetStations, startCalls = 0, inputConstructed = 0, scheduled = 0;
   const canvas = { addEventListener() {}, focus() {} };
   const runtime = {
     withDiagnosticTracing() { return this; }, async create() { return this; },
@@ -250,17 +569,26 @@ for (const variant of cases) {
             const raw = runtime.imports.readFile(path);
             const pin = manifest.files.find(pin => pin.path === path);
             assert.equal(raw.length, pin.bytes); assert.equal(hash(raw), pin.sha256);
+            if (path === manifest.entrypoints.settings)
+              cabinetStations = JSON.parse(new TextDecoder().decode(raw)).stations.map(station => station.id);
             reads.push(path);
           }
         },
         Frame() { throw new Error('Boundary regression must not fake gameplay frames.'); },
+        CabinetStations() {
+          assert(cabinetStations, 'Station export must use the actual verified settings consumed at the Browser boundary.');
+          return Int32Array.from(cabinetStations);
+        },
         Capture() {}, SetActive() {},
       } } } };
     },
   };
   class Renderer { constructor() { this.device = {}; } }
   class Input {
-    constructor(api, target, ids) { inputConstructed++; stations.push(...ids); }
+    constructor(api, target, ids) {
+      assert(Array.isArray(ids), 'The real typed station export must be normalized before SourceInput flatMap.');
+      inputConstructed++; stations.push(...ids);
+    }
     focus() {} close() {}
   }
   const context = vm.createContext({

@@ -41,6 +41,14 @@ public sealed class PreviewCamera
         Playback.ObserveCameraProcessSuspension(false);
         Suspended = false;
         SourceCameraBoundary input = ((ISourceCameraState)state).CameraBoundary;
+        foreach (SourceProcessCameraSelection selection in game.TakeSourceProcessCameraSelections())
+        {
+            Playback.ConsumeSourceProcessCamera(selection);
+            CueCount++;
+            Record(new { sourceTick = selection.SourceTick, kind = "source-process-camera",
+                table = selection.Table, ordinal = selection.SelectedOrdinal, actor = selection.ActorId,
+                processOrder = selection.ProcessOrder, function = selection.Function, line = selection.SourceLine });
+        }
         DataCatalog.Require(input.SourceTick == tick && input.ProcessOrder == game.SourceCameraStageOrder &&
             input.RawGameMode == game.SourceCameraRawGameMode,
             "The original normal producer requires the actual immutable pre-actor Core boundary.");

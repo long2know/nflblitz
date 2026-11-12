@@ -19,8 +19,17 @@ class SoundVmClosure(unittest.TestCase):
         self.assertEqual(current.count(old), 1)
         self.assertIn("private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)", old)
         self.assertTrue(old.endswith("RequireSourceSoundVmBinding();"))
-        self.assertEqual(hashlib.sha256(current.encode()).hexdigest(),
-                         RUNNER.POST_HOST_SELECTION_SOURCE_SHA256)
+        self.assertEqual({
+            "4e41f3c0ecb3f002374090fbfddb92dcbaf51bc79ded50659a1fa1b2c2345ce3":
+                "defensive-presnap-switch/binding-required/v1",
+            "3180b7e8924e65a25e2312cff769443137f88d8e9fd4ba61454728b4f7f33f04":
+                "original303-output-sequence/binding-required/v2",
+            "f7f9b3e1b4b694358b2234d99fdff3903f4211434979d3fd91eef8bed100d9e9":
+                "reviewed-contact-speech/binding-required/v3",
+        }, RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS)
+        self.assertEqual(
+            "reviewed-contact-speech/binding-required/v3",
+            RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS[hashlib.sha256(current.encode()).hexdigest()])
         self.assertEqual(RUNNER.POST_HOST_SELECTION_BINDING,
                          "defensive-presnap-switch/binding-required/v1")
         self.assertIn("deferred.Add(Tuple.Create(actor,cue)); return;", new)
@@ -83,7 +92,8 @@ class SoundVmClosure(unittest.TestCase):
         props = ET.parse(ROOT / "tests/audio/vm/SourceSoundVmSources.props")
         includes = [item.attrib["Include"] for item in props.findall(".//Compile")]
         self.assertEqual(["$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs",
-                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"], includes)
+                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
+                          "$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs"], includes)
 
     def test_every_coupled_kernel_project_imports_the_actual_selector(self):
         for project in ["Blitz.Core.Tests/Blitz.Core.Tests.csproj", "ball/BallChecks.csproj",
@@ -105,7 +115,7 @@ class SoundVmClosure(unittest.TestCase):
                 self.assertIn("Assets/Scripts/Presentation/SourceC2SoundFunctions.cs", names)
                 self.assertIn("Assets/Scripts/Runtime/SourceC2Composition.cs", names)
             else:
-                for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+                for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
                     self.assertIn(name, text, path)
 
     def test_explicit_staged_projects_link_both_selectors_from_their_selected_root(self):
@@ -115,12 +125,15 @@ class SoundVmClosure(unittest.TestCase):
             ("presentation/interface-packaging/PackagingChecks.csproj", "$(BlitzPackagingRoot)"),
             ("presentation/sound-runtime/SoundPackagingChecks.csproj", "$(SoundPackagingRoot)"),
         ):
-            includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile")}
-            for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs"):
+            includes = {item.attrib["Include"] for item in ET.parse(ROOT / "tests" / project).findall(".//Compile[@Include]")}
+            for name in ("SourceAudioFunctions.cs", "SourceC2SoundFunctions.cs", "SourceOriginalAudioFunctions.cs"):
                 self.assertIn(prefix + "Assets/Scripts/Presentation/" + name, includes, project)
-        runtime = (ROOT / "tests/audio/runtime/run.py").read_text()
+        spec = importlib.util.spec_from_file_location("runtime_source_inventory", ROOT / "tests/audio/runtime/run.py")
+        runtime = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runtime)
+        sources = {path.relative_to(ROOT).as_posix() for path in runtime.source_files()}
         for name in ("Assets/Scripts/Runtime/SourceC2Composition.cs", "tests/parity/FullKernelSources.props"):
-            self.assertIn(name, runtime)
+            self.assertIn(name, sources)
 
     def test_no_primary_machine_path_is_a_new_permanent_default(self):
         for path in (ROOT / "tests/audio/vm").iterdir():

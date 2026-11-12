@@ -134,6 +134,14 @@ namespace Blitz.Gameplay
             return sortedSticks[32];
         }
 
+        internal int EvadeTargetDirectionToStick(int direction)
+        {
+            for (int i = 0; i < 32; i++)
+                if (Math.Abs(sortedAngles[i] - direction) < Math.Abs(sortedAngles[i + 1] - direction))
+                    return sortedSticks[i];
+            return sortedSticks[32];
+        }
+
         public int StickHeading(int stick)
         {
             if (stick < 0 || stick > 48) throw new ArgumentOutOfRangeException(nameof(stick));
@@ -300,6 +308,12 @@ namespace Blitz.Gameplay
 
         public float Distance(int from, int to) { SourceP1Guard.Actor(from); SourceP1Guard.Actor(to); return distances[from, to]; }
         public int Angle(int from, int to) { SourceP1Guard.Actor(from); SourceP1Guard.Actor(to); return angles[from, to]; }
+        internal int EvadeTargetTableAngle(int from, int attacker)
+        {
+            // Genuine SN code addresses the complete196-int object. Row0/-1 remains outside it.
+            if (attacker == -1 && from > 0 && from < 14) return angles[from - 1, 13];
+            return Angle(from, attacker);
+        }
         public int Bearing(int from, int to)
         {
             // pmisc.c:608-618 retains signed remainder; callers choose whether to take abs.
@@ -565,15 +579,24 @@ namespace Blitz.Gameplay
         }
     }
 
+    public enum SourceRouteFacingTarget { TargetFacing, DroneFace }
+
     public sealed class SourceRouteStep
     {
+        private int backpedalTarget;
         public SourceRouteState State { get; internal set; }
         public SourcePlanar DesiredMovement { get; internal set; }
         public int Facing { get; internal set; }
+        public SourceRouteFacingTarget FacingTarget { get; internal set; }
         public string Script { get; internal set; }
         public bool WaveArm { get; internal set; }
         public bool Backpedal { get; internal set; }
-        public int BackpedalTarget { get; internal set; }
+        public int BackpedalTarget
+        {
+            get { return backpedalTarget; }
+            internal set { backpedalTarget = value; BackpedalTargetWritten = true; }
+        }
+        public bool BackpedalTargetWritten { get; internal set; }
         public int ThrowTarget { get; internal set; }
         public bool ResetNonAButtonTime { get; internal set; }
         public bool ForceNonTurboOneTick { get; internal set; }
@@ -641,7 +664,9 @@ namespace Blitz.Gameplay
             internal Execution(SourceRouteState state, SourceRouteInput input, ISourceRandom random)
             {
                 State = state; Input = input; Random = new SourceRandomCursor(random, input.RandomContext);
-                Output = new SourceRouteStep { Facing = -1, ThrowTarget = -1, BackpedalTarget = -1, CommandWritten = true };
+                // The default target is not a write; explicit setters also mark source-required -1 clears.
+                Output = new SourceRouteStep { Facing = -1, ThrowTarget = -1, BackpedalTarget = -1,
+                    BackpedalTargetWritten = false, CommandWritten = true };
             }
             internal void Aim(SourcePlanar point) { State.Stick = Frame.StickToward(Actor.Position, point); }
             internal void Hold() { State.Stick = 24; State.Buttons = SourceDroneButtons.None; }
@@ -1346,10 +1371,38 @@ namespace Blitz.Gameplay
             if (quarterIndex < 0 || quarterIndex > 6) throw new ArgumentOutOfRangeException(nameof(quarterIndex));
             if (context.SourceTick != frame.SourceTick) throw new ArgumentException("Initialization tick mismatch.", nameof(context));
             var calls = new SourceRandomCursor(random, context);
+            return InitializePreLineupRange(frame, offense, defense, parameters, quarterIndex, calls, 0, 14);
+        }
+
+        internal static SourceDroneInitialization InitializePreLineupActor(SourceAiFrame frame,
+            SourcePlayDefinition offense, SourcePlayDefinition defense, SourceAiParameters parameters,
+            int quarterIndex, int actor, SourceRouteState retained, SourceRandomContext context, ISourceRandom random)
+        {
+            SourceP1Guard.Actor(actor);
+            SourceDroneInitialization result = InitializePreLineupRange(frame, offense, defense, parameters, quarterIndex,
+                new SourceRandomCursor(random, context), actor, actor + 1);
+            SourceRouteState state = result.States[actor];
+            state.Ghost = retained.Ghost; state.GhostVelocity = retained.GhostVelocity;
+            state.CatchTicks = retained.CatchTicks; state.WaitTicks = retained.WaitTicks;
+            state.BlockTicks = retained.BlockTicks; state.PendingCatch = retained.PendingCatch;
+            state.ZoneLowX = retained.ZoneLowX; state.ZoneHighX = retained.ZoneHighX;
+            state.ZoneLowZ = retained.ZoneLowZ; state.ZoneHighZ = retained.ZoneHighZ;
+            state.ZonePoint = retained.ZonePoint; state.ZoneVelocity = retained.ZoneVelocity;
+            state.QuarterbackPlan = retained.QuarterbackPlan; state.LastThrowTarget = retained.LastThrowTarget;
+            state.FakeZoneTicks = retained.FakeZoneTicks;
+            var states = new SourceRouteState[14]; states[actor] = state;
+            result.States = Array.AsReadOnly(states);
+            return result;
+        }
+
+        private static SourceDroneInitialization InitializePreLineupRange(SourceAiFrame frame,
+            SourcePlayDefinition offense, SourcePlayDefinition defense, SourceAiParameters parameters,
+            int quarterIndex, SourceRandomCursor calls, int first, int end)
+        {
             var states = new SourceRouteState[14];
             int defenseSide = 1 - frame.Rules.OffenseSide;
             int baseTime = parameters.Int("blitz_time_ht", defenseSide);
-            for (int i = 0; i < 14; i++)
+            for (int i = first; i < end; i++)
             {
                 int side = i / 7;
                 SourcePlayDefinition play = side == frame.Rules.OffenseSide ? offense : defense;
@@ -1480,7 +1533,8 @@ namespace Blitz.Gameplay
                 if (diver != -1 || attacker != -1)
                 {
                     // Shipping code passes attacker (-1 when diver exists), not enemy, to evade_dir.
-                    if (attacker == -1) throw e.Missing("_drone_qb:diver -> evade_dir(attacker=-1), undefined C p2p_angles read");
+                    if (attacker == -1 && e.Actor.Id == 0)
+                        throw e.Missing("_drone_qb:diver -> evade_dir(attacker=-1), undefined C p2p_angles read");
                     e.State.Stick = EvadeDirection(e, attacker);
                     int one = e.Random.Range(1, "_drone_qb:evade_kind");
                     int enemy = diver == -1 ? attacker : diver;
@@ -1555,13 +1609,17 @@ namespace Blitz.Gameplay
 
         private static int EvadeDirection(Execution e, int attacker)
         {
-            int angle = e.Frame.Angle(e.Actor.Id, attacker);
+            int angle = e.Frame.EvadeTargetTableAngle(e.Actor.Id, attacker);
             int d1 = angle + 384, d2 = angle - 384;
             SourcePlanar a = e.Frame.Directions.Offset(5f, d1), b = e.Frame.Directions.Offset(5f, d2);
             bool ok1 = Math.Abs(e.Actor.Position.X + a.X) <= 390f && Math.Abs(e.Actor.Position.Z + a.Z) <= FieldWidth;
             bool ok2 = Math.Abs(e.Actor.Position.X + b.X) <= 390f && Math.Abs(e.Actor.Position.Z + b.Z) <= FieldWidth;
-            if (ok1 && !ok2) return e.Frame.Directions.DirectionToStick(d1 - e.Frame.CameraHeading);
-            if (ok2 && !ok1) return e.Frame.Directions.DirectionToStick(d2 - e.Frame.CameraHeading);
+            if (ok1 && !ok2) return attacker == -1
+                ? e.Frame.Directions.EvadeTargetDirectionToStick(d1 + 1024 - e.Frame.CameraHeading) % 1024
+                : e.Frame.Directions.DirectionToStick(d1 - e.Frame.CameraHeading);
+            if (ok2 && !ok1) return attacker == -1
+                ? e.Frame.Directions.EvadeTargetDirectionToStick(d2 + 1024 - e.Frame.CameraHeading) % 1024
+                : e.Frame.Directions.DirectionToStick(d2 - e.Frame.CameraHeading);
             // The original returns the BOOLEAN ok1/ok2, not dir1/dir2.
             return (e.Random.Range(2, "evade_dir:tie") != 0 ? ok1 : ok2) ? 1 : 0;
         }
@@ -1936,7 +1994,11 @@ namespace Blitz.Gameplay
             if (distanceToPoint < 3f)
             {
                 e.State.Stick = 24;
-                if (e.Frame.Ball.Carrier >= 0) e.Output.Facing = e.Frame.Angle(e.Actor.Id, e.Frame.Ball.Carrier);
+                if (e.Frame.Ball.Carrier >= 0)
+                {
+                    e.Output.Facing = e.Frame.Angle(e.Actor.Id, e.Frame.Ball.Carrier);
+                    e.Output.FacingTarget = SourceRouteFacingTarget.DroneFace;
+                }
             }
             else if (distanceToPoint > UnitsPerYard || e.State.StickTicks > 30) e.Aim(point);
             if ((e.Frame.DefensePlayFlags & SourcePlayFlags.FakeZone) != 0 && e.State.FakeZoneTicks > 0 && --e.State.FakeZoneTicks == 0)

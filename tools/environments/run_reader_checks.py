@@ -22,6 +22,8 @@ def parse_arguments(argv=None):
                          help="Asset-free CI: execute only the original toy checks against the production reader.")
     profile.add_argument("--bundle-root", type=Path,
                          help="Strict actual-bundle profile; missing/corrupt original data fails, never falls back.")
+    profile.add_argument("--catalog-root", type=Path,
+                         help="Strict actual31-home runtime catalog, shared resources and exact selector/hash admission.")
     parser.add_argument("--reader-source", type=Path, help="Explicit isolated production-code mutation; default is the actual production reader.")
     return parser.parse_args(argv)
 
@@ -31,13 +33,14 @@ def main(argv=None):
     if args.synthetic_only:
         checks_arguments = ["--synthetic-only"]
     else:
-        root = args.bundle_root.absolute()
+        root = (args.catalog_root or args.bundle_root).absolute()
+        name = "catalog.json" if args.catalog_root else "environment.json"
         try:
-            manifest = env.read_file(root, "environment.json", 1024 * 1024)
+            manifest = env.read_file(root, name, 1024 * 1024)
         except (env.EnvironmentError, OSError) as error:
             print("Actual source environment reader profile rejected: " + str(error), file=sys.stderr)
             return 1
-        checks_arguments = [str(root), env.digest(manifest)]
+        checks_arguments = (["--catalog"] if args.catalog_root else []) + [str(root), env.digest(manifest)]
     project = Path(__file__).absolute().parents[2]
     output = project / ".squad/.scratch" / ("environment-reader-" + uuid.uuid4().hex)
     files = [

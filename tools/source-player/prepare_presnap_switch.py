@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Extend the exact private558 M1 bundle by five authenticated pre-snap-switch entries."""
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -22,6 +23,20 @@ NEW_ENTRIES = {
 }
 
 
+def program_binding():
+    spec = importlib.util.spec_from_file_location(
+        "player_presnap_C2_binding", HERE.parent / "animation/prepare_c2_profile.py")
+    c2 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(c2)
+    programs = PROJECT / "Assets/Scripts/Gameplay"
+    read(programs, "SourceAnimationPrograms.Movement.cs", PRESNAP_MOVEMENT_SHA, 1024 * 1024)
+    raw = c2.selected._read_bytes(programs / "SourceAnimationPrograms.C2.cs", 1024 * 1024)
+    _, binding = c2.c2_program_source_binding(raw)
+    require(binding["selected_historical_programs_sha256"] == C2_PROGRAMS_SHA256,
+            "The original563 bundle still requires the exact historical C2 program payload.")
+    return binding
+
+
 def prepare(source, expected_manifest, profile_inputs, impact, settings, output):
     source, profile_inputs, impact, settings, output = (
         p.absolute() for p in (source, profile_inputs, impact, settings, output))
@@ -41,10 +56,7 @@ def prepare(source, expected_manifest, profile_inputs, impact, settings, output)
     require(len(expected_files) == 559 and actual_files == expected_files and
             not any(p.is_symlink() for p in source.rglob("*")), "Unpinned/aliased/symlinked base player inputs.")
     inputs_before = successor_hashes(profile_inputs)
-    programs = PROJECT / "Assets/Scripts/Gameplay"
-    require(digest((programs / "SourceAnimationPrograms.Movement.cs").read_bytes()) == PRESNAP_MOVEMENT_SHA and
-            digest((programs / "SourceAnimationPrograms.C2.cs").read_bytes()) == C2_PROGRAMS_SHA256,
-            "Source program generation changed; a new U1 freeze and S1 regeneration are required.")
+    source_binding = program_binding()
     old_settings = json.loads((HERE / "match-settings.json").read_bytes())
     new_settings = json.loads(read(settings.parent, settings.name, digest(
         (HERE / "match-settings.presnap-switch.json").read_bytes())))
@@ -94,12 +106,14 @@ def prepare(source, expected_manifest, profile_inputs, impact, settings, output)
     pins = {pin["path"]: pin for pin in manifest["files"]}
     require(all(pins[pin["path"]] == pin for pin in original["files"]), "Every558 inherited pin must be retained.")
     require(successor_hashes(profile_inputs) == inputs_before and
-            (source / "manifest.json").read_bytes() == raw, "Frozen producer inputs changed during preparation.")
+            (source / "manifest.json").read_bytes() == raw and program_binding() == source_binding,
+            "Frozen producer inputs or actual source generation changed during preparation.")
     return dict(schema="source-player-presnap-switch-data/v1", profile=PROFILE,
                 manifestSha256=manifest_hash, baseManifestSha256=expected_manifest, fileCount=563,
                 originalPinsPreserved=True, addedFiles=sorted(set(pins) - (expected_files - {"manifest.json"})),
                 animationSha256=PRESNAP_ANIMATION_SHA, callbacksSha256=PRESNAP_DATA_SHA,
                 impactSha256=PRESNAP_IMPACT_SHA, movementProgramsSha256=PRESNAP_MOVEMENT_SHA,
+                c2ProgramSourceBinding=source_binding,
                 settingsSha256=pins[NEW_ENTRIES["settings"]]["sha256"], formatMigration=False)
 
 

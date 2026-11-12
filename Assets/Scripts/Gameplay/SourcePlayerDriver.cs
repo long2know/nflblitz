@@ -124,6 +124,70 @@ namespace Blitz.Gameplay
             model.ControlledPlayerId = -1;
         }
 
+        internal static void LineUpSide(SimulationState model, int side, SourceFormationLayout layout,
+            Func<int, int> random, Action<int> beginActor, Action<int, int> cover,
+            Action<SourceAudibleReinitializationPhase, int> observePhase = null)
+        {
+            Array.Clear(model.SourceAnimationUniqueMasks, 0, model.SourceAnimationUniqueMasks.Length);
+            model.SourceBreathControl = 0;
+            if (observePhase != null) observePhase(SourceAudibleReinitializationPhase.MasksAndBreathReset, -1);
+            for (int i = side * 7; i < side * 7 + 7; i++)
+            {
+                ActorState a = model.Players[i];
+                a.SourceRawFlags &= ~(0x20 | 0x100 | 0x200 | 0x1000 | 0x800000 | 0x08
+                    | 0x8000 | 0x4000 | 0x400 | 0x20000 | 0x100000 | 0x10 | 0x800
+                    | 0x80000 | 0x200000 | 0x400000 | 0x2000);
+                a.Facing = a.TargetFacing = a.Team == TeamId.Home ? 256 : 768;
+                a.SourceRoot = new SourceVector3(0f, a.SourceRoot.Y, 0f);
+                a.SourceVelocity = a.Velocity = default(FieldVector);
+                a.SourceVerticalVelocity = 0;
+                a.AnimationState.Primary.RemoveMode(0x00c00000);
+                a.AnimationState.Secondary.RemoveMode(0x00c00000);
+                a.SourceAttackTime = a.SourceAttackMode = a.SourceCelebrateTime = 0;
+                a.SourceStick = 24; a.SourceButtons = SourceDroneButtons.None;
+                a.SourceJob = SourceActorJob.None; a.SourcePuppetLinkId = -1;
+                a.SourceBlockCount = a.NoCatchTicks = a.SourceOverrideTime = 0;
+                a.SourceMove = default(FieldVector);
+                a.SourceReverseRoute = a.Turbo = a.SourceBackpedal = a.SourceThrowing = false;
+                a.SourceLateHittable = a.SourceHelmetPopped = a.SourceUnblockable = false;
+                a.SourcePendingFireCheck = a.SourceWaveArm = false;
+                SourceRouteState drone = model.SourceDrones[i]; drone.FakeZoneTicks = 0; model.SourceDrones[i] = drone;
+            }
+            if (observePhase != null) observePhase(SourceAudibleReinitializationPhase.SelectedResetComplete, -1);
+            // Source placement/VM calls are offense first, then eligible defense, not numeric actor order.
+            for (int role = 0; role < 2; role++)
+            {
+                int team = role == 0 ? (int)model.Possession : 1 - (int)model.Possession;
+                if (role == 0 && team != side) continue;
+                for (int j = 0; j < 7; j++)
+                {
+                    int i = team * 7 + j;
+                    SourceFormationActor placed = layout.Actors[i];
+                    if (role == 1 && side != team
+                        && (placed.Slot.Control & (SourceFormationControl.PositionMask | SourceFormationControl.WeakSide)) == 0) continue;
+                    beginActor(i);
+                    ActorState a = model.Players[i];
+                    model.SourceFormationSlots[i] = placed.Slot;
+                    SourceVector3 old = WorldPosition(a);
+                    SetSourcePosition(a, new SourceVector3(placed.Position.X, role == 0 ? old.Y : 0, placed.Position.Z));
+                    if (role == 1 && placed.CoverageTarget >= 0) cover(i, placed.CoverageTarget);
+                    if (role == 1) a.SourceMode = placed.Slot.Mode;
+                    if (observePhase != null) observePhase(SourceAudibleReinitializationPhase.StanceAnimationInput, i);
+                    a.AnimationState.FullBody(placed.Slot.Script, a, model.SourceTick, random, AnimationSelectionEvidence.SourceVerified);
+                    if (observePhase != null) observePhase(SourceAudibleReinitializationPhase.StanceAnimationOutput, i);
+                    SourceVector3 after = WorldPosition(a);
+                    SetSourcePosition(a, new SourceVector3(after.X, 0, after.Z));
+                    a.SourceMode = placed.Slot.Mode;
+                    a.Role = a.SourceMode == SourceActorMode.Kicker ? ActorRole.Kicker
+                        : a.SourceMode == SourceActorMode.QuarterbackPreSnap ? ActorRole.Quarterback
+                        : a.SourceMode == SourceActorMode.LinePreSnap ? ActorRole.Lineman
+                        : a.SourceMode == SourceActorMode.DefensiveBackPreSnap ? ActorRole.Defender : ActorRole.Receiver;
+                    if (observePhase != null) observePhase(SourceAudibleReinitializationPhase.StanceActorComplete, i);
+                }
+            }
+            model.SourceQbEvaded = false;
+        }
+
         internal static void Snap(SimulationState model, Func<int, int> random)
         {
             for (int id = 0; id < model.Players.Length; id++)

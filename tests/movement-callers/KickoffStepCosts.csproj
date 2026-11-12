@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(FrozenSourcePlayerCore)">
+      <HintPath>$(FrozenSourcePlayerCore)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Compile Include="KickoffStepCosts.cs" />
+  </ItemGroup>
+  <Target Name="RequireFrozenActualCore" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(FrozenSourcePlayerCore)')"
+           Text="Supply the already source-sealed actual Core DLL; do not rebuild moving gameplay." />
+  </Target>
+</Project>

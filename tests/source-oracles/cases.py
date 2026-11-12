@@ -42,6 +42,20 @@ def clock_input(packed=0x1f00, quarter=0, play_time=0, side=0, active=True,
 
 
 def command(kind, data):
+    if kind == "pat":
+        return " ".join(map(str, ["pat", *[data[name] for name in (
+            "side", "human", "quarter", "packed", "offense_score", "defense_score", "choice",
+            "go_draw", "free_draw",
+        )]]))
+    if kind == "resolve":
+        return " ".join(map(str, ["resolve", *[
+            data[name] for name in (
+                "play_type", "cause", "ball_type", "flags", "offense_side", "initial_side",
+                "last_possession", "down", "los", "first_down", "play_end_x", "play_end_z",
+                "fumble_x", "no_first_down", "previous_result", "quarter_index", "home_score",
+                "away_score", "first_possession", "captain", "packed_time",
+            )
+        ]]))
     if kind in ("classify", "spot"):
         return " ".join(map(str, [
             kind, data["play_type"], data["cause"], data["flags"], data["offense_side"],
@@ -69,6 +83,107 @@ def command(kind, data):
     if kind == "line":
         return "line " + " ".join(map(str, data["a"] + data["b"] + data["c"] + data["d"] + [data["distance"]]))
     raise ValueError("Unknown original oracle input kind: " + kind)
+
+def caller_inputs():
+    rows = []
+
+    def add(identity, side, trigger="carrier-oob", **changes):
+        data = dict(play_type=0, cause=0, ball_type=0, flags=0, offense_side=side,
+                    initial_side=side, last_possession=side, down=1, los=40, first_down=70,
+                    play_end_x=0.0, play_end_z=190.0, fumble_x=0.0, no_first_down=0,
+                    previous_result=0, quarter_index=0, home_score=0, away_score=0,
+                    first_possession=0, captain=0, packed_time=0x13b06,
+                    trigger=trigger, actor_x=0.0, actor_z=190.0, held_ticks=19)
+        data.update(changes)
+        for name in ("play_end_x", "play_end_z", "fumble_x", "actor_x", "actor_z"):
+            data[name] = binary32(data[name])
+        rows.append(dict(id=identity, kind="resolve", input=data))
+
+    for side in (0, 1):
+        label = "Home" if side == 0 else "Away"
+        prefix = "R1/" + label + "/"
+        for down in (1, 2, 3, 4):
+            add(prefix + "down" + str(down) + "-short", side, down=down)
+            add(prefix + "incomplete-down" + str(down), side, "pass-ground",
+                cause=4, play_end_z=0.0, actor_z=0.0, down=down)
+        add(prefix + "fourth-down-converted", side, down=4, first_down=50)
+        add(prefix + "goal-to-go-first-down", side, first_down=80, los=60,
+            actor_x=234.0 if side == 0 else -234.0, play_end_x=234.0 if side == 0 else -234.0)
+        add(prefix + "no-first-down-turnover", side, down=4, first_down=100, no_first_down=1)
+        add(prefix + "upper-clamp-turnover", side, down=4, first_down=100,
+            actor_x=468.0 if side == 0 else -468.0, play_end_x=468.0 if side == 0 else -468.0)
+        for ordinal, x in enumerate((-8.0, -7.999, -0.001, 0.0, 0.001, 7.999, 8.0)):
+            add(prefix + "round-boundary-" + str(ordinal), side, down=3, los=49, first_down=51,
+                actor_x=x, play_end_x=x)
+        add(prefix + "unestablished-catch-returns-initial", side, cause=5,
+            initial_side=1 - side, last_possession=1 - side, held_ticks=1)
+        add(prefix + "established-possession-repairs-flag", side, initial_side=1 - side)
+        add(prefix + "recovered-own-EZ-touchback", side, cause=2,
+            initial_side=1 - side, flags=1, actor_x=-405.0 if side == 0 else 405.0,
+            play_end_x=-405.0 if side == 0 else 405.0)
+        add(prefix + "left-and-returned-own-EZ-safety", side, cause=2,
+            initial_side=1 - side, flags=3, actor_x=-405.0 if side == 0 else 405.0,
+            play_end_x=-405.0 if side == 0 else 405.0)
+        add(prefix + "forward-fumble-OOB-retains-native-fpend", side, "ball-oob",
+            cause=5, ball_type=1, play_end_z=190.0,
+            fumble_x=-78.0 if side == 0 else 78.0)
+        pat = dict(play_type=4, down=-1, los=90, first_down=100)
+        add("S1/" + label + "/conversion-offense-OOB", side, **pat)
+        add("S1/" + label + "/conversion-offense-touchdown", side, "carrier-td",
+            cause=3, play_end_z=0.0, actor_x=405.0 if side == 0 else -405.0, actor_z=0.0, **pat)
+        add("S1/" + label + "/conversion-defensive-touchdown", side, "carrier-td",
+            cause=3, initial_side=1 - side, flags=8, play_end_z=0.0,
+            actor_x=405.0 if side == 0 else -405.0, actor_z=0.0, **pat)
+        add("S1/" + label + "/conversion-recovered-own-EZ-fails", side,
+            cause=2, initial_side=1 - side, flags=9,
+            actor_x=-405.0 if side == 0 else 405.0, play_end_x=-405.0 if side == 0 else 405.0, **pat)
+        add("S1/" + label + "/conversion-left-own-EZ-safety", side,
+            cause=2, initial_side=1 - side, flags=11,
+            actor_x=-405.0 if side == 0 else 405.0, play_end_x=-405.0 if side == 0 else 405.0, **pat)
+        for ball, name in ((0, "pass"), (1, "fumble"), (6, "lateral")):
+            add("S1/" + label + "/conversion-own-EZ-OOB-" + name, side, "ball-oob",
+                cause=5, ball_type=ball, initial_side=1 - side, flags=9,
+                actor_x=-405.0 if side == 0 else 405.0, play_end_x=-405.0 if side == 0 else 405.0, **pat)
+    return rows
+
+def pat_inputs():
+    cases = (
+        ("human-q2-lead15-no-miss", 1, 2, 0x100, 15, 0, 1, 0, 0),
+        ("human-q3-lead14-no-miss", 1, 3, 0x100, 14, 0, 1, 0, 0),
+        ("human-q3-lead15-draw0-miss", 1, 3, 0x100, 15, 0, 1, 0, 0),
+        ("human-q3-lead15-draw1-miss", 1, 3, 0x100, 15, 0, 1, 0, 1),
+        ("human-q3-lead15-draw2-good", 1, 3, 0x100, 15, 0, 1, 0, 2),
+        ("human-q3-lead15-draw99-good", 1, 3, 0x100, 15, 0, 1, 0, 99),
+        ("human-q3-expired-leading-skip", 1, 3, 0, 15, 0, 1, 0, 0),
+        ("human-q3-expired-lead1-skip-even-two-choice", 1, 3, 0, 1, 0, 2, 0, 0),
+        ("human-q2-expired-lead1-still-kicks", 1, 2, 0, 1, 0, 1, 0, 0),
+        ("human-q3-expired-tied-winning-one", 1, 3, 0, 0, 0, 1, 0, 0),
+        ("human-q3-expired-down1-tying-one", 1, 3, 0, 0, 1, 1, 0, 0),
+        ("human-q3-expired-down2-still-loses", 1, 3, 0, 0, 2, 1, 0, 0),
+        ("human-q3-expired-tied-two-play", 1, 3, 0, 0, 0, 2, 0, 0),
+        ("human-OT3-expired-tied-winning-one", 1, 6, 0, 0, 0, 1, 0, 0),
+        ("cpu-q1-lead9-no-miss", 0, 1, 0x100, 9, 0, 0, 0, 0),
+        ("cpu-q2-lead8-go9-no-free-draw", 0, 2, 0x100, 8, 0, 0, 9, 0),
+        ("cpu-q2-lead9-free0-miss", 0, 2, 0x100, 9, 0, 0, 0, 0),
+        ("cpu-q2-lead9-free2-miss", 0, 2, 0x100, 9, 0, 0, 0, 2),
+        ("cpu-q2-lead9-free3-good", 0, 2, 0x100, 9, 0, 0, 0, 3),
+        ("cpu-q2-lead9-free99-good", 0, 2, 0x100, 9, 0, 0, 0, 99),
+        ("cpu-q3-expired-leading-skip", 0, 3, 0, 9, 0, 0, 0, 0),
+        ("cpu-q3-expired-tie-go0-still-draws", 0, 3, 0, 0, 0, 0, 0, 0),
+        ("cpu-q3-expired-down2-go9-two", 0, 3, 0, 0, 2, 0, 9, 0),
+        ("cpu-q3-expired-down9-no-go-draw", 0, 3, 0, 0, 9, 0, 0, 0),
+        ("cpu-down7-go1-two", 0, 0, 0x10000, 0, 7, 0, 1, 0),
+        ("cpu-down7-go2-free", 0, 0, 0x10000, 0, 7, 0, 2, 0),
+        ("cpu-up4-go7-two", 0, 0, 0x10000, 4, 0, 0, 7, 0),
+        ("cpu-up4-go8-free", 0, 0, 0x10000, 4, 0, 0, 8, 0),
+        ("cpu-up8-go8-two", 0, 0, 0x10000, 8, 0, 0, 8, 0),
+        ("cpu-up8-go9-free", 0, 0, 0x10000, 8, 0, 0, 9, 0),
+    )
+    return [dict(id="S1/PAT/" + ("Home" if side == 0 else "Away") + "/" + row[0],
+                 kind="pat", input=dict(zip(
+                     ("side", "human", "quarter", "packed", "offense_score", "defense_score",
+                      "choice", "go_draw", "free_draw"), (side, *row[1:]))))
+            for side in (0, 1) for row in cases]
 
 
 def inputs(full_matrix=False):

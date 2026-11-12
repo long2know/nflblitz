@@ -78,6 +78,34 @@ and verified full-file Git blob hash. Wrappers only provide external state,
 service observations, and an iteration stop. The permanent C files are our own
 input/output and external-service harness, not upstream gameplay logic.
 
+### Separate November 10 caller corpus
+
+```sh
+python3 -B tests/source-oracles/run.py --source-root "$VERIFIED_ORIGINAL_ROOT" \
+  --callers --output "$NEW_IGNORED_ORIGINAL_CALLER_OUTPUT"
+```
+
+This requires the same pinned source plus byte-verified `playsel.c`
+(`f5e87b921a4038d03f55174bbd5425241939e798`) and `player.c`
+(`5744c51f30b625b9f80b92388ab49ff0ebc5bb2c`). It never treats an incomplete
+cache as absent original behavior.
+
+The distinct `original-c-source-callers-20261110/v1` corpus retains **64**
+`cases`: unchanged last-possession restoration, rounding/classification,
+the complete original result switch, displayed spots/captain and hash spotting.
+It additionally carries **60** `pat_cases`: unchanged skip predicates,
+`go_for_two`, human/CPU miss branches and real delay/award/wait statements.
+Both teams and the exact strict score/quarter/draw boundaries are represented.
+These60 are a separate field, not silently added to the old numeric inventory
+or the64 result-case counter. Prescribed draws and external service calls are
+observed, not a reconstruction of the target RNG or Goose runtime.
+
+The actual full-player comparison and exact timing controls live in
+[`tests/match-lifecycle`](../match-lifecycle/README.md#november-10-rules-clock-and-conversion-callers).
+It invokes the independently compiled original on captured pre-commit inputs;
+final C# output is never used to generate its expected result. The legacy
+123004 managed/35 C-only numeric partition remains unchanged.
+
 ## Evidence and enumeration
 
 All generated material is under the local ignored `.artifacts/` directory:
@@ -124,8 +152,9 @@ The normal 57 Hz profile leaves `DEBUG`, `NODRONES`, `NOKICKOFF`, `NOCLOCK`,
 are named boundary handles, not original sound-bank or CMOS-number emulation.
 The actual original warning/query/sleep order is observed, not a Goose scheduler.
 
-The original result switch, complete PAT/kick/period/CPU/RNG paths, locomotion,
-contact and AI, original animation interpreter, real-clip matrix traces,
-multiplayer/input, full source data/audio and complete browser matches still need
-independent evidence. The 35 geometry cases have no production C# comparison seam
-in this suite. Counts here never establish whole-game parity.
+The separate caller corpus now supplies actual original result-switch and
+bounded PAT expectations. Complete actor-produced kick/period/CPU/RNG paths,
+locomotion/contact/AI, animation, multiplayer, data/audio and browser acceptance
+must use their own qualified evidence, not this numeric count. The35 geometry
+cases still have no production C# comparison seam in this suite. Counts here
+never establish whole-game parity.

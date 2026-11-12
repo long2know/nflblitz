@@ -241,11 +241,29 @@ internal static partial class Program
     {
         try
         {
+            if (args.Length == 1 && args[0] == "--pregame-only")
+            {
+                PreGameProcesses();
+                Console.WriteLine(JsonSerializer.Serialize(new { schema = "source-pregame-process-checks/v1",
+                    status = "passed", assertions, originalNativeOrBrowserClaimed = false }));
+                return 0;
+            }
+            if (args.Length == 2 && args[0] == "--pregame-data")
+            {
+                PreGameProcesses(); PreGameActualGameHandoff(args[1]);
+                Console.WriteLine(JsonSerializer.Serialize(new { schema = "source-pregame-process-checks/v1",
+                    status = "passed", assertions, actualGameClockAndRandomHandoff = true,
+                    originalNativeOrBrowserClaimed = false }));
+                return 0;
+            }
             Transport(); Bridge();
-            if (args.Length != 0) ActualCore(args[0], args[1]);
+            PlaybackTransport(); PlaybackAdmissionFailures(); PlaybackLifecycle();
+            PlaybackProducerReset();
+            if (args.Length == 2 && args[0] == "--producer-data") ActualProcessOutputs(args[1]);
+            else if (args.Length != 0) ActualCore(args[0], args[1]);
             Console.WriteLine(JsonSerializer.Serialize(new { schema = "source-sound-runtime-checks/v1",
                 status = "passed", assertions = assertions, actual_assertions = actualAssertions,
-                native_Unity_DSP_or_audible_claimed = false }));
+                native_Unity_DSP_or_audible_claimed = false, producer_outputs = processOutputEvidence }));
             return 0;
         }
         catch (Exception error)

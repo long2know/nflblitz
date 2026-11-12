@@ -6,8 +6,10 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicPlayback.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceNormalCameraModel.cs" />

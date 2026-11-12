@@ -117,6 +117,8 @@ namespace Blitz.Gameplay
         public float PlayEndZ { get; }
         public float FumbleX { get; }
         public SourcePlayResult PreviousResult { get; }
+        public SourcePlaybook SelectedPlaybook { get; }
+        public SourcePlayDefinition InitialOffensePlay { get; }
 
         public SourcePlayEndInput(SourceRulesState state, SourcePlayEndCause cause,
             SourceBallType ballType, SourceGameFlags flags, int lastPossession,
@@ -133,6 +135,18 @@ namespace Blitz.Gameplay
             PlayEndZ = playEndZ;
             FumbleX = fumbleX;
             PreviousResult = previousResult;
+            SelectedPlaybook = null;
+            InitialOffensePlay = null;
+        }
+
+        public SourcePlayEndInput(SourcePlaybook selectedPlaybook, SourcePlayDefinition initialOffensePlay,
+            SourceRulesState state, SourcePlayEndCause cause, SourceBallType ballType,
+            SourceGameFlags flags, int lastPossession, float playEndX, float playEndZ = 0,
+            float fumbleX = 0, SourcePlayResult previousResult = SourcePlayResult.Down)
+            : this(state, cause, ballType, flags, lastPossession, playEndX, playEndZ, fumbleX, previousResult)
+        {
+            SelectedPlaybook = selectedPlaybook;
+            InitialOffensePlay = initialOffensePlay;
         }
     }
 

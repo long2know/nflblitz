@@ -51,6 +51,9 @@
     "FinalResultReportsHomeWinAwayWinOrTieThenExplicitRestartResetsEverything": 4,
     "ScorePossessionAndQuarterEffectsHaveStableOrderOnTheSameTerminalTick": 1,
     "WrongRoleAndUnknownActionsOnHomeDefenseCannotAlterTheLiveStep": 5,
-    "RealContactInOwnEndZonePublishesTackleThenSafetyForOpponent": 2
+    "RealContactInOwnEndZonePublishesTackleThenSafetyForOpponent": 2,
+    "QuarterbackDiverUsesRetainedInteriorCellAndOriginalActor": 2,
+    "QuarterbackDiverStillRejectsOutsideAllocationRowZero": 1,
+    "InteriorAngleProjectionRetainsCacheAndRejectsOtherInvalidIndices": 1
   }
 }

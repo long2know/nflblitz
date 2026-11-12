@@ -60,7 +60,8 @@ namespace Blitz.Gameplay
         {
             var context = new SourcePresentationContext(Model.SourceTick, Model.SourcePresentationOrder++, actor.Id,
                 "detect.c", caller, line, opcodeSymbol: "source-function-call");
-            unresolvedContactSounds.Add(new SourceContactSoundCue(context, function, arguments, Model.CarrierId));
+            var cue = new SourceContactSoundCue(context, function, arguments, Model.CarrierId);
+            if (!ExecuteSourceOriginalContactSound(cue)) unresolvedContactSounds.Add(cue);
         }
 
         private void StopSourceCarrier(ActorState victim, ActorState attacker, int bobble, int fumble,
@@ -84,6 +85,7 @@ namespace Blitz.Gameplay
             }
             if (loss == SourceBallLoss.Fumble)
             {
+                if (SourceCompleteProgramsEnabled) SourceOriginalFumbleBallSounds();
                 SourceBallDriver.Fumble(Model, victim, ContactCachedWorldJoint(victim, 7),
                     mean.X / 2f, mean.Z / 2f, SourceDrawFor("player.c:fumble_ball"));
                 Model.SourceFumblesOnPlay++;
@@ -137,14 +139,16 @@ namespace Blitz.Gameplay
             ContactEvent(SourceContactEventKind.HelmetPopped, actor, actor.SourceHitPartnerId ?? -1);
             var context = new SourcePresentationContext(Model.SourceTick, Model.SourcePresentationOrder++, actor.Id,
                 "player.c", "maybe_pop_helmet", fire ? 9197 : 9203, opcodeSymbol: "source-function-call");
-            unresolvedContactSounds.Add(new SourceContactSoundCue(context, "snd_scall_bank",
-                new[] { "ancr_swaped_bnk_str", fire ? "165" : "166", "ANCR_VOL2", "127", "LVL4" }, Model.CarrierId));
+            var sound = new SourceContactSoundCue(context, "snd_scall_bank",
+                new[] { "ancr_swaped_bnk_str", fire ? "165" : "166", "ANCR_VOL2", "127", "LVL4" }, Model.CarrierId);
+            if (!ExecuteSourceOriginalContactSound(sound)) unresolvedContactSounds.Add(sound);
             if (!fire)
             {
                 context = new SourcePresentationContext(Model.SourceTick, Model.SourcePresentationOrder++, actor.Id,
                     "player.c", "maybe_pop_helmet", 9204, opcodeSymbol: "source-function-call");
-                unresolvedContactSounds.Add(new SourceContactSoundCue(context, "snd_scall_bank",
-                    new[] { "plyr_bnk_str", "P_HARD_HIT3_SND", "ANCR_VOL2", "127", "PRIORITY_LVL3" }, Model.CarrierId));
+                sound = new SourceContactSoundCue(context, "snd_scall_bank",
+                    new[] { "plyr_bnk_str", "P_HARD_HIT3_SND", "ANCR_VOL2", "127", "PRIORITY_LVL3" }, Model.CarrierId);
+                if (!ExecuteSourceOriginalContactSound(sound)) unresolvedContactSounds.Add(sound);
             }
             AdmitSourceLooseHelmet(actor, fire ? 9198 : 9205);
         }

@@ -1,8 +1,11 @@
 using System;
+using Blitz.Contracts;
 using Blitz.Gameplay;
 
 internal static class RulesFlowChecks
 {
+    internal static int HumanOnsideCases { get; private set; }
+
     internal static void Run()
     {
         ClockCases();
@@ -238,5 +241,279 @@ internal static class RulesFlowChecks
         var openingStart = SourceMatchFlow.BeginPlay(kickState, 0, SourceClock.QuarterTime, true);
         Eq(1, openingStart.OffensivePlayCounterSide, "first kickoff counts receiving team's offensive play");
         Eq(SourceGameFlags.OpeningKick, openingStart.Flags, "new play opening kickoff flag");
+    }
+
+    internal static void RunHumanOnsideInputs()
+    {
+        HumanOnsideCases = 0;
+        // Literal nfl.c 907-1001 tuples in the frozen layout/side/captain/first-pos/gesture order.
+        object[][] coreTuples =
+        {
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 1, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 1, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 1, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 0, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 0, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 1, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 1, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 1, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 1, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 1, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 0, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 0, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 0, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 1, 0, 1, 3, 1, 1, 1, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 1, 0, 1, 3, 0, 0, 0, 1, 40, 100, false, false }
+        };
+        object[][] edgeTuples =
+        {
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Opening, SourceGameFlags.OpeningKick, 0, 1, 0, 90, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Opening, SourceGameFlags.OpeningKick, 0, 1, 0, 90, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.OpeningKick | SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.OpeningKick | SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 1, 30, 100, false, false },
+            new object[] { SourceKickoffKind.Quick, SourceGameFlags.QuickKick, 0, 1, 0, 3, 1, 1, 1, 1, 40, 100, false, false },
+            new object[] { SourceKickoffKind.Onside, SourceGameFlags.OnsideKick, 0, 1, 0, 3, 0, 0, 0, 3, 30, 100, true, false }
+        };
+        if (coreTuples.Length != 64 || edgeTuples.Length != 24)
+            throw new InvalidOperationException("Expected exactly 64 core and 24 edge human-onside tuples.");
+        string[] gestures = { "held-up", "pressed-only-up", "diagonal-up-left", "receiver-only-up" };
+        int ordinal = 0;
+        foreach (SourceStationLayout layout in new[] { SourceStationLayout.TwoStation, SourceStationLayout.FourStation })
+        foreach (TeamId kicker in new[] { TeamId.Home, TeamId.Away })
+        foreach (SourceCaptainSlot captain in new[] { SourceCaptainSlot.First, SourceCaptainSlot.Second })
+        foreach (TeamId firstPossession in new[] { TeamId.Home, TeamId.Away })
+        {
+            var configuration = HumanOnsideConfiguration(layout, firstPossession: firstPossession, captain: captain);
+            int primary = layout == SourceStationLayout.TwoStation ? (int)kicker : (int)kicker * 2;
+            int receiver = layout == SourceStationLayout.TwoStation ? 1 - (int)kicker : (1 - (int)kicker) * 2;
+            SourceInputFrame[] frames =
+            {
+                HumanFrame(HumanStation(primary, HumanChord)),
+                HumanFrame(HumanStation(primary, SourceButtons.None, pressed: HumanChord)),
+                HumanFrame(HumanStation(primary, HumanChord, SourceDigitalDirections.Up | SourceDigitalDirections.Left)),
+                HumanFrame(HumanStation(receiver, HumanChord))
+            };
+            var input = HumanKickoffInput(kicker, firstPossession, captain);
+            for (int gesture = 0; gesture < gestures.Length; gesture++)
+            {
+                string label = "human-onside/core/" + (layout == SourceStationLayout.TwoStation ? "Two" : "Four")
+                    + "/" + kicker + "/" + captain + "/first-pos-" + firstPossession + "/" + gestures[gesture];
+                HumanOnsideTuple(label, SourceMatchFlow.PrepareKickoff(input, configuration, frames[gesture]),
+                    coreTuples[ordinal++]);
+            }
+        }
+        var four = HumanOnsideConfiguration();
+        var later = HumanKickoffInput();
+        HumanOnsideTuple("human-onside/edge/01-four-second-teammate-noncaptain-held-up",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(1, HumanChord))), edgeTuples[0]);
+        HumanOnsideTuple("human-onside/edge/02-four-split-buttons-AB-and-C",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(
+                HumanStation(0, SourceButtons.A | SourceButtons.B), HumanStation(1, SourceButtons.C))), edgeTuples[1]);
+        HumanOnsideTuple("human-onside/edge/03-four-chord-and-Up-on-different-teammates",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(
+                HumanStation(0, HumanChord, SourceDigitalDirections.None), HumanStation(1, SourceButtons.None))), edgeTuples[2]);
+        HumanOnsideTuple("human-onside/edge/04-missing-C-held-AB-Up",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(0, SourceButtons.A | SourceButtons.B))), edgeTuples[3]);
+        HumanOnsideTuple("human-onside/edge/05-missing-B-held-AC-Up",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(0, SourceButtons.A | SourceButtons.C))), edgeTuples[4]);
+        HumanOnsideTuple("human-onside/edge/06-missing-A-held-BC-Up",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(0, SourceButtons.B | SourceButtons.C))), edgeTuples[5]);
+        HumanOnsideTuple("human-onside/edge/07-Up-Right-with-ABC",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(
+                HumanStation(0, HumanChord, SourceDigitalDirections.Up | SourceDigitalDirections.Right))), edgeTuples[6]);
+        HumanOnsideTuple("human-onside/edge/08-Down-with-ABC",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(0, HumanChord, SourceDigitalDirections.Down))), edgeTuples[7]);
+        HumanOnsideTuple("human-onside/edge/09-neutral-digital-with-ABC",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(
+                HumanStation(0, HumanChord, SourceDigitalDirections.None),
+                HumanStation(1, SourceButtons.None, released: HumanChord))), edgeTuples[8]);
+        HumanOnsideTuple("human-onside/edge/10-null-digital-with-ABC-and-upward-axes",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame(HumanStation(0, HumanChord, null, stickZ: 3))), edgeTuples[9]);
+        HumanOnsideTuple("human-onside/edge/11-empty-frame-stored-false",
+            SourceMatchFlow.PrepareKickoff(later, four, HumanFrame()), edgeTuples[10]);
+        HumanOnsideTuple("human-onside/edge/12-null-frame-stored-false",
+            SourceMatchFlow.PrepareKickoff(later, four, null), edgeTuples[11]);
+        HumanOnsideTuple("human-onside/edge/13-legacy-stored-true-null-frame",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(stored: true), four, null), edgeTuples[12]);
+        HumanOnsideTuple("human-onside/edge/14-legacy-stored-true-raw-neutral",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(stored: true), four,
+                HumanFrame(HumanStation(0, SourceButtons.None, SourceDigitalDirections.None))), edgeTuples[13]);
+        var sparse = HumanOnsideConfiguration(stations: new[]
+        {
+            new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(2, TeamId.Away)
+        });
+        HumanOnsideTuple("human-onside/edge/15-unconfigured1-chord-config-0Home-2Away",
+            SourceMatchFlow.PrepareKickoff(later, sparse, HumanFrame(HumanStation(1, HumanChord))), edgeTuples[14]);
+        HumanOnsideTuple("human-onside/edge/16-first-kickoff-raw-chord-stored-false",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(quarter: 0, packedTime: SourceClock.QuarterTime, first: true),
+                four, HumanFrame(HumanStation(0, HumanChord))), edgeTuples[15]);
+        HumanOnsideTuple("human-onside/edge/17-first-kickoff-raw-chord-stored-true",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(quarter: 0, packedTime: SourceClock.QuarterTime, first: true, stored: true),
+                four, HumanFrame(HumanStation(0, HumanChord))), edgeTuples[16]);
+        HumanOnsideTuple("human-onside/edge/18-half-kickoff-raw-chord-stored-false",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(quarter: 2, packedTime: SourceClock.QuarterTime, half: true),
+                four, HumanFrame(HumanStation(0, HumanChord))), edgeTuples[17]);
+        HumanOnsideTuple("human-onside/edge/19-half-kickoff-raw-neutral-stored-true",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(quarter: 2, packedTime: SourceClock.QuarterTime, half: true, stored: true),
+                four, HumanFrame(HumanStation(0, SourceButtons.None, SourceDigitalDirections.None))), edgeTuples[18]);
+        var cpu = HumanOnsideConfiguration(stations: new[] { new SourceStationConfiguration(2, TeamId.Away) });
+        bool cpuQuick = SourceMatchFlow.CpuOnside(new SourceCpuOnsideInput(3, 0x2000, 0, 7, 1, 5)).Value;
+        bool cpuOnside = SourceMatchFlow.CpuOnside(new SourceCpuOnsideInput(3, 0x2000, 0, 7, 1, 1)).Value;
+        HumanOnsideTuple("human-onside/edge/20-CPU-kicker-receiver-chord-decision-false",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(stored: cpuQuick), cpu,
+                HumanFrame(HumanStation(2, HumanChord))), edgeTuples[19]);
+        HumanOnsideTuple("human-onside/edge/21-CPU-kicker-receiver-chord-decision-true",
+            SourceMatchFlow.PrepareKickoff(HumanKickoffInput(stored: cpuOnside), cpu,
+                HumanFrame(HumanStation(2, HumanChord))), edgeTuples[20]);
+        var remap = HumanOnsideConfiguration(stations: new[]
+        {
+            new SourceStationConfiguration(3, TeamId.Home), new SourceStationConfiguration(0, TeamId.Away)
+        });
+        HumanOnsideTuple("human-onside/edge/22-configured-remap-3Home-0Away-Home-chord",
+            SourceMatchFlow.PrepareKickoff(later, remap, HumanFrame(HumanStation(3, HumanChord))), edgeTuples[21]);
+        var single = HumanOnsideConfiguration(stations: new[] { new SourceStationConfiguration(0, TeamId.Home) });
+        SourceMatchFlow.PrepareKickoff(later, single, HumanFrame(HumanStation(0, HumanChord)));
+        HumanOnsideTuple("human-onside/edge/23-current-neutral-after-prior-chord",
+            SourceMatchFlow.PrepareKickoff(later, single,
+                HumanFrame(HumanStation(0, SourceButtons.None, SourceDigitalDirections.None))), edgeTuples[22]);
+        var thirdDown = HumanKickoffInput(down: 3, noFirst: true);
+        SourceMatchFlow.PrepareKickoff(thirdDown, single,
+            HumanFrame(HumanStation(0, SourceButtons.None, SourceDigitalDirections.None)));
+        HumanOnsideTuple("human-onside/edge/24-current-chord-after-prior-neutral-down3-noFirstDown",
+            SourceMatchFlow.PrepareKickoff(thirdDown, single, HumanFrame(HumanStation(0, HumanChord))), edgeTuples[23]);
+    }
+
+    internal static void RunHumanOnsideApiGuard()
+    {
+        Checks.Throws<ArgumentNullException>("human-onside/api/null-configuration",
+            () => SourceMatchFlow.PrepareKickoff(HumanKickoffInput(), null, null));
+    }
+
+    private const SourceButtons HumanChord = SourceButtons.A | SourceButtons.B | SourceButtons.C;
+
+    private static SourceMatchConfiguration HumanOnsideConfiguration(
+        SourceStationLayout layout = SourceStationLayout.FourStation, SourceStationConfiguration[] stations = null,
+        TeamId firstPossession = TeamId.Home, SourceCaptainSlot captain = SourceCaptainSlot.First)
+    {
+        if (stations == null)
+            stations = layout == SourceStationLayout.TwoStation
+                ? new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(1, TeamId.Away) }
+                : new[]
+                {
+                    new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(1, TeamId.Home),
+                    new SourceStationConfiguration(2, TeamId.Away), new SourceStationConfiguration(3, TeamId.Away)
+                };
+        return new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz, layout,
+            new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(30, new[] { 0, 1, 2, 3, 4, 5, 6 }), stations, firstPossession, captain);
+    }
+
+    private static SourceKickoffInput HumanKickoffInput(TeamId kicker = TeamId.Home, TeamId firstPossession = TeamId.Home,
+        SourceCaptainSlot captain = SourceCaptainSlot.First, int quarter = 3, int packedTime = 0x2000,
+        bool first = false, bool half = false, bool stored = false, int down = 1, bool noFirst = false)
+    {
+        return new SourceKickoffInput(State((int)kicker, 1 - (int)kicker, down, type: SourcePlayType.Kickoff, noFirst: noFirst),
+            quarter, packedTime, first, half, (int)firstPossession, (int)captain, stored);
+    }
+
+    private static SourceStationInput HumanStation(int station, SourceButtons held,
+        SourceDigitalDirections? direction = SourceDigitalDirections.Up, SourceButtons pressed = SourceButtons.None,
+        SourceButtons released = SourceButtons.None, int stickZ = 0)
+    {
+        return new SourceStationInput(station, stickZ: stickZ, held: held, pressed: pressed,
+            released: released, digitalCurrent: direction);
+    }
+
+    private static SourceInputFrame HumanFrame(params SourceStationInput[] stations)
+    {
+        return new SourceInputFrame(stations);
+    }
+
+    private static void HumanOnsideTuple(string label, SourceKickoffPlan actual, object[] expected)
+    {
+        if (expected.Length != 14)
+            throw new InvalidOperationException("Expected exactly fourteen literal human-onside fields: " + label);
+        Eq((SourceKickoffKind)expected[0], actual.Kind, label + "/Kind");
+        Eq((SourceGameFlags)expected[1], actual.Flags, label + "/Flags");
+        Eq((int)expected[2], actual.KickingSide, label + "/KickingSide");
+        Eq((int)expected[3], actual.ReceivingSide, label + "/ReceivingSide");
+        Eq((int)expected[4], actual.Captain, label + "/Captain");
+        Eq((int)expected[5], actual.AutoHikeTicks, label + "/AutoHikeTicks");
+        Eq((int)expected[6], actual.LastPossession, label + "/LastPossession");
+        Eq((int)expected[7], actual.State.OffenseSide, label + "/State.OffenseSide");
+        Eq((int)expected[8], actual.State.InitialOffenseSide, label + "/State.InitialOffenseSide");
+        Eq((int)expected[9], actual.State.Down, label + "/State.Down");
+        Eq((int)expected[10], actual.State.LineOfScrimmage, label + "/State.LineOfScrimmage");
+        Eq((int)expected[11], actual.State.FirstDown, label + "/State.FirstDown");
+        Eq((bool)expected[12], actual.State.NoFirstDown, label + "/State.NoFirstDown");
+        Eq((bool)expected[13], actual.FirstKickoffAfterPreparation, label + "/FirstKickoffAfterPreparation");
+        HumanOnsideCases++;
     }
 }

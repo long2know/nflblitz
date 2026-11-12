@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline conversion of the active, pinned Alias SDL field2/stadpie environment.
+"""Offline conversion of explicitly selected, pinned Alias SDL field2/stadpie art.
 
 Only explicitly supplied local inputs are read. Nothing is downloaded. Original
 art/derivatives must stay in ignored storage; see --help and environment_inputs.json.
@@ -21,7 +21,7 @@ import sys
 
 SOURCE_COMMIT = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded"
 TOOLS_COMMIT = "1792293aaaea00a919b59e8c05716978e85b4333"
-SCHEMA = "blitz-source-environment/v1"
+SCHEMA = "blitz-source-environment/v2"
 MESH_MAGIC = b"BZENM001"
 FLOAT = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 NAME = r"[a-zA-Z0-9_#]+"
@@ -38,6 +38,7 @@ STADIUM_BRANCHES = {
     "night": (1, None), "snow": (2, "snow_stadium_textures"),
     "none": (3, None),
 }
+HOME_PREFIXES = tuple("CAR FAL RAV BIL PAN BEA BEN BRW COW BRO LIO PAC COL JAG CHI DOL VIK PAT SAI GIA JET RAI EAG STE CHA FOR SEA RAM BUC TIT RED".split())
 STATE_FIELDS = (
     "limb", "modeChangeFlags", "depthMode", "depthFunction", "depthMask",
     "depthBias", "colorFunction", "alphaSource", "textureFunction", "clampMode",
@@ -358,6 +359,40 @@ def bottom_first_rgba(width, height, pixels, top_first, right_first=False):
     return b"".join(reversed(rows) if top_first else rows)
 
 
+def tga_tail(data, end, identity):
+    if end == len(data):
+        return
+    require(len(data) >= end + 26 and data[-18:] == b"TRUEVISION-XFILE.\0",
+            identity + ": truncated TGA pixels or invalid TGA v2 footer.")
+    footer = len(data) - 26
+    extension, developer = struct.unpack_from("<II", data, footer)
+    regions = []
+    if extension:
+        require(end <= extension <= footer - 2, identity + ": invalid TGA extension offset.")
+        size = struct.unpack_from("<H", data, extension)[0]
+        require(size == 495 and extension + size <= footer, identity + ": invalid TGA extension extent.")
+        regions.append((extension, extension + size))
+    if developer:
+        require(end <= developer <= footer - 2, identity + ": invalid TGA developer directory.")
+        count = struct.unpack_from("<H", data, developer)[0]
+        directory_end = developer + 2 + count * 10
+        require(0 < count <= 64 and directory_end <= footer, identity + ": invalid TGA developer count.")
+        regions.append((developer, directory_end))
+        tags = set()
+        for n in range(count):
+            tag, offset, size = struct.unpack_from("<HII", data, developer + 2 + n * 10)
+            require(tag not in tags and size > 0 and end <= offset < footer and offset + size <= footer,
+                    identity + ": invalid TGA developer payload.")
+            tags.add(tag)
+            regions.append((offset, offset + size))
+    previous = end
+    for start, stop in sorted(regions):
+        require(start >= previous and not any(data[previous:start]),
+                identity + ": overlapping/unreferenced TGA metadata.")
+        previous = stop
+    require(not any(data[previous:footer]), identity + ": unreferenced TGA trailing bytes.")
+
+
 def decode_tga(data, identity):
     require(len(data) >= 18, identity + ": truncated TGA header.")
     ident, cmap, kind, first, count, depth, x, y, width, height, bpp, desc = struct.unpack_from("<BBBHHBHHHHBB", data)
@@ -368,8 +403,8 @@ def decode_tga(data, identity):
             identity + ": unsupported TGA dimensions/attribute/interleave flags.")
     offset, size = 18 + ident, width * height * (bpp // 8)
     end = offset + size
-    require(end <= len(data) and data[end:] in (b"", b"\0" * 8 + b"TRUEVISION-XFILE.\0"),
-            identity + ": truncated TGA pixels or unsupported extension/trailing bytes.")
+    require(end <= len(data), identity + ": truncated TGA pixels.")
+    tga_tail(data, end, identity)
     rgba = bytearray()
     for pixel in range(width * height):
         p = offset + pixel * (bpp // 8)
@@ -429,25 +464,109 @@ def load_recipe(project):
     return recipe
 
 
+def authenticated_tree(data, expected):
+    sys.path.insert(0, str(Path(__file__).absolute().parents[1] / "rosters"))
+    from export_rosters import SourceError, read_json, verify_tree
+    try:
+        return verify_tree(read_json(data), expected)
+    except SourceError as error:
+        raise EnvironmentError(str(error)) from error
+
+
+def original_tree(source_root, expected):
+    return authenticated_tree(read_file(source_root, "tree.json", 16 * 1024 * 1024), expected)
+
+
+def home_prefixes(data):
+    source = uncomment(data.decode("ascii"))
+    prefixes = re.findall(r'\{\s*\{[^{}]*\}\s*,\s*\d+\s*,\s*"[^"]+"\s*,\s*"[^"]+"\s*,\s*"[^"]+"\s*,\s*"([A-Z]{3})"',
+                          array_body(source, "teaminfo"))
+    require(tuple(prefixes) == HOME_PREFIXES, "Original teaminfo prefix/index domain differs.")
+    return prefixes
+
+
+def texture_lookup(tree):
+    result = {}
+    for path in tree:
+        if path.startswith("img3d/") and path.count("/") == 1:
+            result.setdefault(path.rpartition("/")[2].lower(), []).append(path)
+    return result
+
+
+def selected_materials(scene, field_source, tree, lookup, field, stadium, home_prefix):
+    table = FIELD_BRANCHES[field][1] if scene.name == "field2" else STADIUM_BRANCHES[stadium][1]
+    originals = [re.sub(r"\.[^.]{3}$", ".wms", scene.textures[n].file) for n in scene.slots]
+    selected = string_array(field_source, table) if table else originals
+    require(len(selected) == len(originals), "Selector/material count mismatch: " + str(table))
+    for texture_name, authored_name, selected_name in zip(scene.slots, originals, selected):
+        if scene.name == "field2" and authored_name.lower() in ("beabg.wms", "beaez1.wms", "beaez2.wms", "beaez3.wms"):
+            selected_name = home_prefix + selected_name[3:]
+        path = None
+        if scene.name != "stadpie" or stadium != "none":
+            matches = lookup.get(selected_name.lower(), [])
+            tga_name = re.sub(r"\.wms$", ".tga", selected_name, flags=re.I)
+            if not matches:
+                matches = lookup.get(tga_name.lower(), [])
+            require(len(matches) == 1, "Missing/ambiguous pinned original texture: " + scene.name + "/"
+                    + authored_name + " -> " + selected_name + " (authoring " + tga_name + ").")
+            path = matches[0]
+            require(tree[path]["type"] == "blob" and tree[path]["mode"] in ("100644", "100755"),
+                    "Selected original texture must be a regular Git blob: " + path)
+        yield {"sourceSet": scene.name, "sourceTexture": texture_name, "authoredName": authored_name,
+               "selectedName": selected_name, "sourcePath": path}
+
+
+def required_venue_inputs(tree, original):
+    """Resolve the finite field.c/SDL/teaminfo closure, never a repository-wide asset scan."""
+    prefixes = home_prefixes(original("teamdata.c"))
+    source = uncomment(original("field.c").decode("ascii"))
+    scenes = [read_sdl(original("models/field2.sdl"), "field2"),
+              read_sdl(original("models/stadpie.sdl"), "stadpie")]
+    lookup = texture_lookup(tree)
+    textures, selections = {}, []
+    for field, (field_index, _) in FIELD_BRANCHES.items():
+        for stadium, (stadium_index, _) in STADIUM_BRANCHES.items():
+            for team_index, prefix in enumerate(prefixes):
+                paths = []
+                for scene in scenes:
+                    for slot in selected_materials(scene, source, tree, lookup, field, stadium, prefix):
+                        path = slot["sourcePath"]
+                        paths.append(path)
+                        if path is not None:
+                            entry = tree[path]
+                            textures[path] = {"path": path, "bytes": entry["size"], "gitBlobSha1": entry["sha"]}
+                selections.append({
+                    "selectionId": "source-field2-stadpie/field-" + str(field_index)
+                                   + "/stadium-" + str(stadium_index) + "/" + prefix,
+                    "homeTeamIndex": team_index, "slotPaths": paths,
+                })
+    return {"textures": [textures[path] for path in sorted(textures)],
+            "selections": selections}
+
+
 def prepare(source_root, recipe, source_commit, field="grass", stadium="day", home_prefix="BEA",
             authorization_reference="owner-directed-local-use"):
     require(source_commit == SOURCE_COMMIT and recipe["sourceCommit"] == source_commit,
             "Source commit mismatch; expected pinned " + SOURCE_COMMIT + ".")
     require(field in FIELD_BRANCHES and stadium in STADIUM_BRANCHES, "Unsupported original field/stadium selector.")
     require(re.fullmatch(r"[A-Z]{3}", home_prefix) is not None, "Home prefix must be an original three-letter team prefix.")
-    require(home_prefix == "BEA", "Unsupported home-prefix in this pinned environment recipe: " + home_prefix
-            + ". Only BEA endzones are pinned here; this is not a claim that other original art is missing.")
     require(re.fullmatch(r"[A-Za-z0-9_. -]{1,160}", authorization_reference) is not None,
             "Supply a short authorization reference, not a machine path or secret.")
     source_root = physical(source_root, True)
+    tree = original_tree(source_root, recipe["sourceRootTree"])
     inventory = {e["path"]: e for e in recipe["inputs"]}
     texture_inventory = {e["path"]: e for e in recipe["textures"]}
     source_records, cached = [], {}
 
     def original(path):
         if path not in cached:
-            specification = inventory.get(path) or texture_inventory.get(path)
-            require(specification is not None, "Input is not in the pinned environment recipe: " + path)
+            entry = tree.get(path)
+            require(entry is not None and entry["type"] == "blob" and entry["mode"] != "120000",
+                    "Missing regular pinned original source-tree entry: " + path)
+            specification = inventory.get(path) or texture_inventory.get(path) or {
+                "bytes": entry["size"], "gitBlobSha1": entry["sha"]}
+            require(specification["gitBlobSha1"] == entry["sha"],
+                    "Pinned original recipe/source-tree mismatch: " + path)
             data = read_file(source_root, path, specification["bytes"])
             actual = fingerprint(data)
             require(actual["bytes"] == specification["bytes"]
@@ -461,6 +580,8 @@ def prepare(source_root, recipe, source_commit, field="grass", stadium="day", ho
 
     for entry in recipe["inputs"]:
         original(entry["path"])
+    prefixes = home_prefixes(original("teamdata.c"))
+    require(home_prefix in prefixes, "Unsupported original teaminfo home-prefix: " + home_prefix)
     field_source = uncomment(original("field.c").decode("ascii"))
     stadium_source = uncomment(original("include/nstadlim.h").decode("ascii"))
     scenes = [read_sdl(original("models/field2.sdl"), "field2"),
@@ -472,27 +593,13 @@ def prepare(source_root, recipe, source_commit, field="grass", stadium="day", ho
     draws += draw_table(field_source, "goalposts2_limb_draw_info", "field2", "goalposts")
     drawn = {(entry["sourceSet"], entry["name"]) for entry in draws}
     slots, texture_specs, texture_indices, files, mesh_specs = [], [], {}, {}, []
+    lookup = texture_lookup(tree)
     slot_base = 0
     for scene in scenes:
-        table = FIELD_BRANCHES[field][1] if scene.name == "field2" else STADIUM_BRANCHES[stadium][1]
-        originals = [re.sub(r"\.[^.]{3}$", ".wms", scene.textures[n].file) for n in scene.slots]
-        selected = string_array(field_source, table) if table else originals
-        require(len(selected) == len(originals), "Selector/material count mismatch: " + str(table))
-        for local_slot, (texture_name, selected_name) in enumerate(zip(scene.slots, selected)):
-            authored_name = originals[local_slot]
-            if scene.name == "field2" and authored_name.lower() in ("beabg.wms", "beaez1.wms", "beaez2.wms", "beaez3.wms"):
-                selected_name = home_prefix + selected_name[3:]
-            matches = [e for e in recipe["textures"] if Path(e["path"]).name.lower() == selected_name.lower()]
-            tga_name = re.sub(r"\.wms$", ".tga", selected_name, flags=re.I)
-            # Exact runtime WMS first, exact authoring basename second. Neither a palette nor art fallback.
-            if not matches:
-                matches = [e for e in recipe["textures"] if Path(e["path"]).name.lower() == tga_name.lower()]
-            require(len(matches) == 1, "Missing/ambiguous pinned original texture: " + scene.name + "/"
-                    + authored_name + " -> " + selected_name + " (authoring " + tga_name + ").")
-            path = matches[0]["path"]
-            if scene.name == "stadpie" and stadium == "none":
-                slots.append({"sourceSet": scene.name, "sourceTexture": texture_name,
-                              "authoredName": authored_name, "selectedName": selected_name, "textureIndex": -1})
+        for slot in selected_materials(scene, field_source, tree, lookup, field, stadium, home_prefix):
+            path = slot.pop("sourcePath")
+            if path is None:
+                slots.append(dict(slot, textureIndex=-1))
                 continue
             if path not in texture_indices:
                 data = original(path)
@@ -501,15 +608,14 @@ def prepare(source_root, recipe, source_commit, field="grass", stadium="day", ho
                 mip_count = 1 if not path.lower().endswith(".wms") else decoded["sourceHeader"][6] - decoded["sourceHeader"][7] + 1
                 relative = "textures/texture-" + str(len(texture_specs)).zfill(3) + ".rgba"
                 files[relative] = rgba
-                spec = dict(decoded, sourcePath=path, sourceGitBlobSha1=matches[0]["gitBlobSha1"],
+                spec = dict(decoded, sourcePath=path, sourceGitBlobSha1=tree[path]["sha"],
                             sourceSha256=digest(data), rgbaPath=relative, rgbaSha256=digest(rgba),
                             rgbaBytes=len(rgba), mipCount=mip_count,
                             samplingWrap="GR_TEXTURECLAMP_WRAP",
                             hasAlpha=any(rgba[p] != 255 for p in range(3, len(rgba), 4)))
                 texture_indices[path] = len(texture_specs)
                 texture_specs.append(spec)
-            slots.append({"sourceSet": scene.name, "sourceTexture": texture_name, "authoredName": authored_name,
-                          "selectedName": selected_name, "textureIndex": texture_indices[path]})
+            slots.append(dict(slot, textureIndex=texture_indices[path]))
         for polyset in scene.polysets:
             data, vertex_count, submesh_count = mesh_bytes(scene, polyset, slot_base)
             relative = portable("meshes/" + scene.name + "-" + polyset.name + ".meshbin")
@@ -551,7 +657,12 @@ def prepare(source_root, recipe, source_commit, field="grass", stadium="day", ho
         "unityAxes": "+X,+Y,-Z", "sourceTriangleOrder": "Renderer321", "reverseDeclaredTriangle": False,
         "originSource": [0, 0, 0], "scaleSource": [65, 65, 57.5],
         "fieldSelector": FIELD_BRANCHES[field][0], "stadiumSelector": STADIUM_BRANCHES[stadium][0],
-        "homePrefix": home_prefix, "inputs": source_records, "converterEvidence": recipe["converterEvidence"],
+        "homePrefix": home_prefix, "homeTeamIndex": prefixes.index(home_prefix),
+        "selectionId": "source-field2-stadpie/field-" + str(FIELD_BRANCHES[field][0])
+                       + "/stadium-" + str(STADIUM_BRANCHES[stadium][0]) + "/" + home_prefix,
+        "fieldTextureTable": FIELD_BRANCHES[field][1] or "field2_textures",
+        "stadiumTextureTable": STADIUM_BRANCHES[stadium][1] or "stadium_textures",
+        "inputs": source_records, "converterEvidence": recipe["converterEvidence"],
         "meshes": mesh_specs, "textures": texture_specs, "slots": slots,
         "draws": draws, "zoneVolumes": volumes,
         "conversionNotes": [
@@ -573,6 +684,42 @@ def prepare(source_root, recipe, source_commit, field="grass", stadium="day", ho
     }
     files["environment.json"] = json_bytes(manifest)
     return manifest, files
+
+
+def prepare_runtime_catalog(source_root, recipe, source_commit, field, stadium, home_prefix,
+                            authorization_reference):
+    require(home_prefix in HOME_PREFIXES, "Unsupported original catalog default home-prefix: " + home_prefix)
+    files, entries = {}, []
+    for prefix in HOME_PREFIXES:
+        manifest, selected_files = prepare(source_root, recipe, source_commit, field, stadium, prefix,
+                                           authorization_reference)
+        for texture in manifest["textures"]:
+            previous = texture["rgbaPath"]
+            texture["rgbaPath"] = "textures/" + Path(texture["sourcePath"]).name.lower() + ".rgba"
+            selected_files[texture["rgbaPath"]] = selected_files.pop(previous)
+        selected_files.pop("environment.json")
+        for path, data in selected_files.items():
+            require(path not in files or files[path] == data, "Conflicting shared original venue resource: " + path)
+            files[path] = data
+        path = "environment.json" if prefix == home_prefix else "selections/" + prefix + ".json"
+        data = json_bytes(manifest)
+        files[path] = data
+        entries.append({"homePrefix": prefix, "homeTeamIndex": manifest["homeTeamIndex"],
+                        "manifestPath": path, "manifestSha256": digest(data)})
+    default = next(entry for entry in entries if entry["homePrefix"] == home_prefix)
+    catalog = {
+        "schema": "blitz-source-environment-catalog/v1",
+        "sourceRepository": recipe["sourceRepository"], "sourceCommit": source_commit,
+        "sourceRootTree": recipe["sourceRootTree"], "stableId": "source-field2-stadpie",
+        "fieldSelector": FIELD_BRANCHES[field][0], "stadiumSelector": STADIUM_BRANCHES[stadium][0],
+        "defaultSelectionId": "source-field2-stadpie/field-" + str(FIELD_BRANCHES[field][0])
+                              + "/stadium-" + str(STADIUM_BRANCHES[stadium][0]) + "/" + home_prefix,
+        "defaultManifestSha256": default["manifestSha256"], "entries": entries,
+        "files": [{"path": path, "bytes": len(data), "sha256": digest(data)} for path, data in sorted(files.items())],
+        "selectionBoundary": "Actual cabinet team/new-match/rematch selection; field and stadium are immutable bootstrap/package inputs, not new UI choices.",
+    }
+    files["catalog.json"] = json_bytes(catalog)
+    return catalog, files
 
 
 def write_bundle(project, destination, files):
@@ -607,15 +754,28 @@ def main(argv=None):
     parser.add_argument("--destination", required=True, type=Path, help="NEW ignored output directory; no overwrite.")
     parser.add_argument("--field", choices=FIELD_BRANCHES, default="grass")
     parser.add_argument("--stadium", choices=STADIUM_BRANCHES, default="day")
-    parser.add_argument("--home-prefix", choices=("BEA",), default="BEA",
-                        help="This environment recipe pins the original Bears endzone material branch.")
+    parser.add_argument("--home-prefix", choices=HOME_PREFIXES, default="BEA",
+                        help="Actual teaminfo home-team prefix; all four exact endzone inputs are required.")
+    parser.add_argument("--runtime-catalog", action="store_true",
+                        help="Package all31 actual cabinet home-team choices for the explicit immutable field/stadium, sharing exact mesh/pixel files.")
     parser.add_argument("--confirm-local-use", action="store_true", required=True)
     parser.add_argument("--authorization-reference", required=True)
     args = parser.parse_args(argv)
     project = Path(__file__).absolute().parents[2]
     try:
-        manifest, files = prepare(args.source_root, load_recipe(project), args.source_commit,
-                                  args.field, args.stadium, args.home_prefix, args.authorization_reference)
+        recipe = load_recipe(project)
+        if args.runtime_catalog:
+            catalog, files = prepare_runtime_catalog(args.source_root, recipe, args.source_commit,
+                args.field, args.stadium, args.home_prefix, args.authorization_reference)
+            write_bundle(project, args.destination, files)
+            print(json.dumps({"status": "converted-original-runtime-venue-catalog",
+                              "selections": len(catalog["entries"]), "files": len(files),
+                              "defaultSelectionId": catalog["defaultSelectionId"],
+                              "manifestSha256": catalog["defaultManifestSha256"],
+                              "catalogSha256": digest(files["catalog.json"])}))
+            return 0
+        manifest, files = prepare(args.source_root, recipe, args.source_commit,
+                                 args.field, args.stadium, args.home_prefix, args.authorization_reference)
         write_bundle(project, args.destination, files)
         print(json.dumps({"status": "converted-original-environment", "meshes": len(manifest["meshes"]),
                           "drawnPieces": len(manifest["draws"]), "textures": len(manifest["textures"]),

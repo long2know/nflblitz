@@ -1,0 +1,14 @@
+{
+  "tests/audio/vm/SourceSoundVmSources.props": "3c6213c816f831522c39688592a54a977b7ab899fe1a7d36b581be0f7dabfa03",
+  "tests/movement-callers/Canonical.cs": "d5d9e950c34823c382ac03ec68950e1a100370bf6c42435090fa3de792f879dc",
+  "tests/movement-callers/CompatibilityChecks.cs": "78d66f64b5d891ab13fce4b935f9693e6a569d31c364ffded4115de8bb261f38",
+  "tests/movement-callers/Controlled.cs": "429f596cd6707b51f4f318649490ac918f52f02660e01c68c360e6febbdead02",
+  "tests/movement-callers/Directory.Build.props": "1dd96e405e6c5e6518640eb492265718d16357b24b5cfb0df8ced52237d31f5e",
+  "tests/movement-callers/InputAndStation.cs": "7dfbfa794319d371b2b5e73a5c4f1d297b2a8788946cdab2041ca30ab56b8da1",
+  "tests/movement-callers/MovementCallerChecks.csproj": "972c0ab2a5efb06f94e8382c2d2f85ffe351174d0e32aed7c39266cd7b531db9",
+  "tests/movement-callers/PortablePublicPolicy.cs": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+  "tests/movement-callers/Program.cs": "604efb98bc83923363fbb036291603b4d4a8aa2c41e1d295d4d9671e5a4ada4c",
+  "tests/movement-callers/SnapHikeChecks.cs": "a347b3f4a5d0cbecd1c44ab3eba73313889ba443328adf0d682a821a12ea812a",
+  "tests/parity/FullKernelInputs.cs": "2f6ed6c7bd4bc844f7c31ae9c9e2a249f274edcbd665857eff216adfba5a0ea6",
+  "tests/parity/FullKernelSources.props": "3cfc5d8d31dae2c90907d56b592b543391d76e885e9211e49b4571404a408cfa"
+}

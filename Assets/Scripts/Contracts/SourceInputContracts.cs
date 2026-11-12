@@ -15,11 +15,154 @@ namespace Blitz.Contracts
     [Flags]
     public enum SourceButtons { None = 0, A = 1, B = 2, C = 4 }
 
+    [Flags]
+    public enum SourceDigitalDirections { None = 0, Up = 1, Down = 2, Left = 4, Right = 8 }
+
+    // Physical cabinet slots are independent of participation and actor control.
+    // These are quantized current values, not invented numeric Goose switch masks.
+    public sealed class SourcePhysicalSwitchFrame
+    {
+        public ReadOnlyCollection<SourceStationInput> Stations { get; }
+        public SourcePhysicalSwitchFrame(IReadOnlyList<SourceStationInput> stations)
+        {
+            if (stations == null) throw new ArgumentNullException(nameof(stations));
+            if (stations.Count != 4)
+                throw new ArgumentException("Sample all four physical cabinet stations.", nameof(stations));
+            var copy = new SourceStationInput[4];
+            foreach (SourceStationInput input in stations)
+            {
+                if (!input.IsSpecified || copy[input.StationId].IsSpecified || !input.DigitalCurrent.HasValue
+                    || input.Command.IsSpecified || input.Pressed != 0 || input.Released != 0)
+                    throw new ArgumentException("Physical samples require four unique quantized current stations, without commands or edges.", nameof(stations));
+                copy[input.StationId] = input;
+            }
+            Stations = Array.AsReadOnly(copy);
+        }
+        public SourceStationInput Station(int physicalStationId)
+        {
+            SourceContractGuard.Station(physicalStationId, false, nameof(physicalStationId));
+            return Stations[physicalStationId];
+        }
+        public bool IsNeutral
+        {
+            get
+            {
+                foreach (SourceStationInput input in Stations)
+                    if (input.Held != 0 || input.StickX != 0 || input.StickZ != 0) return false;
+                return true;
+            }
+        }
+        internal bool SameCurrent(SourcePhysicalSwitchFrame other)
+        {
+            if (other == null) return false;
+            for (int station = 0; station < 4; station++)
+                if (!SameCurrent(Station(station), other.Station(station))) return false;
+            return true;
+        }
+        internal static bool SameCurrent(SourceStationInput a, SourceStationInput b)
+        {
+            return a.StationId == b.StationId && a.StickX == b.StickX && a.StickZ == b.StickZ
+                && a.Held == b.Held && a.DigitalCurrent == b.DigitalCurrent;
+        }
+        internal static SourcePhysicalSwitchFrame Neutral()
+        {
+            var values = new SourceStationInput[4];
+            for (int station = 0; station < 4; station++)
+                values[station] = new SourceStationInput(station, digitalCurrent: SourceDigitalDirections.None);
+            return new SourcePhysicalSwitchFrame(values);
+        }
+    }
+
+    public sealed class SourceConsumedPhysicalSwitchScan
+    {
+        private readonly SourcePhysicalSwitchFrame prior1, prior2;
+        public long SourceTick { get; }
+        public long InputEpoch { get; }
+        public SourcePhysicalSwitchFrame PhysicalSwitches { get; }
+        internal SourceConsumedPhysicalSwitchScan(long sourceTick, long inputEpoch, SourcePhysicalSwitchFrame current,
+            SourcePhysicalSwitchFrame prior1, SourcePhysicalSwitchFrame prior2)
+        {
+            if (sourceTick < 1) throw new ArgumentOutOfRangeException(nameof(sourceTick));
+            if (inputEpoch < 1) throw new ArgumentOutOfRangeException(nameof(inputEpoch));
+            SourceTick = sourceTick; InputEpoch = inputEpoch;
+            PhysicalSwitches = current ?? throw new ArgumentNullException(nameof(current));
+            this.prior1 = prior1 ?? throw new ArgumentNullException(nameof(prior1));
+            this.prior2 = prior2 ?? throw new ArgumentNullException(nameof(prior2));
+        }
+        // switch.c's close/open debounce uses the previous TWO source scans.
+        // It must not be reconstructed from merged host Pressed/Released edges.
+        public SourceButtons ClosedButtons(int physicalStationId)
+        {
+            return PhysicalSwitches.Station(physicalStationId).Held & ~prior1.Station(physicalStationId).Held
+                & ~prior2.Station(physicalStationId).Held;
+        }
+        public SourceButtons OpenedButtons(int physicalStationId)
+        {
+            return prior1.Station(physicalStationId).Held & prior2.Station(physicalStationId).Held
+                & ~PhysicalSwitches.Station(physicalStationId).Held;
+        }
+    }
+
+    public readonly struct SourceDigitalSwitchScan
+    {
+        private readonly int stationId;
+        public bool IsSpecified { get; }
+        public int StationId { get { return IsSpecified ? stationId : -1; } }
+        public long SourceTick { get; }
+        public SourceDigitalDirections Current { get; }
+        public SourceDigitalDirections Prior1 { get; }
+        public SourceDigitalDirections Prior2 { get; }
+        public SourceDigitalDirections Close { get; }
+
+        // Masks are already decoded through the authenticated 49-to-8 table.
+        // Priors are the last two SOURCE scans, not host captures or menu wakes.
+        public SourceDigitalSwitchScan(int stationId, long sourceTick, SourceDigitalDirections current,
+            SourceDigitalDirections prior1, SourceDigitalDirections prior2)
+        {
+            SourceContractGuard.Station(stationId, false, nameof(stationId));
+            if (sourceTick < 0) throw new ArgumentOutOfRangeException(nameof(sourceTick));
+            RequireMask(current, nameof(current));
+            RequireMask(prior1, nameof(prior1));
+            RequireMask(prior2, nameof(prior2));
+            this.stationId = stationId;
+            SourceTick = sourceTick;
+            Current = current;
+            Prior1 = prior1;
+            Prior2 = prior2;
+            Close = current & ~prior1 & ~prior2;
+            IsSpecified = true;
+        }
+
+        internal static void RequireMask(SourceDigitalDirections mask, string name)
+        {
+            if (((int)mask & ~15) != 0) throw new ArgumentOutOfRangeException(name);
+        }
+    }
+
     public enum SourceAction
     {
         None, SelectPlay, Snap, Pass, Tackle, SwitchPlayer, Continue, SelectPat,
         SelectKickoff, Kick, Punt, Lateral, Audible, Spin, Juke, Hurdle, Dive,
         Jump, Swat, Catch, StiffArm, StartRandomPlaySelection
+    }
+
+    public sealed class SourceSavedPlayOrigin
+    {
+        private readonly SourceSavedRecordSession session;
+        public int StationId { get; }
+        public int SlotIndex { get; }
+
+        internal SourceSavedPlayOrigin(SourceSavedRecordSession session, int stationId, int slotIndex)
+        {
+            if (session == null) throw new ArgumentNullException(nameof(session));
+            if (session.ResolveCustom(stationId, slotIndex, false).Kind != SourceSavedCustomChoiceKind.Existing)
+                throw new ArgumentException("A saved play origin requires an actual existing station slot.");
+            this.session = session;
+            StationId = stationId;
+            SlotIndex = slotIndex;
+        }
+
+        internal bool BelongsTo(SourceSavedRecordSession actual) { return ReferenceEquals(session, actual); }
     }
 
     public readonly struct SourcePlaySelection
@@ -34,6 +177,7 @@ namespace Blitz.Contracts
         public int PageIndex { get { return IsSpecified ? pageIndex : -1; } }
         public SourcePlayPool? Pool { get; }
         public int PoolIndex { get { return IsSpecified ? poolIndex : -1; } }
+        public SourceSavedPlayOrigin SavedOrigin { get; }
 
         public SourcePlaySelection(string playSymbol, SourcePlaybookKind playbook,
             int slotIndex = -1, int pageIndex = -1, SourcePlayPool? pool = null, int poolIndex = -1)
@@ -54,7 +198,13 @@ namespace Blitz.Contracts
             this.pageIndex = pageIndex;
             Pool = pool;
             this.poolIndex = poolIndex;
+            SavedOrigin = null;
         }
+
+        internal SourcePlaySelection(SourceSavedPlayOrigin origin)
+            : this(origin == null ? null : "custom_p" + origin.StationId + "_s" + origin.SlotIndex,
+                SourcePlaybookKind.Offense, origin == null ? -1 : origin.SlotIndex, 4)
+        { SavedOrigin = origin; }
     }
 
     public readonly struct SourceCommand
@@ -102,10 +252,12 @@ namespace Blitz.Contracts
         public SourceButtons Pressed { get; }
         public SourceButtons Released { get; }
         public SourceCommand Command { get; }
+        public SourceDigitalDirections? DigitalCurrent { get; }
 
         public SourceStationInput(int stationId, int stickX = 0, int stickZ = 0,
             SourceButtons held = SourceButtons.None, SourceButtons pressed = SourceButtons.None,
-            SourceButtons released = SourceButtons.None, SourceCommand command = default(SourceCommand))
+            SourceButtons released = SourceButtons.None, SourceCommand command = default(SourceCommand),
+            SourceDigitalDirections? digitalCurrent = null)
         {
             SourceContractGuard.Station(stationId, false, nameof(stationId));
             SourceContractGuard.Range(stickX, -3, 3, nameof(stickX));
@@ -113,6 +265,8 @@ namespace Blitz.Contracts
             SourceContractGuard.Buttons(held, nameof(held));
             SourceContractGuard.Buttons(pressed, nameof(pressed));
             SourceContractGuard.Buttons(released, nameof(released));
+            if (digitalCurrent.HasValue)
+                SourceDigitalSwitchScan.RequireMask(digitalCurrent.Value, nameof(digitalCurrent));
             this.stationId = stationId;
             StickX = stickX;
             StickZ = stickZ;
@@ -120,15 +274,45 @@ namespace Blitz.Contracts
             Pressed = pressed;
             Released = released;
             Command = command;
+            DigitalCurrent = digitalCurrent;
             IsSpecified = true;
         }
+    }
+
+    public enum SourceCabinetSelectionSound { Moved, Edge, PageChanged, Flipped, Hidden, Selected, RandomArmed }
+
+    public interface ISourceCabinetSelectionSoundProducer
+    {
+        SourceProcessSoundCall SubmitSourceCabinetSelectionSound(long sourceTick, int stationId, TeamId side,
+            SourceCabinetSelectionSound sound);
+    }
+
+    public interface ISourceCabinetSoundBank
+    {
+        string SourceCursorSoundBank { get; }
     }
 
     public sealed class SourceInputFrame
     {
         public ReadOnlyCollection<SourceStationInput> Stations { get; }
+        public SourcePhysicalSwitchFrame PhysicalSwitches { get; }
+        public ISourceCabinetSelectionSoundProducer SelectionSoundProducer { get; }
+        public bool PlaySelectionContinuationBlocked { get; }
 
-        public SourceInputFrame(IReadOnlyList<SourceStationInput> stations)
+        private SourceInputFrame(SourceInputFrame frame, ISourceCabinetSelectionSoundProducer producer, bool selectionBlocked)
+        {
+            Stations = frame.Stations; PhysicalSwitches = frame.PhysicalSwitches;
+            SelectionSoundProducer = producer; PlaySelectionContinuationBlocked = selectionBlocked;
+        }
+
+        internal SourceInputFrame WithSelectionSoundProducer(ISourceCabinetSelectionSoundProducer producer)
+        { return new SourceInputFrame(this, producer, PlaySelectionContinuationBlocked); }
+
+        internal SourceInputFrame WithPlaySelectionContinuationBlocked()
+        { return new SourceInputFrame(this, SelectionSoundProducer, true); }
+
+        public SourceInputFrame(IReadOnlyList<SourceStationInput> stations,
+            SourcePhysicalSwitchFrame physicalSwitches)
         {
             if (stations == null)
                 throw new ArgumentNullException(nameof(stations));
@@ -145,7 +329,10 @@ namespace Blitz.Contracts
                 copy[i] = station;
             }
             Stations = Array.AsReadOnly(copy);
+            PhysicalSwitches = physicalSwitches;
         }
+
+        public SourceInputFrame(IReadOnlyList<SourceStationInput> stations) : this(stations, null) { }
     }
 
     public readonly struct SourceStationView
@@ -182,10 +369,12 @@ namespace Blitz.Contracts
         public SourceActorContactView Contact { get; }
         public int? Handicap { get; }
         public int? RawHandicap { get; }
+        public SourceActorInputView Input { get; }
 
         public SourceActorView(int controllerStationId, SourceRosterIdentity roster = default(SourceRosterIdentity),
             int noCatchSourceTicks = 0, SourceActorPresentationView presentation = default(SourceActorPresentationView),
-            SourceActorContactView contact = default(SourceActorContactView), int? handicap = null, int? rawHandicap = null)
+            SourceActorContactView contact = default(SourceActorContactView), int? handicap = null, int? rawHandicap = null,
+            SourceActorInputView input = default(SourceActorInputView))
         {
             SourceContractGuard.Station(controllerStationId, true, nameof(controllerStationId));
             SourceContractGuard.Range(noCatchSourceTicks, 0, int.MaxValue, nameof(noCatchSourceTicks));
@@ -197,6 +386,7 @@ namespace Blitz.Contracts
             Contact = contact;
             Handicap = handicap;
             RawHandicap = rawHandicap ?? handicap;
+            Input = input;
             IsSpecified = true;
         }
     }
