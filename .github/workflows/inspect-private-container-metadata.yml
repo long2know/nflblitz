@@ -1,0 +1,44 @@
+name: Inspect private container publication metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  inspect:
+    if: github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read exact package ownership, visibility, association and immutable tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B - <<'PY'
+          import json, os
+          from urllib.request import Request, urlopen
+          token = os.environ.pop("GH_TOKEN")
+          base = "https://api.github.com/users/long2know/packages/container/nflblitz"
+          def get(url):
+              with urlopen(Request(url, headers={
+                  "Authorization": "Bearer " + token,
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              }), timeout=30) as response:
+                  return json.loads(response.read(4 * 1024 * 1024))
+          package = get(base)
+          selected = {key: package.get(key) for key in
+                      ("id", "name", "package_type", "visibility", "url", "html_url")}
+          selected["owner_login"] = (package.get("owner") or {}).get("login")
+          selected["repository_full_name"] = (package.get("repository") or {}).get("full_name")
+          selected["metadata_keys"] = sorted(package)
+          versions = get(base + "/versions?per_page=20")
+          selected["versions"] = [
+              {"id": row["id"], "name": row["name"],
+               "tags": row.get("metadata", {}).get("container", {}).get("tags", [])}
+              for row in versions]
+          print(json.dumps(selected, indent=2, sort_keys=True))
+          PY
