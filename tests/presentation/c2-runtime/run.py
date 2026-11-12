@@ -53,7 +53,8 @@ def caller_guards(values):
             "sourceServices.Profile.StableId!=profile.StableId" in awake,
             "real runtime selector/service registry agrees with explicit profile")
     require("!ReferenceEquals(animations,SourcePlayerProvider.ResolveRequiredAnimationLibrary(prefab))" in awake and
-            "newFieldScene(transform,prefab,animations)" in awake, "renderer uses SAME selected library object")
+            "newFieldScene(transform,prefab,animations,actualSourceField,actualSourceHomePrefix)" in awake,
+            "renderer uses SAME selected library object")
     drain = body("Runtime/BlitzRuntime.cs", "OnAfterSimulationStep")
     require("observed(dispatch)" in drain and "soundTransport.FlushNativePrefix()" in drain and
             drain.index("observed(dispatch)") < drain.index("FlushNativePrefix()"),

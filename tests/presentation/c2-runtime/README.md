@@ -1,5 +1,11 @@
 # Fresh Contact281C2 production binding checks
 
+The current renderer seam retains the same canonical animation object while
+also forwarding the selected source field and home-team prefix. Guard mutations
+reject dropping that library or silently substituting the default field; the
+test signature follows the actual published constructor, not the old three-
+argument call. No renderer or resource profile is changed by these guards.
+
 ## Optional raw fire/handicap constructor settings
 
 The actual C1 and both C2 factory entrypoints append optional

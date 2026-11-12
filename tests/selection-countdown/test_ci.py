@@ -425,6 +425,26 @@ class SelectionCI(unittest.TestCase):
         finally:
             alias.unlink()
 
+    def test_current_full_assertions_require_the_exact_complete_source_and_checks_epoch(self):
+        hashes = {name: run.hashlib.sha256(raw).hexdigest() for name, raw in run.capture_sources().items()}
+        contract = run.current_summary_contract(hashes)
+        changed = dict(hashes)
+        changed["Assets/Scripts/Gameplay/SourceClock.cs"] = "0" * 64
+        with self.assertRaisesRegex(AssertionError, "exact reviewed complete"):
+            run.current_summary_contract(changed)
+        fixtures, _ = run.required_inventory()
+        random_fixtures, _ = run.required_random_inventory()
+        full = dict(status="passed", scope="all", assertions=contract["fullAssertions"],
+                    cases=[c["name"] for c in fixtures] + list(run.CALLER_CASES),
+                    randomCases=[c["name"] for c in random_fixtures],
+                    randomLifecycleCases=list(run.LIFECYCLE_CASES))
+        self.assertEqual(run.validate_summary(json.dumps(full), "all", fixtures, random_fixtures,
+                                              contract["fullAssertions"]), full)
+        for assertions in (42424, contract["fullAssertions"] - 1):
+            with self.subTest(assertions=assertions), self.assertRaisesRegex(AssertionError, "omitted/substituted"):
+                run.validate_summary(json.dumps(dict(full, assertions=assertions)), "all", fixtures,
+                                     random_fixtures, contract["fullAssertions"])
+
     def test_success_requires_exact_full_or_causal_scope_not_a_case_count(self):
         fixtures, timer = run.required_inventory()
         random_fixtures, controls = run.required_random_inventory()

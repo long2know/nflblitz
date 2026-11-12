@@ -33,6 +33,11 @@ Current guards target the actual process-camera selection drain followed by
 route, not older direct-callback signatures. Profile ancestry enumerates each
 selected-world303, AV306 and two-station-records identity separately while
 retaining every old non-M1 exclusion; it does not alias their resources.
+The movement-stage caller gate uses the same exact current registration and
+queue-aware resolved/native batch/reset signatures. Its original15242-frame/
+twelve-float binary32 comparison and all twelve compiled pure controls remain
+unchanged; all nineteen old source controls plus three focused current queue/
+epoch controls are required, not failures caused by an obsolete signature.
 
 Optional complete actual Unity-reference API compilation and actual data mapping:
 

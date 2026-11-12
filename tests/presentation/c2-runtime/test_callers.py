@@ -35,6 +35,10 @@ class C2CallerChecks(unittest.TestCase):
             ("Runtime/SourceInterfaceServices.cs", "SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data)", "AnotherAfterAIHelper(C2Data)"),
             ("Runtime/SourceInterfaceServices.cs", "SourceC2Composition.CreateSimulation(", "AnotherInspector.CreateSimulation("),
             ("Runtime/BlitzRuntime.cs", "SourceInterfaceServices.ResourceKeyFor(profile)", "SourceInterfaceServices.ResourceKey"),
+            ("Runtime/BlitzRuntime.cs", "new FieldScene(transform, prefab, animations, actualSourceField, actualSourceHomePrefix)",
+             "new FieldScene(transform, prefab, null, actualSourceField, actualSourceHomePrefix)"),
+            ("Runtime/BlitzRuntime.cs", "new FieldScene(transform, prefab, animations, actualSourceField, actualSourceHomePrefix)",
+             "new FieldScene(transform, prefab, animations, 0, actualSourceHomePrefix)"),
             ("Editor/SourceTeamInterfaceImporter.cs", "services.InitializeContact281C2(", "services.InitializeContact272("),
             ("Editor/WebGlBuild.cs", "ConfigureSourceResourceProfile(profile.StableId)", "ConfigureSourceResourceProfile(\"original-teams-contact272\")"),
         )

@@ -10,6 +10,15 @@ source-location bindings follow the extracted portable process host and the
 introduction-aware input observer; the original42 control tuples, inventory
 hash, scopes and exact causal failures remain unchanged.
 
+The current public6ad production/checks closure has a separately sealed131-file
+map `68a3f5981471116d1f07d0f6caea941003b7bda1afe10c5519a6f4731e8fd631`
+and an exact45116-assertion full execution. The historical42424 fixture validator
+is retained unchanged by default; only the authenticated current closure selects
+the new aggregate. Unknown source/checks maps and crossed/missing assertion
+counts reject. All66 executed case identities/order,17 original timer traces,
+33 original random cases and42 compiled named causal controls remain mandatory;
+no native expected row or control cause is retuned.
+
 The separate Fraction counterfactual is a **frozen component comparison**, not
 qualification of the live whole-game source. Its A tree remains main40
 `e3157c42df9a5f09d534f689339495429e778768`; its B tree is explicitly

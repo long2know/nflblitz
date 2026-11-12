@@ -28,6 +28,7 @@ LIFECYCLE_CONTROLS = {
     "random-output-failure-swallowed": "random-output-failure",
 }
 CONTROL_INVENTORY_SHA256 = "d2334d1977457f6efb67f9a6efecd8a32ec1d1b6e65358c4ad546dd79d87c207"
+REVIEWED_SELECTION_SOURCE_SHA256 = "68a3f5981471116d1f07d0f6caea941003b7bda1afe10c5519a6f4731e8fd631"
 CURRENT_CONTROL_BINDINGS = {
     "suspended-timer-still-runs": (
         ("Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
@@ -255,7 +256,7 @@ def validate_causal_failure(control, row):
                 "All17 production timer traces must execute/compare before the exact original-C timer kill.")
 
 
-def validate_summary(text, scope, fixtures, random_fixtures):
+def validate_summary(text, scope, fixtures, random_fixtures, expected_assertions=42424):
     summary = json.loads(text)
     execution_plan(scope, fixtures, random_fixtures)
     timer_cases = ([c["name"] for c in fixtures] + list(CALLER_CASES) if scope == "all" else
@@ -265,11 +266,31 @@ def validate_summary(text, scope, fixtures, random_fixtures):
     lifecycle_cases = list(LIFECYCLE_CASES) if scope == "all" else ([scope] if scope in LIFECYCLE_CASES else [])
     require(summary.get("status") == "passed" and summary.get("scope") == scope and
             type(summary.get("assertions")) is int and summary["assertions"] > 0 and
-            (scope != "all" or summary["assertions"] == 42424) and
+            (scope != "all" or summary["assertions"] == expected_assertions) and
             summary.get("cases") == timer_cases and summary.get("randomCases") == random_cases and
             summary.get("randomLifecycleCases") == lifecycle_cases,
             "Successful execution omitted/substituted its exact required cases or mislabelled a partial scope.")
     return summary
+
+
+def capture_sources():
+    names = set()
+    for item in ET.parse(ROOT / "tools/source-player/ProductionSources.props").iter("Compile"):
+        names.update(p.relative_to(ROOT).as_posix()
+                     for p in ROOT.glob(item.attrib["Include"].replace("$(BlitzSourceRoot)", "")))
+    files = {name: (ROOT / name).read_bytes() for name in sorted(names)}
+    files["Program.cs"] = (HERE / "Program.cs").read_bytes()
+    files["RandomChecks.cs"] = (HERE / "RandomChecks.cs").read_bytes()
+    files["FullKernelInputs.cs"] = (ROOT / "tests/parity/FullKernelInputs.cs").read_bytes()
+    return files
+
+
+def current_summary_contract(hashes):
+    digest = hashlib.sha256(json.dumps(hashes, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    require(len(hashes) == 131 and digest == REVIEWED_SELECTION_SOURCE_SHA256,
+            "Selection summary requires the exact reviewed complete production/checks source generation.")
+    return dict(generation="reviewed-public6ad-selection-source/v1",
+                sourceCount=131, sourceSha256=digest, fullAssertions=45116)
 
 
 def validate_child(run):
@@ -305,13 +326,7 @@ def main():
     output.mkdir(parents=True)
     env = dict(os.environ, TMPDIR=str(output), TMP=str(output), TEMP=str(output),
                DOTNET_NOLOGO="1", DOTNET_CLI_TELEMETRY_OPTOUT="1", PYTHONDONTWRITEBYTECODE="1")
-    names = set()
-    for item in ET.parse(ROOT / "tools/source-player/ProductionSources.props").iter("Compile"):
-        names.update(p.relative_to(ROOT).as_posix() for p in ROOT.glob(item.attrib["Include"].replace("$(BlitzSourceRoot)", "")))
-    files = {name: (ROOT / name).read_bytes() for name in sorted(names)}
-    files["Program.cs"] = (HERE / "Program.cs").read_bytes()
-    files["RandomChecks.cs"] = (HERE / "RandomChecks.cs").read_bytes()
-    files["FullKernelInputs.cs"] = (ROOT / "tests/parity/FullKernelInputs.cs").read_bytes()
+    files = capture_sources()
     report = dict(schema="source-selection-countdown/v1", status="failed", command=list(os.sys.argv),
                   sourceHashes={n: hashlib.sha256(raw).hexdigest() for n, raw in files.items()}, runs=[],
                   workers=args.workers, defaultWorkers=1, optimizedCompilation=True,
@@ -319,6 +334,8 @@ def main():
     started = time.monotonic()
     resources = resource.getrusage(resource.RUSAGE_CHILDREN)
     try:
+        summary_contract = current_summary_contract(report["sourceHashes"])
+        report["summarySourceContract"] = summary_contract
         sdk = subprocess.check_output(["dotnet", "--list-sdks"], env=env, text=True)
         version, prefix = max(re.findall(r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", sdk, re.M),
                               key=lambda p: tuple(map(int, p[0].split("."))))
@@ -417,7 +434,8 @@ def main():
                 json.loads((destination / "execution-scope.json").read_text()),
                 label, group, fixtures, random_fixtures, run.returncode)
             if run.returncode == 0:
-                row["summary"] = validate_summary(run.stdout, group, fixtures, random_fixtures)
+                row["summary"] = validate_summary(run.stdout, group, fixtures, random_fixtures,
+                                                  summary_contract["fullAssertions"])
             compared = attempted = 0
             differences = []
             for case in fixtures if group in ("all", "timer-traces") else ():
