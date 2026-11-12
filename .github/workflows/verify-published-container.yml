@@ -1,0 +1,157 @@
+name: Verify published private container pull
+
+on:
+  workflow_dispatch:
+    inputs:
+      publication_inputs:
+        description: Exact non-secret ten-input JSON from the successful accepted-image publisher
+        required: true
+        type: string
+      manifest_digest:
+        description: Immutable sha256 manifest digest from that publisher receipt
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  verify-pull:
+    if: github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Cold pull, authenticate every layer, and run the actual user configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLICATION_INPUTS: ${{ inputs.publication_inputs }}
+          PUBLISHED_MANIFEST_DIGEST: ${{ inputs.manifest_digest }}
+        run: |
+          python3 -B - <<'PY'
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import time
+
+          path = Path("tools/source-player/deploy/registry_transfer.py")
+          spec = importlib.util.spec_from_file_location("accepted_registry", path)
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          values = verifier.validate_inputs(json.loads(os.environ["PUBLICATION_INPUTS"]))
+          digest = os.environ["PUBLISHED_MANIFEST_DIGEST"]
+          verifier.require(re.fullmatch(r"sha256:[0-9a-f]{64}", digest), "Invalid registry digest.")
+          verifier.require(os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch" and
+                           os.environ["GITHUB_REF"] == "refs/heads/main" and
+                           os.environ["GITHUB_REPOSITORY"] == verifier.REPOSITORY,
+                           "Verification requires the actual repository main dispatch.")
+          token = os.environ.pop("GH_TOKEN")
+          relation = verifier.run(
+              ["gh", "api", "repos/" + verifier.REPOSITORY + "/compare/" +
+               values["source_revision"] + "..." + os.environ["GITHUB_SHA"], "--jq", ".status"],
+              env=dict(os.environ, GH_TOKEN=token)).decode().strip()
+          verifier.require(relation in ("ahead", "identical"), "Image source is not merged into main.")
+          work = verifier.private_directory(Path(".registry-pull-check"))
+          docker_env = dict(os.environ, DOCKER_CONFIG=str(work / "docker"))
+
+          def docker(args, **kwargs):
+              return verifier.run(["docker"] + args, env=docker_env, **kwargs)
+
+          reference = verifier.IMAGE + "@" + digest
+          name = "nflblitz-pull-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          logged_in = created = False
+          try:
+              verifier.private_package(token)
+              previous = subprocess.run(
+                  ["docker", "image", "inspect", reference], env=docker_env,
+                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              verifier.require(previous.returncode != 0, "The verification runner already has this image.")
+              docker(["login", "ghcr.io", "--username", "long2know", "--password-stdin"],
+                     input=(token + "\n").encode())
+              logged_in = True
+              verifier.require(verifier.remote_image(reference, values["image_id"], docker) == digest and
+                               verifier.remote_image(verifier.IMAGE + ":latest", values["image_id"], docker) == digest,
+                               "Latest/immutable registry config and manifest identities differ.")
+              docker(["pull", "--platform", "linux/amd64", reference])
+              docker(["tag", reference, values["source_tag"]])
+              loaded = json.loads(docker(["image", "inspect", values["source_tag"]]))[0]
+              verifier.image_config({"os": loaded["Os"], "architecture": loaded["Architecture"],
+                                     "config": loaded["Config"]}, values)
+              verifier.inspect_archive(docker(["image", "save", values["source_tag"]]), values)
+              accepted = verifier.verify_payload(values, work, docker, loaded["Config"])
+              verifier.require(accepted["profile"] == verifier.LATEST_PROFILE and
+                               accepted["deploymentProfile"] == verifier.LATEST_DEPLOYMENT,
+                               "Cold pull is not the selected BASE_URL GENERAL1153 family.")
+              data = work / "unused-app-data"
+              data.mkdir(mode=0o700)
+              sentinel = data / "DO-NOT-MODIFY.txt"
+              sentinel.write_text("Unused owned validation mount; saves remain browser-local.\n")
+              sentinel_before = verifier.sha(sentinel)
+              docker(["create", "--name", name, "--platform", "linux/amd64", "--pull", "never",
+                      "--user", "1000:1000", "--restart", "unless-stopped",
+                      "--env", "PUID=1000", "--env", "PGID=1000", "--env", "BASE_URL=/nflblitz",
+                      "--publish", "127.0.0.1:8920:8080/tcp",
+                      "--mount", "type=bind,src=" + str(data.resolve()) + ",dst=/app/data", reference])
+              created = True
+              docker(["start", name])
+              until = time.monotonic() + 100
+              while True:
+                  actual = json.loads(docker(["inspect", name]))[0]
+                  health = actual["State"].get("Health", {}).get("Status")
+                  if health == "healthy":
+                      break
+                  verifier.require(actual["State"]["Running"] and health != "unhealthy" and
+                                   time.monotonic() < until, "Pulled image did not become genuinely healthy.")
+                  time.sleep(2)
+              host = actual["HostConfig"]
+              verifier.require(actual["Config"]["User"] == "1000:1000" and not host["ReadonlyRootfs"] and
+                               not host["Privileged"] and not host.get("Tmpfs") and
+                               not any("unconfined" in value for value in host.get("SecurityOpt") or []),
+                               "The standard writable/nonroot user configuration was not preserved.")
+              kernel = docker(["exec", name, "/bin/sh", "-c",
+                               "id -u; id -g; awk '/^Seccomp:/ {print $2}' /proc/1/status; "
+                               "stat -c '%u:%a' /tmp/nflblitz-$(id -u)"]).decode().splitlines()
+              verifier.require(kernel == ["1000", "1000", "2", "1000:700"],
+                               "Actual UID/GID/seccomp/private runtime mode differs.")
+              inventory = work / "bundle-inventory.json"
+              docker(["cp", name + ":/opt/nflblitz/bundle-inventory.json", str(inventory)])
+              verifier.run(
+                  ["python3", "-B", "tools/source-player/deploy/test_deployment.py", "ImageHttpTests", "-q"],
+                  env=dict(os.environ, NFLBLITZ_TEST_URL="http://127.0.0.1:8920/nflblitz/",
+                           NFLBLITZ_TEST_INVENTORY=str(inventory)))
+              verifier.require(verifier.sha(sentinel) == sentinel_before and
+                               [p.name for p in data.iterdir()] == ["DO-NOT-MODIFY.txt"],
+                               "The pulled game changed the unused user data mount.")
+              verifier.private_package(token)
+              receipt = {
+                  "schema": "nflblitz-private-registry-cold-pull/v1",
+                  "image_id": values["image_id"], "manifest_digest": digest,
+                  "source_revision": values["source_revision"], "workflow_revision": os.environ["GITHUB_SHA"],
+                  "profile": accepted["profile"], "deployment": accepted["deploymentProfile"],
+                  "package_visibility": "private", "coldPull": True, "allConfigAndLayerBytesVerified": True,
+                  "actualUser": "1000:1000", "BASE_URL": "/nflblitz",
+                  "normalWritableLayer": True, "requiredSpecialMounts": [],
+                  "realConfiguredHealth": "healthy", "allNamedPayloadHttpChecks": "passed",
+                  "unusedAppDataMountUnchanged": True,
+              }
+              text = json.dumps(receipt, indent=2, sort_keys=True)
+              print(text)
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+                  summary.write("## Actual private-registry cold pull verified\n\n```json\n" + text + "\n```\n")
+          finally:
+              try:
+                  if created:
+                      docker(["rm", "--force", name])
+              finally:
+                  if logged_in:
+                      docker(["logout", "ghcr.io"])
+          PY
+      - name: Remove runner-local verification and Docker credentials
+        if: always()
+        run: rm -rf -- .registry-pull-check

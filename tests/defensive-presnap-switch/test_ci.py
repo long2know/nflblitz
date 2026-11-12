@@ -1365,7 +1365,12 @@ def populate_checkout(probe):
     def fixture_git(*args, raw=None):
         return subprocess.run(["git", *args], cwd=origin, env=environment, input=raw,
                               capture_output=True, check=True, timeout=60).stdout
-    fixture_git("fetch", "--no-tags", git_dir, head)
+    generations = load("defensive_ci_fixture_generations", "tests/movement-callers/check_replay_generations.py")
+    archived = tuple(dict.fromkeys((generations.U2_ARCHIVE_REF, generations.BASELINE_REF,
+        generations.PREVIOUS_REF, generations.CURRENT_REF, generations.NEAR_FRAME_ARCHIVE_REF)))
+    fixture_git("fetch", "--no-tags", git_dir, head, *archived)
+    for index, ref in enumerate(archived):
+        fixture_git("update-ref", "refs/heads/frozen-source-" + str(index), ref)
     fixture_git("read-tree", head)
     paths = code_paths()
     changed = subprocess.run(["git", "diff", "--name-only", "-z", "HEAD", "--", *paths], cwd=ROOT,
@@ -1389,6 +1394,10 @@ def populate_checkout(probe):
     fetch = ["git", "fetch", "--no-tags"]
     if probe["context"]["fetch_depth"]:
         fetch.append("--depth=" + str(probe["context"]["fetch_depth"]))
+    else:
+        # Actions' depth-zero checkout includes archived source branches, not only HEAD's ancestry.
+        subprocess.run(fetch + ["origin", "+refs/heads/*:refs/remotes/origin/*"],
+                       cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)
     for command in (fetch + ["origin", merge],
                     ["git", "update-ref", "HEAD", merge], ["git", "read-tree", merge]):
         subprocess.run(command, cwd=checkout, env=environment, capture_output=True, check=True, timeout=60)

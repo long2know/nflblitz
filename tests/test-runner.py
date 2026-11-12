@@ -100,6 +100,8 @@ class InventoryGuardTests(unittest.TestCase):
             "match-lifecycle/MatchLifecycleChecks.csproj",
             "movement-callers/MovementCallerChecks.csproj",
             "parity/ParityChecks.csproj",
+            "playbooks/CustomCallerChecks.csproj",
+            "playbooks/LiveCallerChecks.csproj",
         ], affected)
 
 
