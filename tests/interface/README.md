@@ -23,11 +23,16 @@ Structural guards are not presented as native Runtime execution.
 The source guards retain every existing camera/input/transport check and cover
 the real C1/C2 factory chain: complete typed movement inputs, trusted SAFN
 validation, same-library fifteen-pivot geometry, and exactly one sound binding
-between construction and return. The 32 Runtime, 15 service, and eight factory
+between construction and return. The 35 Runtime, 15 service, and eight factory
 mutations are source-only controls, separate from the ten compiled bootstrap
 mutants. The resolved route must flush its actual native prefix before returning.
 The combined integration also preserves explicit fire/kick arguments through
 these same real service/factory paths; neither option enables another profile.
+Current guards target the actual process-camera selection drain followed by
+`SampleAtSourceTick`, and the ordered native VM-match/deliver/dequeue/flush
+route, not older direct-callback signatures. Profile ancestry enumerates each
+selected-world303, AV306 and two-station-records identity separately while
+retaining every old non-M1 exclusion; it does not alias their resources.
 
 Optional complete actual Unity-reference API compilation and actual data mapping:
 
@@ -65,6 +70,9 @@ production input/menu/bridge code and the actual HUD composer, not fake Unity
 APIs or substitute DTOs. The isolated source capture and project also include the
 actual team-presentation catalog and its shared player-data and authorized-file/
 TGA dependencies, required by the loose-helmet decal selection signature.
+The isolated capture and model project also include the actual
+`SourceOriginalSoundBindings` dependency used by the production cinematic
+library; no sound binding stub or disabled compiler check substitutes for it.
 
 Synthetic-only checks require no original assets:
 

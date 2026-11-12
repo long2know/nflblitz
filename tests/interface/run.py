@@ -27,6 +27,7 @@ MODEL = [
     "Assets/Scripts/AssetImport/SourceInterfaceData.DefaultAudibles.cs",
     "Assets/Scripts/AssetImport/SourceCinematicLibrary.cs",
     "Assets/Scripts/AssetImport/SourceAudioFunctionData.cs",
+    "Assets/Scripts/AssetImport/SourceOriginalSoundBindings.cs",
     "Assets/Scripts/AssetImport/SourceC2CallbackData.cs",
     "Assets/Scripts/Gameplay/SourcePlaybook.cs",
     "Assets/Scripts/Gameplay/SourceMatchFlow.cs",

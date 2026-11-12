@@ -24,6 +24,7 @@
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceInterfaceData.DefaultAudibles.cs" Link="Production/SourceInterfaceData.DefaultAudibles.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceCinematicLibrary.cs" Link="Production/SourceCinematicLibrary.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceAudioFunctionData.cs" Link="Production/SourceAudioFunctionData.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceOriginalSoundBindings.cs" Link="Production/SourceOriginalSoundBindings.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/SourceC2CallbackData.cs" Link="Production/SourceC2CallbackData.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePlaybook.cs" Link="Production/SourcePlaybook.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourceMatchFlow.cs" Link="Production/SourceMatchFlow.cs" />

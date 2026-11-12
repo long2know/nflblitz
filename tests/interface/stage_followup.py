@@ -25,6 +25,11 @@ M1_PREFLIGHT = "if (profile.UsesM1Services) RequirePossessionSpeechResource();"
 M1_IMPORT_ASSERTION = "only explicitly qualified M1 service profiles require speech before asset output"
 M1_SAVED_ASSERTION = "saved M1 verification must exercise the same strict canonical HUD speech binding"
 M1_ANCESTRY_ASSERTION = "M1 services ancestry must match the exact qualified successor profiles and preserve old exclusions"
+TEAM_CAMERA_PRODUCER = """RegisterSourceCameraTickProducer((state, tick) => {
+                        foreach (SourceProcessCameraSelection selection in simulation.TakeSourceProcessCameraSelections())
+                            playCamera.SourcePlayback.ConsumeSourceProcessCamera(selection);
+                        return playCamera.SampleAtSourceTick(state, tick);
+                    });"""
 POSSESSION_IMPORTER_MUTATIONS = (
     ("implicit-root", '"-interfacePossessionSpeechRoot"', '"-unrelatedRoot"',
      "speech import must use explicit authorized root"),
@@ -82,7 +87,7 @@ M1_ANCESTRY_MUTATIONS = (
     ("new-profile-alias", "StableId == PreSnapSwitchStableId", "StableId == C2M1StableId"),
     ("lost-default-audibles", "IsContact282C2M1PreSnapSwitch || IsContact282C2M1DefaultAudibles",
      "IsContact282C2M1PreSnapSwitch"),
-    ("lost-complete-original", "UsesPreSnapSwitchPayload || IsCompleteOriginal303", "UsesPreSnapSwitchPayload"),
+    ("lost-complete-original", "UsesPreSnapSwitchPayload || UsesCompleteSourcePrograms", "UsesPreSnapSwitchPayload"),
     ("lost-source-banks", "StableId == CompleteOriginalStableId || IsCompleteOriginalSourceBanks303 || IsCompleteOriginalRecords303",
      "StableId == CompleteOriginalStableId || IsCompleteOriginalRecords303"),
     ("lost-records", "StableId == CompleteOriginalStableId || IsCompleteOriginalSourceBanks303 || IsCompleteOriginalRecords303",
@@ -91,6 +96,10 @@ M1_ANCESTRY_MUTATIONS = (
      "StableId == CompleteOriginalRecordsStableId"),
     ("lost-prematch", "StableId == CompleteOriginalFinalStableId || IsCompleteOriginalPrematch303",
      "StableId == CompleteOriginalFinalStableId"),
+    ("lost-selected-world", "StableId == CompleteOriginalPrematchStableId || IsCompleteOriginalSelectedWorld303",
+     "StableId == CompleteOriginalPrematchStableId"),
+    ("lost-av306", "IsCompleteAv306 || IsCompleteAv306TwoStationRecords", "IsCompleteAv306TwoStationRecords"),
+    ("lost-two-station-records", "IsCompleteAv306 || IsCompleteAv306TwoStationRecords", "IsCompleteAv306"),
 )
 SOUND_FACTORIES = (
     ("Assets/Scripts/Runtime/SourceContactComposition.cs", "CreateSimulation", "soundFunctions"),
@@ -239,7 +248,7 @@ def validate_runtime(source):
     configure = ("playCamera.ConfigureSourceStage(State,()=>simulation.SourceCameraStageOrder,"
                  "simulation.DrawSourceCameraRandom,state=>simulation.SourceCameraRawGameMode,"
                  "simulation.SourceActorWorldPosition,simulation.ApplySourceCameraFeedback,simulation.SourceCameraProcesses);")
-    register = "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);"
+    register = compact(TEAM_CAMERA_PRODUCER)
     attach = "simulation.SourceCameraHeadingProvider=SampleSourceCameraHeading;"
     require(awake.count(configure) == 1, "M1 stage must bind actual raw Core mode/ordinal/shared RNG/canonical roots/feedback and process services via seven-argument Configure")
     require(awake.count(register) == 1, "actual Team SampleAtSourceTick must be registered exactly once")
@@ -341,8 +350,13 @@ def validate_runtime(source):
     require("callback.Kind!=SourcePresentationCueKind.PlayerDownCallback" in route
             and "soundTransport.TakeForCue(callback)" in route
             and "dispatch.Status==SourceSoundVmStatus.Resolved" in route
+            and "!ReferenceEquals(nativeSoundPending.Peek().Vm,dispatch)" in route
+            and "playCamera.ConsumeResolvedSourceSound(" in route
+            and route.index("!ReferenceEquals(nativeSoundPending.Peek().Vm,dispatch)") <
+                route.index("playCamera.ConsumeResolvedSourceSound(")
             and "playCamera.ConsumeResolvedSourceSound(dispatch,soundTransport.DeliverResolved);"
-            "soundTransport.FlushNativePrefix();return;" in route
+            "if(nativeSoundOutput!=null){nativeSoundPending.Dequeue();FlushNativeSoundOutputs();}"
+            "elsesoundTransport.FlushNativePrefix();return;" in route
             and route.count("playCamera.ConsumeSourceCue(cue);") == 1,
             "paired resolved sounds must bypass generic callbacks once; Unsupported/PlayerDown are not replayed as sound")
     require("SourcePresentationCueObserved" in cue and cue.index("observed(cue);") < cue.index("handler(cue);"),
@@ -458,7 +472,9 @@ def validate_m1_services_ancestry(source):
     clean = uncomment(source)
     for name, expression in (
         ("UsesM1Services", "IsContact281C2M1||UsesPreSnapSwitchServices"),
-        ("UsesPreSnapSwitchServices", "UsesPreSnapSwitchPayload||IsCompleteOriginal303"),
+        ("UsesPreSnapSwitchServices", "UsesPreSnapSwitchPayload||UsesCompleteSourcePrograms"),
+        ("UsesCompleteSourcePrograms", "IsCompleteOriginal303||UsesCompleteAv306Assets"),
+        ("UsesCompleteAv306Assets", "IsCompleteAv306||IsCompleteAv306TwoStationRecords"),
         ("UsesPreSnapSwitchPayload", "IsContact282C2M1PreSnapSwitch||IsContact282C2M1DefaultAudibles"),
         ("IsContact281C2M1", "StableId==C2M1StableId"),
         ("IsContact282C2M1PreSnapSwitch", "StableId==PreSnapSwitchStableId"),
@@ -467,7 +483,10 @@ def validate_m1_services_ancestry(source):
         ("IsCompleteOriginalSourceBanks303", "StableId==CompleteOriginalSourceBanksStableId"),
         ("IsCompleteOriginalRecords303", "StableId==CompleteOriginalRecordsStableId||IsCompleteOriginalFinal303"),
         ("IsCompleteOriginalFinal303", "StableId==CompleteOriginalFinalStableId||IsCompleteOriginalPrematch303"),
-        ("IsCompleteOriginalPrematch303", "StableId==CompleteOriginalPrematchStableId"),
+        ("IsCompleteOriginalPrematch303", "StableId==CompleteOriginalPrematchStableId||IsCompleteOriginalSelectedWorld303"),
+        ("IsCompleteOriginalSelectedWorld303", "StableId==CompleteOriginalSelectedWorldStableId"),
+        ("IsCompleteAv306", "StableId==CompleteAv306StableId"),
+        ("IsCompleteAv306TwoStationRecords", "StableId==CompleteAv306TwoStationRecordsStableId"),
     ):
         bodies = re.findall(r"\bpublic\s+bool\s+" + name + r"\s*\{\s*get\s*\{([^{}]*)\}\s*\}", clean)
         require(len(bodies) == 1 and compact(bodies[0]) == "return" + expression + ";",
@@ -490,6 +509,11 @@ def validate_m1_services_ancestry(source):
         ("CompleteOriginalFinal303", "CompleteOriginalFinalStableId", "original-teams-complete-original303-final", True),
         ("CompleteOriginalPrematch303", "CompleteOriginalPrematchStableId",
          "original-teams-complete-original303-prematch", True),
+        ("CompleteOriginalSelectedWorld303", "CompleteOriginalSelectedWorldStableId",
+         "original-teams-complete-original303-selected-world-v2", True),
+        ("CompleteAv306", "CompleteAv306StableId", "original-teams-complete-av306", True),
+        ("CompleteAv306TwoStationRecords", "CompleteAv306TwoStationRecordsStableId",
+         "original-teams-complete-av306-two-station-records-v1", True),
     )
     singletons = re.findall(r"\bpublic\s+static\s+readonly\s+SourceTeamResourceProfile\s+(\w+)\s*="
                             r"\s*new\s+SourceTeamResourceProfile\s*\(([^;]*)\);", clean)
@@ -613,6 +637,9 @@ class CallerGuards(unittest.TestCase):
             "original-teams-complete-original303-records": True,
             "original-teams-complete-original303-final": True,
             "original-teams-complete-original303-prematch": True,
+            "original-teams-complete-original303-selected-world-v2": True,
+            "original-teams-complete-av306": True,
+            "original-teams-complete-av306-two-station-records-v1": True,
         })
 
     def test_m1_services_ancestry_removal_guards(self):
@@ -654,9 +681,13 @@ class CallerGuards(unittest.TestCase):
     def test_isolated_actual_caller_mutants(self):
         source = (SOURCE_ROOT / RUNTIME).read_text()
         mutants = [
-            ("unregistered", "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);", ""),
-            ("render-getter", "RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);",
+            ("unregistered", TEAM_CAMERA_PRODUCER, ""),
+            ("render-getter", TEAM_CAMERA_PRODUCER,
              "RegisterSourceCameraTickProducer((state, tick) => playCamera.SourceHeading1024);"),
+            ("dropped-process-camera", "playCamera.SourcePlayback.ConsumeSourceProcessCamera(selection);", ""),
+            ("native-queue-retarget", "!ReferenceEquals(nativeSoundPending.Peek().Vm, dispatch)", "false"),
+            ("native-flush-before-dequeue", "nativeSoundPending.Dequeue(); FlushNativeSoundOutputs();",
+             "FlushNativeSoundOutputs(); nativeSoundPending.Dequeue();"),
             ("fixed-order", "() => simulation.SourceCameraStageOrder", "() => 0"),
             ("fake-random", "simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode",
              "(bound, site) => 0, state => simulation.SourceCameraRawGameMode"),
@@ -1106,7 +1137,7 @@ def main(argv=None):
             dependency_bytes(args.dependency_overlay, args.dependency_overlay_sha256)
         result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(CallerGuards))
         require(result.wasSuccessful(), "Actual Runtime caller/isolated mutation guards failed.")
-        report.update(guard_contracts=54, rejected_actual_source_guard_mutants=32,
+        report.update(guard_contracts=54, rejected_actual_source_guard_mutants=35,
                       rejected_actual_service_guard_mutants=15, rejected_actual_factory_guard_mutants=8,
                       rejected_possession_importer_wiring_mutants=len(POSSESSION_IMPORTER_MUTATIONS) +
                           len(POSSESSION_SAVED_MUTATIONS),
