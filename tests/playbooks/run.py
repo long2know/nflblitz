@@ -15,7 +15,7 @@ import uuid
 sys.dont_write_bytecode = True
 import oracle
 from support import (
-    SUITE, ROOT, ARTIFACTS, PINS, GateError, blob_sha1, sha256, verify_inputs,
+    SUITE, ROOT, ARTIFACTS, PINS, SOURCE_GENERATION, GateError, blob_sha1, sha256, verify_inputs,
     require_recipe, snapshot, require_unchanged, validate_schema,
 )
 
@@ -136,7 +136,7 @@ def main(argv=None):
         "schema": "source-playbook-regressions/v1", "status": "failed", "commands": [], "mutations": [],
         "source_root": str(source_root), "source_pins": PINS,
         "profile": "Actual complete seventeen Contracts + SourceClock/MatchRules/MatchFlow + final three P1 helpers only; C#7.3/netstandard2.1 warnings-as-errors, net10.0 runner.",
-        "source_generation": "complete-original-p1-current/v1",
+        "source_generation": SOURCE_GENERATION,
         "historical_source_identity_requalified": False,
         "boundary": PINS["boundary"], "full_gameplay_parity_claimed": False,
         "unity_editor_native_build_browser_or_hosting_executed": False,

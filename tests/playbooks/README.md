@@ -354,3 +354,11 @@ they never certify the old source identity.
 The same frozen public input blobs, producer/catalog pins, original-C matrix,
 expected assertion partitions and all three causal controls still apply.
 Current results explicitly report `historical_source_identity_requalified=false`.
+
+The reviewed interior-cache continuation has its own exact
+`reviewed-sdk-interior-p1-current/v1` identity, admitting only the approved
+`SourceDroneAI` hash `1d2de05b...`. The previous
+`complete-original-p1-current/v1` helper hashes remain separately selectable;
+neither identity admits the other's AI bytes. Historical `pins.json`, producer
+inputs, case expectations and controls are unchanged. This source-admission
+update does not qualify a new recording, native target runtime or full match.

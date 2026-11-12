@@ -343,6 +343,20 @@ class PlaybookRunnerGuards(unittest.TestCase):
         extra.unlink()
         support.require_unchanged(before, self.directory)
         target = self.directory / "Assets/Scripts/Gameplay/SourceDroneAI.cs"
+        previous = subprocess.check_output(
+            ["git", "show", "83265d332022927d35eed640f6b51674841ba7d5:Assets/Scripts/Gameplay/SourceDroneAI.cs"],
+            cwd=support.ROOT)
+        self.assertEqual(support.sha256(previous),
+                         support.PRE_Q11_PRODUCTION_SHA256["Assets/Scripts/Gameplay/SourceDroneAI.cs"])
+        target.write_bytes(previous)
+        _, prior = support.snapshot(self.directory, support.PRE_Q11_SOURCE_GENERATION)
+        self.assertEqual(prior["Assets/Scripts/Gameplay/SourceDroneAI.cs"], support.sha256(previous))
+        with self.assertRaisesRegex(support.GateError, "Frozen actual-source SHA256"):
+            support.snapshot(self.directory)
+        target.write_bytes(contents["Assets/Scripts/Gameplay/SourceDroneAI.cs"])
+        with self.assertRaisesRegex(support.GateError, "Frozen actual-source SHA256"):
+            support.snapshot(self.directory, support.PRE_Q11_SOURCE_GENERATION)
+        self.assertEqual(before, support.snapshot(self.directory)[1])
         original = target.read_text()
         self.assertEqual(1, original.count(runner.DRONE_ANCHOR))
         target.write_text(original.replace(runner.DRONE_ANCHOR, runner.DRONE_REPLACEMENT))

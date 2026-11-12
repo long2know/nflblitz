@@ -21,12 +21,16 @@ CURRENT_CONTRACT_ADDITIONS = (
     "SourcePlaySelectionIntroductionContracts.cs", "SourcePreGameSoundContracts.cs", "SourceSavedRecordContracts.cs",
 )
 CONTRACTS = HISTORICAL_CONTRACTS_14 + CURRENT_CONTRACT_ADDITIONS
-SOURCE_GENERATION = "complete-original-p1-current/v1"
-CURRENT_PRODUCTION_SHA256 = {
+PRE_Q11_SOURCE_GENERATION = "complete-original-p1-current/v1"
+SOURCE_GENERATION = "reviewed-sdk-interior-p1-current/v1"
+PRE_Q11_PRODUCTION_SHA256 = {
     "Assets/Scripts/Gameplay/SourcePlaybook.cs": "8b91191c6e56563bff8696755bc4f5bedcc6acc6167fcb0e0d9df0c3d79b39fc",
     "Assets/Scripts/Gameplay/SourceDroneAI.cs": "cce5dc35460d5ec2cb77d7a0ab5d322fcb7816a60f28d41dc739ecbea70fbc07",
     "Assets/Scripts/Gameplay/SourceRandom.cs": "fb1b5a6690357933f69a30d842620d1aed9f091537444bc807dc3dee2993d1ce",
 }
+CURRENT_PRODUCTION_SHA256 = dict(PRE_Q11_PRODUCTION_SHA256, **{
+    "Assets/Scripts/Gameplay/SourceDroneAI.cs": "1d2de05b0bf065d8ccfa305f7b2dbb061809c2e0bae5fbb70b72f00366a7c2ae",
+})
 GAMEPLAY = (
     "SourceClock.cs", "SourceMatchRules.cs", "SourceMatchFlow.cs",
     "SourcePlaybook.cs", "SourceDroneAI.cs", "SourceRandom.cs",
@@ -80,9 +84,9 @@ def require_recipe(recipe):
 
 def source_paths(root=ROOT, source_generation=SOURCE_GENERATION):
     root = Path(root)
-    if source_generation not in (SOURCE_GENERATION, "historical-p1/v1"):
+    if source_generation not in (SOURCE_GENERATION, PRE_Q11_SOURCE_GENERATION, "historical-p1/v1"):
         raise GateError("Select an explicit known P1 source generation.")
-    contracts = CONTRACTS if source_generation == SOURCE_GENERATION else HISTORICAL_CONTRACTS_13
+    contracts = HISTORICAL_CONTRACTS_13 if source_generation == "historical-p1/v1" else CONTRACTS
     actual_contracts = {path.relative_to(root / "Assets/Scripts/Contracts").as_posix()
                         for path in (root / "Assets/Scripts/Contracts").rglob("*.cs")}
     if actual_contracts != set(contracts):
@@ -108,7 +112,9 @@ def snapshot(root=ROOT, source_generation=SOURCE_GENERATION):
     captured = {name: sha256(data) for name, data in contents.items()}
     if live_hashes(root, source_generation) != captured:
         raise GateError("LiveSources changed while capturing the bounded P1 snapshot.")
-    production = CURRENT_PRODUCTION_SHA256 if source_generation == SOURCE_GENERATION else PINS["production_sha256"]
+    production = (CURRENT_PRODUCTION_SHA256 if source_generation == SOURCE_GENERATION else
+                  PRE_Q11_PRODUCTION_SHA256 if source_generation == PRE_Q11_SOURCE_GENERATION else
+                  PINS["production_sha256"])
     for name, expected in dict(production, **PINS["producer_sha256"]).items():
         if captured.get(name) != expected:
             raise GateError("Frozen actual-source SHA256 guard failed: " + name + "; generation=" + source_generation)
