@@ -188,6 +188,25 @@ authored-metric waiver, guard removal, native DSP/pixel/hardware equality,
 all31 heard teams, all-six natural throws or all-sixteen-row/full-fidelity
 completion is claimed.
 
+### Reviewed SDK-emitted interior negative-column continuation
+
+The separately reviewed `SourceDroneAI` revision uses the retained detector
+cache for `evade_dir(attacker=-1)` only at original player rows1–13. Complete
+authenticated SN16.3.3/ASPSX2.77 ISA4/G0 functions address the196-int matrix as
+`base + 56*player + 4*attacker`: row11 reads element153, retained `[10,13]=586`
+in the bounded source9025 witness. Actor11's body/facing are not replaced with
+actor10; current-pose recomputation and the following detector's589 are not used.
+The one-valid-direction path preserves the original unwrapped conversion,
+while the ordinary public direction/angle APIs and row0/outside guards remain.
+
+Four asset-free repository cases cover the actual AI caller/RNG order,
+unwrapped field-edge result, retained cache, and guarded exterior indices.
+Independent whole-original-function comparisons and unchanged9500-row
+candidate/fresh executions qualify this bounded SDK-emitted behavior, not a
+new full recording, shipped compiler/link, MIPS execution, native PRNG/FPU/DSP
+or full-match equivalence. Prior f3 artifacts remain historical; the changed
+source requires a new recording qualification and an actual Core/WASM rebuild.
+
 **Epoch and documentation boundary:** all corrected9fd5/f3ba source/data/build-
 info/native/AppBundle/image identities above predate this documentation and
 are not reminted to include it. Pre-cache-fix Nov11 `229…/e3a…` retained a real

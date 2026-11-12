@@ -134,6 +134,14 @@ namespace Blitz.Gameplay
             return sortedSticks[32];
         }
 
+        internal int EvadeTargetDirectionToStick(int direction)
+        {
+            for (int i = 0; i < 32; i++)
+                if (Math.Abs(sortedAngles[i] - direction) < Math.Abs(sortedAngles[i + 1] - direction))
+                    return sortedSticks[i];
+            return sortedSticks[32];
+        }
+
         public int StickHeading(int stick)
         {
             if (stick < 0 || stick > 48) throw new ArgumentOutOfRangeException(nameof(stick));
@@ -300,6 +308,12 @@ namespace Blitz.Gameplay
 
         public float Distance(int from, int to) { SourceP1Guard.Actor(from); SourceP1Guard.Actor(to); return distances[from, to]; }
         public int Angle(int from, int to) { SourceP1Guard.Actor(from); SourceP1Guard.Actor(to); return angles[from, to]; }
+        internal int EvadeTargetTableAngle(int from, int attacker)
+        {
+            // Genuine SN code addresses the complete196-int object. Row0/-1 remains outside it.
+            if (attacker == -1 && from > 0 && from < 14) return angles[from - 1, 13];
+            return Angle(from, attacker);
+        }
         public int Bearing(int from, int to)
         {
             // pmisc.c:608-618 retains signed remainder; callers choose whether to take abs.
@@ -1519,7 +1533,8 @@ namespace Blitz.Gameplay
                 if (diver != -1 || attacker != -1)
                 {
                     // Shipping code passes attacker (-1 when diver exists), not enemy, to evade_dir.
-                    if (attacker == -1) throw e.Missing("_drone_qb:diver -> evade_dir(attacker=-1), undefined C p2p_angles read");
+                    if (attacker == -1 && e.Actor.Id == 0)
+                        throw e.Missing("_drone_qb:diver -> evade_dir(attacker=-1), undefined C p2p_angles read");
                     e.State.Stick = EvadeDirection(e, attacker);
                     int one = e.Random.Range(1, "_drone_qb:evade_kind");
                     int enemy = diver == -1 ? attacker : diver;
@@ -1594,13 +1609,17 @@ namespace Blitz.Gameplay
 
         private static int EvadeDirection(Execution e, int attacker)
         {
-            int angle = e.Frame.Angle(e.Actor.Id, attacker);
+            int angle = e.Frame.EvadeTargetTableAngle(e.Actor.Id, attacker);
             int d1 = angle + 384, d2 = angle - 384;
             SourcePlanar a = e.Frame.Directions.Offset(5f, d1), b = e.Frame.Directions.Offset(5f, d2);
             bool ok1 = Math.Abs(e.Actor.Position.X + a.X) <= 390f && Math.Abs(e.Actor.Position.Z + a.Z) <= FieldWidth;
             bool ok2 = Math.Abs(e.Actor.Position.X + b.X) <= 390f && Math.Abs(e.Actor.Position.Z + b.Z) <= FieldWidth;
-            if (ok1 && !ok2) return e.Frame.Directions.DirectionToStick(d1 - e.Frame.CameraHeading);
-            if (ok2 && !ok1) return e.Frame.Directions.DirectionToStick(d2 - e.Frame.CameraHeading);
+            if (ok1 && !ok2) return attacker == -1
+                ? e.Frame.Directions.EvadeTargetDirectionToStick(d1 + 1024 - e.Frame.CameraHeading) % 1024
+                : e.Frame.Directions.DirectionToStick(d1 - e.Frame.CameraHeading);
+            if (ok2 && !ok1) return attacker == -1
+                ? e.Frame.Directions.EvadeTargetDirectionToStick(d2 + 1024 - e.Frame.CameraHeading) % 1024
+                : e.Frame.Directions.DirectionToStick(d2 - e.Frame.CameraHeading);
             // The original returns the BOOLEAN ok1/ok2, not dir1/dir2.
             return (e.Random.Range(2, "evade_dir:tie") != 0 ? ok1 : ok2) ? 1 : 0;
         }
