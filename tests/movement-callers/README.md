@@ -41,6 +41,22 @@ complete303/1114 browser profile. A `--single-public-attempt` receipt still says
 `not-full-qualification`; it cannot replace the retained compiled-control/native-C
 closure or supply a GitHub run identity to a local execution.
 
+### Historical binding guard unit inputs
+
+`SourceBoundGenerationGuards` uses
+`fixtures/source-bound-v5-historical-unit-inventories.json`, containing only the
+closed09af source104 and53ac harness12 path/SHA256 inventories. Both complete
+inventory digests are authenticated against the existing generation seals;
+the production binder and its whitelist are unchanged. Unit fixtures must not
+silently become a different epoch when live game source changes.
+
+The inventory metadata was recovered from a retained source-bound-v5 receipt
+whose SDK restore failed. That receipt is not presented as a successful replay
+or new qualification; its identical before/after inventories match the immutable
+author recipe and existing observer generation. Original/v4/v5/c202 inputs,
+source identities and execution expectations are not changed. Corrupted
+inventories and unqualified live source remain rejected.
+
 ## Separately frozen original-hut17 observer successor — November 9, 2026
 
 `parity-completion-20261109/original-hut17/v1` admits exactly104 production

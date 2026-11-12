@@ -771,10 +771,22 @@ class CanonicalObservationGuards(unittest.TestCase):
 
 
 class SourceBoundGenerationGuards(unittest.TestCase):
+    def historical_inventories(self):
+        fixture = json.loads((canonical.HERE / "fixtures" /
+            "source-bound-v5-historical-unit-inventories.json").read_bytes())
+        production, harness = fixture["production_sha256"], fixture["harness_sha256"]
+        generation = canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION
+        self.assertEqual(len(production), generation["source_count"])
+        self.assertEqual(canonical.sha(canonical._m1_trajectory_json(production)),
+                         generation["source_manifest_sha256"])
+        self.assertEqual(set(harness), set(canonical.HARNESS))
+        self.assertEqual(canonical.sha(canonical._m1_trajectory_json(harness)),
+                         generation["harness_manifest_sha256"])
+        return production, harness
+
     def binding(self, source_bound, production=None, replay_sha=None):
-        production = production or {p.relative_to(canonical.ROOT).as_posix(): canonical.sha(p.read_bytes())
-                                    for p in canonical.production_paths()}
-        harness = {name: canonical.sha((canonical.ROOT / name).read_bytes()) for name in canonical.HARNESS}
+        historical, harness = self.historical_inventories()
+        production = historical if production is None else production
         profile = "original-teams-contact281-c2-m1"
         source, factory, old_case = canonical._M1_TRAJECTORY_PROFILES[profile]
         case = canonical.public_replay.SOURCE_BOUND_CASE if source_bound else old_case
@@ -795,7 +807,7 @@ class SourceBoundGenerationGuards(unittest.TestCase):
         canonical._m1_trajectory_capture_view(capture)
         self.assertEqual(capture["issues"], [])
         self.assertEqual(capture["attempt"]["productionInventoryCountAndSha256"], dict(
-            count=104, sha256=canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION["source_manifest_sha256"]))
+            count=104, sha256=canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION["source_manifest_sha256"]))
         pair = canonical.source_bound_execution_binding(canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION, recipe)
         self.assertEqual(pair["recordingAuthoringSourceManifestSha256"],
                          canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION["source_manifest_sha256"])
@@ -829,13 +841,23 @@ class SourceBoundGenerationGuards(unittest.TestCase):
                 canonical.source_bound_execution_binding(generation, altered)
 
     def test_v5_rejects_changed_source_and_wrong_public_recording(self):
-        production = {p.relative_to(canonical.ROOT).as_posix(): canonical.sha(p.read_bytes())
-                      for p in canonical.production_paths()}
+        production, _ = self.historical_inventories()
         production["Assets/Scripts/Gameplay/SourceRandom.cs"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "conflicting_inventory"):
             self.binding(True, production)
         with self.assertRaisesRegex(ValueError, "conflicting_input"):
             self.binding(True, replay_sha="0" * 64)
+
+    def test_historical_binding_fixture_does_not_admit_or_depend_on_live_source(self):
+        with patch.object(canonical, "production_paths",
+                          side_effect=AssertionError("Historical unit input must not use live production")):
+            capture, _ = self.binding(True)
+        canonical._m1_trajectory_capture_view(capture)
+        self.assertEqual(capture["issues"], [])
+        for changed in ({}, dict(self.historical_inventories()[0], **{
+                "Assets/Scripts/Gameplay/SourceRandom.cs": "0" * 64})):
+            with self.subTest(inventory=changed), self.assertRaisesRegex(ValueError, "conflicting_inventory"):
+                self.binding(True, production=changed)
 
     def test_legacy_recording_never_requires_the_new_recipe_at_import_or_binding(self):
         with patch.object(canonical.public_replay, "source_bound_recipe",
