@@ -21,6 +21,14 @@ unchanged Contact27278-input union plus only the named missing dependencies in
 Reconstruct inputs locally; do not upload source, WAN, pose, geometry or bundle
 artifacts to move them between CI jobs.
 
+The historical558 reconstruction retains its original world-v1 bytes and
+`4512de8f...` manifest pin. `test_ci.py prepare-world-v1` copies only the converter
+and recipe from public ancestor `6816d64440ac83e4228247a8a571ab930850b5a5`
+into new ignored storage, authenticates both complete SHA256 identities, executes
+that real CLI and verifies the unchanged manifest before moving its output.
+The current world-v2 converter/catalog is not changed or relabelled as v1.
+Current converter or recipe substitution is rejected before conversion.
+
 The runner extracts original `_mode_dbps`, `update_stations`, `attack_snd` and
 the resolved stream/interpolation/RUNTOEND/quaternion bodies dynamically into
 ignored output. Seventy physical-station rows, eighteen bounded caller rows,

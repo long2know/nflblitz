@@ -22,6 +22,11 @@ the current production contracts, with its complete source and extracted-type
 hashes recorded. The simulation double raises that real payload through the
 entire production host's event subscription; no gameplay timer or audio device
 is simulated by this event-routing check.
+The current host's field/home-team venue arguments are recorded by the managed
+scene collaborator and checked against the declared BEA fixture. Native/PCM
+audio and process-camera APIs remain opaque, fail-closed collaborators: entering
+those unqualified paths throws instead of manufacturing output. These historical
+M1 cases do not enable complete-original native audio.
 This is managed production-boundary execution, **not a Unity Awake/player test,
 native engine execution, actual asset/material validation or shader execution**.
 Actual Unity API compatibility is a separate reference-only compilation:

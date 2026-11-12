@@ -48,6 +48,12 @@ OLD_CASE = "portable-cabinet-wide-pass-clearance-12000"
 POSSESSION_CASE = "portable-cabinet-wide-pass-clearance-possession-12000"
 PROFILE = "original-teams-contact282-c2-m1-presnap-switch"
 BASE558_SHA256 = "d7f8324d73bdf01c686c9b09b7bca2defe502b7accf58ab8335e59e0fb210134"
+WORLD_V1_REF = "6816d64440ac83e4228247a8a571ab930850b5a5"
+WORLD_V1_SHA256 = "4512de8fddbc8bafcf57befc1f3f8af303cb6d925a966e86ff0d870df1717191"
+WORLD_V1_SOURCE = {
+    "tools/environments/prepare_environment.py": "e76d1d6db8aa55655a3227077b78309137fc48e4fc1cb082e281f3df7ca8dbd7",
+    "tools/environments/environment_inputs.json": "aca3f73377ed4505f21f1b9c86ba7aeb7fde9f0d3142c317cca71756fe518b87",
+}
 PLAYER563_SHA256 = "150409eb5a4b76272747d332e6387d68452161bf395eafb8f409c1c3656ac2e6"
 PUBLIC_SHA256 = "78837576f12044003e1d3a95259b54efecaea234fcc7e23c65c02b83c0335866"
 GZIP_SHA256 = "6d1202ebe3b1bc50e032cdc67a3978f0abc546a31ddb9e16712696fdd95872fa"
@@ -599,12 +605,46 @@ def prepare_kernel(root):
             "The exact actual834 Contact272 fixture must be reconstructed, not relabelled")
 
 
+def verify_world_v1_source(directory):
+    for name, pin in WORLD_V1_SOURCE.items():
+        path = directory / name
+        require(path.resolve() == path and path.is_file() and sha(path.read_bytes()) == pin,
+                "The historical world producer/recipe must remain exact: " + name)
+
+
+def materialize_world_v1_source(directory):
+    directory = new_output(directory)
+    for name, pin in WORLD_V1_SOURCE.items():
+        raw = subprocess.check_output(["git", "show", WORLD_V1_REF + ":" + name], cwd=ROOT)
+        require(sha(raw) == pin, "Public ancestor world-v1 source identity differs: " + name)
+        target = directory / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+    verify_world_v1_source(directory)
+    return directory
+
+
+def prepare_world_v1(root):
+    destination = new_output(root / "world")
+    directory = materialize_world_v1_source(root / "world-v1-source")
+    generated = directory / ".squad/.scratch/world"
+    run_commands([[
+        "python3", "-B", str(directory / "tools/environments/prepare_environment.py"),
+        "--source-root", str(root / "acquired/nfl"),
+        "--source-commit", "89f840d58d152a2a9f230cb8d0cdffbd554c8ded",
+        "--destination", str(generated), "--confirm-local-use",
+        "--authorization-reference", "owner-directed-source-world-2026-10-16",
+    ]], root / "world-v1-commands")
+    verify_world_v1_source(directory)
+    require(sha((generated / "environment.json").read_bytes()) == WORLD_V1_SHA256,
+            "The historical converter must reproduce the unchanged original world-v1 manifest")
+    generated.rename(destination)
+
+
 def prepare_player(root):
     p = lambda name: str(root / name)
     commands = [
-        ["python3", "-B", "tools/environments/prepare_environment.py", "--source-root", p("acquired/nfl"),
-         "--source-commit", "89f840d58d152a2a9f230cb8d0cdffbd554c8ded", "--destination", p("world"),
-         "--confirm-local-use", "--authorization-reference", "owner-directed-source-world-2026-10-16"],
+        ["python3", "-B", "tests/defensive-presnap-switch/test_ci.py", "prepare-world-v1", "--root", str(root)],
         ["python3", "-B", "tools/assets/prepare_teams.py", "--source-root", p("acquired/nfl"),
          "--rosters", p("kernel/rosters.json"), "--destination", p("teams"), "--confirm-local-use",
          "--authorization-reference", "owner-directed-original-team-presentation-2026-10-16",
@@ -619,7 +659,7 @@ def prepare_player(root):
          "--destination", p("normal-camera.json")],
         ["python3", "-B", "tools/source-player/prepare.py", "--kernel-fixture", p("contact272/fixture.json"),
          "--m1-inputs", p("m1"), "--m1-impact", p("impact-m1/impact-presentation.json"), "--world", p("world"),
-         "--world-sha256", "4512de8fddbc8bafcf57befc1f3f8af303cb6d925a966e86ff0d870df1717191",
+         "--world-sha256", WORLD_V1_SHA256,
          "--teams", p("teams"), "--teams-sha256", "c9e875052544c2d7e30d6cdab4bcf9a3b38d552adfa9deef8da5d35ab0ceb62c",
          "--hud", p("services/hud"), "--settings", "tools/source-player/match-settings.four-player.json",
          "--output", p("player518")],
@@ -1614,6 +1654,27 @@ class BrowserRuntimeCI(unittest.TestCase):
                     self.assertEqual(sentinels[0].read_text(), "untouched")
 
 
+class HistoricalWorldProducerCI(unittest.TestCase):
+    def test_exact_public_ancestor_tool_and_recipe_reject_real_current_source_substitution(self):
+        root = ROOT / ".squad/.scratch" / ("world-v1-source-control-" + uuid.uuid4().hex)
+        self.addCleanup(shutil.rmtree, root)
+        directory = materialize_world_v1_source(root)
+        for name in WORLD_V1_SOURCE:
+            path = directory / name
+            original = path.read_bytes()
+            current = (ROOT / name).read_bytes()
+            self.assertNotEqual(original, current)
+            path.write_bytes(current)
+            with self.subTest(path=name), self.assertRaisesRegex(AssertionError, "must remain exact"):
+                verify_world_v1_source(directory)
+            path.write_bytes(original)
+            verify_world_v1_source(directory)
+        command = ["python3", "-B", str(directory / "tools/environments/prepare_environment.py"), "--help"]
+        process = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertIn("--authorization-reference", process.stdout)
+
+
 class ProducerDiagnosticsCI(unittest.TestCase):
     def test_failed_real_child_preserves_exit_and_surfaces_bounded_stderr(self):
         directory = ROOT / ".squad/.scratch" / ("producer-diagnostic-" + uuid.uuid4().hex)
@@ -2039,7 +2100,7 @@ def main():
     fetch = sub.add_parser("acquire")
     fetch.add_argument("--output", type=Path, required=True)
     sub.add_parser("ensure-sdk").add_argument("--output", type=Path, required=True)
-    for name in ("prepare-kernel", "prepare-player"):
+    for name in ("prepare-kernel", "prepare-player", "prepare-world-v1"):
         sub.add_parser(name).add_argument("--root", type=Path, required=True)
     summary = sub.add_parser("summarize")
     summary.add_argument("--root", type=Path, required=True)
@@ -2060,6 +2121,8 @@ def main():
         prepare_kernel(args.root)
     elif args.operation == "prepare-player":
         prepare_player(args.root)
+    elif args.operation == "prepare-world-v1":
+        prepare_world_v1(args.root)
     elif args.operation == "failure-guards":
         failure_guards(args.root, args.results, args.output)
     else:

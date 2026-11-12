@@ -121,6 +121,8 @@ internal static class LifecycleChecks
     {
         BlitzRuntime runtime = Start();
         Require(runtime.IsSourceProfile && runtime.SourceFailure == null, "ready source bootstrap succeeds");
+        Require(HostProbe.FieldIndex == 0 && HostProbe.HomePrefix == "BEA",
+            "ready source forwards the actual fixture field and designated home-team venue");
         Require(HostProbe.Bridge.HookCount == 8 && HostProbe.CommandBuffers == 1 && HostProbe.Hud != null,
             "ready source has every actual bridge hook, HUD and required consumer");
         Require(HostProbe.Captures == 1 && HostProbe.TrailCaptures == 1 && HostProbe.Draws == 2,
