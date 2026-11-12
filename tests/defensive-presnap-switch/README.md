@@ -5,6 +5,24 @@ uses `SourceC2Composition.CreatePreSnapSwitchSimulation`, not an upgraded old M1
 factory or a mutable B-switch option. Old117/157/272/281 data and all three saved
 Portable recordings retain their own identities.
 
+The November11 current-source positive is the separately named
+`portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000`,
+`reviewed-q11-6ad/v1` artifact with unchanged AUTHOR-v6 grammar. Source authoring
+remains public6ad, kernel104 `ff0ee6a6…`, harness12 `53ac07b6…`, raw `ad31c767…`.
+Its actual presnap282/289/Portable full gate reproduces12000/11400/22505raw,
+31R_SKIP and nine switches, retaining all11 compiled caller/cache controls and
+the664/5312 original-C comparison. Both required current full-gate invocations
+select that exact case and actual presnap profile, not a C2-M1/AV306 alias.
+The historical c202/v7 scenario and its15R_SKIP/25526raw expectations below
+remain sealed historical checks, not updated current metrics.
+
+`current_presnap_compatibility.py` retains the authentic78-source v5 positive
+and the separately archived c202103-source stale boundary at host4912, then
+adds the approved104-source current wrong-side boundary at host1523/source1447/
+raw2444. The unchanged old Defense command is not rewritten or blamed on its
+original producer. Neither old boundary can replace the other, and a current
+report cannot omit its third boundary by downgrading its schema.
+
 ```sh
 python3 -B tests/defensive-presnap-switch/run.py \
   --source-root "$PINNED_ORIGINAL" --fixture-manifest "$CONTACT272_FIXTURE" \

@@ -9,6 +9,8 @@ import math
 from pathlib import Path
 import sys
 
+import reviewed_q11_recording as reviewed_q11
+
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz"
 SCHEMA = "source-public-replay-inputs/v1"
@@ -223,6 +225,11 @@ def encode(rows):
 
 
 def recording(case):
+    if case == reviewed_q11.CASE:
+        manifest = reviewed_q11_manifest()
+        return dict(fixture=reviewed_q11_metadata_paths()["gzip"],
+                    public_sha256=manifest["jsonl"]["sha256"], public_bytes=manifest["jsonl"]["bytes"],
+                    fixture_sha256=manifest["gzip"]["sha256"], fixture_bytes=manifest["gzip"]["bytes"])
     if case == SOURCE_BOUND_CASE:
         recipe = source_bound_recipe()
         return dict(fixture=FIXTURE.with_name(case + ".jsonl.gz"),
@@ -245,6 +252,25 @@ def recording(case):
                     fixture_bytes=recipe["gzip"]["bytes"])
     require(case in RECORDINGS, "unknown public recording identity")
     return RECORDINGS[case]
+
+
+def reviewed_q11_metadata_paths():
+    return {key: FIXTURE.with_name(reviewed_q11.CASE + suffix) for key, suffix in (
+        ("manifest", ".manifest.json"), ("gzip", ".jsonl.gz"),
+        ("source", ".source104.json"), ("harness", ".harness12.json"))}
+
+
+def reviewed_q11_manifest(path=None):
+    path = reviewed_q11_metadata_paths()["manifest"] if path is None else Path(path)
+    require(not path.is_symlink() and path.is_file() and path.stat().st_size <= 8192,
+            "reviewed q11 manifest requires bounded regular bytes")
+    raw = path.read_bytes()
+    require(sha(raw) == reviewed_q11.MANIFEST_SHA256, "reviewed q11 manifest/epoch seal differs")
+    manifest = decode(raw)
+    require(manifest["case"] == reviewed_q11.CASE and
+            manifest["source_epoch"]["publicHead"] == reviewed_q11.PUBLIC_HEAD,
+            "reviewed q11 actual authoring epoch differs")
+    return manifest
 
 
 def make_presnap_recipe(source_manifest_sha256, jsonl, packed):
@@ -441,6 +467,9 @@ def exact_metadata(value, expected, where):
 
 
 def load_recipe(path, case=POSITIVE_CASE):
+    if case == reviewed_q11.CASE:
+        reviewed_q11_manifest(path)
+        return
     if case == SOURCE_BOUND_CASE:
         source_bound_recipe(path)
         return
@@ -482,6 +511,14 @@ def audit_public(data, case=HISTORICAL_CASE):
     identity = recording(case)
     require(len(data) <= identity["public_bytes"] + 65536, "public replay exceeds bounded input size")
     require(data.endswith(b"\n"), "public JSONL must end in LF")
+    if case == reviewed_q11.CASE:
+        require(len(data) == identity["public_bytes"] and sha(data) == identity["public_sha256"],
+                "reviewed q11 unchanged command bytes differ")
+        rows = [decode(line) for line in data.splitlines()]
+        require(len(rows) == HOSTS and all(type(row) is dict and type(row.get("host")) is int
+                and row["host"] == host for host, row in enumerate(rows)),
+                "reviewed q11 complete input span differs")
+        return rows
     rows = [decode(line) for line in data.decode("ascii").splitlines()]
     require(len(rows) == HOSTS, "exact12000 public command count required")
     for host, row in enumerate(rows):
@@ -502,7 +539,9 @@ def compress(data):
 
 def load_fixture(path, case=HISTORICAL_CASE, recipe=None):
     identity = recording(case)
-    if case in RECIPES or case in (PRESNAP_CASE, OPEN_SPACE_CASE, SOURCE_BOUND_CASE) or case in CURRENT_GENERATIONS:
+    if case == reviewed_q11.CASE:
+        load_recipe(reviewed_q11_metadata_paths()["manifest"] if recipe is None else recipe, case)
+    elif case in RECIPES or case in (PRESNAP_CASE, OPEN_SPACE_CASE, SOURCE_BOUND_CASE) or case in CURRENT_GENERATIONS:
         registered = (FIXTURE.with_name(case + ".recipe.json") if case in CURRENT_GENERATIONS or case in (OPEN_SPACE_CASE, SOURCE_BOUND_CASE) else
                       PRESNAP_RECIPE if case == PRESNAP_CASE else RECIPES[case][0])
         load_recipe(registered if recipe is None else recipe, case)
@@ -566,7 +605,8 @@ def main():
     author.add_argument("--output", type=Path, action="append")
     for mode in ("verify", "prepare"):
         command = modes.add_parser(mode, help="Audit the tracked fixture without the mixed source artifact")
-        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE, *CURRENT_GENERATIONS, OPEN_SPACE_CASE, SOURCE_BOUND_CASE), action="append")
+        command.add_argument("--case", choices=tuple(RECORDINGS)+(PRESNAP_CASE, *CURRENT_GENERATIONS,
+                            OPEN_SPACE_CASE, SOURCE_BOUND_CASE, reviewed_q11.CASE), action="append")
         command.add_argument("--fixture", type=Path, action="append")
         command.add_argument("--recipe", type=Path, action="append")
         if mode == "prepare":
@@ -594,7 +634,8 @@ def main():
         print(json.dumps({"schema": SCHEMA, "case": case, "status": "verified-public-input-only", "hosts": HOSTS,
                           "public_sha256": sha(data), "public_bytes": len(data),
                           "fixture_sha256": identity["fixture_sha256"],
-                          "recipe_sha256": SOURCE_BOUND_RECIPE_SHA256 if case == SOURCE_BOUND_CASE else
+                          "recipe_sha256": reviewed_q11.MANIFEST_SHA256 if case == reviewed_q11.CASE else
+                              SOURCE_BOUND_RECIPE_SHA256 if case == SOURCE_BOUND_CASE else
                               OPEN_SPACE_RECIPE_SHA256 if case == OPEN_SPACE_CASE else
                               sha(PRESNAP_RECIPE.read_bytes()) if case == PRESNAP_CASE else
                               current_recipe_hashes()[case] if case in CURRENT_GENERATIONS else

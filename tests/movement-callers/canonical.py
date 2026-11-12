@@ -26,6 +26,7 @@ from kernel_sources import (canonical_hashes, production_paths, C2_ANIMATION_SHA
 from compare_physics import compare
 import prepare_public_replay as public_replay
 import replay_evidence
+import reviewed_q11_recording as reviewed_q11
 
 CACHE_SOURCE = "Assets/Scripts/Gameplay/SourceMovementIntegration.cs"
 CACHE_SOURCE_SHA = "17ea5f52c2d5eddbde015f83c9d550e8e96229df0698c32aee4bd04060c0283b"
@@ -92,8 +93,23 @@ REVIEWED_CORE_VENUE_OBSERVER_GENERATION = {
     "source_generation": "parity-completion-20261109/reviewed-core-venue-catalog/v1",
     "source_manifest_sha256": "5d1cce50a2f0053f36f2617e05267779372c3fc2441ca4de508d79bb623ff101",
 }
+REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION = {
+    "schema": "source-current-cache-observer-generation/v1",
+    "source_generation": "reviewed-q11-interior/public6ad-recording-v1",
+    "source_commit": "6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189",
+    "source_tree": "a9be41eaa5bdf70277dac432d7125a8defb514f4",
+    "source_count": 104,
+    "source_manifest_sha256": "ff0ee6a691a87eb346959fa446e1496a7c9a9d7a4eeb0b368d97c864cb66aefb",
+    "harness_count": 12,
+    "harness_manifest_sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
+    "cache_source_sha256": "d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e",
+    "additive_source_path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.OriginalSound.cs",
+    "additive_source_sha256": "eb68dd5619baac142dea37d1c37e3d06b16ce0483388941e9d1082ccff5c1362",
+    "accepted_source_manifest_sha256": "4f519b55f331581a5c423e893de9d418251271387470d08639474a02e8e485b8"
+}
 OBSERVER_GENERATIONS = (CURRENT_OBSERVER_GENERATION, ORIGINAL_HUT17_OBSERVER_GENERATION,
-                        ORIGINAL_CONTACT35_OBSERVER_GENERATION, REVIEWED_CORE_VENUE_OBSERVER_GENERATION)
+                        ORIGINAL_CONTACT35_OBSERVER_GENERATION, REVIEWED_CORE_VENUE_OBSERVER_GENERATION,
+                        REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION)
 CANONICAL_CACHE_MUTANTS = (
     ("refresh-after-contact", "production", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
      "SourceContacts();", "SourceContacts();\n            CacheSourcePlayerCameraJoints();",
@@ -166,6 +182,29 @@ def source_bound_execution_binding(generation, recipe):
         "executionObserverGeneration": dict(generation),
         "profile": recipe["stable_profile"],
         "factory": recipe["factory"],
+        "completeOriginal303Qualified": False,
+    }
+
+
+def reviewed_q11_execution_binding(generation, recording):
+    if generation != REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION:
+        raise ValueError("Reviewed q11 replay requires its exact approved current execution generation.")
+    paths = public_replay.reviewed_q11_metadata_paths()
+    manifest = reviewed_q11.verify(paths["manifest"], recording, paths["gzip"],
+                                  paths["source"], paths["harness"], ROOT)
+    return {
+        "schema": "reviewed-q11-public-replay-execution-pair/v1",
+        "recordingGeneration": manifest["artifact_version"],
+        "recordingCase": manifest["case"],
+        "recordingAuthoringCommit": manifest["source_epoch"]["publicHead"],
+        "recordingRecipeSha256": reviewed_q11.MANIFEST_SHA256,
+        "recordingJsonlSha256": manifest["jsonl"]["sha256"],
+        "recordingGzipSha256": manifest["gzip"]["sha256"],
+        "recordingAuthoringSourceManifestSha256": manifest["source_epoch"]["source104Sha256"],
+        "recordingControllerSha256": manifest["controller_sha256"],
+        "executionObserverGeneration": dict(generation),
+        "profile": manifest["profile"],
+        "factory": manifest["factory"],
         "completeOriginal303Qualified": False,
     }
 
@@ -721,8 +760,10 @@ def _m1_trajectory_row(row, host, previous=None):
     return row
 
 
-def _m1_trajectory_packet(command, host, generated=False):
-    if generated:
+def _m1_trajectory_packet(command, host, generated=False, reviewed=False):
+    if reviewed:
+        public_replay.fields(command, public_replay.COMMAND_FIELDS, "reviewed q11 command")
+    elif generated:
         from export_portable_public import project_row
         command = project_row({"host": host, "command": command}, host)["command"]
     else:
@@ -735,22 +776,28 @@ def _m1_trajectory_packet(command, host, generated=False):
             menus.append({"station": station["StationId"], "specified": source["IsSpecified"],
                           "action": source["Action"], "playSpecified": play["IsSpecified"],
                           "playbook": play["Playbook"], "symbol": play["PlaySymbol"]})
+    if reviewed:
+        return sha(_m1_trajectory_json(command)), menus
     # Equality uses the existing closed command schema and typed IEEE754 float32 axes, never their payload.
     normalized = dict(command, Move={key: struct.pack(">f", float(value)).hex()
                                      for key, value in command["Move"].items()})
     return sha(_m1_trajectory_json(normalized)), menus
 
 
-def _m1_trajectory_project(source_bytes, input_bytes, host, previous):
+def _m1_trajectory_project(source_bytes, input_bytes, host, previous, reviewed=False):
     _m1_trajectory_require(source_bytes.endswith(b"\n") and input_bytes.endswith(b"\n"),
                            "malformed_source_row")
     source, original = public_replay.decode(source_bytes), public_replay.decode(input_bytes)
     _m1_trajectory_fields(source, _M1_TRAJECTORY_SOURCE_FIELDS)
     _m1_trajectory_require(type(source["host"]) is int and source["host"] == host, "conflicting_host")
-    public_replay.public_row(original, host)
-    input_packet, raw = _m1_trajectory_packet(original["command"], host)
-    generated_packet, generated_raw = _m1_trajectory_packet(source["command"], host, True)
-    _, applied = _m1_trajectory_packet(source["applied"], host, True)
+    if reviewed:
+        public_replay.fields(original, {"host", "command"}, "reviewed q11 row")
+        _m1_trajectory_require(type(original["host"]) is int and original["host"] == host, "conflicting_host")
+    else:
+        public_replay.public_row(original, host)
+    input_packet, raw = _m1_trajectory_packet(original["command"], host, reviewed=reviewed)
+    generated_packet, generated_raw = _m1_trajectory_packet(source["command"], host, True, reviewed)
+    _, applied = _m1_trajectory_packet(source["applied"], host, True, reviewed)
     _m1_trajectory_require(input_packet == generated_packet and raw == generated_raw, "conflicting_packet")
     events = source["SourceEvents"]
     _m1_trajectory_require(type(events) is list and len(events) <= 128, "capture_bound")
@@ -829,6 +876,22 @@ def _m1_trajectory_binding(capture, label, expected, production, harness):
     profile = expected["profile"]
     _m1_trajectory_require(profile in _M1_TRAJECTORY_PROFILES, "conflicting_receipt")
     source_data, factory, case = _M1_TRAJECTORY_PROFILES[profile]
+    if expected.get("replayCase") == reviewed_q11.CASE:
+        manifest = public_replay.reviewed_q11_manifest()
+        compressed = public_replay.reviewed_q11_metadata_paths()["gzip"]
+        _m1_trajectory_regular(compressed)
+        _m1_trajectory_require(current_generation == REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION,
+                               "conflicting_inventory")
+        _m1_trajectory_require(profile == manifest["profile"] and expected["factory"] == manifest["factory"]
+                               and expected["sourceData"] == manifest["source_data_sha256"], "conflicting_receipt")
+        _m1_trajectory_require(expected["replayFileSha256"] == manifest["jsonl"]["sha256"]
+                               and sha(compressed.read_bytes()) == manifest["gzip"]["sha256"]
+                               and harness["tests/movement-callers/PortablePublicPolicy.cs"] ==
+                               manifest["controller_sha256"], "conflicting_input")
+        attempt.update(controllerSha256=manifest["controller_sha256"],
+                       recipeSha256=reviewed_q11.MANIFEST_SHA256,
+                       compressedInputSha256=manifest["gzip"]["sha256"])
+        return
     if (profile == "original-teams-contact282-c2-m1-presnap-switch" and
             expected["replayFileSha256"] == public_replay.OPEN_SPACE_PUBLIC_SHA256):
         case = public_replay.OPEN_SPACE_CASE
@@ -916,7 +979,10 @@ def _capture_m1_trajectory(destination, label, input_path, receipt_bytes, expect
                     _m1_trajectory_require(host < _M1_TRAJECTORY_MAX_HOSTS
                                            and len(source_bytes) <= 2 * 1024 * 1024
                                            and len(input_bytes) <= _M1_TRAJECTORY_MAX_LINE, "capture_bound")
-                    row = _m1_trajectory_project(source_bytes, input_bytes, host, previous)
+                    if expected.get("replayCase") == reviewed_q11.CASE:
+                        row = _m1_trajectory_project(source_bytes, input_bytes, host, previous, reviewed=True)
+                    else:
+                        row = _m1_trajectory_project(source_bytes, input_bytes, host, previous)
                     encoded = _m1_trajectory_json(row) + b"\n"
                     _m1_trajectory_require(len(encoded) + len(_M1_TRAJECTORY_ROW_PREFIX) <= _M1_TRAJECTORY_MAX_LINE
                                            and capture["bytes"] + len(encoded)
@@ -1415,7 +1481,8 @@ def m1_main(argv):
     generations.add_argument("--c2-presnap-switch-inputs",type=Path)
     parser.add_argument("--input-profile", choices=("contact272",), default="contact272")
     parser.add_argument("--source-compatibility", action="append", metavar="{strict,portable}")
-    parser.add_argument("--replay-case", action="append", choices=(public_replay.SOURCE_BOUND_CASE,),
+    parser.add_argument("--replay-case", action="append",
+                        choices=(public_replay.SOURCE_BOUND_CASE, reviewed_q11.CASE),
                         help="Explicit separately frozen source-bound successor; historical defaults remain unchanged.")
     parser.add_argument("--single-public-attempt", action="store_true",
                         help="Run one unchanged vector only; never claim the complete compiled-control closure.")
@@ -1424,7 +1491,7 @@ def m1_main(argv):
         parser.error("argument --replay-case: duplicate argument; specify only once")
     replay_case = args.replay_case[0] if args.replay_case else None
     presnap_switch = args.c2_presnap_switch_inputs is not None
-    if replay_case and presnap_switch:
+    if replay_case == public_replay.SOURCE_BOUND_CASE and presnap_switch:
         parser.error("The source-bound v5 recording requires its unchanged contact281-c2-m1 profile.")
     profile_inputs = args.c2_presnap_switch_inputs if presnap_switch else args.c2_m1_inputs
     animation_sha = PRESNAP_ANIMATION_SHA if presnap_switch else C2_ANIMATION_SHA
@@ -1435,6 +1502,8 @@ def m1_main(argv):
         parser.error("argument --source-compatibility: invalid choice: " + repr(modes[0])
                      + " (choose from 'strict', 'portable')")
     args.source_compatibility = modes[0]
+    if replay_case == reviewed_q11.CASE and (not presnap_switch or args.source_compatibility != "portable"):
+        parser.error("Reviewed q11 requires its actual c2-presnap-switch inputs and explicit portable mode.")
     output = args.output.absolute()
     if output.exists() or not any(output.is_relative_to(p) for p in (HERE / ".artifacts", ROOT / ".squad/.scratch")):
         parser.error("Choose a NEW ignored M1 output, not an existing/frozen receipt.")
@@ -1443,14 +1512,17 @@ def m1_main(argv):
     inputs = fixture_hashes(args.fixture_manifest, args.sound_functions)
     inputs.update(successor_hashes(profile_inputs) if presnap_switch else canonical_hashes(profile_inputs, "contact281-c2-m1"))
     inputs[str(args.replay_commands.absolute())] = sha(args.replay_commands.read_bytes())
-    archive_replays = inputs[str(args.replay_commands.absolute())] == public_replay.OPEN_SPACE_PUBLIC_SHA256
+    archive_replays = inputs[str(args.replay_commands.absolute())] in (
+        public_replay.OPEN_SPACE_PUBLIC_SHA256, reviewed_q11.JSONL_SHA256)
     production = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in production_paths()}
     pins = {name: sha(data) for name, data in production.items()}
     harness = {name: (ROOT / name).read_bytes() for name in HARNESS}
     observed_source = inject_current(production[CACHE_SOURCE], production, harness)
     observer_identity = observer_binding(production, harness)
     replay_binding = None
-    if replay_case:
+    if replay_case == reviewed_q11.CASE:
+        replay_binding = reviewed_q11_execution_binding(observer_identity, args.replay_commands.absolute())
+    elif replay_case:
         recipe = public_replay.source_bound_recipe()
         if inputs[str(args.replay_commands.absolute())] != recipe["jsonl"]["sha256"]:
             raise ValueError("Source-bound v5 requires its exact unchanged public recording.")
@@ -1586,6 +1658,9 @@ def m1_main(argv):
                     result["status"] = "failed-portable-source-fault"
             run["classification"] = require_m1_replay(process.returncode, summary, receipt, args.source_compatibility, presnap_switch)
             run["receipt"] = receipt
+            if replay_case == reviewed_q11.CASE and run["classification"] == "positive":
+                run["reviewed_q11_real_pose_witness"] = reviewed_q11.verify_distinct_poses(
+                    destination / "m1-R_SKIP-real-poses.json")
         if archive_replays and section is None:
             run["retained_replay_evidence"] = replay_evidence.archive(destination)
         shutil.rmtree(copy)

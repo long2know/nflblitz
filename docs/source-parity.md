@@ -207,6 +207,31 @@ new full recording, shipped compiler/link, MIPS execution, native PRNG/FPU/DSP
 or full-match equivalence. Prior f3 artifacts remain historical; the changed
 source requires a new recording qualification and an actual Core/WASM rebuild.
 
+The subsequent distinct `reviewed-q11-6ad/v1` recording completed the same
+material-risk gate; final fixture approval SHA256 is
+`2e1dd37ab12b538c6cb07262d99f5c19daf850f90d0d4f0522f5d326e738fb40`.
+The case is
+`portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000`,
+using unchanged AUTHOR-v6 grammar, raw
+`ad31c767e1a54af3efc681e0edf93aef88cd76b58bea1869da0df57a62f525e8`
+and actual public authoring commit `6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189`.
+It binds kernel104 `ff0ee6a6…`, compiled161 `4f519b55…` and harness12 `53ac07b6…`.
+Independent original-public C#7.3 replay reproduced12000/11400/22505raw,
+31R_SKIP frames, nine presnap switches and the entire391228619-byte state/
+RNG/event/sound/cache stream
+`4bc457c72f2c190ae27a60a863cf89ed780e3ad89e38e8a20db8ab5875f9a414`.
+Seven physical seal/source/epoch/pose negatives rejected; the retained eleven
+named controls and664/5312 original-C closure remain required. Actor12/
+instance252 has two genuinely distinct fifteen-local-joint poses at9503/9504.
+
+Current CI selects only this distinct case through the normal complete
+`m1_main` gate with Portable and the actual presnap282/289 factory. All raw
+null/default fields are preserved. Oldv5/c202 recipes, negative boundaries and
+the failed f3/v6 capture remain immutable; this is not AV306 or full-match/
+native equivalence. Source-identical CI commits do not relabel the actual6ad
+author/build epoch. Main/image/runtime publication still requires its separate
+real merge, source-equivalence and final-image receipts.
+
 **Epoch and documentation boundary:** all corrected9fd5/f3ba source/data/build-
 info/native/AppBundle/image identities above predate this documentation and
 are not reminted to include it. Pre-cache-fix Nov11 `229…/e3a…` retained a real

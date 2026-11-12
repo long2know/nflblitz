@@ -35,20 +35,22 @@ class _ReplayInvocationCaptured(BaseException):
 
 class CompatibilityCliIngressTests(unittest.TestCase):
     @staticmethod
-    def arguments(output):
+    def arguments(output, presnap=False):
         args = []
         for name in ("fixture-manifest", "sound-functions", "c2-m1-inputs", "source-root", "replay-commands"):
             args += ["--" + name, str(output.parent / ("inert-" + name))]
+        if presnap:
+            args[args.index("--c2-m1-inputs")] = "--c2-presnap-switch-inputs"
         return args + ["--output", str(output)]
 
     @staticmethod
     def option(mode, equals=False):
         return ["--source-compatibility=" + mode] if equals else ["--source-compatibility", mode]
 
-    def assert_argument_rejection(self, options, diagnostic="duplicate argument"):
+    def assert_argument_rejection(self, options, diagnostic="duplicate argument", presnap=False):
         output = canonical.ROOT / ".squad/.scratch" / ("cli-ingress-uncreated-" + uuid.uuid4().hex)
         self.assertFalse(output.exists())
-        args = self.arguments(output) + options
+        args = self.arguments(output, presnap) + options
         stderr = io.StringIO()
         with ExitStack() as stack:
             downstream = []
@@ -72,6 +74,15 @@ class CompatibilityCliIngressTests(unittest.TestCase):
         self.assertNotIn("FileNotFoundError", message)
         self.assertNotIn("M1 REGRESSION FAILED", message)
         self.assertFalse(output.exists())
+
+    def test_reviewed_q11_case_rejects_m1_alias_and_nonportable_modes_before_io(self):
+        case = ["--replay-case", canonical.reviewed_q11.CASE]
+        for presnap, mode in ((False, ["--source-compatibility", "portable"]),
+                              (True, []), (True, ["--source-compatibility", "strict"])):
+            with self.subTest(presnap=presnap, mode=mode):
+                self.assert_argument_rejection(case + mode,
+                    "Reviewed q11 requires its actual c2-presnap-switch inputs and explicit portable mode.",
+                    presnap=presnap)
 
     def test_conflicting_separated_modes_reject_before_any_downstream_work(self):
         for first, second in (("strict", "portable"), ("portable", "strict")):
@@ -688,7 +699,7 @@ class CanonicalObservationGuards(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "complete source/harness closure"):
             canonical.inject_current(original)
         binding = canonical.observer_binding(production, harness)
-        self.assertEqual(binding, canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION)
+        self.assertEqual(binding, canonical.REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION)
         self.assertNotIn(binding["cache_source_sha256"], (canonical.CACHE_SOURCE_SHA, canonical.U1_CACHE_SOURCE_SHA))
         observed = canonical.inject_current(original, production, harness)
         self.assertEqual(observed.count(b"geometry.CameraJoints("), original.count(b"geometry.CameraJoints("))
@@ -788,7 +799,7 @@ class CanonicalObservationGuards(unittest.TestCase):
         self.assertTrue(paths.issubset(current))
         binding = canonical.observer_binding(current, harness)
         self.assertEqual(len(current), binding["source_count"])
-        self.assertEqual(binding, canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION)
+        self.assertEqual(binding, canonical.REVIEWED_Q11_INTERIOR_OBSERVER_GENERATION)
         self.assertEqual(binding["source_count"], 104)
 
 
@@ -896,6 +907,68 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.work)
+
+    def test_reviewed_q11_public_cli_preserves_raw_bytes_and_binds_the_actual_authoring_epoch(self):
+        reviewed = canonical.reviewed_q11
+        paths = canonical.public_replay.reviewed_q11_metadata_paths()
+        output = self.work / (reviewed.CASE + ".jsonl")
+        command = [canonical.sys.executable, "-B", str(canonical.HERE / "prepare_public_replay.py"),
+                   "prepare", "--case", reviewed.CASE, "--fixture", str(paths["gzip"]),
+                   "--recipe", str(paths["manifest"]), "--output", str(output)]
+        process = canonical.subprocess.run(command, cwd=canonical.ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        report = json.loads(process.stdout)
+        self.assertIs(report["simulation_executed"], False)
+        raw = output.read_bytes()
+        self.assertEqual(raw, canonical.public_replay.gzip.decompress(paths["gzip"].read_bytes()))
+        production = {p.relative_to(canonical.ROOT).as_posix(): p.read_bytes()
+                      for p in canonical.production_paths()}
+        harness = {name: (canonical.ROOT / name).read_bytes() for name in canonical.HARNESS}
+        generation = canonical.observer_binding(production, harness)
+        binding = canonical.reviewed_q11_execution_binding(generation, output)
+        self.assertEqual(binding["recordingCase"], reviewed.CASE)
+        self.assertEqual(binding["recordingAuthoringCommit"], reviewed.PUBLIC_HEAD)
+        self.assertEqual(binding["recordingGeneration"], "reviewed-q11-6ad/v1")
+        self.assertEqual(binding["recordingJsonlSha256"], canonical.sha(raw))
+        with self.assertRaisesRegex(ValueError, "exact approved current execution generation"):
+            canonical.reviewed_q11_execution_binding(canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION, output)
+        marker = b',"SavedOrigin":null'
+        self.assertIn(marker, raw)
+        altered = self.work / "dropped-default.jsonl"
+        altered.write_bytes(raw.replace(marker, b"", 1))
+        with self.assertRaisesRegex(ValueError, "unchanged command bytes differ"):
+            canonical.reviewed_q11_execution_binding(generation, altered)
+        manifest = json.loads(paths["manifest"].read_bytes())
+        manifest["source_epoch"]["publicHead"] = "93c23056af50627d1efc1c5a28ef16353aafea53"
+        relabelled = self.work / "relabelled.manifest.json"
+        relabelled.write_text(json.dumps(manifest) + "\n")
+        command[command.index("--recipe") + 1] = str(relabelled)
+        missing = self.work / "must-not-exist.jsonl"
+        command[command.index("--output") + 1] = str(missing)
+        process = canonical.subprocess.run(command, cwd=canonical.ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(process.returncode, 1)
+        self.assertIn("reviewed q11 manifest/epoch seal differs", process.stderr)
+        self.assertFalse(missing.exists())
+
+    def test_reviewed_q11_trajectory_packet_keeps_null_defaults_and_physical_switch_metadata(self):
+        reviewed = canonical.reviewed_q11
+        paths = canonical.public_replay.reviewed_q11_metadata_paths()
+        raw = canonical.public_replay.load_fixture(paths["gzip"], reviewed.CASE, paths["manifest"])
+        row = next(row for row in map(json.loads, raw.splitlines())
+                   if row["command"]["StationInputs"] is not None)
+        command, host = row["command"], row["host"]
+        expected, _ = canonical._m1_trajectory_packet(command, host, reviewed=True)
+        actual, _ = canonical._m1_trajectory_packet(command, host, generated=True, reviewed=True)
+        self.assertEqual(expected, actual)
+        variants = []
+        changed = copy.deepcopy(command); del changed["Source"]["Play"]["SavedOrigin"]; variants.append(changed)
+        changed = copy.deepcopy(command); del changed["StationInputs"]["PhysicalSwitches"]; variants.append(changed)
+        changed = copy.deepcopy(command); del changed["StationInputs"]["Stations"][0]["DigitalCurrent"]; variants.append(changed)
+        changed = copy.deepcopy(command); del changed["StationInputs"]["Stations"][0]["IsSpecified"]; variants.append(changed)
+        for altered in variants:
+            with self.subTest(altered=altered):
+                packet, _ = canonical._m1_trajectory_packet(altered, host, generated=True, reviewed=True)
+                self.assertNotEqual(packet, expected)
 
     @staticmethod
     def packet(kind=0, symbol="play_hail_mary", generated=False):
@@ -1349,12 +1422,13 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             ["git", "show", "HEAD:" + ci.GAME], cwd=source_root, env=environment,
             capture_output=True, check=True).stdout
         self.assertEqual(full, committed, "full workflow must match the actual checked-out Git source")
-        sealed = ci.remove_once(full.decode("utf-8"), ci.SOURCE_BOUND_V5_PREP)
+        sealed = ci.pre_q11_game(full.decode("utf-8"))
+        sealed = ci.remove_once(sealed, ci.SOURCE_BOUND_V5_PREP)
         sealed = ci.remove_once(sealed, ci.SOURCE_BOUND_V5_GUARDS)
         sealed = ci.remove_once(sealed, ci.SOURCE_BOUND_V5_SELECTION, ci.RETAINED_V4_SELECTION)
         self.assertEqual(canonical.sha(sealed.encode("utf-8")),
                          "0aea8a2452a55fc8067dcb4268d1326ad47d9727970173767a0b7757596fdbd1",
-                         "only the exact separately named source-bound v5 stages and selector may differ")
+                         "only the exact separately named approved q11 and source-bound v5 stages/selectors may differ")
         prior = ci.remove_once(sealed, ci.LIFECYCLE_ASSETS_STEP)
         prior = ci.remove_once(prior, ci.ADMITTED_LIFECYCLE_STEP, ci.ORIGINAL_LIFECYCLE_STEP)
         self.assertEqual(canonical.sha(prior.encode("utf-8")),
@@ -1376,13 +1450,14 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             self.assertEqual(canonical.sha(actual), ci.INHERITED_GAME_SHA256)
         else:
             self.assertEqual(actual, full, "full checkout workflow must retain its frozen binding")
-        core = b"--output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable"
+        core = b"--output .squad/.scratch/q11-ci-full-qualification --source-compatibility portable"
+        historical_core = b"--output .squad/.scratch/m1-ci-full-qualification --source-compatibility portable"
         defensive = b"--output .squad/.scratch/defensive-presnap-switch-ci/new-full --source-compatibility portable"
         self.assertIn(core, full)
         self.assertIn(defensive, full)
-        self.assertIn(core, inherited)
+        self.assertIn(historical_core, inherited)
         self.assertNotIn(defensive, inherited, "the defensive job intentionally exists only in the full workflow")
-        self.assertIn(core, actual)
+        self.assertIn(historical_core if receipt is not None and receipt["inherited_view"] else core, actual)
 
     def test_workflow_retention_runs_in_full_and_inherited_cwds_and_rejects_modified_views(self):
         ci = self.workflow_ci()

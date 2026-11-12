@@ -1,5 +1,39 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
+## Reviewed q11 current source checkpoint — November 11, 2026
+
+The distinct case
+`portable-cabinet-wide-pass-clearance-presnap-switch-q11-6ad-v1-12000`
+is the approved `reviewed-q11-6ad/v1` artifact, retaining the unmodified public
+AUTHOR-v6 grammar. It is not the failed f3/v6 window or a renamed v7 recording.
+Its actual authoring commit remains `6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189`
+even when later source-identical CI commits execute it.
+
+The closed manifest seals raw `ad31c767e1a54af3efc681e0edf93aef88cd76b58bea1869da0df57a62f525e8`,
+gzip `84856f6a35ad49335395f7c7fa1f59ae59e8075f032b0e6589af96ff1e13b17d`,
+the complete104-source `ff0ee6a6…` and unchanged12-file `53ac07b6…` harness.
+Input preparation copies the exact raw bytes, including every null/default
+SavedOrigin and physical-switch field; it does not project them into an older
+DTO grammar. Before replay, the unchanged approved `reviewed_q11_recording.py`
+helper verifies the full source/harness, manifest, raw and compressed seals.
+
+Select this case only with actual `--c2-presnap-switch-inputs` and explicit
+`--source-compatibility portable`. It uses the real282/289 presnap factory, never
+the old C2-M1 or publication AV306 profile. The normal complete `m1_main` gate
+retains all three cache/eight caller controls, fresh baselines, original664/
+5312 physics comparison and full state/RNG/event/sound/cache byte equality.
+The source-bound v5 selector and every old recipe remain available only under
+their original exact execution epochs; no whitelist is broadened for that case.
+
+Final same-gate fixture approval `2e1dd37ab12b538c6cb07262d99f5c19daf850f90d0d4f0522f5d326e738fb40`
+independently reproduced12000 hosts/11400 source ticks/22505 raw draws,
+31 R_SKIP frames and nine actual presnap switches. The complete391228619-byte
+replay stream is `4bc457c72f2c190ae27a60a863cf89ed780e3ad89e38e8a20db8ab5875f9a414`.
+Actor12/instance252 at9503/9504 has ordinals0/1 and genuinely distinct fifteen-
+local-joint poses. Author/replay schemas and descriptive RNG provenance differ;
+only the three replay entrypoints have whole-byte equality. This is not native,
+full-game, browser/image or main-publication proof.
+
 ## Explicit source-bound public v5 — November 9, 2026
 
 `portable-cabinet-wide-pass-clearance-source-bound-v5-12000` is a distinct
@@ -14,8 +48,8 @@ on the full M1 runner. Recipe loading is lazy and exact; another profile,
 source generation, public hash or duplicate case selection rejects.
 
 The old source-timer v4 bytes and captured wrong-side negative remain unchanged.
-CI prepares both recordings, runs their causal guards and uses only the explicit
-v5 case for current acceptance, retaining all three cache/eight caller controls,
+At that checkpoint CI prepared both recordings, ran their causal guards and used only the explicit
+v5 case for acceptance, retaining all three cache/eight caller controls,
 original664-case C comparison and final unchanged replay. Historical103 and
 hut17/104 observer identities remain separately pinned. A later source edit
 must produce a new explicit checkpoint; a completed frozen campaign whose live
