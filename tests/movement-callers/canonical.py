@@ -188,8 +188,9 @@ SNAP_HIKE_CONTROLS = (
     ("early-live", "            SourcePlayerDriver.Snap(Model, SourceDraw);",
      "            Model.Phase = GamePhase.LiveBall;\n            Model.SourceMatchPhase = SourceMatchPhase.LiveBall;\n            SourcePlayerDriver.Snap(Model, SourceDraw);",
      "snap initiation remains PreSnap center-held receiver-1 until real HikeBall opcode"),
-    ("stale-holder-frame", "            if (actor.SourceMode == SourceActorMode.Kicker)\n                frame = CurrentSourceKickerVariables(frame);",
-     "            /* compiled control: stale preactor holder variables */",
+    ("stale-holder-frame", "            SourceAiFrame frame = BuildSourceAiFrame();",
+     "            SourceAiFrame frame = actor.SourceMode == SourceActorMode.Kicker\n"
+     "                ? Model.SourceAiFrame ?? BuildSourceAiFrame() : BuildSourceAiFrame();",
      "actual later kicker consumes current holder variables in SAME HikeBall wake"),
     ("no-hiking-guard", "if (Model.Phase != GamePhase.PreSnap || (Model.SourceFlags & SourceGameFlags.HikingBall) != 0)",
      "if (Model.Phase != GamePhase.PreSnap)",

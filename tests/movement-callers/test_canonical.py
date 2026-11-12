@@ -599,6 +599,11 @@ class CanonicalObservationGuards(unittest.TestCase):
                 self.assertEqual(source.count(old), 1)
                 self.assertNotEqual(old, new)
                 self.assertGreater(len(assertion), 20)
+        _, old, new, _ = next(row for row in canonical.SNAP_HIKE_CONTROLS if row[0] == "stale-holder-frame")
+        self.assertIn("actor.SourceMode == SourceActorMode.Kicker", new)
+        self.assertIn("? Model.SourceAiFrame ?? BuildSourceAiFrame() : BuildSourceAiFrame();", new)
+        changed = source.replace(old, new)
+        self.assertEqual(changed.replace(new, old), source)
         self.assertIn("tests/movement-callers/SnapHikeChecks.cs", canonical.HARNESS)
 
     def test_successor_full_gate_cannot_relabel_the_old_zero_window(self):

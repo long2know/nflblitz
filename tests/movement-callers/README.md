@@ -1279,6 +1279,12 @@ not assumed to mean four host frames. Three compiled controls restore early
 Live, stale holder variables or a missing hiking guard and must fail named
 assertions with zero compile diagnostics.
 
+For the later live-per-actor frame source, the same stale-holder control targets
+the unique `SourceAiFrame frame = BuildSourceAiFrame();` statement. It selects
+the retained preactor frame only for `SourceActorMode.Kicker`; other actors keep
+the actual fresh frame. Exact-source/reversal unit checks cover this signature
+update; they are not a new compiled-control or full-recording qualification.
+
 The kicker variable facade uses current ball/mode/holder globals but copies the
 captured geometry matrices unchanged; it does not replace the shared AI frame,
 redesign AI decisions or assign a holder early. Controlled timing cases are
