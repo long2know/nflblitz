@@ -24,9 +24,11 @@ class SoundVmClosure(unittest.TestCase):
                 "defensive-presnap-switch/binding-required/v1",
             "3180b7e8924e65a25e2312cff769443137f88d8e9fd4ba61454728b4f7f33f04":
                 "original303-output-sequence/binding-required/v2",
+            "f7f9b3e1b4b694358b2234d99fdff3903f4211434979d3fd91eef8bed100d9e9":
+                "reviewed-contact-speech/binding-required/v3",
         }, RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS)
         self.assertEqual(
-            "original303-output-sequence/binding-required/v2",
+            "reviewed-contact-speech/binding-required/v3",
             RUNNER.POST_HOST_SELECTION_SOURCE_BINDINGS[hashlib.sha256(current.encode()).hexdigest()])
         self.assertEqual(RUNNER.POST_HOST_SELECTION_BINDING,
                          "defensive-presnap-switch/binding-required/v1")

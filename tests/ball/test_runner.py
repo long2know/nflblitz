@@ -206,10 +206,16 @@ class BallRunnerGuards(unittest.TestCase):
             RUNNER.RAW_NEW_PRESSED_SOURCE_SHA256: RUNNER.RAW_NEW_PRESSED_GENERATION,
             "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927":
                 "integrated-default-audibles/post-BeginTick/v2",
+            "d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e":
+                "reviewed-native-cache-release/post-BeginTick/v3",
         }, RUNNER.RAW_NEW_PRESSED_SOURCE_GENERATIONS)
         data = (RUNNER.ROOT / "Assets/Scripts/Gameplay" / row[1]).read_bytes()
-        self.assertEqual("integrated-default-audibles/post-BeginTick/v2",
+        self.assertEqual("reviewed-native-cache-release/post-BeginTick/v3",
                          RUNNER.RAW_NEW_PRESSED_SOURCE_GENERATIONS[hashlib.sha256(data).hexdigest()])
+        mutated = RUNNER.mutation_source(row, data)
+        self.assertEqual(mutated.replace(row[3].encode(), row[2].encode()), data)
+        with self.assertRaisesRegex(RuntimeError, "source SHA256 changed"):
+            RUNNER.mutation_source(row, data + b"\n")
         source = data.decode()
         begin = source.index("private void UpdateSourceMovementPlayers(")
         end = source.index("private void IntegrateSourceMovementPlayer(", begin)

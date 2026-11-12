@@ -34,6 +34,8 @@ POST_HOST_SELECTION_SOURCE_BINDINGS = {
     POST_HOST_SELECTION_SOURCE_SHA256: POST_HOST_SELECTION_BINDING,
     "3180b7e8924e65a25e2312cff769443137f88d8e9fd4ba61454728b4f7f33f04":
         "original303-output-sequence/binding-required/v2",
+    "f7f9b3e1b4b694358b2234d99fdff3903f4211434979d3fd91eef8bed100d9e9":
+        "reviewed-contact-speech/binding-required/v3",
 }
 POST_HOST_SELECTION_ANCHOR = """        private void ExecuteSourceSoundVm(ActorState actor, SourceCallbackCue cue)
         {

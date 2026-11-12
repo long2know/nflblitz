@@ -23,6 +23,13 @@ old C2 and new fixed-hop callback/payload contracts are not relabelled or relaxe
 The prior10/11 stale-anchor failure remains preserved, not
 counted as a kill. This is not whole-game/DSP/native acceptance.
 
+The exact reviewed contact-speech source `f7f9b3e1...` is separately named
+`reviewed-contact-speech/binding-required/v3`; v1 and the original303
+output-sequence v2 identities remain unchanged. This mutation-admission update
+retains the same unique binding-required entry, reversible three-edit control
+and unknown-source/native-retarget rejection. It changes no VM source, SAFN,
+callback, RNG, case expectation or recording authority.
+
 This is a pure Core regression suite, not an audio player or Unity/DSP test.
 It requires explicit prepared **read-only** real-input paths. It never downloads
 inputs, starts Unity, reads license files, modifies those fixtures, or substitutes

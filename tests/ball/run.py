@@ -35,6 +35,8 @@ RAW_NEW_PRESSED_SOURCE_GENERATIONS = {
     RAW_NEW_PRESSED_SOURCE_SHA256: RAW_NEW_PRESSED_GENERATION,
     "56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927":
         "integrated-default-audibles/post-BeginTick/v2",
+    "d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e":
+        "reviewed-native-cache-release/post-BeginTick/v3",
 }
 RAW_NEW_PRESSED_MUTATION = (
     "raw-new-pressed", "SourceMovementIntegration.cs",

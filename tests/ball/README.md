@@ -17,7 +17,10 @@ v1 `SourceMovementIntegration.cs` SHA-256 remains
 The integrated-default-audibles generation has a separate
 `integrated-default-audibles/post-BeginTick/v2` binding to
 `56065f2e6bfad2bc4ba8a383bb61f8be39ade8635eabd9ffde4172adbd8aa927`.
-Both retain the same active merge:
+The reviewed cache/release source separately binds
+`reviewed-native-cache-release/post-BeginTick/v3` to
+`d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e`.
+All three retain the same active merge:
 `state.NewButtons |= SourceMovementPressedButtons(actor, station.Pressed);`.
 That real helper preserves historical-profile presses and masks B only for the
 enabled defensive-switch profile's same-wake fake-B transfer.
