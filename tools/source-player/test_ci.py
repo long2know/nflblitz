@@ -41,6 +41,16 @@ SELECTED_VENUE_RENDERER_CASES = (
     "authenticated runtime venue groups switch at new-match epochs without uploading replacement resources",
     "actual newly selected managed venue uploads and packet agree at the production renderer boundary",
 )
+TEAM_SELECTION_RENDERER_CASES = (
+    "actual Present/HUD caller draws both source team-ready rigs between real background and text without reconstructing poses",
+    "actual Present rejects mismatched team-ready source process/epoch/rig packets instead of falling back to game actors",
+    "actual public C# team-selection poses and complete Present reach the production GPU caller",
+)
+FOCUS_AND_PROFILE_INPUT_CASES = (
+    "focus reactivation samples held gamepads instead of manufacturing a neutral release",
+    "keyboard autorepeat cannot manufacture a new physical press after pause, focus or restart clear",
+    "actual production loader keeps authenticated AV306 and historical caller generations distinct",
+)
 CALLER_DRAIN_INPUT_CASES = (
     "explicit MessageChannel caller drains retained600ms under100ms frames with zero new elapsed and no input or RNG replay",
     "pause focus restart and dispose invalidate stale drain tasks without clearing a newer generation",
@@ -97,9 +107,24 @@ def require(condition, message):
 
 def validate_input_inventory(source):
     names = re.findall(r"^test\('([^'\n]+)',", source, re.M)
-    require(len(re.findall(r"^test\(", source, re.M)) == 10 and
-            sorted(names) == sorted(HISTORICAL_INPUT_CASES + CALLER_DRAIN_INPUT_CASES),
-            "tools/source-player/input.test.mjs: exact historical six plus caller-drain four inventory required")
+    expected = HISTORICAL_INPUT_CASES + CALLER_DRAIN_INPUT_CASES + FOCUS_AND_PROFILE_INPUT_CASES
+    require(len(re.findall(r"^test\(", source, re.M)) == len(expected) and
+            sorted(names) == sorted(expected),
+            "tools/source-player/input.test.mjs: exact historical six plus caller-drain four inventory "
+            "and focus/profile three required")
+
+
+def validate_build_profile_inventory(source):
+    profile = next(node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call) and
+                   isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument" and
+                   node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "--profile")
+    options = {keyword.arg: keyword.value for keyword in profile.keywords}
+    require(ast.unparse(options["default"]) == "PROFILE", "build.py: preserve the historical profile default")
+    require(ast.unparse(options["choices"]) ==
+            "(OLD_PROFILE, PROFILE, AUDIBLES_PROFILE, COMPLETE_PROFILE, "
+            "SOURCE_BANKS_PROFILE, RECORDS_PROFILE, FINAL_PROFILE, PREMATCH_PROFILE, "
+            "SELECTED_WORLD_PROFILE, AV306_PROFILE, TWO_STATION_RECORDS_PROFILE)",
+            "build.py: exact additive profile inventory required")
 
 
 def step_commands(text):
@@ -196,9 +221,10 @@ def validate_source_union_memberships(parity, checks, renderer):
     )
     names = re.findall(r"^test\('([^'\n]+)',", renderer, re.M)
     declarations = len(re.findall(r"^test\(", renderer, re.M))
-    extended = expected + SELECTED_VENUE_RENDERER_CASES
-    require(declarations == 19 and sorted(names) == sorted(extended),
-            "tools/source-player/renderer.test.mjs: expected historical fourteen plus exact selected-venue five inventory="
+    extended = expected + SELECTED_VENUE_RENDERER_CASES + TEAM_SELECTION_RENDERER_CASES
+    require(declarations == len(extended) and sorted(names) == sorted(extended),
+            "tools/source-player/renderer.test.mjs: expected historical fourteen plus exact selected-venue five inventory "
+            "and team-selection three="
             f"{extended!r}; actual inventory={names!r}; declarations={declarations}")
     require(len(re.findall(r"^function playerScene\(", renderer, re.M)) == 1,
             "tools/source-player/renderer.test.mjs: playerScene helper inventory must contain exactly one")
@@ -208,6 +234,42 @@ def validate_source_union_memberships(parity, checks, renderer):
 
 
 class SourcePlayerCI(unittest.TestCase):
+    def test_admitted_focus_profile_and_team_selection_cases_cannot_be_skipped(self):
+        source = (HERE / "input.test.mjs").read_text()
+        parity = (ROOT / "tests/parity/ParityChecks.csproj").read_text()
+        checks = (HERE / "SourcePlayer.Checks.csproj").read_text()
+        renderer = (HERE / "renderer.test.mjs").read_text()
+        validate_input_inventory(source)
+        validate_source_union_memberships(parity, checks, renderer)
+        for name in FOCUS_AND_PROFILE_INPUT_CASES:
+            declaration = "test('" + name + "',"
+            self.assertEqual(source.count(declaration), 1)
+            with self.subTest(case=name), self.assertRaisesRegex(AssertionError, "focus/profile three"):
+                validate_input_inventory(source.replace(declaration, "test.skip('" + name + "',", 1))
+        for name in TEAM_SELECTION_RENDERER_CASES:
+            declaration = "test('" + name + "',"
+            self.assertEqual(renderer.count(declaration), 1)
+            with self.subTest(case=name), self.assertRaisesRegex(AssertionError, "team-selection three"):
+                validate_source_union_memberships(
+                    parity, checks, renderer.replace(declaration, "test.skip('" + name + "',", 1))
+
+    def test_additive_complete_profiles_cannot_be_dropped_or_become_the_default(self):
+        source = (HERE / "build.py").read_text()
+        validate_build_profile_inventory(source)
+        node = next(node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call) and
+                    isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument" and
+                    node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "--profile")
+        declaration = ast.get_source_segment(source, node)
+        for name in ("AV306_PROFILE", "TWO_STATION_RECORDS_PROFILE"):
+            mutated = declaration.replace(", " + name, "", 1)
+            self.assertNotEqual(declaration, mutated)
+            with self.subTest(missing=name), self.assertRaisesRegex(AssertionError, "exact additive profile inventory"):
+                validate_build_profile_inventory(source.replace(declaration, mutated, 1))
+            mutated = declaration.replace("default=PROFILE", "default=" + name, 1)
+            self.assertNotEqual(declaration, mutated)
+            with self.subTest(default=name), self.assertRaisesRegex(AssertionError, "historical profile default"):
+                validate_build_profile_inventory(source.replace(declaration, mutated, 1))
+
     def test_explicit_caller_drain_cases_cannot_be_removed_or_skipped(self):
         source = (HERE / "input.test.mjs").read_text()
         validate_input_inventory(source)
@@ -277,15 +339,7 @@ class SourcePlayerCI(unittest.TestCase):
             self.assertIn(actual, proof)
         for forbidden in ("Game.Model", "BindingFlags", "SourceAction.Audible"):
             self.assertNotIn(forbidden, proof)
-        module = ast.parse((HERE / "build.py").read_text())
-        profile = next(node for node in ast.walk(module) if isinstance(node, ast.Call) and
-                       isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument" and
-                       node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "--profile")
-        options = {keyword.arg: keyword.value for keyword in profile.keywords}
-        self.assertEqual(ast.unparse(options["default"]), "PROFILE")
-        self.assertEqual(ast.unparse(options["choices"]),
-                         "(OLD_PROFILE, PROFILE, AUDIBLES_PROFILE, COMPLETE_PROFILE, "
-                         "SOURCE_BANKS_PROFILE, RECORDS_PROFILE, FINAL_PROFILE, PREMATCH_PROFILE, SELECTED_WORLD_PROFILE)")
+        validate_build_profile_inventory((HERE / "build.py").read_text())
 
     def test_actual_workflow_covers_public_commands_sdk_and_triggers(self):
         validate_workflow(WORKFLOW.read_text())
@@ -347,7 +401,9 @@ class SourcePlayerCI(unittest.TestCase):
         self.assertIn("./artifacts/portable-player/evidence.json", (HERE / "assertions.test.mjs").read_text())
         validate_input_inventory((HERE / "input.test.mjs").read_text())
         renderer = (HERE / "renderer.test.mjs").read_text()
-        self.assertEqual(19, len(re.findall(r"^test\(", renderer, re.M)))
+        validate_source_union_memberships(
+            (ROOT / "tests/parity/ParityChecks.csproj").read_text(),
+            (HERE / "SourcePlayer.Checks.csproj").read_text(), renderer)
         self.assertNotIn("artifacts/", renderer)
         head_renderer = (HERE / "popped-head.renderer.test.mjs").read_text()
         self.assertEqual(2, len(re.findall(r"^test\(", head_renderer, re.M)))
