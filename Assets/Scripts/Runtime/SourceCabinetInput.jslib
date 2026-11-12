@@ -18,8 +18,14 @@ mergeInto(LibraryManager.library, {
     if (pad.mapping !== "standard") return metric === 0 ? -1 : 0;
     switch (metric) {
       case 0: return 1;
-      case 1: return pad.axes.length > 0 ? pad.axes[0] : 0;
-      case 2: return pad.axes.length > 1 ? pad.axes[1] : 0;
+      case 1:
+        var left = pad.buttons[14] && pad.buttons[14].pressed;
+        var right = pad.buttons[15] && pad.buttons[15].pressed;
+        return left || right ? Number(right === true) - Number(left === true) : pad.axes.length > 0 ? pad.axes[0] : 0;
+      case 2:
+        var up = pad.buttons[12] && pad.buttons[12].pressed;
+        var down = pad.buttons[13] && pad.buttons[13].pressed;
+        return up || down ? Number(down === true) - Number(up === true) : pad.axes.length > 1 ? pad.axes[1] : 0;
       case 3:
         var held = 0;
         if (pad.buttons[0] && pad.buttons[0].pressed) held |= 1;

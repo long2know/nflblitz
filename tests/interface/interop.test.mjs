@@ -54,6 +54,23 @@ test('unmapped pad is explicit, disconnected/absent pads are neutral rather than
   assert.equal(library.SourceCabinetGamepad(0, 3), 0);
 });
 
+test('Unity WebGL standard D-pad reaches the same four independent cabinet directions as browser input', () => {
+  const pads = [12, 13, 14, 15].map(direction => ({
+    connected: true, mapping: 'standard', axes: [.25, -.25],
+    buttons: Array.from({ length: 16 }, (_, id) => ({ pressed: id === direction || id === 5 })),
+  }));
+  const { library } = fixture({ pads });
+  assert.deepEqual(pads.map((_, station) => [
+    library.SourceCabinetGamepad(station, 1), library.SourceCabinetGamepad(station, 2),
+    library.SourceCabinetGamepad(station, 3),
+  ]), [[.25, -1, 4], [.25, 1, 4], [-1, -.25, 4], [1, -.25, 4]]);
+  pads[0].buttons[15].pressed = true;
+  assert.deepEqual([1, 2].map(metric => library.SourceCabinetGamepad(0, metric)), [1, -1],
+    'Simultaneous D-pad directions must remain a raw diagonal, not an invented gameplay action.');
+  pads[0].buttons[14].pressed = true;
+  assert.equal(library.SourceCabinetGamepad(0, 1), 0, 'Opposing D-pad directions cancel as in the browser adapter.');
+});
+
 test('source plugin does not request fullscreen, change canvas sizing or create another clock', () => {
   assert.doesNotMatch(source, /requestFullscreen|setInterval|setTimeout|requestAnimationFrame|\.style\s*=|canvas\.(width|height)\s*=/);
 });

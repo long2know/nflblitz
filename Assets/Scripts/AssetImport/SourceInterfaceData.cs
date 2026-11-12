@@ -148,11 +148,17 @@ namespace Blitz.AssetImport
         { Texture = texture; Vertices = Array.AsReadOnly((SourceInterfaceVertex[])vertices.Clone()); }
     }
 
-    public sealed class SourceInterfaceData
+    public sealed partial class SourceInterfaceData
     {
         public const string SourceRevision = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded";
         public const string SourceTree = "a7e0352125d46075b7d98e87253ab89b9160a4c7";
         public const string ToolsRevision = "1792293aaaea00a919b59e8c05716978e85b4333";
+        private SourceTeamRosterLibrary audibleRosters;
+        private SourceInterfaceMovementBootstrap audibleBootstrap;
+        public int DefaultAudibleHorizontalResolution
+        { get { RequireAudiblePresentation(); return (int)audibleBootstrap.HorizontalResolution; } }
+        public int DefaultAudibleVerticalResolution
+        { get { RequireAudiblePresentation(); return (int)audibleBootstrap.VerticalResolution; } }
         public string ContentSha256 { get; }
         public SourceInterfaceInputTables Input { get; }
         public ReadOnlyDictionary<string, SourceInterfaceTexture> Textures { get; }
@@ -217,6 +223,33 @@ namespace Blitz.AssetImport
             return PlaySlots[reference.Table][reference.Index];
         }
 
+        public void BindDefaultAudiblePresentation(SourceTeamRosterLibrary rosters, SourceInterfaceMovementBootstrap bootstrap)
+        {
+            SourceInterfaceInputTables.Require(ContentSha256 == SourceKickMeterMetrics.AuthoredInterfaceSha256 &&
+                rosters != null && rosters.ContentSha256 == SourceTeamPresentationData.PinnedRosterSha256 &&
+                bootstrap != null && bootstrap.HorizontalResolution == 512 &&
+                (bootstrap.VerticalResolution == 256 || bootstrap.VerticalResolution == 384),
+                "Default audible presentation requires actual authenticated full team names and explicit source raster configuration.");
+            SourceInterfaceInputTables.Require(audibleRosters == null ||
+                audibleRosters.ContentSha256 == rosters.ContentSha256 &&
+                audibleBootstrap.ContentSha256 == bootstrap.ContentSha256,
+                "Default audible presentation data is already bound; a source raster cannot change silently.");
+            audibleRosters = rosters;
+            audibleBootstrap = bootstrap;
+        }
+
+        public string DefaultAudibleTeamName(int sourceTeam)
+        {
+            RequireAudiblePresentation();
+            return audibleRosters.GetTeamData(sourceTeam).Name;
+        }
+
+        private void RequireAudiblePresentation()
+        {
+            SourceInterfaceInputTables.Require(audibleRosters != null && audibleBootstrap != null,
+                "Default audible presentation needs its authenticated roster/raster binding before composition.");
+        }
+
         public byte[] RequireTextureBytes(string id, byte[] bytes)
         {
             SourceInterfaceTexture texture;
@@ -229,9 +262,12 @@ namespace Blitz.AssetImport
         public static SourceInterfaceData Read(byte[] bytes, string expectedSha256)
         {
             RosterGuard.Hex(expectedSha256, 64, "Trusted original interface content pin");
-            SourceInterfaceInputTables.Require(bytes != null && bytes.Length > 0 && bytes.Length <= 8 * 1024 * 1024 &&
-                RosterGuard.Sha256(bytes) == expectedSha256, "Original interface content pin mismatch.");
-            RosterObject root = RosterJson.Object(RosterJson.Parse(bytes), "original interface");
+            SourceInterfaceInputTables.Require(bytes != null && bytes.Length > 0 && bytes.Length <= 8 * 1024 * 1024,
+                "Original interface content pin mismatch.");
+            byte[] authenticated = (byte[])bytes.Clone();
+            SourceInterfaceInputTables.Require(RosterGuard.Sha256(authenticated) == expectedSha256,
+                "Original interface content pin mismatch.");
+            RosterObject root = RosterJson.Object(RosterJson.Parse(authenticated), "original interface");
             SourceInterfaceInputTables.Require(root.Text("schema") == "original-source-interface/v1" &&
                 root.Text("source_revision") == SourceRevision && root.Text("source_tree") == SourceTree &&
                 root.Text("tools_revision") == ToolsRevision &&

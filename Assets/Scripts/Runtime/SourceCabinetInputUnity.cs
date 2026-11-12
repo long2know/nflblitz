@@ -38,10 +38,16 @@ namespace Blitz.Runtime
         public SourceCabinetInputBuffer Buffer { get { return buffer; } }
 
         public SourceCabinetUnityInput(SourceMatchConfiguration configuration, SourceInterfaceInputTables tables, bool nativeGamepadsEnabled)
+            : this(configuration, tables, nativeGamepadsEnabled, false)
+        {
+        }
+
+        public SourceCabinetUnityInput(SourceMatchConfiguration configuration, SourceInterfaceInputTables tables,
+            bool nativeGamepadsEnabled, bool preserveSourceDigitalChanges)
         {
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             quantizer = new SourceCabinetQuantizer(tables);
-            buffer = new SourceCabinetInputBuffer(configuration);
+            buffer = new SourceCabinetInputBuffer(configuration, preserveSourceDigitalChanges);
             samples = new SourceCabinetSample[configuration.Stations.Count];
 #if !UNITY_WEBGL || UNITY_EDITOR
             nativeGamepads = nativeGamepadsEnabled;

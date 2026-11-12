@@ -6,6 +6,15 @@ namespace Blitz.Gameplay
 {
     internal static class SourcePoseMath
     {
+        internal static SourceRotation OriginalMultiply(SourceRotation a, SourceRotation b)
+        {
+            return new SourceRotation(
+                a.Y * b.Z - a.Z * b.Y + a.W * b.X + b.W * a.X,
+                a.Z * b.X - a.X * b.Z + a.W * b.Y + b.W * a.Y,
+                a.X * b.Y - a.Y * b.X + a.W * b.Z + b.W * a.Z,
+                a.W * b.W - a.X * b.X - a.Y * b.Y - a.Z * b.Z);
+        }
+
         internal static SourceRotation Multiply(SourceRotation a, SourceRotation b)
         {
             return Normalize(new SourceRotation(
@@ -70,6 +79,20 @@ namespace Blitz.Gameplay
             return new SourceJointPose(rotations);
         }
 
+        internal static SourceRotation Slerp(SourceRotation from, SourceRotation to, float t,
+            ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            return interpolation.Slerp(from, to, t);
+        }
+
+        internal static SourceJointPose Blend(SourceJointPose from, SourceJointPose to, float t,
+            ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            return interpolation.Blend(from, to, t);
+        }
+
         internal static SourceJointPose Turn(SourceJointPose pose, int heading)
         {
             if (pose == null || (heading & 1023) == 0)
@@ -98,6 +121,8 @@ namespace Blitz.Gameplay
         private readonly ISourceAnimationLibrary library;
         private readonly int actorId;
         private readonly IReadOnlyDictionary<string, SourceAnimationProgram> programExtension;
+        private SourcePoseInterpolationPolicy poseInterpolationPolicy;
+        private ISourcePoseInterpolation poseInterpolation;
         private SourceAnimationProgram program;
         private ISourceAnimationClip clip;
         private int pc;
@@ -134,8 +159,10 @@ namespace Blitz.Gameplay
         internal Func<ActorState, int> GroundTime;
         internal Action<Exception> FailureReported;
         internal bool SourceFrameInterpolationRoots;
+        internal bool OriginalChangeSemantics;
         private int turnHack;
         private string failedExecution;
+        private long teamSelectionEntryInstance = -1;
 
         internal int FrameOrdinal { get; private set; } = -1;
         internal uint Mode { get; private set; }
@@ -146,6 +173,11 @@ namespace Blitz.Gameplay
         internal int VariableCount = 4;
         internal string SequenceName { get { return clip == null ? null : clip.SequenceName; } }
         internal string ScriptSymbol { get { return program == null ? null : program.Symbol; } }
+        internal int LogicalInstructionIndex { get { return pc; } }
+        internal string RawTransitionSourceSequenceName { get { return transitionSourceClip == null ? null : transitionSourceClip.SequenceName; } }
+        internal int RawTransitionSourceOrdinal { get { return transitionSourceOrdinal; } }
+        internal int RawTransitionCount { get { return transitionCount; } }
+        internal int RawTransitionTicks { get { return transitionTicks; } }
         internal bool IsSpecified { get { return clip != null && FrameOrdinal >= 0; } }
         internal bool IsUninterruptible { get { return (Mode & SourceAnimationModes.Uninterruptible) != 0; } }
         internal bool IsEnded { get { return (Mode & SourceAnimationModes.End) != 0; } }
@@ -161,6 +193,7 @@ namespace Blitz.Gameplay
 
         internal void CopyFrom(SourceAnimationLayerState other)
         {
+            // Numerical policy belongs to the receiver, not the copied playback state.
             program = other.program;
             clip = other.clip;
             pc = other.pc;
@@ -188,13 +221,32 @@ namespace Blitz.Gameplay
             CodeReturnEvidence = other.CodeReturnEvidence;
         }
 
+        internal void CheckPoseInterpolationBinding(ISourcePoseInterpolation interpolation)
+        {
+            if (interpolation == null) throw new ArgumentNullException(nameof(interpolation));
+            if (program != null || clip != null)
+                throw new InvalidOperationException("Source pose interpolation must be bound before animation execution.");
+            if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.LegacyNormalized &&
+                poseInterpolationPolicy != SourcePoseInterpolationPolicy.OriginalPortable)
+                throw new InvalidOperationException("Unknown pose interpolation policy.");
+            if (poseInterpolation != null && !ReferenceEquals(poseInterpolation, interpolation))
+                throw new InvalidOperationException("Source pose interpolation is already bound.");
+        }
+
+        internal void BindSourcePoseInterpolation(ISourcePoseInterpolation interpolation)
+        {
+            CheckPoseInterpolationBinding(interpolation);
+            poseInterpolation = interpolation;
+            poseInterpolationPolicy = SourcePoseInterpolationPolicy.OriginalPortable;
+        }
+
         internal void Change(string symbol, ActorState actor, long tick, Func<int, int> random,
             SourceJointPose actualOrigin = null, int headingCorrection = 0)
         {
             if (failedExecution != null) throw Failure("original VM execution failed; Restart is required: " + failedExecution);
             SourceJointPose origin = actualOrigin ?? EvaluatePose();
             if (origin != null)
-                origin = SourcePoseMath.Turn(origin, headingCorrection);
+                origin = TurnTransitionOrigin(origin, headingCorrection);
             pendingTransitionOrigin = origin;
             pendingSourceClip = InterpolationSourceClip();
             pendingSourceOrdinal = SourceProgressOrdinal();
@@ -218,6 +270,21 @@ namespace Blitz.Gameplay
             try { AdvanceChecked(actor, tick, random); }
             catch (InvalidOperationException error) { ReportFailure(error); throw; }
             catch (NotSupportedException error) { ReportFailure(error); throw; }
+        }
+
+        internal void AdvanceTeamSelectionEntry(ActorState actor, long tick, Func<int, int> random,
+            SourcePortableProcessHost processes)
+        {
+            if (processes == null || processes.Caller == 0 || processes.SourceTick != tick ||
+                processes.Require(processes.Caller).Function != "tmsel_player_proc" ||
+                processes.Require(processes.Caller).LastWakeTick != tick || lastAdvanceTick != tick ||
+                teamSelectionEntryInstance == InstanceId || FrameOrdinal != 0 ||
+                (ScriptSymbol != "qb_ready_anim" && ScriptSymbol != "qb_ready_f_anim"))
+                throw Failure("Only the actual initial team-selection wake animates immediately after change_anim.");
+            // player.c:1252–1288 calls animate_model before its first sleep(1).
+            teamSelectionEntryInstance = InstanceId;
+            lastAdvanceTick = -1;
+            Advance(actor, tick, random);
         }
 
         private void ReportFailure(Exception error)
@@ -259,23 +326,64 @@ namespace Blitz.Gameplay
 
         internal SourceJointPose EvaluatePose()
         {
+            RequirePoseInterpolation();
             if (clip == null)
                 return null;
             SourceJointPose target = Frame(Math.Max(0, FrameOrdinal)).Pose;
             float fraction = Fraction();
             if (fraction > 0f && FrameOrdinal + 1 < clip.SelectedSourceFrames.Count)
-                target = SourcePoseMath.Blend(target, Frame(FrameOrdinal + 1).Pose, fraction);
-            return SourcePoseMath.Blend(transitionFrom, target, TransitionFraction());
+                target = BlendPose(target, Frame(FrameOrdinal + 1).Pose, fraction);
+            return BlendPose(transitionFrom, target, TransitionFraction());
+        }
+
+        private void RequirePoseInterpolation()
+        {
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable)
+            {
+                if (poseInterpolation == null)
+                    throw Failure("OriginalPortable pose interpolation binding is unavailable");
+            }
+            else if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.LegacyNormalized)
+                throw Failure("unknown pose interpolation policy");
+        }
+
+        private SourceJointPose TurnTransitionOrigin(SourceJointPose pose, int heading)
+        {
+            if (!OriginalChangeSemantics) return SourcePoseMath.Turn(pose, heading);
+            if (pose == null || heading == 0) return pose;
+            var directions = poseInterpolation as ISourcePoseAffineHeading;
+            if (directions == null)
+                throw Failure("original quaternion turn requires the admitted integer-heading table");
+            // ANIM.C uses signed integer division before isin/icos and never normalizes qxq.
+            FieldVector half = directions.Facing(heading / 2);
+            var turn = new SourceRotation(0f, half.X, 0f, half.Z);
+            var rotations = new SourceRotation[SourceTiming.JointCount];
+            for (int joint = 0; joint < rotations.Length; joint++)
+                rotations[joint] = pose.Rotations[joint];
+            rotations[0] = SourcePoseMath.OriginalMultiply(turn, rotations[0]);
+            return new SourceJointPose(rotations);
+        }
+
+        private SourceJointPose BlendPose(SourceJointPose from, SourceJointPose to, float amount)
+        {
+            return poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable
+                ? SourcePoseMath.Blend(from, to, amount, poseInterpolation)
+                : SourcePoseMath.Blend(from, to, amount);
         }
 
         internal SourceAnimationLayer View(ushort mask, int facing)
         {
+            RequirePoseInterpolation();
             if (!IsSpecified)
                 throw Failure("actor snapshot has no source animation");
             int nextOrdinal = Math.Min(FrameOrdinal + (Fraction() > 0f ? 1 : 0),
                 clip.SelectedSourceFrames.Count - 1);
             var sample = new SourceAnimationSample(SequenceName, clip.SelectedSourceFrames[FrameOrdinal],
                 clip.SelectedSourceFrames[nextOrdinal], Fraction());
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable)
+                return new SourceAnimationLayer(poseInterpolationPolicy, poseInterpolation, facing, ScriptSymbol, InstanceId,
+                    sample, Mode, mask, transitionTicks > 0 ? transitionFrom : null, TransitionFraction(),
+                    SourcePoseMath.Facing(facing), CodeReturnEvidence);
             return new SourceAnimationLayer(ScriptSymbol, InstanceId, sample, Mode, mask,
                 transitionTicks > 0 ? transitionFrom : null, TransitionFraction(), SourcePoseMath.Facing(facing),
                 CodeReturnEvidence);
@@ -301,8 +409,12 @@ namespace Blitz.Gameplay
 
         private float Fraction()
         {
-            return (Mode & SourceAnimationModes.Streaming) == 0 ? 0f
-                : Math.Max(0f, floatingFrame - FrameOrdinal);
+            if ((Mode & SourceAnimationModes.Streaming) == 0)
+                return 0f;
+            // ANIM.C _stream_frame (862-881) reuses the selected pose/root here,
+            // without rounding the accumulated floating frame.
+            float fraction = floatingFrame - FrameOrdinal;
+            return Math.Abs(fraction) < 0.05f ? 0f : Math.Max(0f, fraction);
         }
 
         private float TransitionFraction()
@@ -397,7 +509,9 @@ namespace Blitz.Gameplay
                         actor.Action = ActorAction.GetUp;
                     break;
                 case SourceAnimationOp.BranchIfHasBall:
-                    if (HasBall(actor, random))
+                    bool hasBall = HasBall(actor, random);
+                    if (OriginalChangeSemantics) SetKnownCodeReturn(hasBall ? 1 : 0);
+                    if (OriginalChangeSemantics ? (Mode & SourceAnimationModes.Zero) == 0 : hasBall)
                     {
                         if (i.Text == null) pc = i.A;
                         else
@@ -409,7 +523,9 @@ namespace Blitz.Gameplay
                     }
                     break;
                 case SourceAnimationOp.BranchIfNotHasBall:
-                    if (!HasBall(actor, random))
+                    bool notHasBall = !HasBall(actor, random);
+                    if (OriginalChangeSemantics) SetKnownCodeReturn(notHasBall ? 0 : 1);
+                    if (OriginalChangeSemantics ? (Mode & SourceAnimationModes.Zero) != 0 : notHasBall)
                     {
                         if (i.Target == null) pc = i.A;
                         else { program = RequireProgram(i.Target); pc = 0; }
@@ -440,14 +556,14 @@ namespace Blitz.Gameplay
                     }
                     if (MovementCode == null) throw Failure("Original movement callback is unbound: " + i.Text);
                     int returned = MovementCode(actor, i.Text, i.A, i.B, i.C);
-                    if (C2VoidCode != null && i.Text == "face_carrier")
-                    {
-                        CodeReturnEvidence = SourceAnimationCodeReturnEvidence.KnownInt;
-                        if (returned == 0) Mode |= SourceAnimationModes.Zero;
-                        else Mode &= ~SourceAnimationModes.Zero;
-                    }
+                    if (C2VoidCode != null && i.Text == "face_carrier" ||
+                        OriginalChangeSemantics && (i.Text == "face_throw_target" || i.Text == "plyr_have_ball"
+                            || i.Text == "rotate_torso" || i.Text == "slower_spin" || i.Text == "choose_target"
+                            || i.Text == "my_choose_target" || i.Text == "maybe_spear_head"))
+                        SetKnownCodeReturn(returned);
+                    bool returnedZero = OriginalChangeSemantics ? (Mode & SourceAnimationModes.Zero) != 0 : returned == 0;
                     if (i.Op != SourceAnimationOp.MovementCode
-                        && (i.Op == SourceAnimationOp.MovementBranchNonzero ? returned != 0 : returned == 0))
+                        && (i.Op == SourceAnimationOp.MovementBranchNonzero ? !returnedZero : returnedZero))
                     {
                         if (i.Target != null)
                         {
@@ -523,6 +639,10 @@ namespace Blitz.Gameplay
                 case SourceAnimationOp.SetLateHittable:
                     actor.SourceLateHittable = i.A != 0;
                     break;
+                case SourceAnimationOp.SetCelebrate:
+                    if (i.A != 0) actor.SourceRawFlags |= (int)SourceMovementFlags.Celebrate;
+                    else actor.SourceRawFlags &= ~(int)SourceMovementFlags.Celebrate;
+                    break;
                 case SourceAnimationOp.RotateTorso:
                     actor.UpperFacing = actor.TargetUpperFacing = actor.Facing;
                     break;
@@ -560,7 +680,10 @@ namespace Blitz.Gameplay
                     if (i.Y != 0f && CStandardRandom == null)
                         throw Failure("explicit source C rand() service is required");
                     int draw = i.Y == 0f ? random(i.B) : CStandardRandom(i.B);
-                    if ((draw < i.X) != (i.Z != 0f)) pc = i.A;
+                    if (OriginalChangeSemantics)
+                        SetKnownCodeReturn(i.Y == 0f ? draw < i.X ? 1 : 0 : draw);
+                    if (OriginalChangeSemantics ? (Mode & SourceAnimationModes.Zero) == 0
+                        : (draw < i.X) != (i.Z != 0f)) pc = i.A;
                     break;
                 case SourceAnimationOp.JumpProgram:
                     program = RequireProgram(i.Text);
@@ -569,7 +692,9 @@ namespace Blitz.Gameplay
                         actor.Action = ActorAction.GetUp;
                     break;
                 case SourceAnimationOp.BranchSlowerSpin:
-                    if (actor.SourceSpinCount > 2)
+                    bool slowerSpin = actor.SourceSpinCount > 2;
+                    if (OriginalChangeSemantics) SetKnownCodeReturn(slowerSpin ? 1 : 0);
+                    if (OriginalChangeSemantics ? (Mode & SourceAnimationModes.Zero) == 0 : slowerSpin)
                     {
                         program = RequireProgram(i.Text);
                         pc = 0;
@@ -590,6 +715,13 @@ namespace Blitz.Gameplay
             }
         }
 
+        private void SetKnownCodeReturn(int returned)
+        {
+            CodeReturnEvidence = SourceAnimationCodeReturnEvidence.KnownInt;
+            if (returned == 0) Mode |= SourceAnimationModes.Zero;
+            else Mode &= ~SourceAnimationModes.Zero;
+        }
+
         private static bool HasBall(ActorState actor, Func<int, int> random)
         {
             // player.c plyr_have_ball: not merely the carrier-ID comparison.
@@ -602,7 +734,7 @@ namespace Blitz.Gameplay
             SourceJointPose origin = pendingTransitionOrigin ?? EvaluatePose();
             if ((Mode & SourceAnimationModes.TurnHack) != 0)
             {
-                origin = SourcePoseMath.Turn(origin, turnHack);
+                origin = TurnTransitionOrigin(origin, turnHack);
                 Mode &= ~SourceAnimationModes.TurnHack;
             }
             pendingTransitionOrigin = null;
@@ -705,14 +837,23 @@ namespace Blitz.Gameplay
             FrameOrdinal = (int)floatingFrame;
             hold = 1;
             SourceAnimationFrame from = Frame(FrameOrdinal);
-            int next = Math.Min(FrameOrdinal + 1, clip.SelectedSourceFrames.Count - 1);
-            SourceAnimationFrame to = Frame(next);
-            float t = floatingFrame - FrameOrdinal;
-            SourceVector3 root = new SourceVector3(
-                from.ScaledRoot.X + (to.ScaledRoot.X - from.ScaledRoot.X) * t,
-                from.ScaledRoot.Y + (to.ScaledRoot.Y - from.ScaledRoot.Y) * t,
-                from.ScaledRoot.Z + (to.ScaledRoot.Z - from.ScaledRoot.Z) * t);
-            ApplyRoot(actor, root, from.ScaledRoot.Y);
+            float t = Fraction();
+            SourceVector3 first = OriginalChangeSemantics
+                ? ScaleRoot(from.ScaledRoot, actor.ModelScale) : from.ScaledRoot;
+            SourceVector3 root = first;
+            if (t > 0f)
+            {
+                int next = Math.Min(FrameOrdinal + 1, clip.SelectedSourceFrames.Count - 1);
+                SourceAnimationFrame to = Frame(next);
+                SourceVector3 last = OriginalChangeSemantics
+                    ? ScaleRoot(to.ScaledRoot, actor.ModelScale) : to.ScaledRoot;
+                root = new SourceVector3(
+                    first.X + (last.X - first.X) * t,
+                    first.Y + (last.Y - first.Y) * t,
+                    first.Z + (last.Z - first.Z) * t);
+            }
+            if (OriginalChangeSemantics) ApplyScaledRoot(actor, root, first.Y);
+            else ApplyRoot(actor, root, from.ScaledRoot.Y);
         }
 
         private void NextFrame(ActorState actor, int ticks)
@@ -729,6 +870,16 @@ namespace Blitz.Gameplay
 
         private void ApplyRoot(ActorState actor, SourceVector3 root, float anchorY)
         {
+            ApplyScaledRoot(actor, ScaleRoot(root, actor.ModelScale), anchorY * actor.ModelScale);
+        }
+
+        private static SourceVector3 ScaleRoot(SourceVector3 root, float scale)
+        {
+            return new SourceVector3(root.X * scale, root.Y * scale, root.Z * scale);
+        }
+
+        private void ApplyScaledRoot(ActorState actor, SourceVector3 scaled, float anchorY)
+        {
             if ((Mode & 0x00800000u) != 0)
             {
                 if (PuppetPosition == null) throw Failure("unbound original puppet position");
@@ -737,8 +888,6 @@ namespace Blitz.Gameplay
             }
             if ((Mode & SourceAnimationModes.Secondary) != 0)
                 return;
-            var scaled = new SourceVector3(root.X * actor.ModelScale, root.Y * actor.ModelScale,
-                root.Z * actor.ModelScale);
             if ((Mode & SourceAnimationModes.AnchorXZ) != 0)
                 Mode &= ~SourceAnimationModes.AnchorXZ;
             else
@@ -750,7 +899,7 @@ namespace Blitz.Gameplay
             if ((Mode & SourceAnimationModes.AnchorY) != 0)
             {
                 Mode &= ~SourceAnimationModes.AnchorY;
-                SourcePlayerDriver.MoveSourceY(actor, actor.SourceRoot.Y - anchorY * actor.ModelScale);
+                SourcePlayerDriver.MoveSourceY(actor, actor.SourceRoot.Y - anchorY);
             }
             actor.SourceRoot = scaled;
             if ((Mode & 0x00400000u) != 0)
@@ -889,6 +1038,19 @@ namespace Blitz.Gameplay
             Secondary = new SourceAnimationLayerState(library, actorId, true, programExtension);
         }
 
+        internal void BindSourcePoseInterpolation(ISourcePoseInterpolation interpolation)
+        {
+            Primary.CheckPoseInterpolationBinding(interpolation);
+            Secondary.CheckPoseInterpolationBinding(interpolation);
+            Primary.BindSourcePoseInterpolation(interpolation);
+            Secondary.BindSourcePoseInterpolation(interpolation);
+        }
+
+        internal void BindOriginalChangeSemantics()
+        {
+            Primary.OriginalChangeSemantics = Secondary.OriginalChangeSemantics = true;
+        }
+
         internal void SetScriptSelector(Func<string, ActorState, Func<int, int>, string> selector)
         {
             Primary.DynamicScript = Secondary.DynamicScript = selector;
@@ -944,7 +1106,7 @@ namespace Blitz.Gameplay
         internal void FullBody(string script, ActorState actor, long tick, Func<int, int> random,
             AnimationSelectionEvidence evidence)
         {
-            SourceJointPose composite = CompositePose(actor);
+            SourceJointPose composite = Primary.OriginalChangeSemantics ? Primary.EvaluatePose() : CompositePose(actor);
             Secondary.ClearLowModes();
             Evidence = evidence;
             Primary.Change(script, actor, tick, random, composite);

@@ -143,11 +143,14 @@ namespace Blitz.Gameplay
                 SourceMatchFlow.PlaySelectionCountdownStart(Model.Quarter - 1), () => ++sourceFireNextSerial,
                 function => BeginSourceProcess(function, -1, 0), call =>
                 {
-                    sourceSelectionSounds.Add(call);
+                    SourceProcessSoundCall output = EmitSourceProcessSound(SourceProcessSoundKind.SelectionTimer,
+                        "CLOCK_LOW_SND", Model.SourceCurrentCursorBank, call.PlaylistId, call.Volume, call.Pan, call.PriorityWord);
+                    var ordered = new SourceSelectionTimerSound(call.SourceTick, call.ProcessSerial, call.Number, output);
+                    sourceSelectionSounds.Add(ordered);
                     try
                     {
                         Action<SourceSelectionTimerSound> handler = SourceSelectionTimerSoundRaised;
-                        if (handler != null) handler(call);
+                        if (handler != null) handler(ordered);
                     }
                     catch { sourceSoundVmFailed = true; throw; }
                 });

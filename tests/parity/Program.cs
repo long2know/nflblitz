@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Linq;
 using Blitz.Gameplay;
+using RulesCallerChecks = HostAdapterChecks.RulesCallerChecks;
 
 internal static class Program
 {
@@ -12,6 +13,7 @@ internal static class Program
     private static readonly List<string> FailureDetails = new List<string>();
     private static readonly Dictionary<string, int> Compared = new Dictionary<string, int>();
     private static readonly Dictionary<string, int> OriginalOnly = new Dictionary<string, int>();
+    internal static int AssertionCount { get { return assertions; } }
 
     internal static void Check(string label, bool condition)
     {
@@ -204,6 +206,28 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--rules-callers")
+            return RulesCallers(args);
+        if (args.Contains("--source-affine-math-only"))
+        {
+            if (args.Length != 1)
+            {
+                Console.Error.WriteLine("Usage: ParityChecks --source-affine-math-only");
+                return 2;
+            }
+            return SourceAffineMathOnly();
+        }
+        if (args.Contains("--source-pose-math-only"))
+        {
+            if (args.Length != 1)
+            {
+                Console.Error.WriteLine("Usage: ParityChecks --source-pose-math-only");
+                return 2;
+            }
+            return SourcePoseMathOnly();
+        }
+        if (args.Length > 0 && args[0] == "--stream-component")
+            return StreamComponent(args);
         string c2Inputs = null;
         if (args.Length >= 2 && args[args.Length - 2] == "--c2-inputs")
         {
@@ -241,12 +265,20 @@ internal static class Program
             }
             foreach (string required in new[] { "classify", "spot", "clock", "clock_pair", "field", "world", "discard", "onside" })
                 Check("nonempty production comparison group " + required, Compared.ContainsKey(required) && Compared[required] > 0);
+            int beforeStream = assertions;
+            StreamChecks.RunSynthetic();
+            int streamAssertions = assertions - beforeStream;
             int beforeContracts = assertions;
             FullKernelInputs fullKernelInputs = HostAdapterChecks.Enabled ? FullKernelInputs.Load(args[2],
                 soundFunctionsPath: args.Length == 4 ? args[3] : null, c2InputsPath: c2Inputs) : null;
-            ContractChecks.Run(args[1], fullKernelInputs);
+            int portableLibraryAssertions, sourcePoseAssertions;
+            ContractChecks.Run(args[1], fullKernelInputs, out portableLibraryAssertions, out sourcePoseAssertions);
             int contractAssertions = assertions - beforeContracts;
             Check("nonzero contract assertions", contractAssertions >= 60);
+            int beforeRules = assertions;
+            if (fullKernelInputs != null && fullKernelInputs.IsContactProfile)
+                RulesCallerChecks.Run(fullKernelInputs);
+            int rulesCallerAssertions = assertions - beforeRules;
             var summary = new
             {
                 status = failures == 0 ? "passed" : "failed",
@@ -255,6 +287,12 @@ internal static class Program
                 original_c_only_no_production_geometry_seam = OriginalOnly,
                 assertions,
                 contract_assertions = contractAssertions,
+                retained_contract_assertions = contractAssertions - portableLibraryAssertions - sourcePoseAssertions,
+                portable_library_contract_assertions = portableLibraryAssertions,
+                source_pose_contract_assertions = sourcePoseAssertions,
+                rules_caller_cases = RulesCallerChecks.CaseCount,
+                rules_caller_assertions = rulesCallerAssertions,
+                stream_component_assertions = streamAssertions,
                 full_kernel_host_adapter_exercised = HostAdapterChecks.Enabled,
                 real_input_fixture_sha256 = fullKernelInputs == null ? null : fullKernelInputs.ManifestSha256,
                 real_animation_library_sha256 = fullKernelInputs == null ? null : fullKernelInputs.Animations.InventorySha256,
@@ -264,6 +302,123 @@ internal static class Program
                 browser_or_unity_executed = false
             };
             Console.WriteLine(JsonSerializer.Serialize(summary));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int RulesCallers(string[] args)
+    {
+        if (args.Length != 2 && args.Length != 3)
+        {
+            Console.Error.WriteLine("Usage: ParityChecks --rules-callers actual-contact272-fixture.json [sound-functions.safn]");
+            return 2;
+        }
+        try
+        {
+            RulesCallerChecks.Run(FullKernelInputs.Load(args[1],
+                soundFunctionsPath: args.Length == 3 ? args[2] : null));
+            Console.WriteLine(JsonSerializer.Serialize(new {
+                schema = "source-rules-callers-20261110/v1", status = failures == 0 ? "passed" : "failed",
+                cases = RulesCallerChecks.CaseCount, assertions, failures, failure_details = FailureDetails,
+                rows = RulesCallerChecks.Rows, declared_result_boundaries = true,
+                natural_special_teams_or_full_game_parity_claimed = false
+            }));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int SourceAffineMathOnly()
+    {
+        try
+        {
+            SourceAffineChecks.Run();
+            Check("nonzero authored affine assertions", assertions > 0);
+            Console.WriteLine(JsonSerializer.Serialize(new {
+                schema = "source-affine-authored-validation-receipt/v1",
+                status = failures == 0 ? "passed-authored-affine-math-only" : "failed-authored-affine-math-only",
+                assertions, failures, failure_details = FailureDetails,
+                synthetic_data_only = true, sampler_and_geometry_executed = true,
+                file_or_source_input_loading = false, game_host_or_vm_executed = false,
+                actor_or_animation_layer_state_constructed = false, browser_or_unity_executed = false,
+                private_reference_executed = false, full_gameplay_parity_claimed = false,
+                all16 = "OPEN", fullWorld = "STOP"
+            }));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int SourcePoseMathOnly()
+    {
+        try
+        {
+            ContractChecks.RunSourcePoseMath();
+            Check("nonzero pure source-pose assertions", assertions > 0);
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                status = failures == 0 ? "passed-synthetic-source-pose-math-only"
+                    : "failed-synthetic-source-pose-math-only",
+                assertions,
+                failures,
+                failure_details = FailureDetails,
+                synthetic_data_only = true,
+                private_fixed_tuple_executed = false,
+                file_or_source_input_loading = false,
+                game_host_or_vm_executed = false,
+                actor_or_animation_layer_state_constructed = false,
+                renderer_sampler_chain_or_geometry_executed = false,
+                full_kernel_host_adapter_exercised = false,
+                full_gameplay_parity_claimed = false,
+                browser_or_unity_executed = false,
+                all16 = "OPEN"
+            }));
+            return failures == 0 ? 0 : 1;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 2;
+        }
+    }
+
+    private static int StreamComponent(string[] args)
+    {
+        if (args.Length > 2)
+        {
+            Console.Error.WriteLine("Usage: ParityChecks --stream-component [explicit-pinned-PSDLINE1.json]");
+            return 2;
+        }
+        try
+        {
+            if (args.Length == 2) StreamChecks.RunAdmittedClip(args[1]);
+            StreamChecks.RunSynthetic();
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                status = failures == 0 ? "passed" : "failed",
+                selector = "stream-component",
+                admitted_PSDLINE1_checked = args.Length == 2,
+                assertions,
+                failures,
+                failure_details = FailureDetails,
+                game_or_host_constructed = false,
+                source_wakes_or_raw_streams_executed = false,
+                original_c_or_native_executed = false,
+                full_gameplay_parity_claimed = false
+            }));
             return failures == 0 ? 0 : 1;
         }
         catch (Exception exception)

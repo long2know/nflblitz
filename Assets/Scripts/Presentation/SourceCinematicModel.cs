@@ -207,6 +207,8 @@ namespace Blitz.Presentation
         private float sinTheta, cosTheta, sinPhi, cosPhi;
         private float pointSinTheta, pointCosTheta, pointSinPhi, pointCosPhi, pointRatio;
         private SourceVector3 pointStart, pointMinimum;
+        private SourceVector3 courseTarget, courseTrackingVelocity;
+        private float courseNormalSin, courseNormalCos, courseViewSin, courseViewCos, courseHorizontalRatio, courseYRatio;
         private int pointIndex;
         private float splineTargetY, trackingBuffer = 2f, trackingAcceleration = .08f;
         private SourceVector3[] spline;
@@ -292,7 +294,17 @@ namespace Blitz.Presentation
             if (mode <= 6) flags = Zoom(target);
             else if (mode <= 9) flags = FloatSpline(target);
             else if (mode <= 12) flags = Rail(target);
-            else flags = PointToPoint(target);
+            else if (mode == 17)
+            {
+                if (!CourseCameraTarget(target, out flags))
+                {
+                    RevertToNormal();
+                    early = new SourceCinematicFrame(State, false, true, true, tick, entry);
+                    return -1;
+                }
+            }
+            else if (mode == 19) flags = PointToPoint(target);
+            else throw new InvalidOperationException("The selected original camera mode has no implemented consumer.");
             tick++;
             return flags;
         }
@@ -495,6 +507,49 @@ namespace Blitz.Presentation
             focus = new SourceVector3(target.Position.X, target.Position.Y + 5f * (390f / 300f * 2f), target.Position.Z);
             if (tick <= entry.TravelTicks) eye = SourceCinematicMath.Bezier(spline, tick, entry.TravelTicks);
             return NewTheta;
+        }
+
+        private bool CourseCameraTarget(SourceCinematicTarget target, out int flags)
+        {
+            SourceVector3 point = entry.ControlPoints[pointIndex];
+            flags = NewTheta;
+            if (point.X == 0f && point.Y == 0f && point.Z == 0f) return false;
+            if (tick == 0)
+            {
+                float inverse = 1f / (float)Math.Sqrt(point.X * point.X + point.Z * point.Z);
+                courseNormalSin = point.X * inverse; courseNormalCos = point.Z * inverse;
+                courseTarget = target.Position;
+                float x = eye.X - focus.X, z = eye.Z - focus.Z;
+                float horizontal = (float)Math.Sqrt(x * x + z * z);
+                if (!(horizontal > 0f))
+                    throw new InvalidOperationException("Original CAM_CO_C has an undefined vertical/coincident initial view.");
+                courseViewSin = x / horizontal; courseViewCos = z / horizontal;
+                courseHorizontalRatio = horizontal * inverse;
+                courseYRatio = Math.Abs((eye.Y - focus.Y) / point.Y);
+                desired = new SourceVector3(courseTarget.X, courseTarget.Y + 5f * (390f / 300f * 2f), courseTarget.Z);
+                AccelerateDecelerate(0, 50);
+                courseTrackingVelocity = default(SourceVector3);
+            }
+            else
+            {
+                trackingBuffer = 2f; trackingAcceleration = .08f;
+                SourceVector3 delta = SourceCinematicMath.Subtract(target.Position, courseTarget);
+                courseTrackingVelocity = SourceCinematicMath.Scale(new SourceVector3(
+                    Buffered(delta.X), Buffered(delta.Y), Buffered(delta.Z)), .35f);
+                courseTarget = SourceCinematicMath.Add(courseTarget, courseTrackingVelocity);
+                desired = courseTarget;
+                AccelerateDecelerate(tick, 50);
+                velocity = SourceCinematicMath.Add(velocity, acceleration);
+                focus = SourceCinematicMath.Add(SourceCinematicMath.Add(focus, velocity), courseTrackingVelocity);
+            }
+            float rx = point.X * courseNormalCos - point.Z * courseNormalSin;
+            float rz = point.X * courseNormalSin + point.Z * courseNormalCos;
+            float xProjected = rz * courseViewSin + rx * courseViewCos;
+            float zProjected = rz * courseViewCos - rx * courseViewSin;
+            eye = new SourceVector3(xProjected * courseHorizontalRatio + focus.X,
+                point.Y * courseYRatio + focus.Y, zProjected * courseHorizontalRatio + focus.Z);
+            pointIndex++;
+            return true;
         }
 
         private int PointToPoint(SourceCinematicTarget target)

@@ -16,7 +16,7 @@ RESOURCES = ".squad/.scratch/SourceData/contact-profile"
 EXTRA9 = ".squad/.scratch/SourceData/c2-extra9"
 OLD9 = ".squad/.scratch/SourceData/c2-old9"
 M1 = ".squad/.scratch/SourceData/c2-m1"
-PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-12000"
+PUBLIC_CASE = "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000"
 PUBLIC_FIXTURE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.jsonl.gz"
 PUBLIC_RECIPE = f"tests/movement-callers/fixtures/{PUBLIC_CASE}.recipe.json"
 PUBLIC_REPLAY = f".squad/.scratch/SourceData/{PUBLIC_CASE}.jsonl"
@@ -415,7 +415,9 @@ class ContactWorkflow(unittest.TestCase):
         producer = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(producer)
         producer.load_recipe(ROOT / PUBLIC_RECIPE, PUBLIC_CASE)
-        self.assertEqual(producer.RECORDINGS[PUBLIC_CASE]["public_sha256"],
+        self.assertEqual(producer.recording(PUBLIC_CASE)["public_sha256"],
+                         "5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa")
+        self.assertEqual(producer.RECORDINGS[producer.SOURCE_TIMER_CASE]["public_sha256"],
                          "35366e32021226f7a9fd37bfa2c0123cca53cf96f7faeab2fe3becdb0d274331")
         self.assertEqual(producer.RECORDINGS[POSSESSION_PUBLIC_CASE]["public_sha256"],
                          "33a1686f07230f0af4994da14c2b68cc439debb5cd3de9086c8829b44a9b9f0e")

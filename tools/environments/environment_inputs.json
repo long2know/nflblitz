@@ -5,7 +5,7 @@
   "sourceRootTree": "a7e0352125d46075b7d98e87253ab89b9160a4c7",
   "toolsRepository": "historicalsource/midwayvideo",
   "toolsCommit": "1792293aaaea00a919b59e8c05716978e85b4333",
-  "description": "Metadata only. Active data2.c includes field2/stadpie, not stadium.sdl/STADIUM2.SDL. Exact original texture basenames selected by field.c; no art, public vertices, download URLs, or machine paths. This recipe pins Bears endzones; other home prefixes fail explicitly.",
+  "description": "Metadata only. Active data2.c includes field2/stadpie, not stadium.sdl/STADIUM2.SDL. Original geometry/converter and historical texture pins are retained. The explicit venue acquisition group resolves the complete seven-field/four-stadium/31-active-prefix texture closure from pinned field.c, SDL and teamdata.c against the fully reconstructed sourceRootTree; no art, vertices, download URLs or machine paths.",
   "converterEvidence": [
     {"path":"tools/cvtmod/CVTMOD.C","bytes":86233,"gitBlobSha1":"00173a92849bb7d1bc1e4fa69248ff9e2679a5e5","sha256":"015b40ccd001e27a1e4400020f9e6ab2474d6de535c36cd58bc3cba450260d02"},
     {"path":"tools/cvtmod/CVTMOD.L","bytes":32361,"gitBlobSha1":"53ae8aeedf58d7a390470d2262885e9b33420c1b","sha256":"90e4d660ebaab62acdd7bf602aabd0c0449fc61c35a34e4f0f7db260b72ae85f"},
@@ -23,7 +23,8 @@
     {"path":"lib/ani3d/pipe3D.c","bytes":32886,"gitBlobSha1":"0966ecaf0d7eef7d9c635a97899a421ce1eeea41"},
     {"path":"models/field2.sdl","bytes":191768,"gitBlobSha1":"32c1a1da778dc6be46f3c516e9fabd3804e657ae"},
     {"path":"models/models.mak","bytes":2800,"gitBlobSha1":"75fb787ac9096101b51c920ba32cadbb593315f6"},
-    {"path":"models/stadpie.sdl","bytes":292467,"gitBlobSha1":"e28653b5db04e609872aa4bdd35a969c22c97675"}
+    {"path":"models/stadpie.sdl","bytes":292467,"gitBlobSha1":"e28653b5db04e609872aa4bdd35a969c22c97675"},
+    {"path":"teamdata.c","bytes":119063,"gitBlobSha1":"e5340046b33e1d2addc702feb7a94d1a0f69afdb"}
   ],
   "textures": [
     {"path":"img3d/Grass1_m.tga","bytes":262188,"gitBlobSha1":"7f4a720ebcf18b6d064f181bc1ef3dee21b9964c"},

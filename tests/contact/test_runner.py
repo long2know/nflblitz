@@ -38,6 +38,23 @@ class ContactRunnerTests(unittest.TestCase):
                 self.assertNotEqual(old, new)
                 self.assertTrue(assertion.startswith("M1 running-taunt "))
 
+    def test_partial_cursor_controls_leave_original_speech_dispatch_unchanged(self):
+        from c2_controls import m1_specifications
+        rows = [row for row in m1_specifications() if row[0] == "m1-partial-cursor-dropped"]
+        rows += [row for row in run.c2_specifications(run.ROOT) if row[0] == "partial-draw-cursor-dropped"]
+        for identity, relative, old, new, _ in rows:
+            with self.subTest(identity=identity):
+                current = (run.ROOT / relative).read_text()
+                original_speech = (
+                    "AdvanceSourceSoundRandom(execution, error.PartialResult);\n"
+                    "                sourceSoundVmPending.Add(new SourceSoundVmDispatch(cue, execution, state,"
+                )
+                self.assertIn(original_speech, current)
+                mutated = current.replace(old, new)
+                self.assertIn(original_speech, mutated)
+                self.assertNotIn(old, mutated)
+                self.assertEqual(current, mutated.replace(new, old))
+
     def summary(self):
         return {
             "schema": "source-contact-checks/v1", "status": "passed", "assertions": run.EXPECTED_ASSERTIONS["kernel"],

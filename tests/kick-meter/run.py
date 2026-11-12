@@ -86,6 +86,9 @@ EXTRA_PURE = (
     "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
     "Assets/Scripts/Presentation/SourceHudModel.cs",
     "Assets/Scripts/Presentation/SourceHudViewport.cs",
+    "Assets/Scripts/Presentation/SourceCabinetScreenModel.cs",
+    "Assets/Scripts/Presentation/SourceHudComposer.Records.cs",
+    "Assets/Scripts/Presentation/SourceRecordScreenModel.cs",
     HUD,
 )
 

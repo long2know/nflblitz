@@ -17,6 +17,21 @@ namespace Blitz.Runtime
         private SourceInterfaceServices sourceServices;
         private SourceCabinetUnityInput sourceInput;
         private SourceSoundVmTransport soundTransport;
+        private ISourceNativeSoundOutput nativeSoundOutput;
+        private SourceUnityPcmSoundOutput ownedNativeSoundOutput;
+        private sealed class NativeSoundItem
+        {
+            internal long Sequence;
+            internal SourceSoundVmDispatch Vm;
+            internal SourceDirectSoundCall Direct;
+            internal SourceProcessSoundCall Process;
+            internal SourceProcessSoundControl Control;
+        }
+        private readonly System.Collections.Generic.Queue<NativeSoundItem> nativeSoundPending =
+            new System.Collections.Generic.Queue<NativeSoundItem>();
+        private long nativeSoundAccepted, nativeSoundEpoch;
+        private SourceBootSoundOutput unboundNativeBootSound;
+        private SourceInstructionRuntime sourceInstructions;
         private Blitz.Gameplay.GameSimulation simulation;
         private SourceFireSpfxRenderer sourceFireRenderer;
         private SourceFireSpfxAsset sourceFireAsset;
@@ -52,6 +67,8 @@ namespace Blitz.Runtime
         public Blitz.Gameplay.GameSimulation SourceSimulation { get { return IsSourceProfile ? simulation : null; } }
         public SourceCinematicPlayback SourcePlayback { get { return IsSourceProfile && playCamera != null ? playCamera.SourcePlayback : null; } }
         public SourceSoundVmTransport SoundVmTransport { get { return soundTransport; } }
+        public SourceBootSoundOutput UnboundNativeBootSound { get { return unboundNativeBootSound; } }
+        public SourceInstructionRuntime SourceInstructions { get { return sourceInstructions; } }
         public System.Collections.Generic.IReadOnlyList<SourceContactSoundCue> UnresolvedContactSoundCalls
         { get { return SourceSimulation == null ? null : SourceSimulation.UnresolvedContactSoundCalls; } }
         public event Action<SourceGameEvent> SourceEventRaised;
@@ -136,10 +153,23 @@ namespace Blitz.Runtime
                         if (handler != null) handler(call);
                     };
                     sourceInput = new SourceCabinetUnityInput(((ISourceMatchState)simulation.State).Match.Configuration,
-                        sourceServices.Hud.Data.Input, sourceServices.NativeGamepadsEnabled);
+                        sourceServices.Hud.Data.Input, sourceServices.NativeGamepadsEnabled,
+                        preserveSourceDigitalChanges: profile.IsContact282C2M1DefaultAudibles);
                 }
                 bridge = new FixedStepBridge(simulation);
-                field = new FieldScene(transform, prefab, animations);
+                int? actualSourceField = null;
+                string actualSourceHomePrefix = null;
+                if (IsSourceProfile)
+                {
+                    SourcePresentationSettings actualPresentation = SourceInterfacePresentation.Settings(State);
+                    SourceMatchConfiguration actualMatch = ((ISourceMatchState)State).Match.Configuration;
+                    int actualHomeTeam = actualPresentation.DesignatedHomeSide == TeamId.Home
+                        ? actualMatch.HomeTeam.TeamIndex : actualMatch.AwayTeam.TeamIndex;
+                    actualSourceField = sourceServices.MovementBootstrap.FieldIndex;
+                    actualSourceHomePrefix = SourcePlayerProvider.ResolveRequiredTeamPresentation(prefab)
+                        .Rosters.GetTeamData(actualHomeTeam).UniformPrefix;
+                }
+                field = new FieldScene(transform, prefab, animations, actualSourceField, actualSourceHomePrefix);
                 if (IsSourceProfile)
                 {
                     SourcePresentationSettings settings = SourceInterfacePresentation.Settings(State);
@@ -162,7 +192,11 @@ namespace Blitz.Runtime
                     playCamera.ConfigureSourceStage(State, () => simulation.SourceCameraStageOrder,
                         simulation.DrawSourceCameraRandom, state => simulation.SourceCameraRawGameMode,
                         simulation.SourceActorWorldPosition, simulation.ApplySourceCameraFeedback, simulation.SourceCameraProcesses);
-                    RegisterSourceCameraTickProducer(playCamera.SampleAtSourceTick);
+                    RegisterSourceCameraTickProducer((state, tick) => {
+                        foreach (SourceProcessCameraSelection selection in simulation.TakeSourceProcessCameraSelections())
+                            playCamera.SourcePlayback.ConsumeSourceProcessCamera(selection);
+                        return playCamera.SampleAtSourceTick(state, tick);
+                    });
                     simulation.SourceCameraHeadingProvider = SampleSourceCameraHeading;
                     SourcePresentationCueRaised += ConsumeSourcePresentationCue;
                     AfterHostStep += playCamera.ObserveSourceHostStep;
@@ -308,10 +342,14 @@ namespace Blitz.Runtime
 
         internal void FailSourceMode(Exception error)
         {
+            if (sourceInstructions != null && (sourceInstructions.Consumer.HasInvocation
+                || sourceInstructions.KickoffPresentation != null))
+                sourceInstructions.Abort(error);
             sourceFailure = error.Message;
             waitingForRelease = true;
             if (sourceInput != null) sourceInput.Clear();
             if (bridge != null) bridge.SetActive(false);
+            if (nativeSoundOutput != null) nativeSoundOutput.SetActive(false);
             Debug.LogError("SOURCE MODE ERROR: " + sourceFailure);
         }
 
@@ -357,22 +395,26 @@ namespace Blitz.Runtime
         {
             if (bridge == null || !initializationComplete)
                 return;
-            bridge.Restart();
-            sourceFailure = null;
-            bridge.SetActive(!InputSuspended);
-            lastSourceCameraTick = -1;
-            if (sourceInput != null) sourceInput.Clear();
-            if (SourceSelection != null) SourceSelection.Clear();
-            if (field != null) field.ResetRenderHistory();
-            waitingForRelease = true;
-            hud.ClearNotices();
-            if (IsSourceProfile)
+            try
             {
-                hud.OnSourceHostStep(State);
-                playCamera.ObserveSourceHostStep(State);
-                ForwardInitialSourcePresentationCues();
+                bridge.Restart();
+                sourceFailure = null;
+                bridge.SetActive(!InputSuspended);
+                lastSourceCameraTick = -1;
+                if (sourceInput != null) sourceInput.Clear();
+                if (SourceSelection != null) SourceSelection.Clear();
+                if (field != null) field.ResetRenderHistory();
+                waitingForRelease = true;
+                hud.ClearNotices();
+                if (IsSourceProfile)
+                {
+                    hud.OnSourceHostStep(State);
+                    playCamera.ObserveSourceHostStep(State);
+                    ForwardInitialSourcePresentationCues();
+                }
+                playCamera.Render(State, true);
             }
-            playCamera.Render(State, true);
+            catch (Exception error) when (IsSourceProfile) { FailSourceMode(error); }
         }
 
         private void ReadActionEdges()
@@ -427,8 +469,12 @@ namespace Blitz.Runtime
                 SourceSoundVmDispatch dispatch = soundTransport.TakeForCue(callback);
                 if (dispatch != null && dispatch.Status == SourceSoundVmStatus.Resolved)
                 {
+                    if (nativeSoundOutput != null && (nativeSoundPending.Count == 0 ||
+                        !ReferenceEquals(nativeSoundPending.Peek().Vm, dispatch)))
+                        throw new InvalidOperationException("Native animation audio cannot cross an earlier original direct/process/control output.");
                     playCamera.ConsumeResolvedSourceSound(dispatch, soundTransport.DeliverResolved);
-                    soundTransport.FlushNativePrefix();
+                    if (nativeSoundOutput != null) { nativeSoundPending.Dequeue(); FlushNativeSoundOutputs(); }
+                    else soundTransport.FlushNativePrefix();
                     return;
                 }
             }
@@ -439,7 +485,152 @@ namespace Blitz.Runtime
         {
             if (!IsSourceProfile || soundTransport == null)
                 throw new InvalidOperationException("Bind real raw sound output only on the initialized source profile.");
+            ISourceNativeSoundOutput native = actualConsumer as ISourceNativeSoundOutput;
+            if (native != null && simulation.SourceTick != 0)
+                throw new InvalidOperationException("Bind the native full-output consumer before the first source wake.");
             soundTransport.BindOutput(actualConsumer);
+            if (native != null)
+            {
+                nativeSoundOutput = native;
+                DeliverNativeBootSound();
+            }
+        }
+
+        public SourceUnityPcmSoundOutput BindSourcePortablePcmOutput(
+            System.Collections.Generic.IReadOnlyList<SourceAudioBank> admittedBanks, string authorizationReference,
+            System.Collections.Generic.IReadOnlyList<string> initiallyLoadedBanks, uint reservedTracks, int latencySourceTicks = 12)
+        {
+            if (!IsSourceProfile || soundTransport == null || simulation.SourceTick != 0 || ownedNativeSoundOutput != null)
+                throw new InvalidOperationException("Bind explicit portable Unity PCM once after source initialization and before its first wake.");
+            var output = new SourceUnityPcmSoundOutput(gameObject, admittedBanks, authorizationReference,
+                initiallyLoadedBanks, reservedTracks, latencySourceTicks);
+            try { BindSourceSoundOutput(output); }
+            catch (InvalidOperationException) { output.Dispose(); throw; }
+            ownedNativeSoundOutput = output;
+            return output;
+        }
+
+        private void DeliverNativeBootSound()
+        {
+            foreach (SourceBootSoundOutput call in simulation.TakeSourceBootSoundOutputs())
+            {
+                if (call.OutputSequence <= nativeSoundAccepted)
+                    throw new InvalidOperationException("Native source0 audio cannot be replayed or reordered.");
+                nativeSoundOutput.Consume(call);
+                nativeSoundAccepted = call.OutputSequence;
+            }
+        }
+
+        private void QueueNativeSoundOutputs(SourceSoundVmBatch batch)
+        {
+            if (nativeSoundPending.Count != 0)
+                throw new InvalidOperationException("A previous native source audio batch was not completely delivered.");
+            var ordered = new System.Collections.Generic.SortedDictionary<long, NativeSoundItem>();
+            foreach (SourceSoundVmDispatch call in batch.Dispatches)
+                ordered.Add(call.OutputSequence, new NativeSoundItem { Sequence = call.OutputSequence, Vm = call });
+            foreach (SourceDirectSoundCall call in simulation.TakeSourceDirectSoundCalls())
+                ordered.Add(call.OutputSequence, new NativeSoundItem { Sequence = call.OutputSequence, Direct = call });
+            foreach (SourceProcessSoundCall call in simulation.TakeSourceProcessSoundCalls())
+                ordered.Add(call.OutputSequence, new NativeSoundItem { Sequence = call.OutputSequence, Process = call });
+            foreach (SourceProcessSoundControl call in simulation.TakeSourceSoundControls())
+                ordered.Add(call.OutputSequence, new NativeSoundItem { Sequence = call.OutputSequence, Control = call });
+            foreach (NativeSoundItem item in ordered.Values)
+            {
+                if (item.Sequence <= nativeSoundAccepted)
+                    throw new InvalidOperationException("Native source audio requires fresh genuine common output ordinals.");
+                nativeSoundAccepted = item.Sequence; nativeSoundPending.Enqueue(item);
+            }
+            FlushNativeSoundOutputs();
+        }
+
+        private void FlushNativeSoundOutputs()
+        {
+            while (nativeSoundPending.Count != 0)
+            {
+                NativeSoundItem item = nativeSoundPending.Peek();
+                if (item.Vm != null && item.Vm.HasOriginalAnimationCue) return;
+                if (item.Vm != null) soundTransport.DeliverNextNative(item.Vm);
+                else if (item.Direct != null) nativeSoundOutput.Consume(item.Direct);
+                else if (item.Process != null) nativeSoundOutput.Consume(item.Process);
+                else nativeSoundOutput.Consume(item.Control);
+                nativeSoundPending.Dequeue();
+            }
+        }
+
+        public void BindSourceInstructionPresentation(SourceInstructionHudResources resources,
+            ISourceInstructionSoundBatchBinding sounds, ISourceInstructionObjectFlashBinding objectFlash)
+        {
+            if (!IsSourceProfile || !initializationComplete || sourceFailure != null || sourceInstructions != null)
+                throw new SourceInstructionPresentationException(SourceInstructionPresentationError.InvalidLifecycle,
+                    "Bind one explicit instruction consumer on a healthy initialized source runtime.");
+            sourceInstructions = new SourceInstructionRuntime(simulation, SourceHudAsset, resources,
+                sounds, soundTransport, objectFlash);
+        }
+
+        public void BindSourceKickoffInstructionOwnedHelpers(int allAbcdMask,
+            SourceInstructionProcessIds processIds, ISourceInstructionInputs actualInputs,
+            ISourceInstructionAdmissionState state, int childProcessId, int maximumPlayers,
+            int buttonAMask, int buttonBMask, ISourceKickoffInstructionChildInputs childInputs,
+            ISourceKickoffInstructionPlayerButtons buttons, SourceKickoffInstructionChildOperands operands,
+            ISourceKickoffInstructionChildEffects effects, SourceKickoffInstructionOwnedHelpers helpers,
+            ISourceKickoffInstructionChildReturnBinding returns)
+        {
+            if (!IsSourceProfile || !initializationComplete || sourceFailure != null || sourceInstructions == null
+                || simulation.SourceTick != 0)
+                throw new SourceInstructionPresentationException(SourceInstructionPresentationError.InvalidLifecycle,
+                    "Bind owned kickoff admission after the actual source runtime/presentation initializes, before its first source tick.");
+            try
+            {
+                sourceInstructions.BindSourceKickoffInstructionOwnedHelpers(allAbcdMask, processIds, actualInputs,
+                    state, childProcessId, maximumPlayers, buttonAMask, buttonBMask, childInputs,
+                    buttons, operands, effects, helpers, returns);
+            }
+            catch (Exception error)
+            {
+                if (sourceInstructions.Consumer.Presentation.Failure != null) FailSourceMode(error);
+                throw;
+            }
+        }
+
+        public long InvokeSourceInstructions(int allAbcdMask, SourceInstructionProcessIds processIds,
+            ISourceInstructionInputs actualInputs)
+        {
+            if (!IsSourceProfile || !initializationComplete || sourceInstructions == null || sourceFailure != null)
+                throw new SourceInstructionPresentationException(SourceInstructionPresentationError.InvalidLifecycle,
+                    "Explicit instruction invocation requires the actual bound presentation/input/resource services.");
+            return sourceInstructions.Invoke(allAbcdMask, processIds, actualInputs);
+        }
+
+        public void BindSourceKickoffInstructionHud(int allAbcdMask,
+            SourceInstructionProcessIds processIds, ISourceInstructionInputs actualInputs,
+            ISourceInstructionAdmissionState state, int childProcessId, int maximumPlayers,
+            int buttonAMask, int buttonBMask, ISourceKickoffInstructionChildInputs childInputs,
+            ISourceKickoffInstructionPlayerButtons buttons, SourceKickoffInstructionChildOperands operands,
+            SourceKickoffInstructionHudBindings bindings, ISourceKickoffInstructionSoundBatchBinding sounds,
+            SourceKickoffInstructionOwnedHelpers helpers, ISourceKickoffInstructionChildReturnBinding returns)
+        {
+            if (!IsSourceProfile || !initializationComplete || sourceFailure != null || sourceInstructions == null
+                || simulation.SourceTick != 0)
+                throw new SourceInstructionPresentationException(SourceInstructionPresentationError.InvalidLifecycle,
+                    "Bind the explicit kickoff HUD after the actual source presentation initializes, before its first source tick.");
+            try
+            {
+                sourceInstructions.BindSourceKickoffInstructionHud(allAbcdMask, processIds, actualInputs, state,
+                    childProcessId, maximumPlayers, buttonAMask, buttonBMask, childInputs, buttons,
+                    operands, bindings, sounds, helpers, returns);
+            }
+            catch (Exception error)
+            {
+                if (sourceInstructions.Consumer.Presentation.Failure != null) FailSourceMode(error);
+                throw;
+            }
+        }
+
+        internal void DrawSourceInstructions(SourceHudViewport viewport)
+        {
+            if (sourceInstructions == null || sourceFailure != null) return;
+            try { sourceInstructions.Draw(viewport); }
+            catch (Exception error) { FailSourceMode(error); }
         }
 
         private void OnAfterSimulationStep()
@@ -452,15 +643,43 @@ namespace Blitz.Runtime
             Action<SourceSoundVmDispatch> observed = SourceSoundVmDispatchRaised;
             if (observed != null)
                 foreach (SourceSoundVmDispatch dispatch in batch.Dispatches) observed(dispatch);
-            soundTransport.FlushNativePrefix();
+            if (nativeSoundOutput != null)
+            {
+                DeliverNativeBootSound();
+                nativeSoundOutput.AdvanceTo(simulation.SourceTick);
+                QueueNativeSoundOutputs(batch);
+            }
+            else
+            {
+                if (simulation.SourceCompleteOriginalEnabled && simulation.SourceTick > 0)
+                    foreach (SourceBootSoundOutput call in simulation.TakeSourceBootSoundOutputs())
+                    {
+                        unboundNativeBootSound = call;
+                        throw new InvalidOperationException("Complete-original native audio has actual source0 outputs but no admitted raw-output consumer. Nothing was played.");
+                    }
+                soundTransport.FlushNativePrefix();
+            }
+            if (sourceInstructions != null) sourceInstructions.AfterSourceStep(State);
         }
 
         private void CompleteSourceSoundBatch()
-        { if (soundTransport != null) soundTransport.CompletePresentationBatch(); }
+        {
+            if (nativeSoundOutput != null)
+            {
+                FlushNativeSoundOutputs();
+                if (nativeSoundPending.Count != 0)
+                    throw new InvalidOperationException("Native source audio has an unpaired original animation callback.");
+            }
+            if (soundTransport != null) soundTransport.CompletePresentationBatch();
+        }
 
         private void ResetSourceSoundTransport()
         {
             if (soundTransport != null) soundTransport.Reset();
+            nativeSoundPending.Clear();
+            unboundNativeBootSound = null;
+            if (nativeSoundOutput != null) nativeSoundOutput.Reset(++nativeSoundEpoch);
+            if (sourceInstructions != null) sourceInstructions.OnSourceProgramReset();
             if (sourceFireRenderer != null) sourceFireRenderer.ResetSourceEpoch();
         }
 
@@ -552,6 +771,8 @@ namespace Blitz.Runtime
             if (SourceSelection != null) SourceSelection.ClearPendingInput();
             if (bridge != null)
                 bridge.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
+            if (nativeSoundOutput != null)
+                nativeSoundOutput.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
             if (field != null)
                 field.ResetRenderHistory();
         }
@@ -565,10 +786,14 @@ namespace Blitz.Runtime
         {
             if (bridge != null)
                 bridge.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
+            if (nativeSoundOutput != null)
+                nativeSoundOutput.SetActive(initializationComplete && sourceFailure == null && !InputSuspended);
         }
 
         private void OnDestroy()
         {
+            if (ownedNativeSoundOutput != null) ownedNativeSoundOutput.Dispose();
+            if (sourceInstructions != null) sourceInstructions.Dispose();
             if (IsSourceProfile && playCamera != null)
             {
                 SourcePresentationCueRaised -= ConsumeSourcePresentationCue;

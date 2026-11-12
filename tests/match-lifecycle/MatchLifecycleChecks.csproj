@@ -10,8 +10,15 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <BlitzSourceRoot Condition="'$(BlitzSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../</BlitzSourceRoot>
   </PropertyGroup>
-  <ItemGroup>
+  <PropertyGroup Condition="'$(BlitzRulesTransitions)' == 'true'">
+    <DefineConstants>$(DefineConstants);SOURCE_RULE_TRANSITIONS_FULL_PLAYER</DefineConstants>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <StartupObject>SourceRuleTransitionChecks</StartupObject>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BlitzRulesTransitions)' != 'true'">
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
@@ -20,6 +27,12 @@
     <Compile Include="../parity/FullKernelInputs.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
-  <Import Project="../audio/vm/SourceSoundVmSources.props" />
-  <Import Project="../parity/FullKernelSources.props" />
+  <ItemGroup Condition="'$(BlitzRulesTransitions)' == 'true'">
+    <Compile Include="../../tools/source-player/Runtime/*.cs" />
+    <Compile Include="../parity/FullKernelInputs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="../audio/vm/SourceSoundVmSources.props" Condition="'$(BlitzRulesTransitions)' != 'true'" />
+  <Import Project="../parity/FullKernelSources.props" Condition="'$(BlitzRulesTransitions)' != 'true'" />
+  <Import Project="../../tools/source-player/ProductionSources.props" Condition="'$(BlitzRulesTransitions)' == 'true'" />
 </Project>

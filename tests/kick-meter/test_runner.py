@@ -35,7 +35,54 @@ class KickRunnerContracts(unittest.TestCase):
 
     def test_real_compile_closure_includes_existing_cabinet_and_HUD_consumers(self):
         paths = {str(p.relative_to(RUNNER.ROOT)) for p in RUNNER.production_paths()}
-        self.assertEqual(len(paths), 78)
+        expected_by_folder = {
+            "Contracts": """
+                GameplayContracts.cs SourceAnimationContracts.cs SourceCameraContracts.cs
+                SourceConfigurationContracts.cs SourceContactContracts.cs SourceFireSpfxContracts.cs
+                SourceInputContracts.cs SourceInstructionContracts.cs SourceInstructionPresentationContracts.cs
+                SourceKickMeterContracts.cs SourceKickoffInstructionChildContracts.cs SourceMatchContracts.cs
+                SourcePlaySelectionIntroductionContracts.cs SourcePortableProcessContracts.cs
+                SourcePreGameSoundContracts.cs SourcePresentationContracts.cs SourceSavedRecordContracts.cs
+            """,
+            "Gameplay": """
+                GameSimulation.Contact.cs GameSimulation.FireHandicap.cs GameSimulation.FireSpfx.cs
+                GameSimulation.Instructions.cs GameSimulation.Possession.cs GameSimulation.Source.cs
+                GameSimulation.cs GameSnapshot.cs GameplayRules.cs PlayerSimulation.cs SimulationState.cs
+                SourceAnimationPrograms.C2.cs SourceAnimationPrograms.Contact.cs
+                SourceAnimationPrograms.Movement.cs SourceAnimationPrograms.OriginalSound.cs
+                SourceAnimationPrograms.cs SourceAnimationState.cs SourceAnyButtonWait.cs SourceBallDriver.cs
+                SourceC2Callbacks.cs SourceCabinetFlowProcess.cs SourceCatchGeometry.cs SourceCatchRules.cs
+                SourceClock.cs SourceContactDriver.Dispatch.cs SourceContactDriver.cs SourceDroneAI.cs
+                SourceEvasion.cs SourceEvasionLeap.cs SourceInstructionProcess.cs SourceKickMeterProcess.cs
+                SourceKickoffInstructionChildProcess.cs SourceMatchFlow.cs SourceMatchRules.cs SourceMovement.cs
+                SourceMovementIntegration.cs SourceMovementState.cs SourcePassDriver.cs
+                SourcePlaySelectionIntroductionProcess.cs SourcePlaySelectionTimer.cs SourcePlaybook.cs
+                SourcePlayerDriver.cs SourcePortableProcessHost.cs SourcePreGameSoundPrograms.cs
+                SourcePreGameSoundService.cs SourceRandom.cs SourceSoundVm.cs SourceTimeOfPossession.cs
+            """,
+            "AssetImport": """
+                AuthorizedAssetFiles.cs BindPoseMeshBuilder.cs GeneratedCInitializer.cs GeneratedPlayerData.cs
+                GeneratedPlayerReader.cs PlayerImportPlan.cs SourceActorPoseSampler.cs SourceAnimationLibrary.cs
+                SourceAnimationSampling.cs SourceAudioBankReader.cs SourceAudioFunctionData.cs
+                SourceAudioMixerProgram.cs SourceAudioSparseSlots.cs SourceC2CallbackData.cs
+                SourceCinematicLibrary.cs SourceEnvironmentData.cs SourceFireSpfxData.cs SourceFreeBallData.cs
+                SourceInterfaceData.DefaultAudibles.cs SourceInterfaceData.cs SourceInterfaceMovementData.cs
+                SourceNormalCameraData.cs SourceOriginalPresentationData.cs SourceOriginalSoundBindings.cs
+                SourcePlayerPose.cs SourceTeamGeneratedModels.cs SourceTeamInterfacePackage.cs
+                SourceTeamPoppedHeadData.cs SourceTeamPresentationData.cs SourceTeamPresentationModel.cs
+                SourceTeamRosterLibrary.cs
+            """,
+            "Storage": "SourceCustomPlayCodec.cs SourcePlayerRecords.cs",
+            "Presentation": """
+                SourceAudioFunctions.cs SourceC2SoundFunctions.cs SourceCinematicModel.cs
+                SourceOriginalAudioFunctions.cs
+            """,
+            "Runtime": "SourceC2Composition.cs SourceContactComposition.cs",
+        }
+        expected = {"Assets/Scripts/" + folder + "/" + name
+                    for folder, names in expected_by_folder.items() for name in names.split()}
+        self.assertSetEqual(paths, expected,
+                            "The kernel closure must retain every named base source plus OriginalSound programmes.")
         self.assertIn("Assets/Scripts/Gameplay/GameSimulation.Possession.cs", paths)
         self.assertIn("Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs", paths)
         self.assertIn("Assets/Scripts/Contracts/SourceKickMeterContracts.cs", paths)
@@ -47,7 +94,10 @@ class KickRunnerContracts(unittest.TestCase):
         self.assertIn("Assets/Scripts/AssetImport/SourceFreeBallData.cs", paths)
         self.assertIn("Assets/Scripts/AssetImport/SourceNormalCameraData.cs", paths)
         self.assertIn("Assets/Scripts/Contracts/SourceCameraContracts.cs", paths)
-        self.assertEqual(len(RUNNER.EXTRA_PURE), 5)
+        self.assertIn("Assets/Scripts/Storage/SourcePlayerRecords.cs", paths)
+        self.assertIn("Assets/Scripts/Storage/SourceCustomPlayCodec.cs", paths)
+        self.assertIn("Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs", paths)
+        self.assertEqual(len(RUNNER.EXTRA_PURE), 8)
         for name in RUNNER.EXTRA_PURE:
             self.assertTrue((RUNNER.ROOT / name).is_file(), name)
 
@@ -85,8 +135,11 @@ class KickRunnerContracts(unittest.TestCase):
 
         common = ("animations,pivots,playbook,Configuration(),teams.Rosters,PresentationSettings,"
                   "MovementData,MovementSettings,SoundVmData")
-        m1 = common + ",bootstrap,compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics)"
+        m1_arguments = common + ",bootstrap,compatibility:compatibility,fireEffects:fireEffects,kickMeterMetrics:kickMetrics"
+        m1 = m1_arguments + ")"
         expected = [
+            "SourceC2Composition.CreateDefaultAudiblesSimulation(" + m1_arguments +
+            ",defaultAudibles:DefaultAudibles,impactLibrary:SourcePlayerProvider.ResolveRequiredCinematicLibrary(prefab))",
             "SourceC2Composition.CreatePreSnapSwitchSimulation(" + m1,
             "SourceC2Composition.CreateM1Simulation(" + m1,
             "SourceC2Composition.CreateSimulation(" + common + ",bootstrap,kickMeterMetrics:kickMetrics)",
@@ -96,10 +149,13 @@ class KickRunnerContracts(unittest.TestCase):
                          "SourceInterfaceServices.CreateSimulation must forward typed kick metrics through every actual factory.")
         self.assertIn("if(Profile.UsesC2Data){SourceC2Bootstrapbootstrap="
                       "SourceC2Bootstrap.FromOriginalProgramBootAtSoundBanks(C2Data);", create)
-        for profile, call in zip(("IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"), expected):
+        self.assertIn("if(Profile.IsContact282C2M1DefaultAudibles){"
+                      "originalHud.Data.BindDefaultAudiblePresentation(teams.Rosters,MovementBootstrap);return" +
+                      expected[0] + ";}", create)
+        for profile, call in zip(("IsContact282C2M1PreSnapSwitch", "IsContact281C2M1"), expected[1:3]):
             with self.subTest(profile=profile):
                 self.assertIn("if(Profile." + profile + ")return" + call + ";", create)
-        self.assertTrue(create.endswith("return" + expected[2] + ";}return" + expected[3] + ";"),
+        self.assertTrue(create.endswith("return" + expected[3] + ";}return" + expected[4] + ";"),
                         "Old C2 and C1 routes must retain their own typed-provider forwarding.")
 
         c2 = (RUNNER.ROOT / "Assets/Scripts/Runtime/SourceC2Composition.cs").read_text()
@@ -114,10 +170,26 @@ class KickRunnerContracts(unittest.TestCase):
                 self.assertEqual(METHODS.compact(METHODS.method(c2, factory)),
                                  "returnCreateChecked(SourceTeamResourceProfile." + profile + "," + arguments + ");",
                                  "SourceC2Composition." + factory + " must retain the same typed kick provider.")
+        for factory, profile, capability in (
+                ("CreateCompleteAv306Simulation", "CompleteAv306", ""),
+                ("CreateCompleteAv306TwoStationRecordsSimulation", "CompleteAv306TwoStationRecords",
+                 ",SourceTeamResourceProfile.CompleteAv306TwoStationRecords")):
+            with self.subTest(factory=factory):
+                self.assertTrue(METHODS.compact(METHODS.method(c2, factory)).endswith(
+                    "returnCreateChecked(SourceTeamResourceProfile." + profile + "," + arguments
+                    + ",defaultAudibles" + capability + ");"),
+                    "Only the named TwoStation factory must supply its exact constructor-time capability.")
         checked = METHODS.compact(METHODS.method(c2, "CreateChecked"))
+        self.assertIn(
+            'if(profile.IsCompleteAv306TwoStationRecords!='
+            'ReferenceEquals(twoStationRecordProfile,SourceTeamResourceProfile.CompleteAv306TwoStationRecords))'
+            'thrownewSourceInterfaceException("OnlytheseparatelynamedTwoStationfactorysuppliesitsexactconstructor-timecapability.");',
+            checked)
         self.assertIn("vargame=newGameSimulation(animations,geometry,playbook,configuration,randomFactory,seed,"
                       "rosters,presentation,movementData,movementSettings,c2Bootstrap,handicapSettings,compatibility,"
-                      "fireEffects,kickMeterMetrics);", checked)
+                      "fireEffects,kickMeterMetrics,defaultAudibles:defaultAudibles,"
+                      "twoStationRecordProfile:twoStationRecordProfile);", checked,
+                      "CreateChecked must forward the actual TwoStation capability, not null or another profile.")
         contact = METHODS.compact(METHODS.method(
             (RUNNER.ROOT / "Assets/Scripts/Runtime/SourceContactComposition.cs").read_text(), "CreateSimulation"))
         self.assertIn("vargame=newGameSimulation(animations,geometry,playbook,configuration,randomFactory,seed,"

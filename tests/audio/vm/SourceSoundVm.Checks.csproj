@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="../../parity/FullKernelInputs.cs" />

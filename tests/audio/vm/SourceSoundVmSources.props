@@ -4,11 +4,15 @@
              Link="Production/Presentation/SourceAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs"
              Link="Production/Presentation/SourceC2SoundFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs"
+             Link="Production/Presentation/SourceOriginalAudioFunctions.cs" />
   </ItemGroup>
   <Target Name="RequireActualSourceSoundSelector" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs')"
            Text="Actual frozen SourceAudioFunctions is a required pure Core VM dependency; no stub or omitted selector." />
     <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs')"
            Text="Actual SourceC2SoundFunctions is a required pure Core VM dependency; no stub or omitted selector." />
+    <Error Condition="!Exists('$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs')"
+           Text="Actual SourceOriginalAudioFunctions is a required pure Core VM dependency; no stub or omitted selector." />
   </Target>
 </Project>

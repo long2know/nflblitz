@@ -1,0 +1,134 @@
+name: Publish accepted private container
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-container.yml'
+      - 'tools/source-player/deploy/registry_transfer.py'
+      - 'tools/source-player/deploy/test_registry_transfer.py'
+      - 'tools/source-player/deploy/REGISTRY_PUBLISHING.md'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Ciphertext-only container-transfer prerelease tag
+        required: true
+        type: string
+      secret_name:
+        description: Unique CONTAINER_TRANSFER secret belonging to that release
+        required: true
+        type: string
+      cipher_sha256:
+        description: Trusted encrypted archive SHA256
+        required: true
+        type: string
+      archive_sha256:
+        description: Accepted original docker-save gzip archive SHA256
+        required: true
+        type: string
+      image_id:
+        description: Accepted sha256 image config identity
+        required: true
+        type: string
+      source_tag:
+        description: Exact nflblitz-original local tag saved in the archive
+        required: true
+        type: string
+      build_sha256:
+        description: Accepted embedded build-info.json SHA256
+        required: true
+        type: string
+      source_digest:
+        description: Accepted compiled source inventory SHA256
+        required: true
+        type: string
+      data_manifest_sha256:
+        description: Accepted embedded original data manifest SHA256
+        required: true
+        type: string
+      source_revision:
+        description: Accepted source commit from the immutable image labels
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-container-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Encrypted publisher failure gates (asset-free)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Exercise real crypto and fail-closed publication gates
+        run: python3 -B tools/source-player/deploy/test_registry_transfer.py -v
+
+  publish:
+    name: Publish the accepted saved image without rebuilding
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify transfer, load exact image, publish privately, verify registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_TRANSFER_KEY: ${{ secrets[inputs.secret_name] }}
+          TRANSFER_RELEASE_TAG: ${{ inputs.release_tag }}
+          TRANSFER_SECRET_NAME: ${{ inputs.secret_name }}
+          TRANSFER_CIPHER_SHA256: ${{ inputs.cipher_sha256 }}
+          TRANSFER_ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+          TRANSFER_IMAGE_ID: ${{ inputs.image_id }}
+          TRANSFER_SOURCE_TAG: ${{ inputs.source_tag }}
+          TRANSFER_BUILD_SHA256: ${{ inputs.build_sha256 }}
+          TRANSFER_SOURCE_DIGEST: ${{ inputs.source_digest }}
+          TRANSFER_DATA_MANIFEST_SHA256: ${{ inputs.data_manifest_sha256 }}
+          TRANSFER_SOURCE_REVISION: ${{ inputs.source_revision }}
+        run: python3 -B tools/source-player/deploy/registry_transfer.py publish --work-dir .registry-transfer
+      - name: Remove runner-local transfer and Docker credentials
+        if: always()
+        run: rm -rf -- .registry-transfer
+
+  publication-status:
+    name: Publication status (validation alone is not delivery)
+    if: always()
+    needs: [validate, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Report actual publication outcome
+        env:
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          {
+            printf '# Private container publication\n\n'
+            printf 'Asset-free validation: `%s`.\n\n' "$VALIDATION_RESULT"
+            printf 'Publisher job: `%s`.\n\n' "$PUBLISH_RESULT"
+            case "$PUBLISH_RESULT" in
+              success)
+                printf 'Publisher verification succeeded. Use the verified registry digest receipt in the publish job summary; this status is not a new gameplay acceptance.\n'
+                ;;
+              skipped)
+                printf '**Not published by this run.** Asset-free validation does not build, upload or publish the game. Publication requires an authorized manual dispatch on this repository'\''s main branch with an accepted private-image transfer.\n'
+                ;;
+              *)
+                printf '**No successful publication receipt.** Inspect the publisher failure or cancellation before claiming registry delivery; a partial transfer is not verified publication.\n'
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"

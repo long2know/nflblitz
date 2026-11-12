@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
@@ -305,6 +306,188 @@ namespace Blitz.Gameplay
         internal SourceFormationLayout(SourceFormationActor[] actors) { Actors = Array.AsReadOnly(actors); }
     }
 
+    public sealed class SourceDefaultAudibleSpecialPlays
+    {
+        public SourcePlayDefinition DefenseBefore85 { get; }
+        public SourcePlayDefinition FieldGoalOffense { get; }
+        public SourcePlayDefinition FieldGoalDefense { get; }
+        public SourcePlayDefinition FakeFieldGoalOffense { get; }
+        public SourcePlayDefinition PuntOffense { get; }
+        public SourcePlayDefinition FakePuntOffense { get; }
+        public SourcePlayDefinition PuntReturnDefense { get; }
+        public SourcePlayDefinition ExtraPointOffense { get; }
+
+        public SourceDefaultAudibleSpecialPlays(SourcePlayDefinition defenseBefore85,
+            SourcePlayDefinition fieldGoalOffense, SourcePlayDefinition fieldGoalDefense,
+            SourcePlayDefinition fakeFieldGoalOffense, SourcePlayDefinition puntOffense,
+            SourcePlayDefinition fakePuntOffense, SourcePlayDefinition puntReturnDefense,
+            SourcePlayDefinition extraPointOffense)
+        {
+            DefenseBefore85 = defenseBefore85 ?? throw new ArgumentNullException(nameof(defenseBefore85));
+            FieldGoalOffense = fieldGoalOffense ?? throw new ArgumentNullException(nameof(fieldGoalOffense));
+            FieldGoalDefense = fieldGoalDefense ?? throw new ArgumentNullException(nameof(fieldGoalDefense));
+            FakeFieldGoalOffense = fakeFieldGoalOffense ?? throw new ArgumentNullException(nameof(fakeFieldGoalOffense));
+            PuntOffense = puntOffense ?? throw new ArgumentNullException(nameof(puntOffense));
+            FakePuntOffense = fakePuntOffense ?? throw new ArgumentNullException(nameof(fakePuntOffense));
+            PuntReturnDefense = puntReturnDefense ?? throw new ArgumentNullException(nameof(puntReturnDefense));
+            ExtraPointOffense = extraPointOffense ?? throw new ArgumentNullException(nameof(extraPointOffense));
+        }
+    }
+
+    public sealed class SourceDefaultAudibleData
+    {
+        public const string StableProfileId = "original-teams-contact282-c2-m1-default-audibles";
+        public const string RequiredFeatureContract = SourceAudibleView.Contract;
+        public const string RequiredHudSha256 = "258d5f4361d7da852b1446e774c5aad7d389ed268daabf3d4971c68a29fd8435";
+        public const string RequiredPlaybookSha256 = "b180291759fb22c8ae7b2de7d417867e15243f6071bb1a672f11bb2fb6da4bd3";
+        public const string RequiredPlaybookRevision = "89f840d58d152a2a9f230cb8d0cdffbd554c8ded";
+        public const string RequiredPlaybookProfile = "OriginalRelease57Hz-USE_OLD_QB_FALSE";
+
+        public string ResourceProfileId { get; }
+        public string FeatureContract { get; }
+        public string HudSha256 { get; }
+        public string PlaybookSha256 { get; }
+        public SourcePlaybook Playbook { get; }
+        public ReadOnlyCollection<int> Digital8 { get; }
+        public ReadOnlyCollection<ReadOnlyCollection<SourcePlayDefinition>> OffensePages { get; }
+        public ReadOnlyCollection<ReadOnlyCollection<SourcePlayDefinition>> DefensePages { get; }
+        public ReadOnlyCollection<ReadOnlyCollection<SourcePlayDefinition>> TeamSpecials { get; }
+        public SourceDefaultAudibleSpecialPlays SpecialPlays { get; }
+
+        // The producer authenticates the existing HUD/catalog bytes before constructing
+        // this detached graph. A declared content pin is not a replacement for that read.
+        public SourceDefaultAudibleData(string resourceProfileId, string featureContract,
+            string hudSha256, string playbookSha256, SourcePlaybook playbook,
+            IReadOnlyList<int> digital8, IReadOnlyList<IReadOnlyList<SourcePlayDefinition>> offensePages,
+            IReadOnlyList<IReadOnlyList<SourcePlayDefinition>> defensePages,
+            IReadOnlyList<IReadOnlyList<SourcePlayDefinition>> teamSpecials,
+            SourceDefaultAudibleSpecialPlays specialPlays)
+        {
+            if (resourceProfileId != StableProfileId)
+                throw new ArgumentException("Default audibles require their distinct stable resource profile.", nameof(resourceProfileId));
+            if (featureContract != RequiredFeatureContract)
+                throw new ArgumentException("An explicit source-default-audibles/v1 feature contract is required.", nameof(featureContract));
+            if (hudSha256 != RequiredHudSha256)
+                throw new ArgumentException("Default audibles require the authenticated complete existing HUD.", nameof(hudSha256));
+            if (playbookSha256 != RequiredPlaybookSha256)
+                throw new ArgumentException("Default audibles require the authenticated existing playbook.", nameof(playbookSha256));
+            Playbook = playbook ?? throw new ArgumentNullException(nameof(playbook));
+            if (playbook.Revision != RequiredPlaybookRevision || playbook.Profile != RequiredPlaybookProfile)
+                throw new ArgumentException("Default audibles require the original normal57 catalog identity.", nameof(playbook));
+            if (digital8 == null) throw new ArgumentNullException(nameof(digital8));
+            if (digital8.Count != 49)
+                throw new ArgumentException("Supply the actual 49-to-8 digital table.", nameof(digital8));
+            var digitalCopy = new int[49];
+            for (int i = 0; i < digitalCopy.Length; i++)
+            {
+                if (digital8[i] < 0 || digital8[i] > 15)
+                    throw new ArgumentOutOfRangeException(nameof(digital8));
+                digitalCopy[i] = digital8[i];
+            }
+            if (digitalCopy[24] != 0)
+                throw new ArgumentException("The source 49-way center must decode to neutral.", nameof(digital8));
+            Digital8 = Array.AsReadOnly(digitalCopy);
+            // Source offense page4 is CUSTOM, not an ordinary MakeChoice play.
+            OffensePages = CopyRows(offensePages, 4, 9, SourcePlaySide.Offense, nameof(offensePages));
+            DefensePages = CopyRows(defensePages, 2, 9, SourcePlaySide.Defense, nameof(defensePages));
+            TeamSpecials = CopyRows(teamSpecials, SourceMatchLimits.TeamCount, 3,
+                SourcePlaySide.Offense, nameof(teamSpecials));
+            for (int i = 0; i < 3; i++)
+                if (!ReferenceEquals(OffensePages[0][i], TeamSpecials[0][i]))
+                    throw new ArgumentException("Page0 must retain PageSlot's source-team0 special references.", nameof(offensePages));
+            SpecialPlays = specialPlays ?? throw new ArgumentNullException(nameof(specialPlays));
+            RequirePlay(specialPlays.DefenseBefore85, SourcePlaySide.Defense, nameof(specialPlays));
+            RequirePlay(specialPlays.FieldGoalOffense, SourcePlaySide.Offense, nameof(specialPlays));
+            RequirePlay(specialPlays.FieldGoalDefense, SourcePlaySide.Defense, nameof(specialPlays));
+            RequirePlay(specialPlays.FakeFieldGoalOffense, SourcePlaySide.Offense, nameof(specialPlays));
+            RequirePlay(specialPlays.PuntOffense, SourcePlaySide.Offense, nameof(specialPlays));
+            RequirePlay(specialPlays.FakePuntOffense, SourcePlaySide.Offense, nameof(specialPlays));
+            RequirePlay(specialPlays.PuntReturnDefense, SourcePlaySide.Defense, nameof(specialPlays));
+            RequirePlay(specialPlays.ExtraPointOffense, SourcePlaySide.Offense, nameof(specialPlays));
+            ResourceProfileId = resourceProfileId; FeatureContract = featureContract;
+            HudSha256 = hudSha256; PlaybookSha256 = playbookSha256;
+        }
+
+        public SourceDigitalDirections DigitalCurrentAt(int quantized49)
+        {
+            if (quantized49 < 0 || quantized49 >= 49) throw new ArgumentOutOfRangeException(nameof(quantized49));
+            return (SourceDigitalDirections)Digital8[quantized49];
+        }
+
+        public SourcePlayDefinition PagePlay(SourcePlaybookKind kind, int pageIndex, int slotIndex, int sourceTeam)
+        {
+            if (kind != SourcePlaybookKind.Offense && kind != SourcePlaybookKind.Defense)
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            if (sourceTeam < 0 || sourceTeam >= SourceMatchLimits.TeamCount)
+                throw new ArgumentOutOfRangeException(nameof(sourceTeam));
+            var pages = kind == SourcePlaybookKind.Offense ? OffensePages : DefensePages;
+            if (pageIndex < 0 || pageIndex >= pages.Count)
+                throw new ArgumentOutOfRangeException(nameof(pageIndex), "Custom/missing audible pages have no ordinary-play fallback.");
+            if (slotIndex < 0 || slotIndex >= 9) throw new ArgumentOutOfRangeException(nameof(slotIndex));
+            return kind == SourcePlaybookKind.Offense && pageIndex == 0 && slotIndex < 3
+                ? TeamSpecials[sourceTeam][slotIndex] : pages[pageIndex][slotIndex];
+        }
+
+        internal SourcePlayDefinition Resolve(short signedId, SourceAudibleRole role, int sourceTeam,
+            SourceRulesState rules, int quarter, uint packedTime, bool superFieldGoal, bool noPunt, ref bool flip)
+        {
+            int id = signedId;
+            bool offense = role == SourceAudibleRole.Offense;
+            if (offense) { flip = id < 0; if (id < 0) id = -id; }
+            id--;
+            int page = id / 9, slot = id % 9;
+            return CurrentPagePlay(offense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense,
+                page, slot, sourceTeam, rules, quarter, packedTime, superFieldGoal, noPunt);
+        }
+
+        internal SourcePlayDefinition CurrentPagePlay(SourcePlaybookKind kind, int page, int slot, int sourceTeam,
+            SourceRulesState rules, int quarter, uint packedTime, bool superFieldGoal, bool noPunt)
+        {
+            bool offense = kind == SourcePlaybookKind.Offense;
+            SourcePlayDefinition play = PagePlay(offense ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense,
+                page, slot, sourceTeam);
+            return SourcePlaybook.CurrentPagePlay(play, SpecialPlays, offense, page, slot,
+                rules, quarter, packedTime, superFieldGoal, noPunt);
+        }
+
+        private ReadOnlyCollection<ReadOnlyCollection<SourcePlayDefinition>> CopyRows(
+            IReadOnlyList<IReadOnlyList<SourcePlayDefinition>> rows, int rowCount, int columnCount,
+            SourcePlaySide side, string name)
+        {
+            if (rows == null) throw new ArgumentNullException(name);
+            if (rows.Count != rowCount) throw new ArgumentException("Incomplete original audible table.", name);
+            var copy = new ReadOnlyCollection<SourcePlayDefinition>[rowCount];
+            for (int row = 0; row < rowCount; row++)
+            {
+                if (rows[row] == null || rows[row].Count != columnCount)
+                    throw new ArgumentException("Incomplete original audible table row.", name);
+                var entries = new SourcePlayDefinition[columnCount];
+                for (int column = 0; column < columnCount; column++)
+                {
+                    SourcePlayDefinition play = rows[row][column];
+                    RequirePlay(play, side, name);
+                    entries[column] = play;
+                }
+                copy[row] = Array.AsReadOnly(entries);
+            }
+            return Array.AsReadOnly(copy);
+        }
+
+        private void RequirePlay(SourcePlayDefinition play, SourcePlaySide side, string name)
+        {
+            SourcePlayDefinition actual;
+            if (play == null || play.Side != side || (play.Flags & SourcePlayFlags.Custom) != 0
+                || !Playbook.Plays.TryGetValue(play.Identity, out actual) || !ReferenceEquals(play, actual))
+                throw new ArgumentException("An actual non-custom play reference from the same catalog and side is required.", name);
+            foreach (SourceRouteProgram route in play.Routes)
+            {
+                SourceRouteProgram actualRoute;
+                if (!Playbook.Routes.TryGetValue(route.Identity, out actualRoute) || !ReferenceEquals(route, actualRoute))
+                    throw new ArgumentException("An audible play route is outside the same catalog.", name);
+            }
+        }
+    }
+
     public sealed class SourcePlaybook
     {
         private readonly Dictionary<string, SourcePlayDefinition> plays;
@@ -357,6 +540,28 @@ namespace Blitz.Gameplay
         public SourcePlayDefinition GetPlay(string identity) { return plays[identity]; }
         public SourceRouteProgram GetRoute(string identity) { return routes[identity]; }
         public SourceWeightedPlayPool GetPool(SourceCpuPlayFamily family) { return pools[family]; }
+        internal static SourcePlayDefinition CurrentPagePlay(SourcePlayDefinition play,
+            SourceDefaultAudibleSpecialPlays specials, bool offense, int page, int slot,
+            SourceRulesState rules, int quarter, uint packedTime, bool superFieldGoal, bool noPunt)
+        {
+            if (page != 0) return play;
+            if (!offense && slot == 1 && rules.LineOfScrimmage < 85) play = specials.DefenseBefore85;
+            bool fieldGoal = (rules.LineOfScrimmage >= 50 || superFieldGoal) && rules.PlayType != SourcePlayType.ExtraPoint
+                && (rules.Down == 4 || (quarter == 1 || quarter >= 3) && packedTime < 0x1000u);
+            if (fieldGoal)
+            {
+                if (slot == 6) play = offense ? specials.FieldGoalOffense : specials.FieldGoalDefense;
+                else if (offense && slot == 7) play = specials.FakeFieldGoalOffense;
+            }
+            if (rules.LineOfScrimmage < 50 && !noPunt && !superFieldGoal && rules.Down == 4)
+            {
+                if (offense && slot == 6) play = specials.PuntOffense;
+                else if (slot == 7) play = offense ? specials.FakePuntOffense : specials.PuntReturnDefense;
+            }
+            if (offense && rules.PlayType == SourcePlayType.ExtraPoint && slot == 0) play = specials.ExtraPointOffense;
+            return play;
+        }
+
         public float HandicapValue(string table, int level)
         {
             if (level < 0 || level > 11) throw new ArgumentOutOfRangeException(nameof(level));
@@ -518,6 +723,55 @@ namespace Blitz.Gameplay
                     ? positions[id].Z < input.HashZ - 2f : positions[id].Z > input.HashZ + 2f);
                 actors[id] = new SourceFormationActor(id, positions[id], slot, targets[id], reverse);
             }
+            return new SourceFormationLayout(actors);
+        }
+
+        internal static SourceFormationLayout LineUpSide(SourcePlayDefinition offense, SourcePlayDefinition defense,
+            SourceLineupInput input, IReadOnlyList<SourcePlanar> retained, int side)
+        {
+            SourceP1Guard.Side(side);
+            if (retained == null || retained.Count != 14) throw new ArgumentException("Retain all actual actor positions.", nameof(retained));
+            int off = input.OffenseSide * 7, def = (1 - input.OffenseSide) * 7;
+            float line = WorldX(input.LineOfScrimmage, input.OffenseSide);
+            float forward = input.OffenseSide == 0 ? 1f : -1f;
+            var positions = new SourcePlanar[14];
+            var targets = new int[14];
+            for (int i = 0; i < 14; i++) { positions[i] = retained[i]; targets[i] = -1; }
+            if (side == input.OffenseSide)
+                for (int i = 0; i < 7; i++)
+                {
+                    SourceFormationSlot slot = offense.Formation.Slots[i];
+                    positions[off + i] = new SourcePlanar(ClampX(line + slot.Offset.X * forward),
+                        input.HashZ + slot.Offset.Z * forward * (input.OffenseFlipped ? -1f : 1f));
+                }
+            int positive = 0;
+            for (int i = 4; i < 7; i++) if (positions[off + i].Z >= 0f) positive++;
+            bool strongLeft = input.OffenseSide == 1 ? positive > 3 - positive : positive <= 3 - positive;
+            for (int i = 0; i < 7; i++)
+            {
+                SourceFormationSlot slot = defense.Formation.Slots[i];
+                SourceFormationControl match = slot.Control & SourceFormationControl.PositionMask;
+                if (side == input.OffenseSide && match == 0 && (slot.Control & SourceFormationControl.WeakSide) == 0) continue;
+                float z = input.HashZ + slot.Offset.Z * forward;
+                if (match != 0)
+                {
+                    int receiver = -1;
+                    for (int j = 4; j < 7; j++)
+                        if ((offense.Formation.Slots[j].Control & SourceFormationControl.PositionMask) == match)
+                        { receiver = off + j; break; }
+                    if (receiver < 0) throw new InvalidOperationException("Source lineup has no matching LU receiver.");
+                    targets[def + i] = receiver;
+                    targets[receiver] = def + i;
+                    if ((slot.Control & SourceFormationControl.CoverWithoutAligning) == 0) z = positions[receiver].Z;
+                }
+                if ((slot.Control & SourceFormationControl.WeakSide) != 0 && strongLeft)
+                    z = input.HashZ - slot.Offset.Z * forward;
+                positions[def + i] = new SourcePlanar(ClampX(line - slot.Offset.X * forward), z);
+            }
+            var actors = new SourceFormationActor[14];
+            for (int i = 0; i < 14; i++)
+                actors[i] = new SourceFormationActor(i, positions[i],
+                    (i / 7 == input.OffenseSide ? offense : defense).Formation.Slots[i % 7], targets[i], false);
             return new SourceFormationLayout(actors);
         }
 

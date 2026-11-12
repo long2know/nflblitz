@@ -12,9 +12,9 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class RuntimeMutationAnchors(unittest.TestCase):
-    def test_all_sixteen_controls_target_one_actual_current_source_expression(self):
-        self.assertEqual(16, len(RUNNER.MUTANTS))
-        self.assertEqual(16, len({row[0] for row in RUNNER.MUTANTS}))
+    def test_all_eighteen_controls_target_one_actual_current_source_expression(self):
+        self.assertEqual(18, len(RUNNER.MUTANTS))
+        self.assertEqual(18, len({row[0] for row in RUNNER.MUTANTS}))
         for name, relative, before, after, assertion in RUNNER.MUTANTS:
             with self.subTest(mutant=name):
                 source = (ROOT / relative).read_text()
@@ -28,6 +28,22 @@ class RuntimeMutationAnchors(unittest.TestCase):
         self.assertIn("paired.TryGetValue(dispatch.OriginalCue, out actual)", controls["forged-dispatch"][3])
         self.assertIn("ReferenceEquals(call.OriginalCue, dispatch.OriginalCue)", controls["subcall-cue-alias"][2])
         self.assertEqual("call.SubcallOrder != i", controls["subcall-order"][2])
+
+    def test_producer_controls_target_actual_emission_metadata_reset_and_callback_scope(self):
+        for name, relative, before, after, assertion in RUNNER.PRODUCER_MUTANTS:
+            with self.subTest(mutant=name):
+                self.assertEqual(1, (ROOT / relative).read_text().count(before))
+                self.assertNotEqual(before, after)
+                self.assertTrue(assertion)
+
+    def test_unbound_cabinet_control_preserves_the_actual_selected_bank(self):
+        row = next(item for item in RUNNER.PRODUCER_MUTANTS if item[0] == "cabinet-output-unbound")
+        source = (ROOT / row[1]).read_text()
+        mutated = source.replace(row[2], row[3])
+        bank = "(soundProducer as ISourceCabinetSoundBank)?.SourceCursorSoundBank"
+        self.assertIn(bank, source)
+        self.assertIn(bank, mutated)
+        self.assertEqual(source, mutated.replace(row[3], row[2]))
 
 
 if __name__ == "__main__":

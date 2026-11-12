@@ -12,15 +12,31 @@
   <ItemGroup>
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Contracts/**/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Gameplay/**/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Storage/SourceCustomPlayCodec.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/AssetImport/*.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Presentation/SourceCinematicModel.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/FixedStepBridge.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceCabinetInput.cs" />
+    <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs" />
     <Compile Include="$(BlitzSourceRoot)Assets/Scripts/Runtime/SourceSoundVmTransport.cs" />
+    <Compile Include="$(BlitzSourceRoot)tools/source-player/Runtime/SourceAudioPlayback.cs" />
     <Compile Include="$(BlitzSourceRoot)tests/parity/FullKernelInputs.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ActualCore.cs" />
+    <Compile Include="PlaybackChecks.cs" />
+    <Compile Include="ProcessOutputChecks.cs" />
+    <Compile Include="PreGameProcessChecks.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(PreGameServiceSource)' != ''">
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePreGameSoundService.cs" />
+    <Compile Include="$(PreGameServiceSource)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(PreGameProgramsSource)' != ''">
+    <Compile Remove="$(BlitzSourceRoot)Assets/Scripts/Gameplay/SourcePreGameSoundPrograms.cs" />
+    <Compile Include="$(PreGameProgramsSource)" />
   </ItemGroup>
   <Import Project="../../parity/FullKernelSources.props" />
 </Project>

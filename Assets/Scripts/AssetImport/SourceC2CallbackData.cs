@@ -47,6 +47,20 @@ namespace Blitz.AssetImport
         public const string EntryProfile = "OriginalRelease57Hz-C2-InitSoundBanks-v1";
         public const string M1Profile = "OriginalRelease57Hz-C2-M1-InitSoundBanks-v1";
         public const string PreSnapSwitchProfile = "OriginalRelease57Hz-C2-M1-PreSnapSwitch-InitSoundBanks-v1";
+        public const string CompleteOriginalProfile = "OriginalRelease57Hz-C2-M1-CompleteOriginal303-InitSoundBanks-v1";
+        public const string CompleteAv306Profile = "OriginalRelease57Hz-C2-M1-CompleteAv306-InitSoundBanks-v1";
+        public bool HasCompleteProgramCapability
+        {
+            get
+            {
+                return Profile == CompleteOriginalProfile &&
+                    PayloadSha256 == SourceTeamResourceProfile.CompleteOriginalCallbackSha256 &&
+                    AnimationManifestSha256 == SourceTeamResourceProfile.CompleteOriginalAnimationSha256 ||
+                    Profile == CompleteAv306Profile &&
+                    PayloadSha256 == SourceTeamResourceProfile.CompleteAv306CallbackSha256 &&
+                    AnimationManifestSha256 == SourceTeamResourceProfile.CompleteAv306AnimationSha256;
+            }
+        }
         private readonly Dictionary<string, ReadOnlyCollection<int>> speechTables;
         private readonly Dictionary<int, SourceC2SoundCallTemplate> soundCalls;
         public string PayloadSha256 { get; }
@@ -111,7 +125,7 @@ namespace Blitz.AssetImport
                 if (binding.Matches(cue))
                 {
                     if (binding.FunctionKind == SourceC2SoundFunctionKind.AttackSoundFixed &&
-                        (Profile != PreSnapSwitchProfile || !cue.Context.ScriptInstanceId.HasValue ||
+                        (Profile != PreSnapSwitchProfile && !HasCompleteProgramCapability || !cue.Context.ScriptInstanceId.HasValue ||
                             cue.Context.OpcodeSymbol != "ANI_CODE"))
                         throw new ArgumentException("Fixed hop sound requires its actual script instance and ANI_CODE context.");
                     return binding;
@@ -132,14 +146,27 @@ namespace Blitz.AssetImport
             RosterObject root = RosterJson.Object(RosterJson.Parse(bytes), "C2");
             Exact(root, "schema", Schema);
             string profile = root.Text("profile");
-            RosterGuard.Require(profile == EntryProfile || profile == M1Profile || profile == PreSnapSwitchProfile,
+            bool complete = profile == CompleteOriginalProfile;
+            bool av = profile == CompleteAv306Profile;
+            RosterGuard.Require(profile == EntryProfile || profile == M1Profile || profile == PreSnapSwitchProfile || complete || av,
                 "Unknown explicit C2 binding profile.");
-            bool preSnap = profile == PreSnapSwitchProfile, m1 = profile == M1Profile || preSnap;
+            bool preSnap = profile == PreSnapSwitchProfile || complete || av, m1 = profile == M1Profile || preSnap;
+            if (av)
+                RosterGuard.Require(hash == SourceTeamResourceProfile.CompleteAv306CallbackSha256 &&
+                    Pin(root, "base_complete_original303_callback_sha256") == SourceTeamResourceProfile.CompleteOriginalCallbackSha256 &&
+                    Pin(root, "base_presnap_switch_callback_payload_sha256") == SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256,
+                    "CompleteAv306 callbacks require their exact independent payload and unchanged303/282 lineage.");
+            if (complete)
+                RosterGuard.Require(hash == SourceTeamResourceProfile.CompleteOriginalCallbackSha256 &&
+                    Pin(root, "base_presnap_switch_callback_payload_sha256") == SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256,
+                    "CompleteOriginal303 callbacks require their exact independent payload and unchanged282 lineage.");
             string baseM1Animation = null, baseM1Callbacks = null, hopInventory = null, movementPrograms = null;
             SourceC2SoundCallTemplate attackHuman = null, attackDrone = null;
             if (preSnap)
             {
-                RosterGuard.Require(hash == SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256,
+                RosterGuard.Require(hash == (av ? SourceTeamResourceProfile.CompleteAv306CallbackSha256 :
+                    complete ? SourceTeamResourceProfile.CompleteOriginalCallbackSha256 :
+                    SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256),
                     "Pre-snap callbacks require their exact independently frozen fifteen-binding payload.");
                 baseM1Animation = Pin(root, "base_m1_animation_manifest_sha256");
                 baseM1Callbacks = Pin(root, "base_m1_callback_payload_sha256");
@@ -180,11 +207,13 @@ namespace Blitz.AssetImport
             Exact(scheduler, "dispatcher_blob", "7b44637c3d59e2256ad099226b7ea17f108907ef");
             string legacy = Pin(scheduler, "legacy_animation_manifest_sha256");
             string extra = Pin(scheduler, "extra_animation_manifest_sha256");
-            scheduler.ExactInteger("clip_count", preSnap ? 282 : 281);
-            scheduler.ExactInteger("selected_frame_count", preSnap ? 26265 : 26230);
+            scheduler.ExactInteger("clip_count", av ? 306 : complete ? 303 : preSnap ? 282 : 281);
+            scheduler.ExactInteger("selected_frame_count", av ? 31051 : complete ? 30777 : preSnap ? 26265 : 26230);
             scheduler.Done();
             string inventory = Pin(root, "animation_manifest_sha256");
-            RosterGuard.Require(!preSnap || inventory == SourceTeamResourceProfile.PreSnapSwitchAnimationSha256,
+            RosterGuard.Require(!preSnap || inventory == (av ? SourceTeamResourceProfile.CompleteAv306AnimationSha256 :
+                complete ? SourceTeamResourceProfile.CompleteOriginalAnimationSha256 :
+                SourceTeamResourceProfile.PreSnapSwitchAnimationSha256),
                 "Pre-snap callbacks require the exact fresh282 library.");
             RosterGuard.Require(legacy == "9cae962bbb861bffe4d379bc30919cf34c0238ed35be82e605253d3059cfede9" &&
                 extra == "3e69a29f11c15c5d318f486824b1a3bba1f9489905e20d4c9ce76742af7a8c5f",

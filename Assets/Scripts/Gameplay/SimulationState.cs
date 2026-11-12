@@ -120,6 +120,51 @@ namespace Blitz.Gameplay
         }
     }
 
+    internal sealed class SourceAudibleSprite
+    {
+        internal long Serial, Parent;
+        internal int Id;
+        internal TeamId Team;
+        internal uint Color = 0xffffffff;
+        internal int Combiner = 4, Chroma = 1;
+    }
+
+    internal sealed class SourceAudibleChild
+    {
+        internal long Serial;
+        internal SourceAudibleSprite Sprite;
+        internal SourceAudibleFlashStage Stage;
+        internal long? EntryTick, CheckTick;
+        internal bool? CheckExists;
+        internal uint? Color;
+        internal int? Combiner;
+        internal int Cycles;
+        internal long BirthTick;
+        internal SourceProcessView LastProcess;
+    }
+
+    internal sealed class SourceAudibleState
+    {
+        internal readonly int[] Timers = new int[2], Actions = new int[2], Choices = new int[2];
+        internal readonly bool[] Shown = new bool[2], Pending = new bool[2];
+        internal readonly int[] Callers = { -1, -1 };
+        internal readonly short[,,] Ids = new short[4, 2, 3];
+        internal readonly SourcePlayDefinition[] Originals = new SourcePlayDefinition[2];
+        internal readonly SourcePlaySelection[] OriginalSelections = new SourcePlaySelection[2];
+        internal readonly SourceAudibleSprite[] Backgrounds = new SourceAudibleSprite[2];
+        internal readonly List<SourceAudibleSprite> Objects = new List<SourceAudibleSprite>();
+        internal readonly List<SourceAudibleSprite> NonAlpha = new List<SourceAudibleSprite>();
+        internal readonly List<SourceAudibleSprite> Alpha = new List<SourceAudibleSprite>();
+        internal readonly List<SourceAudibleChild> Children = new List<SourceAudibleChild>();
+        internal readonly List<SourceDirectSoundCall> Calls = new List<SourceDirectSoundCall>();
+        internal bool OriginalFlip;
+        internal int OffenseSide;
+        internal SourceAudibleRestartStage RestartStage;
+        // These original powerups are neutral in the admitted ordinary profile.
+        internal bool NoPlaySelection = false, SuperFieldGoal = false, NoPunt = false;
+        internal int PlaybookMode = 0;
+    }
+
     internal sealed class SimulationState
     {
         internal long Tick;
@@ -129,9 +174,11 @@ namespace Blitz.Gameplay
         internal uint PackedGameTime = 0x00020000;
         internal bool ClockActive;
         internal SourceClockState SourceClock;
+        internal SourceTimeOfPossessionView SourceTimeOfPossession = new SourceTimeOfPossessionView(0, 0);
         internal SourceRulesState SourceRules;
         internal SourceGameFlags SourceFlags;
         internal SourcePlayResult SourceLastResult;
+        internal SourcePlayEndCause? SourceLastPlayEndCause;
         internal float SourceLinePosition;
         internal int SourceFirstPossession;
         internal int SourceOvertimeKickoff = -1;
@@ -171,6 +218,27 @@ namespace Blitz.Gameplay
         internal bool SourcePlowSoundPending;
         internal readonly int[] SourceTackles = new int[2];
         internal readonly int[] SourceOffensivePlays = new int[2];
+        internal readonly int[] SourcePassAttempts = new int[2];
+        internal readonly int[] SourcePassCompletions = new int[2];
+        internal readonly int[] SourcePassingYards = new int[2];
+        internal readonly int[] SourceTotalYards = new int[2];
+        internal readonly int[] SourcePassTouchdowns = new int[2];
+        internal readonly int[] SourceReturnYards = new int[2];
+        internal readonly int[] SourceKickReturns = new int[2];
+        internal readonly int[] SourceRushingYards = new int[2];
+        internal readonly int[] SourceRushes = new int[2];
+        internal readonly int[] SourceSackYards = new int[2];
+        internal readonly int[] SourceSacks = new int[2];
+        internal readonly int[] SourceFieldGoalAttempts = new int[2];
+        internal readonly int[] SourceFieldGoals = new int[2];
+        internal readonly int[] SourceFirstDowns = new int[2];
+        internal readonly int[] SourceFourthDownConversions = new int[2];
+        internal readonly int[] SourceFourthDownAttempts = new int[2];
+        internal readonly int[] SourceTouchdowns = new int[2];
+        internal readonly int[] SourceSafeties = new int[2];
+        internal readonly int[] SourceTwoPointAttempts = new int[2];
+        internal readonly int[] SourceTwoPointConversions = new int[2];
+        internal int SourceKickReturnCatch;
         internal readonly int[] SourceLostFumbles = new int[2];
         internal readonly int[] SourceInterceptions = new int[2];
         internal readonly int[] SourceDeflections = new int[2];
@@ -240,6 +308,9 @@ namespace Blitz.Gameplay
         internal int SourcePresentationOrder;
         internal string SourceAnimationFailure;
         internal string SourceCurrentPlayerBank;
+        internal string SourceCurrentCursorBank;
+        internal string SourceGameTuneBank;
+        internal string SourceEoqTuneBank;
         internal bool SourceC2Enabled;
         internal bool? SourceTaunted;
         internal string SourceAnnouncerSwappedBank;
@@ -252,6 +323,18 @@ namespace Blitz.Gameplay
         internal long SourceC2WhistleSerial;
         internal readonly uint[] SourceAnimationUniqueMasks = new uint[6];
         internal SourcePlaybook SourcePlaybook;
+        internal bool SourceDefaultAudiblesEnabled;
+        internal SourceAudibleView SourceAudibles = null;
+        internal SourceAudibleState SourceAudibleState = null;
+        internal readonly List<SourceAudibleReinitializationCheckpoint> SourceAudibleReinitializations =
+            new List<SourceAudibleReinitializationCheckpoint>();
+        internal readonly SourceDigitalDirections[] SourceDigitalPrior1 = new SourceDigitalDirections[4];
+        internal readonly SourceDigitalDirections[] SourceDigitalPrior2 = new SourceDigitalDirections[4];
+        internal readonly SourceDigitalSwitchScan[] SourceDigitalScans = new SourceDigitalSwitchScan[4];
+        internal readonly long[] SourceNameCoordinateInvalidation = { -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1 };
+        internal bool SourceStartsEnabled;
+        internal int SourceDirectSoundSubcall;
         internal SourcePlayDefinition SourceOffensePlay;
         internal SourcePlayDefinition SourceDefensePlay;
         internal SourceFormationSlot[] SourceFormationSlots;
@@ -305,6 +388,7 @@ namespace Blitz.Gameplay
         internal SourceMatchResult SourceResultView;
         internal SourcePeriodView SourcePeriodView;
         internal SourceMatchPhase SourceMatchPhase;
+        internal SourceCabinetFlowView SourceCabinetFlow;
         internal SourcePlaySelection SourceHomePlay;
         internal SourcePlaySelection SourceAwayPlay;
         internal readonly bool[] SourcePlaySelectionReady = new bool[2];
@@ -376,6 +460,130 @@ namespace Blitz.Gameplay
         internal int OffenseOffset { get { return (int)Possession * SliceRules.PlayersPerTeam; } }
         internal PlayId OffensivePlay { get { return Possession == TeamId.Home ? HomePlay : AwayPlay; } }
         internal PlayId DefensivePlay { get { return Possession == TeamId.Home ? AwayPlay : HomePlay; } }
+
+        internal void CaptureSourceKickReturnCatch(bool offense)
+        {
+            if (BallKind == SourceBallKind.Kickoff || BallKind == SourceBallKind.Punt && !offense)
+                SourceKickReturnCatch = SourceMatchRules.FieldPosition(SourceCatchX, (int)Possession);
+        }
+
+        internal void AccumulateSourceFourthDownAttemptAtSelectionReturn(
+            SourcePlaybook selectedPlaybook, SourcePlayDefinition selectedOffensePlay)
+        {
+            if (SourceRules.Down != 4) return;
+            if (selectedPlaybook == null)
+                throw new ArgumentNullException(nameof(selectedPlaybook));
+            if (selectedOffensePlay == null)
+                throw new ArgumentNullException(nameof(selectedOffensePlay));
+            SourcePlayDefinition canonicalPunt;
+            SourcePlayDefinition canonicalFieldGoal;
+            if (!selectedPlaybook.Plays.TryGetValue("play_punt", out canonicalPunt)
+                || canonicalPunt == null
+                || !selectedPlaybook.Plays.TryGetValue("play_field_goal", out canonicalFieldGoal)
+                || canonicalFieldGoal == null)
+                throw new InvalidOperationException(
+                    "Fourth-down selection requires canonical punt and field-goal objects.");
+            if (ReferenceEquals(selectedOffensePlay, canonicalPunt)
+                || ReferenceEquals(selectedOffensePlay, canonicalFieldGoal))
+                return;
+            int side = SourceRules.OffenseSide;
+            SourceFourthDownAttempts[side] = checked(SourceFourthDownAttempts[side] + 1);
+        }
+
+        internal void AccumulateSourcePlayEndStats(SourcePlayEndInput input, SourcePlayResolution resolution,
+            int carrierId)
+        {
+            int side = resolution.Classification.OffenseSide;
+            SourcePlayResult result = resolution.Classification.Result;
+            SourceGameFlags flags = resolution.Flags;
+            bool ordinaryReturn = (flags & (SourceGameFlags.BallPunted | SourceGameFlags.BallKicked)) != 0
+                && side != input.State.InitialOffenseSide
+                && result == SourcePlayResult.NewPossession
+                && carrierId / SliceRules.PlayersPerTeam == side;
+            bool quickReturn = (flags & SourceGameFlags.QuickKick) != 0
+                && side == input.State.InitialOffenseSide
+                && (result == SourcePlayResult.NewPossession || result == SourcePlayResult.Touchdown)
+                && carrierId / SliceRules.PlayersPerTeam == side;
+            if (ordinaryReturn || quickReturn)
+            {
+                int returnGain = checked(resolution.FieldEnd - SourceKickReturnCatch);
+                SourceReturnYards[side] = checked(SourceReturnYards[side] + returnGain);
+                SourceTotalYards[side] = checked(SourceTotalYards[side] + returnGain);
+                SourceKickReturns[side] = checked(SourceKickReturns[side] + 1);
+            }
+            else if ((flags & SourceGameFlags.ForwardPass) != 0)
+                AccumulateSourcePassCompletion(input, resolution, carrierId);
+            else if ((flags & SourceGameFlags.ForwardPass) == 0
+                && side == input.State.InitialOffenseSide
+                && (flags & SourceGameFlags.BallPunted) == 0
+                && carrierId % SliceRules.PlayersPerTeam == 3
+                && (flags & SourceGameFlags.BallCrossedLine) == 0)
+            {
+                int sackGain = checked(resolution.FieldEnd - input.State.LineOfScrimmage);
+                SourceSackYards[1 - side] = checked(SourceSackYards[1 - side] - sackGain);
+                SourceSacks[1 - side] = checked(SourceSacks[1 - side] + 1);
+            }
+            else if ((flags & SourceGameFlags.ForwardPass) == 0
+                && side == input.State.InitialOffenseSide
+                && (flags & SourceGameFlags.BallPunted) == 0
+                && (flags & SourceGameFlags.BallKicked) == 0
+                && result != SourcePlayResult.Incomplete)
+            {
+                int rushGain = checked(resolution.FieldEnd - input.State.LineOfScrimmage);
+                SourceRushingYards[side] = checked(SourceRushingYards[side] + rushGain);
+                SourceTotalYards[side] = checked(SourceTotalYards[side] + rushGain);
+                SourceRushes[side] = checked(SourceRushes[side] + 1);
+            }
+
+            int initialSide = input.State.InitialOffenseSide;
+            SourcePlayDefinition canonicalFieldGoal;
+            if (input.SelectedPlaybook != null
+                && input.SelectedPlaybook.Plays.TryGetValue("play_field_goal", out canonicalFieldGoal)
+                && ReferenceEquals(input.InitialOffensePlay, canonicalFieldGoal))
+                SourceFieldGoalAttempts[initialSide] = checked(SourceFieldGoalAttempts[initialSide] + 1);
+            if (result == SourcePlayResult.FieldGoal)
+                SourceFieldGoals[initialSide] = checked(SourceFieldGoals[initialSide] + 1);
+
+            if (input.State.Down == 4 && (resolution.JustGotFirstDown
+                || result == SourcePlayResult.Touchdown && side == initialSide))
+                SourceFourthDownConversions[side] = checked(SourceFourthDownConversions[side] + 1);
+            if (resolution.JustGotFirstDown)
+                SourceFirstDowns[side] = checked(SourceFirstDowns[side] + 1);
+            if (result == SourcePlayResult.Touchdown)
+                SourceTouchdowns[side] = checked(SourceTouchdowns[side] + 1);
+            // nfl.c updates off_side before these result-switch statistics.
+            int nextSide = resolution.State.OffenseSide;
+            if (result == SourcePlayResult.Safety || result == SourcePlayResult.PatSafety)
+                SourceSafeties[nextSide] = checked(SourceSafeties[nextSide] + 1);
+            if (result == SourcePlayResult.FailedConversion || result == SourcePlayResult.Conversion)
+                SourceTwoPointAttempts[nextSide] = checked(SourceTwoPointAttempts[nextSide] + 1);
+            if (result == SourcePlayResult.Conversion)
+                SourceTwoPointConversions[nextSide] = checked(SourceTwoPointConversions[nextSide] + 1);
+        }
+
+        internal void AccumulateSourcePassCompletion(SourcePlayEndInput input, SourcePlayResolution resolution,
+            int carrierId)
+        {
+            int side = resolution.Classification.OffenseSide;
+            SourcePlayResult result = resolution.Classification.Result;
+            SourceGameFlags flags = resolution.Flags;
+            bool quickReturn = (flags & SourceGameFlags.QuickKick) != 0
+                && side == input.State.InitialOffenseSide
+                && (result == SourcePlayResult.NewPossession || result == SourcePlayResult.Touchdown)
+                && carrierId / SliceRules.PlayersPerTeam == side;
+            if (quickReturn || (flags & SourceGameFlags.ForwardPass) == 0 ||
+                result == SourcePlayResult.Incomplete ||
+                (flags & SourceGameFlags.PossessionChange) != 0 ||
+                input.Cause == SourcePlayEndCause.DeadBallInBounds ||
+                side != input.State.InitialOffenseSide)
+                return;
+            int gain = checked(resolution.FieldEnd - input.State.LineOfScrimmage);
+            SourcePassingYards[side] = checked(SourcePassingYards[side] + gain);
+            SourceTotalYards[side] = checked(SourceTotalYards[side] + gain);
+            SourcePassCompletions[side] = checked(SourcePassCompletions[side] + 1);
+            if (result == SourcePlayResult.Touchdown)
+                SourcePassTouchdowns[side] = checked(SourcePassTouchdowns[side] + 1);
+        }
 
         internal SimulationState()
         {

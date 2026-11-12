@@ -6,6 +6,9 @@
     <Nullable>disable</Nullable>
     <UseSharedCompilation>false</UseSharedCompilation>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(RunAOTCompilation)' == 'true'">
+    <DefineConstants>$(DefineConstants);SOURCE_PLAYER_STEP_COST_DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Runtime/*.cs" />
   </ItemGroup>

@@ -55,6 +55,118 @@ def ignored_output(path):
     return absolute
 
 
+def venue_module():
+    spec = importlib.util.spec_from_file_location(
+        "pinned_venue_acquisition", ROOT / "tools/environments/prepare_environment.py")
+    helper = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = helper
+    spec.loader.exec_module(helper)
+    return helper
+
+
+def acquire_venues(output, caches, download, confirm_local_use, authorization_reference):
+    env = venue_module()
+    env.require(confirm_local_use and isinstance(authorization_reference, str) and
+                env.re.fullmatch(r"[A-Za-z0-9_. -]{1,160}", authorization_reference) is not None,
+                "Venue originals require --confirm-local-use and a short --authorization-reference.")
+    destination = ignored_output(output)
+    env.require(not destination.exists(), "Venue output already exists; choose a NEW ignored cache.")
+    env.require(subprocess.run(["git", "check-ignore", "-q", str(destination / "input-receipt.json")],
+                               cwd=ROOT).returncode == 0, "Original venue inputs must remain ignored.")
+    caches = [env.physical(cache, True) for cache in caches]
+    recipe = env.load_recipe(ROOT)
+    env.require(recipe["sourceRepository"] == REPOSITORY and recipe["sourceCommit"] == REVISION
+                and recipe["sourceRootTree"] == TREE, "Exact pinned venue repository/revision/tree required.")
+
+    def github(endpoint):
+        response = subprocess.run(["gh", "api", "repos/" + REPOSITORY + "/git/" + endpoint],
+                                  cwd=ROOT, capture_output=True, check=True, timeout=90)
+        return json.loads(response.stdout)
+
+    tree_bytes = None
+    for cache in caches:
+        if (cache / "tree.json").exists():
+            candidate = env.read_file(cache, "tree.json", 16 * 1024 * 1024)
+            env.authenticated_tree(candidate, TREE)
+            tree_bytes = candidate
+            break
+    if tree_bytes is None:
+        env.require(download, "Missing complete pinned venue tree.json; supply --cache or --download.")
+        commit = github("commits/" + REVISION)
+        env.require(commit["sha"] == REVISION and commit["tree"]["sha"] == TREE,
+                    "Pinned venue source commit/tree relationship differs.")
+        tree_bytes = env.json_bytes(github("trees/" + TREE + "?recursive=1"))
+    tree = env.authenticated_tree(tree_bytes, TREE)
+    payloads, records, downloaded = {}, {}, {}
+
+    def obtain(expected):
+        name = env.portable(expected["path"])
+        entry = tree.get(name)
+        env.require(entry is not None and entry["type"] == "blob" and entry["mode"] in ("100644", "100755")
+                    and entry["sha"] == expected["gitBlobSha1"] and entry["size"] == expected["bytes"],
+                    "Venue allowlist/source-tree identity differs: " + name)
+        raw, origin, rejected = None, None, []
+        for cache in caches:
+            if not (cache / name).exists():
+                continue
+            candidate = env.read_file(cache, name)
+            if len(candidate) == entry["size"] and blob_sha1(candidate) == entry["sha"]:
+                raw, origin = candidate, "explicit-read-only-cache"
+                break
+            rejected.append({"gitBlobSha1": blob_sha1(candidate), "bytes": len(candidate)})
+        if raw is None:
+            env.require(download, "Missing/corrupt pinned venue input: " + name +
+                        "; supply an authenticated --cache or explicitly --download.")
+            if entry["sha"] not in downloaded:
+                response = github("blobs/" + entry["sha"])
+                env.require(response["sha"] == entry["sha"] and response["encoding"] == "base64"
+                            and response["size"] == entry["size"], "Venue Git blob API identity differs: " + name)
+                downloaded[entry["sha"]] = base64.b64decode(response["content"])
+            raw, origin = downloaded[entry["sha"]], "pinned-Git-blob-API"
+        actual = env.fingerprint(raw)
+        env.require(actual["bytes"] == expected["bytes"] and actual["gitBlobSha1"] == expected["gitBlobSha1"]
+                    and ("sha256" not in expected or actual["sha256"] == expected["sha256"]),
+                    "Actual venue original Git blob/length/SHA256 differs: " + name)
+        payloads[name] = raw
+        records[name] = dict(actual, path=name, obtainedFrom=origin, rejectedCacheBytes=rejected)
+        return raw
+
+    authority = {entry["path"]: entry for entry in recipe["inputs"]}
+    env.require(len(authority) == len(recipe["inputs"]) == 9 and set(authority) == {
+        "data2.c", "field.c", "include/id.h", "include/nstadlim.h", "lib/ani3d/pipe3D.c",
+        "models/field2.sdl", "models/models.mak", "models/stadpie.sdl", "teamdata.c"},
+        "The venue group requires only its exact nine source authorities, including active teaminfo.")
+    for expected in authority.values():
+        obtain(expected)
+    closure = env.required_venue_inputs(tree, payloads.__getitem__)
+    historical = {entry["path"]: entry for entry in recipe["textures"]}
+    for expected in closure["textures"]:
+        prior = historical.get(expected["path"])
+        env.require(prior is None or all(prior[key] == expected[key] for key in ("bytes", "gitBlobSha1")),
+                    "Historic venue texture pin differs from source-resolved closure: " + expected["path"])
+        obtain(expected)
+    env.require(set(payloads) == set(authority) | {entry["path"] for entry in closure["textures"]},
+                "Only the source-resolved venue closure may be acquired.")
+    receipt = {
+        "schema": "source-venue-original-inputs/v1", "repository": REPOSITORY,
+        "revision": REVISION, "tree": TREE, "treeSha256": env.digest(tree_bytes),
+        "authorizationReference": authorization_reference, "reuseAuthorizationConfirmed": True,
+        "verifiedBlobs": [records[name] for name in sorted(records)],
+        "downloadedGitBlobs": len(downloaded), "privateOriginalsUploaded": False,
+        "closure": closure, "closureSha256": env.digest(env.json_bytes(closure)),
+        "publication": "User-directed local use only; no new license or redistribution approval.",
+    }
+    files = dict(payloads, **{"tree.json": tree_bytes, "input-receipt.json": env.json_bytes(receipt)})
+    env.write_bundle(ROOT, destination, files)
+    for name, raw in files.items():
+        env.require(env.read_file(destination, name) == raw, "Persisted venue input changed: " + name)
+    print(json.dumps({"status": "authenticated-source-venue-closure", "originals": len(records),
+                      "textures": len(closure["textures"]), "selections": len(closure["selections"]),
+                      "downloadedGitBlobs": len(downloaded),
+                      "receiptSha256": env.digest(files["input-receipt.json"])}))
+    return receipt
+
+
 def input_pins(profile="legacy"):
     if profile not in ("legacy", "contact272", "defensive-presnap-switch"):
         raise ValueError("Unknown explicit original-input profile: " + profile)
@@ -144,6 +256,8 @@ def verified_original_hashes(root, profile="legacy"):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--group", choices=("kernel", "venues"), default="kernel",
+                        help="Venues resolves only field.c/SDL/teaminfo's full required art closure; no kernel acquisition.")
     parser.add_argument("--profile", choices=("legacy", "contact272", "defensive-presnap-switch"), default="legacy",
                         help="Keep the original69 default; contact272 adds only active C1 source/operand/WAN pins.")
     parser.add_argument("--cache", type=Path, action="append", default=[],
@@ -151,7 +265,18 @@ def main():
     parser.add_argument("--blob-file", action="append", default=[],
                         help="Explicit canonical/path=verified-file override, still blob-checked.")
     parser.add_argument("--download", action="store_true", help="Explicitly permit pinned Git blob/tree API reads.")
+    parser.add_argument("--confirm-local-use", action="store_true")
+    parser.add_argument("--authorization-reference")
     args = parser.parse_args()
+    if args.group == "venues":
+        if args.profile != "legacy" or args.blob_file:
+            parser.error("The venue-only group cannot relabel a kernel profile or accept unrelated --blob-file inputs.")
+        try:
+            acquire_venues(args.output, args.cache, args.download, args.confirm_local_use, args.authorization_reference)
+            return 0
+        except (ValueError, OSError, KeyError, subprocess.SubprocessError) as error:
+            print("Original venue acquisition rejected: " + str(error), file=sys.stderr)
+            return 1
     destination = ignored_output(args.output)
     pins = input_pins(args.profile)
     overrides = {}

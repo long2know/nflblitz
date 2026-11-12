@@ -1,4 +1,5 @@
 using System;
+using Blitz.Contracts;
 
 namespace Blitz.Gameplay
 {
@@ -382,6 +383,15 @@ namespace Blitz.Gameplay
     {
         private static readonly int[] TwoPointChances = { 0, 2, 2, 10, 0, 0, 10, 0, 0, 10, 0, 0, 8, 10, 0, 0, 9 };
 
+        // plyrinfo.c:1068-1625 returns FALSE only from these two switch arms.
+        // In particular TOUCHBACK returns TRUE, even though its graphic is a box.
+        public static bool ResultBoxShowsScorePlate(SourcePlayResult result)
+        {
+            if ((int)result < 0 || (int)result > 15) throw new ArgumentOutOfRangeException(nameof(result));
+            return result != SourcePlayResult.Down && result != SourcePlayResult.Incomplete
+                && result != SourcePlayResult.FumbledOutOfBounds && result != SourcePlayResult.NewPossession;
+        }
+
         // nfl.c 833-858: run ONCE at the top of a new source game_proc play,
         // before PAT selection or ordinary play selection. In particular a
         // defensive TD must make its scoring side the new off_init before PAT.
@@ -471,6 +481,37 @@ namespace Blitz.Gameplay
                 state.Down, state.LineOfScrimmage, state.FirstDown, SourcePlayType.Kickoff, state.NoFirstDown);
             return new SourcePatDecision(SourcePatDisposition.FreeKickComplete, next, choice,
                 good ? 1 : 0, good, input.PackedTime == 0, draws, scoringSide: state.OffenseSide);
+        }
+
+        public static SourceKickoffPlan PrepareKickoff(SourceKickoffInput input,
+            SourceMatchConfiguration configuration, SourceInputFrame stationInputs)
+        {
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+            bool rawOnside = false;
+            if (!input.FirstKickoff && !input.HalfKickoff && stationInputs != null)
+            {
+                const SourceButtons chord = SourceButtons.A | SourceButtons.B | SourceButtons.C;
+                foreach (SourceStationConfiguration station in configuration.Stations)
+                {
+                    if (station.Team != (TeamId)input.State.OffenseSide)
+                        continue;
+                    foreach (SourceStationInput current in stationInputs.Stations)
+                    {
+                        if (current.StationId == station.StationId
+                            && (current.Held & chord) == chord
+                            && current.DigitalCurrent == SourceDigitalDirections.Up)
+                        {
+                            rawOnside = true;
+                            break;
+                        }
+                    }
+                    if (rawOnside) break;
+                }
+            }
+            return PrepareKickoff(new SourceKickoffInput(input.State, input.QuarterIndex,
+                input.PackedTime, input.FirstKickoff, input.HalfKickoff, input.FirstPossessionSide,
+                input.Captain, input.RequestedOnsideKick || rawOnside));
         }
 
         public static SourceKickoffPlan PrepareKickoff(SourceKickoffInput input)

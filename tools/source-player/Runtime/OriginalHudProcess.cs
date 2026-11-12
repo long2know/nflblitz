@@ -14,6 +14,7 @@ public sealed class OriginalHudProcess
     public bool ResultPending { get; private set; }
     public long CommittedSourceTick => ((ISourceGameState)CommittedState).SourceTick;
     public long PendingResultWakes { get; private set; }
+    public SourceAudibleView CommittedAudibles => CommittedHud.Match.Audibles;
 
     public OriginalHudProcess(SourceInterfaceData data, GameSimulation game)
     {

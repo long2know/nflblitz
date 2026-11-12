@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 import uuid
 
 SPEC = importlib.util.spec_from_file_location(
@@ -51,8 +53,64 @@ class MetadataChecks(unittest.TestCase):
         self.assertEqual(producer.STABLE_ID, "original-teams-" + producer.PROFILE)
         self.assertEqual(producer.MOVEMENT_SHA,
                          "2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef")
-        self.assertEqual(producer.C2_PROGRAMS_SHA, producer.c2.sha(
-            (producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs").read_bytes()))
+        actual = (producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs").read_bytes()
+        historical, binding = producer.c2.c2_program_source_binding(actual)
+        self.assertEqual(producer.C2_PROGRAMS_SHA, "0935d54982b80f40f143033c3543837601148968175c0f33210e051f8e16a5cc")
+        self.assertEqual(producer.c2.sha(actual), "defa8716559a7d9a90245b545acd853951c2f9ba3dd2519c08680ece61d3b79a")
+        self.assertEqual(producer.c2.sha(historical), producer.C2_PROGRAMS_SHA)
+        self.assertNotEqual(actual, historical, "The expanded current file must never be labelled the old source.")
+        self.assertEqual(binding, producer.c2_program_binding())
+        self.assertEqual(binding["source_generation"], "complete-original303-additive-C2")
+        self.assertFalse(binding["whole_current_source_is_historical"])
+        self.assertTrue(binding["historical_source_recovered_byte_identically"])
+        self.assertEqual((len(actual), len(historical)), (18747, 9542))
+
+    def test_exact_historical_source_and_defined_old_profile_programs_are_retained(self):
+        actual = (producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs").read_bytes()
+        historical, current_binding = producer.c2.c2_program_source_binding(actual)
+        unchanged, old_binding = producer.c2.c2_program_source_binding(historical)
+        self.assertEqual(unchanged, historical)
+        self.assertEqual(old_binding["source_file_sha256"], producer.C2_PROGRAMS_SHA)
+        self.assertTrue(old_binding["whole_current_source_is_historical"])
+        self.assertEqual(current_binding["selected_historical_programs_sha256"],
+                         old_binding["selected_historical_programs_sha256"])
+        entry = b"        internal static IReadOnlyDictionary<string, SourceAnimationProgram> CreateC2Extension()\n"
+        self.assertEqual(actual[actual.index(entry):], historical[historical.index(entry):],
+                         "The complete real legacy entrypoint, instruction operands, callbacks and closing scope are unchanged.")
+        movement = producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs"
+        self.assertEqual(producer.programs(movement), movement.read_bytes())
+        self.assertEqual(producer.c2.sha(movement.read_bytes()), producer.MOVEMENT_SHA)
+
+    def test_real_current_and_historical_source_mutations_fail_before_profile_output(self):
+        actual = (producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs").read_bytes()
+        historical, _ = producer.c2.c2_program_source_binding(actual)
+        old_site = b"sourceLine: 7538"
+        self.assertEqual(actual.count(old_site), 1)
+        changed_legacy = actual.replace(old_site, b"sourceLine: 7539", 1)
+        changed_addition = actual.replace(b"Celebrate(bool value)", b"Celebrate(bool other)", 1)
+        for mutant in (actual + b"\n", historical + b"\n", changed_legacy, changed_addition):
+            with self.subTest(digest=producer.c2.sha(mutant)), self.assertRaisesRegex(ValueError, "Exact known C2 source-generation"):
+                producer.c2.c2_program_source_binding(mutant)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs"
+            path.parent.mkdir(parents=True)
+            path.write_bytes(changed_legacy)
+            movement = producer.ROOT / "Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs"
+            output = root / ".squad/.scratch/profile-output"
+            for operation in ("profile", "impact"):
+                with self.subTest(operation=operation), patch.object(producer, "ROOT", root):
+                    with self.assertRaisesRegex(ValueError, "Exact known C2 source-generation"):
+                        if operation == "profile":
+                            producer.prepare_profile(root / "source", root / "base", root / "hop", movement, output)
+                        else:
+                            producer.prepare_impact(root / "base.json", root / "callbacks.json",
+                                                    root / "animation.json", movement, output)
+                self.assertFalse(output.exists(), "Actual preparation must reject a mutated source before creating output.")
+            impact = producer.c2.module("metadata_C2_impact_guard", "tools/animation/prepare_c2_impact.py")
+            with self.assertRaisesRegex(ValueError, "Exact known C2 source-generation"):
+                impact.prepare(root / "base.json", root / "callbacks.json", root / "plyrseq.c", path, output)
+            self.assertFalse(output.exists())
 
 
 class ActualProducerChecks(unittest.TestCase):

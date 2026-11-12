@@ -3,6 +3,21 @@ const details = document.querySelector('#runtime-details'), start = performance.
 const loader = globalThis.sourcePlayerLoader, { fail, progress } = loader;
 let failed = false, ready = false, api, renderer, input, frameHandle, previousTime;
 let diagnostic = false, build, loadMilliseconds;
+let audio, audioDisposalInstalled = false;
+let observedHostClock;
+let copySourceObservation;
+let callerTrace, callerDrain, lastDimensions, CallerTrace, DebtDrain;
+const callerProfile = 'aot-rooted-bounded-caller-drain/v1';
+const av306CallerProfile = 'aot-rooted-bounded-caller-drain-av306/v1';
+const av306Profile = 'original-teams-complete-av306';
+const av306ManifestSha256 = '51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d';
+const twoStationRecordsProfile = 'original-teams-complete-av306-two-station-records-v1';
+const twoStationRecordsManifestSha256 = '745129381c326e9f237ac4e6c3e020503553aada3e1f993dfb9321c09ee8f32d';
+const twoStationRecordsFeature = 'source-complete-original-two-station-records-audiovisual/v1';
+const twoStationRecordsFactory = 'SourceC2Composition.CreateCompleteAv306TwoStationRecordsSimulation';
+const twoStationRecordsSettings = 'settings-av306-two-station-records-v1.json';
+const twoStationRecordsCallerProfile = 'aot-rooted-bounded-caller-drain-av306-two-station-records/v1';
+let selectedCallerProfile = callerProfile;
 const timings = [], sourceSamples = [];
 const files = new Map(), requests = [];
 
@@ -11,10 +26,38 @@ const digest = async bytes => Array.from(new Uint8Array(await crypto.subtle.dige
 
 loader.onFailure(() => {
   failed = true; ready = false;
+  callerDrain?.dispose();
   cancelAnimationFrame(frameHandle);
   try { api?.SetActive(false); } catch { /* Keep the first explicit kernel/asset failure. */ }
   input?.close();
+  closeAudio();
 });
+
+function closeAudio() {
+  if (audio) void audio.close().catch(error => {
+    console.error('SOURCE_AUDIO_DISPOSE_FAILED', error);
+    fail(error);
+  });
+}
+
+Object.defineProperty(globalThis, 'sourcePlayerAudio', { value: Object.freeze({
+  async unlock(event) {
+    const { SourceAudioReceiver } = await requiredModule('./audio.js');
+    if (failed) throw new Error('The source player has already failed; no audio composition may start.');
+    audio ??= new SourceAudioReceiver({ onFailure: fail });
+    await audio.unlock(event);
+    if (!audioDisposalInstalled) {
+      window.addEventListener('pagehide', () => {
+        callerDrain?.dispose();
+        try { api?.Shutdown?.(); } catch (error) { fail(error); }
+        closeAudio();
+      }, { once: true });
+      audioDisposalInstalled = true;
+    }
+    return audio.snapshot();
+  },
+  snapshot: () => audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false },
+}), writable: false, configurable: false });
 
 canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); fail(new Error('Actual WebGL context lost')); });
 
@@ -47,7 +90,59 @@ async function loadData() {
   if (failed) return;
   if (manifestHash !== build.dataManifestSha256) throw new Error('Served private data manifest does not match this actual build receipt.');
   const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
-  if (manifest.schema !== 'blitz-portable-source-player/v1') throw new Error('Unknown original-data bundle.');
+  if (build.execution?.callerProfile !== undefined) {
+    const drain = build.execution.callerDrain;
+    const historicalCaller = build.execution.callerProfile === callerProfile &&
+      manifest.profile === 'original-teams-complete-original303-selected-world-v2' &&
+      manifestHash === 'aeb2efdebdbe260f63f6d785c461048dc9cec337098490761c2815cd8ffc4edd';
+    const av306Caller = build.execution.callerProfile === av306CallerProfile &&
+      manifest.profile === av306Profile && manifestHash === av306ManifestSha256;
+    const twoStationRecordsCaller = build.execution.callerProfile === twoStationRecordsCallerProfile &&
+      manifest.profile === twoStationRecordsProfile && manifestHash === twoStationRecordsManifestSha256;
+    if (!(historicalCaller || av306Caller || twoStationRecordsCaller) || build.execution.mode !== 'aot' ||
+        build.execution.runAOTCompilation !== true || build.execution.jsonReflectionEnabled !== true ||
+        drain?.schema !== 'bounded-source-caller-drain/v1' || drain.scheduling !== 'MessageChannel' ||
+        drain.elapsedSecondsPerDrain !== 0 || drain.maximumHostStepsPerCallback !== 6 ||
+        drain.maximumBridgeIntervalSeconds !== .1 || drain.freshInputPollingPerDrain !== 0 ||
+        drain.audioLeadChanged !== false || drain.sourceClockRngOrEpochChanged !== false)
+      throw new Error('Unknown or mismatched explicit source caller-drain execution profile.');
+    selectedCallerProfile = build.execution.callerProfile;
+    callerTrace = new CallerTrace();
+  }
+  const selectedWorld = manifest.profile === 'original-teams-complete-original303-selected-world-v2';
+  const av306 = manifest.profile === av306Profile;
+  const twoStationRecords = manifest.profile === twoStationRecordsProfile;
+  const av306Assets = av306 || twoStationRecords;
+  if (manifest.schema !== (av306Assets ? 'blitz-portable-source-player/v3' :
+      selectedWorld ? 'blitz-portable-source-player/v2' : 'blitz-portable-source-player/v1') ||
+      twoStationRecords && (manifestHash !== twoStationRecordsManifestSha256 ||
+        manifest.featureContract !== twoStationRecordsFeature || manifest.factory !== twoStationRecordsFactory ||
+        build.profile !== twoStationRecordsProfile || build.factory !== twoStationRecordsFactory ||
+        build.featureContract !== twoStationRecordsFeature ||
+        manifest.ancestorManifestSha256 !== av306ManifestSha256 ||
+        manifest.files.length !== 1154 || manifest.files.reduce((sum, file) => sum + file.bytes, 0) !== 300324845 ||
+        manifest.features?.originalStationLayout !== 2 ||
+        manifest.features?.sourceTwoStationRecordWorkflow !== 'source-two-station-record-workflow/v1' ||
+        manifest.entrypoints?.settings !== twoStationRecordsSettings ||
+        !manifest.files.some(file => file.path === twoStationRecordsSettings && file.bytes === 556 &&
+          file.sha256 === '6ad8eb0239d2b0432d55dcf47e2fd893a38397e036befa682ffb9b0ed89c4fc2')) ||
+      av306 && (manifestHash !== av306ManifestSha256 ||
+        manifest.featureContract !== 'source-complete-original-animation-course-audiovisual/v3' ||
+        manifest.factory !== 'SourceC2Composition.CreateCompleteAv306Simulation' ||
+        manifest.ancestorManifestSha256 !== 'aeb2efdebdbe260f63f6d785c461048dc9cec337098490761c2815cd8ffc4edd' ||
+        manifest.files.length !== 1153 || manifest.files.reduce((sum, file) => sum + file.bytes, 0) !== 300324289 ||
+        manifest.features?.originalSelectedClipInputs !== 306 ||
+        manifest.features?.originalCompiledPlaylistPrograms !== 1205 ||
+        manifest.entrypoints?.courseCamera !== 'camera/complete-av306-course.json' ||
+        manifest.entrypoints?.originalAudio !== 'audio/complete-av306-manifest.json') ||
+      av306Assets && (manifest.features?.originalSelectedClipInputs !== 306 ||
+        manifest.features?.originalCompiledPlaylistPrograms !== 1205 ||
+        manifest.entrypoints?.courseCamera !== 'camera/complete-av306-course.json' ||
+        manifest.entrypoints?.originalAudio !== 'audio/complete-av306-manifest.json') ||
+      (selectedWorld || av306Assets) && manifest.selectedWorld?.schema !== 'source-complete-selected-world-admission/v2' ||
+      selectedWorld && (manifest.featureContract !== 'source-complete-original-prematch-selected-world/v2' ||
+        manifest.selectedWorld?.schema !== 'source-complete-selected-world-admission/v2'))
+    throw new Error('Unknown or unauthenticated original-data generation.');
   const seen = new Set();
   for (const file of manifest.files) {
     if (!/^[A-Za-z0-9_.\-/]+$/.test(file.path) || file.path.split('/').some(p => !p || p === '.' || p === '..') ||
@@ -71,24 +166,79 @@ async function loadData() {
   }));
   if (failed) return;
   const settings = JSON.parse(new TextDecoder().decode(files.get(manifest.entrypoints.settings)));
-  return { manifestBytes, stations: settings.stations.map(station => station.id) };
+  if (twoStationRecords && (settings.profile !== 1 || settings.station_layout !== 2 ||
+      settings.stations.length !== 2 || settings.stations.some((station, side) =>
+        station.id !== side || station.team !== side || station.initial_player_id !== -1 || station.profile !== null)))
+    throw new Error('Named TwoStation requires actual mapped two-station settings, not a FourStation data alias.');
+  return { manifestBytes, profile: manifest.profile, stations: settings.stations.map(station => station.id) };
+}
+
+async function startOriginalAudio(profile) {
+  const { SourceAudioReceiver } = await requiredModule('./audio.js');
+  audio ??= new SourceAudioReceiver({ onFailure: fail });
+  const button = document.querySelector('#start-original-audio');
+  if (!button) throw new Error('The explicit complete-original user-gesture start control is missing.');
+  button.hidden = false;
+  document.querySelector('#audio-qualification').textContent =
+    profile === twoStationRecordsProfile ?
+      'Named TwoStation: original P1/Home and P2/Away records/custom plays, AV306 and source playlist PCM. Click Start to unlock audio.' :
+    profile === av306Profile ?
+      'Complete AV306: original stances/course camera and qualified source playlist PCM. Click Start to unlock audio; native DSP/pixels remain unqualified.' :
+      'Complete-original303: original shadow/cabinet art and executed source playlist PCM. Click Start to unlock audio; native DSP/pixels remain unqualified.';
+  progress('Original resources verified. Click START ORIGINAL GAME WITH SOUND to unlock the real AudioContext.');
+  await new Promise((resolve, reject) => {
+    let starting = false;
+    const launch = event => {
+      if (starting || failed) return;
+      starting = true; button.disabled = true;
+      audio.unlock(event).then(resolve, reject);
+    };
+    button.addEventListener('click', launch, { once: true });
+  });
+  button.hidden = true;
+  window.addEventListener('pagehide', () => {
+    callerDrain?.dispose();
+    try { api?.Shutdown?.(); } catch (error) { fail(error); }
+    closeAudio();
+  }, { once: true });
+  audioDisposalInstalled = true;
 }
 
 function frame(time) {
   if (failed) return;
   try {
-    const elapsed = previousTime === undefined ? 0 : (time - previousTime) / 1000;
-    previousTime = time;
+    if (audio?.unlocked && !audio.frameReady) {
+      callerDrain?.cancel('audio-not-ready');
+      observedHostClock?.sample(performance.now(), false);
+      previousTime = undefined;
+      frameHandle = requestAnimationFrame(frame);
+      return;
+    }
     const dimensions = renderer.resize(), before = performance.now();
+    lastDimensions = dimensions;
     input.poll();
     if (failed) return;
-    const steps = api.Frame(elapsed, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr);
+    const observedTime = observeHostTime();
+    const elapsed = previousTime === undefined ? 0 : observedTime - previousTime;
+    previousTime = observedTime;
+    const advance = () => api.FrameObserved ?
+      api.FrameObserved(elapsed, observedTime, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr) :
+      api.Frame(elapsed, dimensions.width, dimensions.height, dimensions.cssWidth, dimensions.cssHeight, dimensions.dpr);
+    const steps = callerTrace ? traceAdvance('raf-frame', elapsed, observedTime, advance) : advance();
     if (failed) return;
+    callerDrain?.request();
     timings.push({ totalMilliseconds: performance.now() - before, webglMilliseconds: renderer.lastMilliseconds, hostSteps: steps });
     if (timings.length > 300) timings.shift();
     const state = renderer.status;
+    const recordTransfers = document.querySelector('#record-transfers');
+    if (recordTransfers) {
+      recordTransfers.hidden = state.records == null;
+      document.querySelector('#records-export').disabled = !api.CanExportRecords();
+      document.querySelector('#records-import').disabled = !api.CanImportRecords();
+    }
     const featureStatus = document.querySelector('#feature-status');
-    if (featureStatus) featureStatus.textContent = `Audio output unqualified · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
+    const audioStatus = audio?.unlocked ? `Original decoded PCM (${audio.started} voices)` : 'Audio output unqualified';
+    if (featureStatus) featureStatus.textContent = `${audioStatus} · Fire ${state.effects.enabled ? 'portable original SDL/17-TGA' : 'disabled'} · ` +
       `Kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit) · ` +
       `Phead ${state.assets.poppedHead ? 'original SDL-derived, NOT native head.h' : 'input absent; required raw flag stops'} · ` +
       'Free ball original medball2/HEDSHU + Core source rotation · ' +
@@ -133,23 +283,64 @@ function frame(time) {
         `kick meters ${state.kick.mode} (authored151/27/209, NOT native Composit)\n` +
         `Popped head ${state.assets.poppedHead ? 'original phead SDL-derived, raw4/HEDSHU1, native head.h unqualified' : 'no input; no fallback'}\n` +
         'Free ball original medball2/HEDSHU, actual source-angle matrix; native header/pixels unqualified\n' +
-        'Audio output unqualified · native Unity / arcade bit-exact acceptance open';
+        `${audioStatus} · native Unity / arcade bit-exact acceptance open`;
     }
     frameHandle = requestAnimationFrame(frame);
   } catch (error) { fail(error); }
 }
 
+function traceAdvance(kind, elapsedSeconds, observedSeconds, action) {
+  const beforePresent = callerTrace.presentCount;
+  const row = callerTrace.begin(kind, { elapsedSeconds, observedSeconds,
+    generation: callerDrain?.generation ?? 0, debtBefore: api.HasWholeSourceStepDebt(),
+    lastRenderedPacketBefore: callerTrace.lastPacket,
+    beforeProvenance: 'last rendered packet; NOT authoritative current live source/host',
+    rendered: false, actualPacketAtEnd: null });
+  try { const result = action(); row.hostSteps = result; row.completed = true; return result; }
+  finally {
+    callerTrace.finish(row);
+    row.debtAfter = row.completed ? api.HasWholeSourceStepDebt() : null;
+    row.rendered = callerTrace.presentCount !== beforePresent;
+    if (row.rendered) row.actualPacketAtEnd = callerTrace.lastPacket;
+  }
+}
+
+function drainSourceDebt() {
+  const d = lastDimensions;
+  return traceAdvance('message-channel-drain', 0, null,
+    () => api.Frame(0, d.width, d.height, d.cssWidth, d.cssHeight, d.dpr));
+}
+
+function observeHostTime() {
+  return observedHostClock.sample(performance.now(), !input?.paused && !document.hidden &&
+    document.hasFocus() && (!audio?.unlocked || audio.frameReady));
+}
+
 async function startPlayer() {
   if (failed) return;
-  const [{ dotnet }, { SourceRenderer }, { SourceInput }] = await Promise.all([
+  const [{ dotnet }, { SourceRenderer, sourceObservation },
+    { SourceInput, ObservedHostClock, SourceCallerTrace, SourceDebtDrain }] = await Promise.all([
     requiredModule('./_framework/dotnet.js'), requiredModule('./renderer.js'), requiredModule('./input.js'),
   ]);
   if (failed) return;
+  copySourceObservation = sourceObservation;
+  CallerTrace = SourceCallerTrace; DebtDrain = SourceDebtDrain;
   renderer = new SourceRenderer(canvas);
   const originalData = await loadData();
   if (failed) return;
+  if (callerTrace) {
+    for (const name of ['drawScene', 'drawEffects', 'drawHud', 'assertHealthy', 'texture', 'mesh', 'resize']) {
+      const original = renderer[name];
+      renderer[name] = function (...args) {
+        return callerTrace.stage('js-webgl-' + name, () => original.apply(this, args),
+          name === 'texture' || name === 'mesh' ? { resourceId: String(args[0]).slice(0, 160) } : {});
+      };
+    }
+  }
   progress('Loading the genuine .NET10 WebAssembly runtime and C# production gameplay assembly');
   const runtime = await dotnet.withDiagnosticTracing(false).create();
+  if (failed) return;
+  runtime.setModuleImports('source-player-records', await requiredModule('./records.js'));
   if (failed) return;
   runtime.setModuleImports('source-player', {
     readFile: path => {
@@ -159,6 +350,16 @@ async function startPlayer() {
       return bytes;
     },
     progress,
+    audioReady: () => audio?.ready === true,
+    audioClockElapsed: epoch => audio?.sourceElapsed(epoch) ?? -1,
+    audioSample: (...args) => {
+      if (!audio) throw new Error('Decoded source audio was submitted before public user-gesture unlock.');
+      audio.sample(...args);
+    },
+    audioCommands: commands => {
+      if (!audio) throw new Error('Decoded source audio was submitted before public user-gesture unlock.');
+      audio.commands(commands);
+    },
     texture: (...args) => renderer.texture(...args),
     mesh: (...args) => renderer.mesh(...args),
     worldDraw: (...args) => renderer.worldDraw(...args),
@@ -166,20 +367,74 @@ async function startPlayer() {
     appearance: (...args) => renderer.appearance(...args),
     freeBall: (...args) => renderer.freeBall(...args),
     effects: (...args) => renderer.effects(...args),
-    present: (...args) => renderer.present(...args),
+    present: (...args) => {
+      if (!callerTrace) return renderer.present(...args);
+      const previousEpoch = callerTrace.lastPacket?.epoch;
+      try { return callerTrace.present(args.at(-1), () => renderer.present(...args)); }
+      finally {
+        if (previousEpoch !== undefined && previousEpoch !== callerTrace.lastPacket?.epoch)
+          callerDrain?.cancel('rendered-epoch-change');
+      }
+    },
   });
   const config = runtime.getConfig();
   build.mainAssembly = config.mainAssemblyName;
   const exports = await runtime.getAssemblyExports(config.mainAssemblyName);
   if (failed) return;
   api = exports.Blitz.SourcePlayer.Browser;
-  if (!api?.Start || !api?.Frame || !api?.Capture) throw new Error('Actual C# browser exports are missing; JavaScript gameplay is not a fallback.');
+  if (!api?.Start || !api?.Frame || !api?.Capture || !api?.CabinetStations)
+    throw new Error('Actual C# browser exports are missing; JavaScript gameplay is not a fallback.');
   await runtime.runMain();
   if (failed) return;
-  api.Start(originalData.manifestBytes, location.href);
+  if (['original-teams-complete-original303', 'original-teams-complete-original303-source-banks',
+    'original-teams-complete-original303-records', 'original-teams-complete-original303-final',
+    'original-teams-complete-original303-prematch',
+    'original-teams-complete-original303-selected-world-v2', av306Profile,
+    twoStationRecordsProfile].includes(originalData.profile)) {
+    if (!api.StartCompleteOriginal) throw new Error('The actual complete-original C# data factory/audio entry is missing.');
+    await startOriginalAudio(originalData.profile);
+    if (failed) return;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (failed) return;
+    await api.StartCompleteOriginal(originalData.manifestBytes, location.href);
+  } else api.Start(originalData.manifestBytes, location.href);
   if (failed) return;
   if (files.size !== 0) throw new Error(`The real source loaders left ${files.size} unconsumed private input files.`);
-  input = new SourceInput(api, canvas, originalData.stations, fail, () => { previousTime = undefined; });
+  const transferStatus = document.querySelector('#records-transfer-status');
+  document.querySelector('#records-export')?.addEventListener('click', async () => {
+    try {
+      if (!api.CanExportRecords()) return;
+      const envelope = await api.ExportRecords();
+      const blob = new Blob([envelope], { type: 'application/json' }), url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'nflblitz-local-records.json'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      transferStatus.textContent = 'Local record export requested.';
+    } catch { transferStatus.textContent = 'Record export failed; stored data was not replaced.'; }
+  });
+  document.querySelector('#records-import')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !api.CanImportRecords()) return;
+    try {
+      if (file.size > 32 * 1024 * 1024) throw new Error('Bounded local record file required.');
+      api.ImportRecords(await file.text());
+      transferStatus.textContent = 'Import staged; confirm through the current cabinet screen.';
+    } catch { transferStatus.textContent = 'Record import failed; stored data was not replaced.'; }
+  });
+  observedHostClock = new ObservedHostClock();
+  input = new SourceInput(api, canvas, Array.from(api.CabinetStations()), fail,
+    () => { previousTime = undefined; }, observeHostTime,
+    reason => callerDrain?.cancel(reason));
+  if (callerTrace) {
+    if (typeof api.HasWholeSourceStepDebt !== 'function')
+      throw new Error('The explicit caller-drain profile requires the actual post-commit debt getter.');
+    callerDrain = new DebtDrain({
+      hasDebt: () => api.HasWholeSourceStepDebt(), drain: drainSourceDebt, fatal: fail, trace: callerTrace,
+      canRun: () => !failed && lastDimensions != null && !input.paused && !document.hidden &&
+        document.hasFocus() && (!audio?.unlocked || audio.frameReady),
+    });
+  }
   canvas.focus();
   if (failed) return;
   input.focus();
@@ -198,11 +453,30 @@ function summary(values) {
 }
 
 Object.defineProperty(globalThis, 'sourcePlayer', { value: Object.freeze({
+  observe: () => {
+    const sound = audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false };
+    return copySourceObservation ? copySourceObservation(renderer?.status, sound, ready, failed) :
+      structuredClone({ ready, failed, state: renderer?.status, audioReceiver: sound });
+  },
   snapshot: () => structuredClone({
     ready, failed, build, state: renderer?.status, device: renderer?.device,
+    audioReceiver: audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false },
     timings: { loadMilliseconds, frames: summary(timings.map(t => t.totalMilliseconds)),
       webgl: summary(timings.map(t => t.webglMilliseconds)), sourceSamples },
     resources: requests,
   }),
+  sourceStepCosts: () => {
+    if (!api || typeof api.SourceStepCosts !== 'function')
+      throw new Error('Actual C# source-step diagnostics are not initialized.');
+    return api.SourceStepCosts();
+  },
+  callerDiagnostics: () => {
+    if (!callerTrace || !callerDrain)
+      throw new Error('The explicit caller-drain profile is not initialized.');
+    if (!failed && !input?.paused)
+      throw new Error('Caller diagnostics require actual public pause or terminal failure.');
+    return JSON.stringify({ ...callerTrace.snapshot(), enabled: true, profile: selectedCallerProfile,
+      generation: callerDrain.generation, pending: callerDrain.pending != null, disposed: callerDrain.closed });
+  },
   gpuProof: () => renderer.proof(),
 }), writable: false, configurable: false });

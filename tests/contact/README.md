@@ -1,5 +1,501 @@
 # Source C1/C2 regression checks
 
+## Remaining M1/C1 public caller windows — November 10, 2026
+
+The new bounded selectors execute the real M1 factory, raw physical station
+frames, the public60-to57Hz `Step` path, actual player/detector/ball processes
+and original animation programs. They do not dispatch movement, AI, contact or
+physics privately during the measured wakes. Initial positions, roles, prior
+drone commands and scripts are explicitly authored live-play boundaries, not a
+natural match or an original target-engine replay. The previously qualified
+287/91/37/49 groups remain separate and were not rerun or relabelled.
+
+```sh
+python3 -B tests/contact/run.py --movement-windows-only \
+  --source-root "$MOVEMENT13" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/movement-windows-20261110-new-run
+
+python3 -B tests/contact/run.py --contact-windows-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/contact-windows-20261110-new-run
+```
+
+`MOVEMENT13` must supply every exact blob in `tests/movement/pins.json`,
+including `include/handicap.h` (`45eef32b32721196e4575e59a0fd2ce01e0fbbdb`)
+and `plyrinfo.c` (`e955e1c98a0fd0123ce0b865ddafdfd7c32c59d4`). Missing
+local cache files are not absent upstream dependencies: the existing
+`tests/movement/fetch_inputs.py` obtains/verifies only those pinned public
+blobs. `ORIGINAL` requires the seven `source.py` contact blobs plus the three
+exact `translate.py` ANI operand files. The contact selector checks all131
+generated programs/2147 instructions against those original bytes before
+executing its selected callers. No M1 bytes are loaded through an old-nine
+factory/profile.
+
+### Executed M1 inventory
+
+`MovementWindowChecks` executes **98 actual source wakes / 691 assertions**:
+
+* 49 fresh raw49-way ordinals, with original input/turn/run/physics velocity
+bits, rather than a direction-table-only check;
+* zero, .1, .35 and .350001 turbo followed by a real release/recharge wake;
+* real C press,1/8/9 release wakes, and repress:1/8 select the genuine spin
+  program;9 selects turbo running;
+* all seven selected field frictions during the actual hurdle's
+  uninterruptible grounded window, retaining the declared slide velocity;
+* 99.6/99.9/100 recharge caps;
+* zero-turbo Pass/Lateral crossed with intended actor−1/4/5: only the
+  intended self **Pass** retains the original turbo exception. A declared
+  prior neutral drone command/think100 makes the original stick-only
+  acquisition boundary explicit;
+* an actual drone DB cover/backpedal: a genuine human QB3 at sourceX−200
+  (FIELDX24, behind LOS30), waiting receiver4 at0, defender11 at10/facing768,
+  cached angle768. Public `Step` produces stick21, backpedal target4,
+  facing768 and velocityX1.05 (bits1065772646), matching unchanged original C.
+  The QB stays human; no synthetic QB plan or undefined QB branch is used.
+
+The native companion extracts unchanged original input/resource, mode, run,
+turn and physics bodies using the existing movement oracle. Its animation
+entry is explicitly the existing **metadata-only** C seam; the observed
+managed side executes the actual VM. No pose/root-position equivalence is
+claimed from that seam. The only test-driver changes flush replies and admit
+`quit`. State bits, ordered player.c raw calls/bounds, original commands and
+actual events are recorded in `movement-window-trace.jsonl`.
+
+Five successfully compiled, zero-diagnostic production mutations must fail
+their exact field assertion: admit turbo at zero; replace the Pass exception
+with Lateral; reject release8; ignore the selected field; drop the actual AI
+backpedal projection. Field0/1 have equal friction; the first differing
+ignore-field result is **field2**. Input predicates are checked against the
+unchanged C input body before the complete C movement comparison: a broken
+turbo gate must fail its actual counter/flag, not exhaust a reference RNG tape
+after it changes animation selection. No RNG padding or replacement is used.
+
+### Executed C1 inventory
+
+`ContactWindowChecks` invokes the existing concrete fixtures:
+`BlockAndPuppet`, `ContactBeforeBall`, `DeadBallPushAndGetUp`, `SpearHelmet`,
+`LateBodySelection`, `HelpUp` (**25 assertions**). These cover human/nonhuman
+block tables; bilateral real puppet programs and12 subsequent wakes;
+collision selection/RNG before ball bounce; dead-ball uninterruptible
+ANI_ATTACK_ON through GET_UP_B/GeneralRun; real spear capsules and the
+secret-head first/second-draw short circuit; late `m_nostomp`; and actual
+help-up/release, observed at source146. All25 pass without a gameplay fix.
+
+Only this new selector leaves the original factory/process tick intact;
+the historical fixture's artificial tick100 is not applied. The production
+host's exact-once `BeginTick` guard is unchanged. Two compiled controls omit
+uninterruptible attack dispatch and the human secret-head guard respectively;
+both fail their named actual-caller predicate, followed by a fresh25-pass run.
+The retained `BlockAndPuppet` fixture also includes one explicitly isolated
+private physics call checking puppet gravity suppression after its public
+wakes; that single assertion is not presented as another public caller.
+
+### Coherent terminal receipt
+
+Bash1423 exited0: **691 + five controls +691**, **25 + two controls +25**,
+and16 existing runner tests. Every build was C#7.3 with zero warnings/errors;
+all104 production files, harness files, real fixture and copied/original M1
+inputs remained unchanged. This source epoch includes the independently
+released A1 files `b28f2933…`/`6b83e2e4…`, not the earlier animation epoch.
+Source core:
+`0063d3dee206b8cf9ac1b1d4e9d95d5722bee0ae3baec8289887509fb632fed2`;
+104-file manifest:
+`9bbc2c69a994991a158ab8fa4d6cf6bcfe1a4914ee5cb9c1d2ac4b2a0d1ddc4a`.
+M1 receipt:
+`de5678f0dbc5deb5ecacb109da4cea29eb8d813cedcb0403a9786f2a6ca43fb6`;
+C1 receipt:
+`b53aaf0e42a8cdef7ca5449f0cd57980ae10da31134137ca58db3e6170e36f66`.
+The private POSIX wrapper outputs are ephemeral; these test sources/commands
+and terminal observations persist. Quality was handed the frozen executable
+selectors for a separately persistent independent run.
+
+## Defined dive-to-AI bridge; explicit original QB blocker — November 10, 2026
+
+`actual-dive-ai-data-bridge-20261110/v1` repairs the production frame's omitted
+`throw_target` and dive classification. The source tests **sequence**
+T_CRZDIV/T_SPRHED, not attack_mode2: the actual spear-head entry has attack_mode5,
+and the genuine no-target crazy-dive entry can still have attack_mode0.
+
+Eight directed fixtures execute the unchanged real dive program, build the
+actual production AI frame and compare its classifier to unchanged original
+`find_diver`. With the same unfiltered seed1, distances20/40 select genuine
+T_SPRHED with target3/10; the native and corrected managed classifier select
+11/4. At40.000004 both reject. At200 the actual no-target program branch remains
+T_CRZDIV with target−1. No seed/script substitution was used to obtain that
+second branch. Both branches project flags257; frame construction/classification
+consume zero additional RNG.
+
+```sh
+python3 -B tests/contact/run.py --diver-bridge-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/diver-bridge-20261110-new-run
+```
+
+Coherent terminal Bash1297 passed **49 baseline + three compiled causal
+controls + 49 final assertions**, with zero warnings/errors and an unchanged
+104-file production/input/harness closure. Controls omit the victim projection,
+the dive flag and only the T_CRZDIV sequence, respectively. Core:
+`ce4995b77e6925cedbfb170ca6b23994ec10184db16f680823dfcee9035e0d01`;
+manifest:
+`ea73eb2bcd845655ef0f3e49ea50adfccbb13296410a9618c0734da22efffbd9`;
+receipt:
+`508a82cd6ff9421cd9b63b5c7d54223729ddf612c185ba40930e67ae28a69103`.
+This is **VM → production frame → original classifier** evidence, not a public
+CPU-QB decision or original-engine run.
+
+**Whole-QB P1 acceptance remains blocked at a precise original branch.** Active
+`drone.c:_drone_qb` initializes attacker−1 when `find_diver` succeeds, then
+passes **attacker**, not enemy/diver, to `evade_dir` (L1288–1305).
+`evade_dir` L4687–4688 reads `p2p_angles[qb][-1]`. The existing managed guard is
+unchanged and is now observable with the restored authentic data. No flattened
+array alias, wrap, clamp, new Portable policy or guessed RNG/angle was added.
+The pinned complete game tree `a7e0352125d46075b7d98e87253ab89b9160a4c7`
+contains no compiled game objects/executables/maps. Verified makefile blob
+`0c83812cd8f997adc9510d2d023ec0ef67e51939` uses ccmips/psylink and external
+libraries. Host-GCC results are not target-codegen/ABI authority for this
+undefined read. An actual target result/trace is required to close that branch.
+
+The narrow source-chain recheck did not find an omitted sentinel path:
+
+* `drone.c` blob`d4b636dcd8cc34109be5834b2be2b18b7c04439a` L27
+  selects the active new QB. L1286 gates only `!MODE_UNINT`;
+  L1289 initializes attacker−1, L1292 finds the diver, L1295–1296 skips
+  attacker lookup on success, and L1304 passes **attacker**, not enemy.
+  The complete `evade_dir` L4682–4725 reads the index at4687/4688
+  **before** its bounds/direction decisions; there is no−1 handling.
+* `detect.c` blob`68c239fa2e617988107fbebeb4dfeff5bbfe9233` L74
+  defines an actual two-dimensional `int` array, not an intentionally shifted
+  pointer. `include/GAME.H` blob`09d65c92971c32c44b1dc49fb4e4e98b371b1cd3`
+  L221 sets14 players. Detector L541/550/551 fills only0..13. Thus−1
+  is outside the inner14-element array, even if a particular compiler might
+  happen to load contiguous previous-row storage.
+* 54 pinned transitive NFL/Goose/math/stdlib source/header files contain no
+  `p2p_angles`/`evade_dir`/`find_diver` define/undef aliases. The actual
+  BGlide/Glide300 headers also contain none. The absent generated
+  `anim/genseq.h` was traced through original animation makefile
+  `2e77acc8…` to original `tools/seq2ani/SEQ2ANI.C`
+  blob`2b36316007c332808c23d247be020cedc553a262`, L1651–1656:
+  it emits VERSION/SEQ constants, not an angle-table offset or sentinel.
+* Complete supplied Midway commit
+  `1792293aaaea00a919b59e8c05716978e85b4333` has tree
+  `fe8f9ea36e656d2529e73966af675a7b310f844f` (1023 entries,
+  not truncated); the game tree has1290 entries, not truncated.
+  BIOS/sound/tool objects are not applicable `drone.o`/`detect.o` game
+  instructions. The actual makefile334–336 uses **CC1/ccmips−O1**;
+  nfl/bnfl/vnfl.cf specify MIPS4/−G0, and the original .lnk files name
+  detect.o/drone.o and external libc/Goose/Glide libraries. They do not
+  provide the linked instruction bytes or this read's runtime cache.
+
+Required remaining authority is the matching compiler/version and emitted
+instructions, actual integer/row layout if an alias is asserted, and retained
+matrix values at the read. This is a precisely bounded **unqualified original
+target effect**, not a claim that source is missing or recovery is impossible.
+The existing managed rejection (`SourceDroneAI.cs`1521–1523) remains unchanged.
+No native proof is inferred from host flattening or an unrelated target object.
+
+### Remaining row work, distinguished from missing code
+
+| Row | Current concrete remainder |
+| --- | --- |
+| M1 | The98 actual windows above now qualify the named49-way, cover/backpedal, exhausted intended receiver, repress and seven-friction slice:691+five controls+691, not all role/mirror/stat/handicap/match combinations or full M1. No additional defined omission was established. Source WPNPS/DBPS promotions continue their original presnap body; no invented early return was added. |
+| C1 | The concrete block/puppet/contact-order/get-up/late-hit/helmet windows above now pass25+two controls+25 with real joints/ANI/RNG. These are authored live boundaries, not a natural whole-contact campaign. Original `bc_adjust[6]` remains a strict target-ABI condition; the existing named Portable repair is not native equivalence. |
+| C2 | Active fire/loss/reset/handicap code has separate controlled original-C coverage described below; it is not qualified merely by `GC_SKILL`. That public configuration producer0/1/2 → typed−3/0/+3 → all primary factory arms is independently closed (Frontend32+control+32; Quality six URL cases+control+six). Original-screen/pixel F1 and natural full-match fire coverage remain distinct. DIFFICULTY_ADJ0..10/default5 has no active original consumer; no Difficulty−5 mapping. Original base<3 `diff_settings[base−3]` remains an explicit undefined-source guard. |
+| B1 | Newly proven caller defects are repaired in the epochs below. Quality's separate14-case/9-control public-caller qualification (`bb07d11b…`, before the new A1 epoch) additionally covers self10/11, offense15/16, intended exception, loose30/31, fire-flight4/5 and lateral bounce boundaries. Other catch/control/special variants are not thereby all closed. Strict quantized-Z qsort ties/non-weapon-QB target-array overflow remain explicit target-library/ABI conditions. |
+| B2 | Recovery-speed/controller/lateral-mode defects are repaired below. The same independent14-case proof covers both actual own-EZ recoveries, FIELDX2/3 departure,18-wake control, safety versus touchback and actual ball_proc forward-fumble OOB placement versus original result LOS. No additional gameplay fault was found in that slice; it is not every return/OOB trajectory or a natural match. |
+| P1 | The defined dive bridge is repaired above. Full CPU-QB continuation is blocked by the exact negative-index branch, not missing public source or a reason to bypass its guard. Other playbook/route/man-zone-blitz/custom/audible implementations require caller-specific execution evidence before row closure. |
+
+### Existing C2 fire/handicap coverage, not configuration-only closure
+
+`tests/fire-handicap/Program.cs` has explicit focused sections:
+`fire` runs `CarrierCases`185 and `ResultCases`266; `handicap` runs
+`HandicapCases`460; `integration` runs `IntegrationCases`589; `FH01`,
+`FH01-home`, `FH01-away` isolate incomplete-fourth-down reset ownership.
+The executable arguments are:
+
+```text
+fixture SAFN original-C-binary NEW-output SECTION C2-inputs-or-- M1-inputs-or--
+```
+
+`tests/fire-handicap/oracle.py:build(source, output, handicap_header)` produces
+the unchanged C reference from its exact pins. The existing suite retains
+685 C calls/profile (258 fire/control/result,415 handicap,10 integrated,
+two FH01),10662 C1/10677 old-nine/M1 assertions and15 compiled controls.
+These are historical generation-specific receipts, **not** retargeted counts
+for the new691 caller epoch.
+
+Covered fire branches include18 versus17/19 control; second versus third
+completion; both sides and receiver versus controller; LOS before/on/after;
+bobble/lateral noncompletion; airborne pending credit and landing after
+play-over; ordinary versus forced possession and kickoff exceptions; second
+LOS loss versus nonloss/already-passed count; first-down/TD/FG/miss/PAT/
+fourth-down reset ownership and queue/commit boundaries. The integration
+fixture calls actual `TrySourceCatch` directly, then executes real17/18
+source wakes for each of three completions, checking published fire/count/
+ForwardCatcher, real PlayerDown/result commit and subsequent lineup. Later
+contact/release consumer entries are direct. This is not a natural/public
+pass-release-to-detection proof.
+
+Handicap coverage independently varies all31 team bases, human/CPU masks,
+score/quarter weighting, no-assist/super/powerups, win streak and five-play
+identity history; it checks produced0/10 extrema and rejects the actual
+undefined negative consumer. Produced handicap0..10 is **not**
+DIFFICULTY_ADJ0..10 or an invented mapping from that otherwise unused setting.
+
+## Special throw retains the existing ball-turbo flag — November 10, 2026
+
+The separate `special-throw-retained-turbo-20261110/v1` epoch corrects the
+actual `_mode_qb` HURDLE/SPIN/QB_STIFF throw selector. Only its normal control
+block writes `BF_TURBO_PASS`; the special upper-body branches leave the existing
+flag alone. The port previously replaced it with the current C-button value.
+
+Eight actual public-input cases cover both sides and all combinations of an
+existing ball-turbo flag and current C. Public A at1 selects the genuine
+HURDLE; subsequent B/C enters the uninterruptible special branch and the actual
+animation releases at9. Existing turbo0 chooses the source5.50 selection even
+with C held; existing turbo1 chooses5.70 even with C released. The original C
+speed selector is compiled unchanged with neutral fast-pass/fire inputs.
+These are not original target-PRNG or complete trajectory-oracle claims.
+
+Four additional paired checks compare the complete release origin,
+three-dimensional velocity and target time **bit-for-bit** when only live C
+differs. All pairs match after the fix; there is no position/velocity tolerance.
+
+```sh
+python3 -B tests/contact/run.py --special-throw-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/special-throw-20261110-new-run
+```
+
+Coherent terminal Bash1291 passed **37 baseline + one actual-source compiled
+control + 37 final assertions**, with zero compiler warnings/errors and an
+unchanged104-file production/input/harness closure. Restoring
+`PendingThrowTurbo=turbo` rejects the four mismatched flag cases and all four
+exact-physics pairs. Core:
+`ad605f39c93c61e5d61062f44d46bb3fd7110481e6feb572fb3f6b454f918565`;
+manifest:
+`94ffada8e4e0fd4f2a64909008c09900d2887fcf33c06f4b2c0300f501f295ee`;
+receipt:
+`060e1d9abc9bb615cfa3b19f8a56ff61bacb9b238448abeba46b77b3d2a73eca`.
+The earlier passing-but-changing run remained inconclusive. The old825/287/91
+proofs and archived recordings were not rerun or relabelled.
+
+## Cooperative throw monitor and lateral actor mode — November 10, 2026
+
+The next `cooperative-throw-and-lateral-mode-20261110/v1` epoch implements the
+previously missing production `qb_throw_monitor`, including actual scheduler
+admission. Merely providing the helper was insufficient: an intermediate real
+public-Step run reproduced an orphan process and wrong stale targeting.
+
+The source `THROW_MON_PID` is0x0591 (`include/id.h` blob
+`d2cc50865dd105c4143ac6b769765bd859cc4ff4`). The first actual child wake resets
+`target_human` and sleeps one. The second copies all five actor-history slots,
+reads **current** physical A+B before game_proc/player updates, and permits
+human targeting if any of history0..2 lacks A. Actual release then uses the
+original eligible-human-weapon loop, not an earlier receiver-intent substitute.
+Normal intent creates the child before animation; the original special upper
+throw creates it after its animation change. No new RNG is introduced by this
+monitor.
+
+Twelve real public raw-input cases, from separately declared live-QB/prior-flag
+fixtures, cover both sides:
+
+| Source input/history at the second wake | Original / actual release target, Home / Away |
+| --- | --- |
+| Fresh A+B, history`[B,0,0,0,0]` | human5 / 12 |
+| Recent A+B, history`[AB,A,0,0,0]` | human5 / 12 |
+| B only, A only, or A+B only on the preceding wake | intended drone4 / 11 |
+| A+B with history`[AB,A,A,A,A]` | intended drone4 / 11 |
+
+Public B intent at source1 creates the real process; first wake2 clears the
+declared previous-pass flag and sleeps1; second wake3 decides and exits.
+The actual source animation callback releases at8. The independent C reference
+executes unchanged monitor entry, original post-sleep body and release override.
+Its explicit service boundary yields at sleep and resumes the same actor
+argument; this is **not** original target stack/Goose scheduling proof.
+
+Two additional public rear-stick+B cases reproduce the actual lateral callback.
+Original `lateral_ball` changes the former QB to MODE_WPN; the port previously
+changed only `Role`, leaving `SourceMode=QB`. At source8, both directions now
+publish mode7, thrower3/10, receiver5/12 and carrier−1.
+
+```sh
+python3 -B tests/contact/run.py --throw-monitor-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/throw-monitor-20261110-new-run
+```
+
+Coherent terminal Bash1197 passed **91 baseline + six separately compiled
+causal controls + 91 final assertions**. Controls reject omitted production
+admission, previous-wake physical input, a two-entry history window, omitted
+first-wake reset, omitted release consumer, and omitted lateral mode assignment.
+Every compilation had zero warnings/errors; all104 production files, harness,
+copied/origin M1 and fixture inputs remained unchanged. Core hash:
+`fc052f0fd74fa0987e913fe678250b45f868d16024c9b53cb85a72ef502e3036`;
+manifest:
+`3f95b33b970208e8b567a0f0ff4b2d63eee61f45a8810d2aa5e3599187159a54`;
+receipt:
+`a71691642741b9deecec6d65b48ab9f1c2309a1dd4e0abf67b48b742e7ad18cc`.
+An earlier functionally passing campaign remained
+`inconclusive-generation-changed`; it was not promoted or substituted.
+The previous825/287 receipts and November9 archives were not rerun or relabelled.
+
+## Recovery speed reset and catch-control cache — November 10, 2026
+
+The subsequent `catch-control-and-speed-reset-20261110/v1` epoch repairs two
+different omissions in the actual catch caller:
+
+- The original defensive `standard_catch` transition clears **only**
+  `PF_SPEED_OVERRIDE` on all fourteen actors, before changing modes and calling
+  `drone_poss_change`. Previously the new offensive drones retained defensive
+  acceleration. Speed values/timers must **not** be reset: the source does not.
+- Original `farthest_teammate` uses the retained detector's `distxz` values,
+  including height, rather than recalculating planar distances in converted
+  yard coordinates. Its strict `>` comparison keeps the first actor on ties.
+
+The new `possession-recovery` section compiles the unchanged original transition
+fragment, `drone_poss_change` and `farthest_teammate`. Eight directed real
+catch/movement cases cover fumble/bounced-lateral recovery in both directions,
+same-team recovery and the fumble flight30 rejection. Six directed real catch
+cases check controller transfer:
+
+| Retained detector input | Original / corrected station, Home / Away | Previous wrong station |
+| --- | --- | --- |
+| Airborne first human:63.245552; second:30 | 0 / 2 | 1 / 3 |
+| First:29.5; second:30; then real first-player movement1.15 | 1 / 3 | 0 / 2 |
+| Both exactly30 | 0 / 2 | 1 / 3 |
+
+These are real-method fixtures, **not fourteen natural public-match cases**.
+One additional declared live loose-ball frame runs through the actual public
+`Step`, without direct catch/AI/movement dispatch: source1 defender4 recovers,
+then later drone5 uses1.15 rather than inherited1.85. It emits
+`ControllerChanged(4,3,station0)` followed by `PassCaught(4,10)`. All fourteen
+override flags clear; this isolated case consumes no additional RNG.
+
+```sh
+python3 -B tests/contact/run.py --possession-recovery-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/recovery-speed-20261110-new-run
+```
+
+Terminal Bash1148 passed **287 baseline + two separately compiled causal
+controls + 287 final assertions**, with zero compiler warnings/errors and an
+unchanged104-file production/input/harness closure. Removing the flag clear
+rejects the **actual public Step** as well as four directed recoveries.
+Restoring planar current-position selection rejects all six controller cases.
+The tested core hash is
+`ffcd4d27f357a39dbeda968043fb9247234b60a87837a8aead2b5d17564bf959`;
+production-manifest digest
+`9b1aa77f91d1b694b041ecbdbaa6dc4df77a2b0453fea8131e2db189839ce0fa`;
+receipt digest
+`9a417e503dcf5f4f7ae08a1f9d1dbc325bab1fd5fa87fd77b5c1089b8128c18e`.
+The generated-file export limitation described below still applies.
+
+This closes those B1/B2 caller omissions only. It neither replays nor relabels
+the earlier825 epoch, nor qualifies every interception/kick/end-zone outcome.
+
+## Live actor variables and retained detector cache — November 10, 2026
+
+The separate `live-actor-retained-detector-20261110/v1` source epoch fixes two
+actual production-caller omissions, without changing historical recordings:
+
+- `get_drone_switches` reads live actor/global fields in each player's process.
+  `SourceDroneMove` must not reuse all the pre-player actor/ball values. The
+  immutable `SourceAiFrame` now captures current fields for that actor call.
+- Original `player.c:pre_player_proc` only clears ANITICK and calls
+  `drone_update`. `detect.c:540–552` writes the distance/angle cache **before**
+  collision response. The next pre-player wake must retain that cache, not
+  recompute distances from post-response roots. Lineup/bootstrap initialization
+  is unchanged and is not qualified as original initialization/scheduling.
+
+The focused command builds the actual C# 7.3 production closure and independently
+compiles **53 unchanged active original-C functions** using the existing P1
+extractor. Only the test driver's cache timing is split from its decision call;
+no original function expression is rewritten. This is a bounded host oracle with
+projected structs and explicit raw inputs, not the original arcade ABI/scheduler.
+The source revision is `89f840d58d152a2a9f230cb8d0cdffbd554c8ded`; verified
+`player.c`/`drone.c` blobs are
+`5744c51f30b625b9f80b92388ab49ff0ebc5bb2c` /
+`d4b636dcd8cc34109be5834b2be2b18b7c04439a`.
+
+At source100, later defender11 must observe the following real caller outputs:
+
+| Earlier state/caller | Old stale-frame stick | Original C / corrected stick | Other exact outcome |
+| --- | --- | --- | --- |
+| Controlled receiver-position boundary | 44 | 2 | Cover, target4, no RNG |
+| Actual receiver physics advances Z by1.15 | 44 | 37 | Cover, target4, no RNG |
+| Actual `ReleaseSourcePass(3)` | 41 | 45 | Rush, target−1, think4 |
+| Actual `SourcePlayerDown(4)` | 45 | 24 | Cover, target4, no RNG |
+
+The release case consumes exactly raw59253759 at bound60 →39, then
+raw1639096332 at bound5 →2, unchanged from the failing generation. It emits
+one `PassReleased` for passer3/target4. The down callback creates the whistle
+before queuing play-over, both at source100. These are controlled real M1
+composition fixtures with the existing unfiltered portable-library seed1,
+**not** proof of the historical target PRNG.
+
+A separate actual `Step` case first runs real contact detection on teammates
+eight units apart. Its one ordered body-contact event precedes displacement to
+roots−1/9. Source1 AI must read the retained distance8; the later detector
+writes10. Previously both read10. Actor processes are explicitly suspended in
+this isolated scheduler/cache case; it consumes zero additional RNG.
+
+```sh
+python3 -B tests/contact/run.py --live-drone-callers-only \
+  --source-root "$ORIGINAL" \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --output .squad/.scratch/live-drone-20261110-new-run
+```
+
+Use the existing `with-posix-build.sh` with an **existing own** private scratch
+slot when fuseblk cannot allocate new files. The runner copies/verifies the
+exact regular M1 input closure locally, restores only after NETSDK1004, compiles
+with zero warnings/errors, and preserves every historical default mode/count.
+Both separately compiled controls are mandatory: restoring the stale frame must
+reject the actual one-tick physics case; restoring the pre-player cache refresh
+must reject the real Step's retained-distance predicate. Compile/input failures
+are not mutation kills. It checks all production, harness, copied/origin inputs
+before/after; changed generations remain inconclusive.
+
+Terminal November10 execution passed **825 baseline + two causal controls +
+825 unchanged final-baseline assertions** on an unchanged104-file production
+closure. The manifest digest is
+`3af1ab4fb39173e9e7aee50e8b2855e0555953f548b6acab4babe0589ebd6644`;
+the receipt digest is
+`a211082d857fe293b0709d677084666f949019de1178015c4b1429c358653202`.
+Tested core `GameSimulation.Source.cs` is
+`506ee98400eeea819df76cb399fef97b061d84cb2a3d56b439eaabc9303fcb80`;
+movement integration is
+`da395ad67bec0754b5423352ea490e439e4cd46fab545dcb547a61e856f632bb`.
+Source/test changes and this receipt summary are persistent; detailed generated
+C/binaries/JSON lived in the permitted private POSIX build namespace because
+new durable file allocation returned ENOSPC. They are not represented as an
+exported archive.
+
+These cases qualify the stated M1/C1/B1/P1 caller corrections, **not** whole-row
+or whole-game equivalence, all playbook/handicap/loose-ball outcomes, native
+initialization, or a fresh browser game. The accepted November9 e44/1114 browser
+archives and old source-bound recordings remain immutable historical evidence.
+
 ## Current canonical281 generation: partial qualification, new B1 boundary
 
 The bounded October17 test-contract adaptation preserves the exact historical

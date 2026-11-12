@@ -48,6 +48,30 @@ class PortableExportGuards(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "field set differs"):
             export.project_row(row, 0)
 
+    def test_current_constructor_defaults_project_losslessly_but_real_extra_inputs_are_rejected(self):
+        row = captured_row()
+        original_projection = export.project_row(row, 0)
+        row["command"]["Source"]["Play"]["SavedOrigin"] = None
+        frame = row["command"]["StationInputs"]
+        frame.update(PhysicalSwitches=None, SelectionSoundProducer=None, PlaySelectionContinuationBlocked=False)
+        station = frame["Stations"][0]
+        station["DigitalCurrent"] = None
+        station["Command"]["Play"]["SavedOrigin"] = None
+        untouched = copy.deepcopy(row)
+        self.assertEqual(export.project_row(row, 0), original_projection)
+        self.assertEqual(row, untouched)
+        for location, key, value in (
+                (frame, "PhysicalSwitches", {"mask": 1}),
+                (frame, "SelectionSoundProducer", "not-an-unused-default"),
+                (frame, "PlaySelectionContinuationBlocked", True),
+                (station, "DigitalCurrent", 1),
+                (station["Command"]["Play"], "SavedOrigin", {"slot": 1})):
+            before = location[key]
+            location[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "unused default"):
+                export.project_row(row, 0)
+            location[key] = before
+
     def test_observation_fields_count_order_and_missing_positive_are_rejected(self):
         row = captured_row()
         row["rng"] = []
@@ -93,6 +117,26 @@ class ExporterRevisionGuards(unittest.TestCase):
         for name, path in self.paths.items():
             args += ["--" + name, str(path)]
         return args + ["--output", str(self.output if output is None else output)]
+
+    def test_current_export_selectors_use_only_current_authority_without_legacy_fallback(self):
+        for case in export.public.CURRENT_GENERATIONS:
+            with self.subTest(case=case), mock.patch.object(export, "export_current", return_value=0) as current, \
+                    mock.patch.object(export, "validate_policy") as historical:
+                self.assertEqual(export.main(self.argv() + ["--case", case]), 0)
+                self.assertEqual(current.call_count, 1)
+                self.assertEqual(current.call_args.args[1:], (self.output, case))
+                historical.assert_not_called()
+            self.assertFalse(self.output.exists())
+
+    def test_current_export_rejects_unsealed_or_archived_policy_before_output_and_never_authors(self):
+        for case in export.public.CURRENT_GENERATIONS:
+            with self.subTest(case=case), self.assertRaisesRegex(ValueError, "exact current case/generation"):
+                export.main(self.argv() + ["--case", case])
+            self.assertFalse(self.output.exists())
+        with self.assertRaisesRegex(ValueError, "own sealed producer"):
+            export.main(self.argv() + ["--case", export.public.CORE_CURRENT_CASE,
+                                      "--producer-source", str(self.work / "archived.py")])
+        self.assertFalse(self.output.exists())
 
     def assert_no_writes(self, diagnostic, output=None, bypass_policy=False, bypass_candidate=False):
         with mock.patch.object(Path, "mkdir") as mkdir, \

@@ -26,8 +26,10 @@ namespace Blitz.Contracts
     public enum SourceBallKind { Unspecified, Pass, Fumble, Punt, Kickoff, FieldGoal, Bobble, Lateral }
 
     public enum SourceAnimationCodeReturnEvidence { LegacyUnqualified, KnownInt, VoidOpaque }
-    public enum SourceC2SoundFunctionKind { TauntSpeech = 1, HitFunctionExtension, WhistleProc, WhistleImmediate, AttackSoundFixed = 5 }
-    public enum SourceC2EntryKind { OriginalProgramBootSoundBanks, VerifiedOriginalContinuation }
+    public enum SourceC2SoundFunctionKind
+    { TauntSpeech = 1, HitFunctionExtension, WhistleProc, WhistleImmediate, AttackSoundFixed = 5, OriginalSpeech = 6 }
+    public enum SourceC2EntryKind
+    { OriginalProgramBootSoundBanks, VerifiedOriginalContinuation, CompleteOriginalVersusSoundBanks }
     public enum SourceC2EventKind
     {
         BootBanksSelected, QuarterBanksSelected, PlayOverQueued, ResultCommitted,
@@ -92,7 +94,7 @@ namespace Blitz.Contracts
             int argument0 = 0, int argument1 = 0, int argument2 = 0,
             SourceCallbackCue originalAnimationCue = null, long invocationId = 0, int firstCallIndex = 0)
         {
-            if (kind < SourceC2SoundFunctionKind.TauntSpeech || kind > SourceC2SoundFunctionKind.AttackSoundFixed)
+            if (kind < SourceC2SoundFunctionKind.TauntSpeech || kind > SourceC2SoundFunctionKind.OriginalSpeech)
                 throw new ArgumentOutOfRangeException(nameof(kind));
             if (sourceTick < 0 || processOrder < 0 || sourceLine <= 0 || invocationId < 0 || firstCallIndex < 0)
                 throw new ArgumentOutOfRangeException(nameof(sourceTick));
@@ -100,7 +102,12 @@ namespace Blitz.Contracts
                 throw new ArgumentException("Actual original process and source site are required.");
             if (originalAnimationCue == null)
             {
-                if (kind != SourceC2SoundFunctionKind.WhistleProc && kind != SourceC2SoundFunctionKind.WhistleImmediate)
+                bool originalSpeech = kind == SourceC2SoundFunctionKind.OriginalSpeech && actorId == -1
+                    && invocationId > 0 && sourcePath == "sounds.c"
+                    && (function == "sacked_sp_proc" && sourceLine == 1407
+                        || function == "tackled2_sp_proc" && (sourceLine == 1461 || sourceLine == 1463));
+                if (kind != SourceC2SoundFunctionKind.WhistleProc && kind != SourceC2SoundFunctionKind.WhistleImmediate
+                    && !originalSpeech)
                     throw new ArgumentException("Animation sound requires its original cue.");
                 if (kind == SourceC2SoundFunctionKind.WhistleProc && actorId != -1)
                     throw new ArgumentException("Original whistle_proc executes without an actor identity.");
@@ -119,6 +126,8 @@ namespace Blitz.Contracts
                     argument0 != 127 || argument1 != 0 || argument2 != 0 ||
                     originalAnimationCue.Context.ExecutingSymbol != "m_hopclp_anim"))
                 throw new ArgumentException("Fixed attack sound requires the exact original hop animation cue.");
+            if (kind == SourceC2SoundFunctionKind.OriginalSpeech && originalAnimationCue != null && function != "plyr_open_sp")
+                throw new ArgumentException("Original animation speech requires its exact receiver-open cue.");
             if (actorId < -1 || actorId > 13) throw new ArgumentOutOfRangeException(nameof(actorId));
             Kind = kind; SourceTick = sourceTick; Process = process; ProcessOrder = processOrder; ActorId = actorId;
             SourcePath = sourcePath; FunctionSymbol = function; SourceLine = sourceLine;
@@ -265,6 +274,20 @@ namespace Blitz.Contracts
         }
     }
 
+    public enum SourcePoseInterpolationPolicy { LegacyNormalized = 0, OriginalPortable = 1 }
+
+    public interface ISourcePoseInterpolation
+    {
+        // Blend prepares the source sign; Slerp is the raw original procedure.
+        SourceRotation Slerp(SourceRotation source, SourceRotation destination, float amount);
+        SourceJointPose Blend(SourceJointPose source, SourceJointPose destination, float amount);
+    }
+
+    public interface ISourcePoseAffineHeading
+    {
+        FieldVector Facing(int sourceFacing);
+    }
+
     public readonly struct SourceAnimationFrame
     {
         public int SourceFrame { get; }
@@ -343,6 +366,8 @@ namespace Blitz.Contracts
 
     public readonly struct SourceAnimationLayer
     {
+        [NonSerialized]
+        private readonly ISourcePoseInterpolation poseInterpolation;
         public string ScriptSymbol { get; }
         public long InstanceId { get; }
         public SourceAnimationSample Sample { get; }
@@ -352,6 +377,8 @@ namespace Blitz.Contracts
         public SourceJointPose TransitionFromPose { get; }
         public float Transition01 { get; }
         public SourceAnimationCodeReturnEvidence CodeReturnEvidence { get; }
+        public SourcePoseInterpolationPolicy PoseInterpolationPolicy { get; }
+        public int? SourceFacing { get; }
         public bool IsSpecified { get { return Sample.IsSpecified && JointMask != 0; } }
 
         public SourceAnimationLayer(string scriptSymbol, long instanceId, SourceAnimationSample sample,
@@ -369,6 +396,80 @@ namespace Blitz.Contracts
             TransitionFromPose = transitionFromPose;
             Transition01 = transition01;
             CodeReturnEvidence = codeReturnEvidence;
+            PoseInterpolationPolicy = SourcePoseInterpolationPolicy.LegacyNormalized;
+            poseInterpolation = null;
+            SourceFacing = null;
+        }
+
+        public SourceAnimationLayer(SourcePoseInterpolationPolicy poseInterpolationPolicy,
+            ISourcePoseInterpolation poseInterpolation, string scriptSymbol, long instanceId,
+            SourceAnimationSample sample, uint sourceModeBits = 0, ushort jointMask = SourceTiming.AllJoints,
+            SourceJointPose transitionFromPose = null, float transition01 = 1f,
+            FieldVector facingDirection = default(FieldVector),
+            SourceAnimationCodeReturnEvidence codeReturnEvidence = SourceAnimationCodeReturnEvidence.LegacyUnqualified)
+            : this(scriptSymbol, instanceId, sample, sourceModeBits, jointMask, transitionFromPose,
+                transition01, facingDirection, codeReturnEvidence)
+        {
+            if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.LegacyNormalized &&
+                poseInterpolationPolicy != SourcePoseInterpolationPolicy.OriginalPortable)
+                throw new ArgumentOutOfRangeException(nameof(poseInterpolationPolicy));
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.OriginalPortable && poseInterpolation == null)
+                throw new ArgumentNullException(nameof(poseInterpolation));
+            if (poseInterpolationPolicy == SourcePoseInterpolationPolicy.LegacyNormalized && poseInterpolation != null)
+                throw new ArgumentException("Legacy pose interpolation cannot carry a source binding.", nameof(poseInterpolation));
+            PoseInterpolationPolicy = poseInterpolationPolicy;
+            this.poseInterpolation = poseInterpolation;
+        }
+
+        public SourceAnimationLayer(SourcePoseInterpolationPolicy poseInterpolationPolicy,
+            ISourcePoseInterpolation poseInterpolation, int sourceFacing, string scriptSymbol, long instanceId,
+            SourceAnimationSample sample, uint sourceModeBits = 0, ushort jointMask = SourceTiming.AllJoints,
+            SourceJointPose transitionFromPose = null, float transition01 = 1f,
+            FieldVector facingDirection = default(FieldVector),
+            SourceAnimationCodeReturnEvidence codeReturnEvidence = SourceAnimationCodeReturnEvidence.LegacyUnqualified)
+            : this(poseInterpolationPolicy, poseInterpolation, scriptSymbol, instanceId, sample,
+                sourceModeBits, jointMask, transitionFromPose, transition01, facingDirection, codeReturnEvidence)
+        {
+            if (poseInterpolationPolicy != SourcePoseInterpolationPolicy.OriginalPortable)
+                throw new ArgumentException("Source facing requires OriginalPortable.", nameof(poseInterpolationPolicy));
+            SourceFacing = sourceFacing;
+        }
+
+        public void RequireSourcePoseInterpolation()
+        {
+            if (PoseInterpolationPolicy != SourcePoseInterpolationPolicy.OriginalPortable)
+                throw new InvalidOperationException("The layer does not declare OriginalPortable pose interpolation.");
+            if (poseInterpolation == null)
+                throw new InvalidOperationException("OriginalPortable pose interpolation binding is unavailable.");
+        }
+
+        public SourceJointPose BlendSourcePose(SourceJointPose source, SourceJointPose destination, float amount)
+        {
+            RequireSourcePoseInterpolation();
+            return poseInterpolation.Blend(source, destination, amount);
+        }
+
+        public void RequireSourceAffineBinding()
+        {
+            RequireSourcePoseInterpolation();
+            if (!(poseInterpolation is ISourcePoseAffineHeading))
+                throw new NotSupportedException("OriginalPortable affine heading capability is unavailable.");
+            if (!SourceFacing.HasValue)
+                throw new InvalidOperationException("OriginalPortable SourceFacing is unavailable.");
+        }
+
+        public FieldVector ResolveSourceFacing()
+        {
+            RequireSourceAffineBinding();
+            return ((ISourcePoseAffineHeading)poseInterpolation).Facing(SourceFacing.Value);
+        }
+
+        public void RequireSameSourceAffineBinding(SourceAnimationLayer other)
+        {
+            RequireSourceAffineBinding();
+            other.RequireSourceAffineBinding();
+            if (!ReferenceEquals(poseInterpolation, other.poseInterpolation))
+                throw new InvalidOperationException("OriginalPortable affine bindings are incompatible.");
         }
     }
 

@@ -1,6 +1,439 @@
 # Actual M1 caller, VM, cache and post-animation physics regressions
 
-## Explicit defensive pre-snap-switch generation
+## Explicit source-bound public v5 — November 9, 2026
+
+`portable-cabinet-wide-pass-clearance-source-bound-v5-12000` is a distinct
+same-public-pre-Step-snapshot recording, not patched or relabelled v4 input.
+Its exact public SHA is
+`d8588be9d8a793a7d3413d5bac202bdd8a3862844a7fc7950056059e34f6170d`;
+the immutable recipe binds the contact35 source104 snapshot
+`09af7b6fb13cd6812041db81414ce2d4e4d7b9ba6faaafaa4ae8ae19d1c04120`
+and unchanged twelve-file harness. Select it with
+`--replay-case portable-cabinet-wide-pass-clearance-source-bound-v5-12000`
+on the full M1 runner. Recipe loading is lazy and exact; another profile,
+source generation, public hash or duplicate case selection rejects.
+
+The old source-timer v4 bytes and captured wrong-side negative remain unchanged.
+CI prepares both recordings, runs their causal guards and uses only the explicit
+v5 case for current acceptance, retaining all three cache/eight caller controls,
+original664-case C comparison and final unchanged replay. Historical103 and
+hut17/104 observer identities remain separately pinned. A later source edit
+must produce a new explicit checkpoint; a completed frozen campaign whose live
+sources changed remains `inconclusive-generation-changed`, never a current pass.
+
+### Reviewed current-source execution pair (v5 authoring remains unchanged)
+
+`parity-completion-20261109/reviewed-core-venue-catalog/v1` separately pins the
+current104-source execution closure
+`5d1cce50a2f0053f36f2617e05267779372c3fc2441ca4de508d79bb623ff101`
+and the same exact twelve-file harness. `recording_execution_binding` uses
+`source-bound-public-replay-execution-pair/v1` to retain the original09af
+authoring closure, recipe, controller, gzip and public JSONL identities alongside
+that distinct execution checkpoint. Neither the old descriptor nor recipe is
+retuned. Unknown source closures, changed recipes and complete303 profile/factory
+substitution are rejected before replay.
+
+The independently reviewed contact-speech children are unreachable through the
+recording's actual `CreateM1Simulation`/contact281 profile: their producer requires
+the different complete303 profile and callback/animation hashes. This permits an
+explicit current M1 replay of unchanged v5 commands; it does not qualify the new
+complete303/1114 browser profile. A `--single-public-attempt` receipt still says
+`not-full-qualification`; it cannot replace the retained compiled-control/native-C
+closure or supply a GitHub run identity to a local execution.
+
+## Separately frozen original-hut17 observer successor — November 9, 2026
+
+`parity-completion-20261109/original-hut17/v1` admits exactly104 production
+files, manifest `99dde2cb9f6e63bb64aabafbc0294aa0fb87c46a7d216b26dd0fe112f26d7020`,
+and the unchanged exact twelve-file harness. Its added
+`SourceAnimationPrograms.OriginalSound.cs` is pinned individually and as part of
+the whole production closure. The original103-source c202 observer identity,
+historical recipes and public vectors remain unchanged and independently valid.
+Missing, changed or unexpected sources still reject before simulation.
+
+This successor records the dirty source snapshot and its454bb8 base separately;
+it does not claim that the snapshot equals a committed Git tree, migrate runtime
+data profiles, or relabel historical gameplay acceptance. Preflight success is
+not a passing replay: the unchanged v4 input still fails the genuine side guard
+at host4181/source3972 when it submits a defensive play for the offensive side.
+
+## Source-driven trips/rollout scenario — November 1, 2026
+
+`trips-rollout-clearance-presnap-switch-v7-12000` is a **distinct public-input
+scenario**, not a retry or relabel of the failed v6 controller. Offline inspection
+of v6 found nine running-taunt draws, all for Away actors. Both index1 choices
+were overridden to `R_EZSPRI`; the published nearest enemies were about1.50 and
+5.21 yards away. Home's maximum carrier progress was73.82, below the trigger.
+
+The original pinned `player.c:363-367,4022-4120` requires integer `FIELDX>80`,
+no competing TwoPart/stiff-arm path, and no enemy under6 yards for a selected
+running taunt to survive. `plyrseq.c:6397-6420` supplies the actual `R_SKIP`
+transition/loop. These public original files were independently byte-matched
+against commit `89f840d58d152a2a9f230cb8d0cdffbd554c8ded`.
+
+The separately named controller lives in `InputAndStation.cs`. It uses original
+Da Bomb trips / 3 Man Cover menu choices, rolls out rather than forcing covered
+passes at a deadline, plans forward geometric lanes against **every opponent**,
+and releases C on a clear red-zone approach. A twelve-host release interval
+avoids accidental double-C spins. Defense pursues and tackles normally. Its
+immutable projection contains public positions, velocities, roles, turbo,
+possession, phase, ball, line and play kind—not clock, score, pose, RNG or Model.
+
+Before any gameplay, policy
+`4f3aa0ad26ae77b72c8f5db483a5e4e82001b108454a757210a8508264a6c087`
+froze the unchanged103 production files and twelve-file harness
+`53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b`,
+seed1, the same unfiltered provider/configuration, and exactly one12,000-host
+window. All157 synthetic policy assertions ran with zero game constructions
+or steps. The sole actual authoring completed12,000/11,400, consumed25,526 raw
+values, witnessed nine fresh defensive B transfers and15 genuine `R_SKIP`
+frames. Actor12/instance212 advanced actual ordinals0→1 at ticks7321→7322
+with two distinct actual fifteen-joint poses. The v6 failed marker is retained.
+
+Only public commands and a new source/harness-bound recipe are exported; every
+old fixture, recipe and history pin remains separate and unchanged:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case trips-rollout-clearance-presnap-switch-v7-12000 \
+  --output .squad/.scratch/SourceData/trips-rollout-v7.jsonl
+```
+
+The normal enabled282 runner retains all three positive executions, exact
+observer/final state/RNG/pose byte comparisons, three cache and eight caller
+controls, and the664-input/5,312-assertion original-C post-VM campaign. Large
+private replay streams are losslessly archived only after a byte-for-byte
+roundtrip; comparisons stream the restored bytes, and CI verifies both raw and
+archive hashes. No assertion, count, tolerance or host/RNG budget is reduced.
+CI separately retains the historical v5 exact59-R_SKIP/15-B positive and its
+integrated-current first side-guard stale negative, as well as the five earlier
+historical boundaries. Local evidence never fabricates GitHub run/job identity.
+
+This is bounded source-driven coverage, **not native or whole-game parity**.
+The detailed receipt is
+`provenance/trips-rollout-clearance-v7-20261101.json`. Production and the
+accepted R2 image are unchanged; publication remains the parent's responsibility.
+
+## Bounded current-input compatibility — November 1, 2026
+
+The unchanged v5 recording still passes all12,000 hosts/11,400 source wakes
+on its authenticated near-frame78-source/twelve-harness generation. On the
+integrated103-source generation it remains a separately required stale negative:
+host4912/source4667 submits Home's offensive Hail Mary while Home is defending.
+The existing playbook-side guard is unchanged.
+
+The earliest profile difference is the reviewed `OriginalPortable` interpolation
+and raw-affine matrix binding. Its first common numeric state difference occurs
+at host361/source343, before the first RNG-site difference at draw7751/source4122.
+The provider/raw prefix is unchanged. Original `ANIM.C`, `pipe3D.c`, `TRIGS.H`
+and the prior independent original-C numeric checks authenticate that correction;
+the later captain change also follows `nfl.c`'s post-turnover condition. This is
+source/input-generation incompatibility, not a new original-game numeric golden.
+
+The one explicitly authorized v6 authoring attempt retained seed1, the unchanged
+controller and unfiltered provider. It completed12,000/11,400 without a source
+fault and witnessed12 fresh-B transfers, but had **zero R_SKIP frames**. It
+returned nonzero and was not exported, registered or retried. There is no
+accepted v6 fixture or recipe. No source, policy, seed or coverage requirement
+was adjusted to obtain a positive.
+
+The separately sealed v6 harness was
+`718b154dc9251273c0f5d0983d1bb26c23dc1ae53226036362a97790014f2d43`;
+its only compiled change permits the named v6 authoring request. The103-source
+production manifest is unchanged. The compatibility runner freshly compiles
+the actual old positive and the exact current stale negative independently:
+
+```sh
+python3 -B tests/movement-callers/current_presnap_compatibility.py \
+  --fixture-manifest "$CONTACT272_FIXTURE" --sound-functions "$UNCHANGED_SAFN" \
+  --presnap-switch-inputs "$PROFILE282" --replay-commands "$UNCHANGED_V5_JSONL" \
+  --output "$NEW_PRIVATE_OUTPUT"
+```
+
+This boundary check does not replace the required current full replay, all three
+positive executions, eleven causal controls or original-C post-VM campaign.
+Those are **not qualified** by a failed authoring window.
+
+## Initial integrated observer admission — November 1, 2026
+
+The initial integrated admission froze the complete actual103-source closure at
+`c202cecc114c380ebe53fe98def59f2550461bde`, with manifest
+`a061fa40aa67ce792672a13ade4aef7ad1eda0fc141d1694e1c0e9b4ec52c507`,
+and its separate exact twelve-file current harness
+`9698a817d2f9688c01d989df976436793b9fa1d63d4f1a29bdb23849d04602b7`.
+A recognized cache file alone cannot admit changed, missing or mixed production
+files or a changed harness. The isolated observer still requires its unique real
+call site and byte-exact removal; receipts identify the actual current source
+and full closure, not the historical cache hash.
+
+The original historical/U1 single-file observer contracts and all archived
+78-source/harness generations remain separate and unchanged. Saved public
+recordings retain their original source-generation recipes; replaying those
+bytes against the explicitly declared current code does not relabel or
+regenerate the recording. Faults, missing witnesses and every existing compiled
+cache/caller control remain nonzero.
+
+## Source-bound public recording — November 9, 2026
+
+`portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000` remains an
+immutable historical recording, not an input vector automatically valid for a
+different production generation. Its current-source negative at host4181/source
+tick3972 is retained: host4180 submits Home's defensive play while the public
+capture and dispatch snapshots already show Home on offense. No FIFO side
+transition occurs, and the production side guard must reject it.
+
+`source_bound_recording.py` authors the distinct
+`portable-cabinet-wide-pass-clearance-source-bound-v5-12000` through the normal
+compiled public Main, using the unchanged controller, seed1, raw RNG vector,
+configuration, and actual Contact272/M1 composition. It seals the exact current
+production, harness, original inputs, and PE/PDB before its one12000-host window.
+Every captured command must match its actual public pre-Step snapshot; wrong-side
+choices and post-hoc corrections are rejected rather than dropped or reassigned.
+
+After all production writers freeze:
+
+```sh
+python3 -B tests/movement-callers/source_bound_recording.py \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" --project-assets "$PREPARED_MOVEMENT_PROJECT_ASSETS" \
+  --output .squad/.scratch/unity-source-bound-v5/author
+```
+
+`--freeze-only` may prepare the compile without running gameplay; the later
+`--frozen-policy PATH` invocation must retain the exact same source, inputs, and
+PE/PDB and may start its create-new window only once.
+
+The generator is not the final acceptance gate: authentic post2299 same-instance
+R_SKIP/two-real-pose evidence is required before export, followed by the unchanged
+full replay, physics, and compiled-control qualification on the newly sealed
+versioned vector. The historical v4 fixture and recipe are never overwritten.
+
+The first v5 authoring window completed12000 hosts/11400 source ticks with23415
+unfiltered raw draws on pure104 source
+`09af7b6fb13cd6812041db81414ce2d4e4d7b9ba6faaafaa4ae8ae19d1c04120`.
+All37 actual menu choices passed their matching public-snapshot side checks.
+R_SKIP actor10/instance63 advanced at ticks2300/2301 through ordinals4/5 with
+distinct real15-joint poses. Canonical input SHA256:
+`d8588be9d8a793a7d3413d5bac202bdd8a3862844a7fc7950056059e34f6170d`.
+
+Prepare the separate immutable vector, then run the full gate (not
+`--single-public-attempt`):
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-source-bound-v5-12000 \
+  --output .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl
+python3 -B tests/movement-callers/run.py \
+  --source-root "$ORIGINAL_SOURCE" --input-profile contact272 \
+  --fixture-manifest "$CONTACT272/fixture.json" \
+  --sound-functions "$CONTACT272/audio-functions/sound-functions.safn" \
+  --c2-m1-inputs "$M1" \
+  --replay-commands .squad/.scratch/SourceData/portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl \
+  --replay-case portable-cabinet-wide-pass-clearance-source-bound-v5-12000 \
+  --output .squad/.scratch/unity-source-bound-v5/full-gate \
+  --source-compatibility portable
+```
+
+The frozen09af full campaign completed all17 runs: three positive12000-host
+baselines including final, all three cache and eight caller controls rejected at
+their named causal assertions, controlled baseline/final passed, and the664-case/
+5312-assertion original-C physics comparison passed. Its overall result remains
+`inconclusive-generation-changed`: concurrent venue changes modified
+`SourceEnvironmentData.cs` while the frozen campaign executed. Preserve that live
+generation guard failure; these results do not qualify the changed workspace or
+authorize relabeling v5's source/recipe pins. No fourth full campaign was run.
+
+## Admitted action tails — October 29, 2026
+
+### Bounded managed kickoff cost probe
+
+`KickoffStepCosts.csproj` references an explicitly selected existing Core PE; it
+does not rebuild moving production. Supply `FrozenSourcePlayerCore` at build and
+the same required SHA256 as the fourth executable argument. The runtime verifies
+that identity before constructing any game. Default MSBuild item discovery is
+disabled so older DLLs in neighboring test outputs cannot supersede the selected
+reference.
+
+The normal mode uses the actual public guest/team flow, then records800 host/
+760 source steps through existing bridge events, immutable snapshot cost, and
+sampled allocation types. Append `--pcm-only` to measure the actual players148/17
+immutable PCM first/hot copies with zero game constructions or source steps.
+Both modes explicitly exclude browser/WASM/GPU/deadline qualification and do not
+certify a source closure merely from an assembly's build date. They must not be
+used to claim that native managed timings explain a browser's producer debt.
+
+The independent `AdmittedActionTailChecks.csproj` references the actual portable
+Core and requires the unchanged approved563 manifest. It exercises original
+dead-ball uniqueness/milling delays, get-up-to-general-run callback timing and
+clear flags, all four late-run selections and the ordered nearby sprint
+override, same-tick idempotence, and precise unsupported TD/reaction guards.
+These are declared production-component fixtures, not a natural-match or native
+qualification. No additional clips or celebration substitutes are enabled.
+
+```sh
+bash tools/source-player/dotnet.sh build tests/movement-callers/AdmittedActionTailChecks.csproj -c Release
+bash tools/source-player/dotnet.sh tests/movement-callers/bin/AdmittedActionTails/Release/net10.0/AdmittedActionTailChecks.dll "$APPROVED563_DATA"
+```
+
+Its isolated outputs do not change the historical caller project or inventories.
+The pure helper project's `SourceMovement*.cs` glob excludes the integrated
+`GameSimulation` partial; this runner checks that actual integrated code instead.
+
+For the independently revised contact-speech admission path:
+
+```sh
+bash tools/source-player/dotnet.sh tests/movement-callers/bin/AdmittedActionTails/Release/net10.0/AdmittedActionTailChecks.dll \
+  --contact-production-scheduler "$COMPLETE_ORIGINAL_DATA"
+```
+
+These producer-boundary fixtures use actual `GameSimulation.Step`, ordinary and
+fire-enabled production message slots, not direct child-dispatch calls. They
+verify exact19/20/50-tick child sleeps, a shared-wake ordering case, real shared
+RNG sites/order, language-selected sequential speech, caught-receiver and
+pre-snap/selection silent branches, cleanup, the once-only late-hit latch, and
+rejection of an unknown process with a matching name prefix. They fail on the
+pre-revision closed allowlist, which never wakes the newly queued children.
+
+The defensive-switch component cases cover all eleven contiguous original
+`SEQ_SPIN_A`–`SEQ_PUSH_BL3` block sequences (`anim/seattle.mak:27–29`),
+uninterruptible nonblock exclusion, query-only calls without side effects, and
+both threshold edges for all twelve `cp_breakout_ht` rows. They execute the real
+VM, bilateral puppet release, `h_flailm_anim`, `standard_run` before station
+transfer, and the fresh-B defensive movement caller. Failed line breakouts retain
+their lockup while transferring control; non-line breakouts consume no breakout
+draw. This remains bounded component evidence, not full-game qualification.
+
+## Complete-original action and sound tails — October 30, 2026
+
+Pass the separately admitted complete-original data as a second argument:
+
+```sh
+bash tools/source-player/dotnet.sh tests/movement-callers/bin/AdmittedActionTails/Release/net10.0/AdmittedActionTailChecks.dll "$APPROVED563_DATA" "$COMPLETE_ORIGINAL_DATA"
+```
+
+The additional cases use the actual 303-clip/30,777-frame library and named
+versus sound-bank bootstrap, never relabel the old282 profile. All21 distinct
+TD/reaction programs execute real frames, callbacks, clear flags and breath
+tails; selected exact transition/stream durations and nine ordered gun-dance
+calls are checked. Actual source callers exercise grounded/SPIN gates, shared
+RNG order, bilateral puppet detachment/H_BSIDER, the first eligible opponent
+within50, and once-only next-wake scoring/statistics. Native speech children
+exercise actual qcreate/5-or10-tick sleep/emission/die, and boot output verifies
+the source cursor-bank replacement and common ordinal/reset lifecycle.
+
+These are explicitly bounded fixtures on the actual kernel/VM/registered
+processes, not a natural drive, PCM delivery, browser, target PRNG or native
+whole-game proof. The first-argument old-profile guards remain tested unchanged.
+
+## Current near-frame input generations — October 23, 2026
+
+Current qualification uses **new inputs**, not revised original-game expected
+outputs. The corrected near-frame sampler makes older state-conditioned menu
+sequences stale. Keep every earlier gzip, recipe, source/harness seal and dated
+qualification below immutable.
+
+| Explicit case | Recording generation | Actual profile / factory |
+| --- | --- | --- |
+| `portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000` | `source-selection-countdown/v4` | Contact281 M1 / `SourceC2Composition.CreateM1Simulation` |
+| `portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000` | `source-defensive-presnap-switch/v5` | Contact282 M1 pre-snap switch / `SourceC2Composition.CreatePreSnapSwitchSimulation` |
+
+Both bind the unchanged 78-file production manifest
+`bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2`.
+The separately sealed current twelve-file harness is
+`6924a80b7df99e62ab65a9af9503c23472b548cfc21d70463e1fc71777168a13`;
+its limited changes select the explicit v5 authoring generation and retain
+terminal operation counts, including constructors/bootstrap draws, fixture
+restarts and direct fixture animation advances. They do not change fixture
+seeds, state arrangements, controller policy, gameplay, physics or C oracles.
+
+Exactly one unchanged, unfiltered seed1 authoring per profile completed all
+12,000 ordinary hosts / 11,400 source wakes. Core consumed 23,007 raw values
+and retained 88 R_SKIP frames; pre-snap consumed 22,463, retained 59 R_SKIP
+frames and its own 15 authentic fresh-B witnesses. The byte-identical
+`PortablePublicPolicy.cs` remains
+`e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d`.
+No seed search, controller tuning, retries, filtered draws or postselection
+produced these inputs.
+
+Core's 8,534,392-byte public JSONL SHA-256 is
+`5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa`;
+its deterministic gzip is
+`a577887ebfc958aeb2ed68db4cfc72ebe58565ab0755e6e41774d41640582569`.
+Pre-snap's 8,534,485-byte public JSONL is
+`3ff126291e7d0e8a8dedf58ba3222a89a04567ae393f42e8168e2c77bf5e270e`;
+its gzip is
+`610ee038927a4a9e40efbd1b5fcb6903c8afc569da0e0f2593255843daa8ba12`.
+`fixtures/current-recording-generations.json` closes the two-case inventory
+and binds their exact new recipes. Recipe format remains
+`source-public-replay-recording/v1`; that schema version is not the recording
+generation number. Export removes only constructor station `IsSpecified=true`
+and keeps the existing closed public command schema. No actors, poses, World,
+VM, RNG observations, assets or numerical expected fixtures are published.
+
+Preparation is explicit and executes **no Game**:
+
+```sh
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000 \
+  --output .squad/.scratch/SourceData/current-core-v4.jsonl
+python3 -B tests/movement-callers/prepare_public_replay.py prepare \
+  --case portable-cabinet-wide-pass-clearance-presnap-switch-v5-12000 \
+  --output .squad/.scratch/SourceData/current-presnap-v5.jsonl
+```
+
+Use the first with normal `run.py --c2-m1-inputs`, the second with
+`run.py --c2-presnap-switch-inputs`, always `--source-compatibility portable`
+and the corresponding exact data closure. Do not use `--single-public-attempt`
+for qualification. The current exporter accepts these exact two `--case`
+selectors and requires the actual retained author policy, normal public Main
+PE/PDB, source/harness/data/config/tool seals, first-window receipt, marker
+and real-pose evidence. Its successful export alone is not qualification.
+
+Both unchanged full normal graphs actually passed: each has 17 clean builds,
+all three full 12,000/11,400 positive replay jobs, three cache and eight caller
+controls failing their own named assertions, controlled baseline/final, and
+664 actual post-VM cases / 5,312 exact independent original-C assertions.
+Uninstrumented, observer and final replay/state/RNG/pose bytes agree.
+The two full graphs use 203 internal constructors each. Including both
+authorings and two current old-input negatives, actual totals are **38 named
+drivers, 410 constructors, 117,110 host calls, 12,256 direct fixture animation
+advances, 129,366 combined host/Advance calls and 236,307 unfiltered raw values**.
+The reconciled limit of 64 applies to named driver/window invocations, not
+internal finite fixture constructors. Every driver stayed within 12,000
+combined calls and 32,768 raw values.
+
+The historical five remain distinct and unchanged:
+`main38-old-positive`, `main39-old-stale`, `main39-possession-positive`,
+`current-possession-stale`, `u2-current-possession-stale`. The fifth now
+reads its exact archived Git source/harness rather than accidentally borrowing
+this new harness. They were not re-executed for this repair. Two **additional,
+actually executed** current incompatibility boundaries retain the old v3/v4
+inputs and fail the exact source playbook-side validator:
+
+| New archived boundary | First fault host (zero-based) | Attempted hosts | Source tick | Raw values |
+| --- | ---: | ---: | ---: | ---: |
+| `near-frame-current-core-v3-stale` | 2878 | 2879 | 2735 | 4904 |
+| `near-frame-current-presnap-v4-stale` | 11868 | 11869 | 11275 | 22153 |
+
+`check_replay_generations.py verify-current-boundaries --ledger
+"$RETAINED_PRIVATE_LEDGER"` verifies those saved actual normal-Main executions,
+their source/harness/PE/PDB and operation counts, precise first fault and
+unchanged archived command, without executing another Game. Neither failure
+is reclassified as positive, UNMET, native expected output or historical
+five-probe evidence.
+
+Only four workflow lines (current fixture/recipe/input references) change.
+All existing jobs, steps, budgets, controls, qualifications and asset unions
+remain. The full workflow and its existing inherited projection are separately
+sealed; both exact Git/context guards must run against a committed proposed
+**test fixture**, not loosened checks on an unpublished dirty worktree.
+Local receipts never fabricate GitHub run/job identifiers. Fresh Quality
+review is required before publication. Hosted CI, native Unity entitlement,
+generated HUD metrics, DSP/bootstrap, WholeWorld, sourceAll16 and full/native
+100% remain separate open claims.
+
+## Archived defensive pre-snap-switch generation
 
 The successor case is
 `portable-cabinet-wide-pass-clearance-presnap-switch-12000`,
@@ -311,6 +744,46 @@ prints the exact required advancement/pose assertion to stderr, rather than
 silently exiting after the independent physics comparison passes. Other
 failures and changed-generation outcomes also remain nonzero. The console
 summary does not dump the recorded model, RNG or pose observations.
+
+### Bounded current-trajectory diagnostics
+
+The ordinary `uninstrumented` attempt also retains literal pre-Step h0 and
+per-host published Tick/Phase/Possession, direct Model Phase/Possession and rules
+OffenseSide, with separately labelled post-attempt values. No extra wake, input,
+sampling or RNG call is introduced. Raw and FIFO-applied station menus stay
+distinct; absent station frames and nullable event teams remain JSON null.
+
+After `result.json` is finalized, `safe-current-trajectory/trajectory.jsonl` and
+`attempt.json` bind the attempted prefix through the fault to exact input/generated
+line hashes, receipt, current source/harness inventories, immutable recipe/gzip/
+controller, checkout commit/tree and workflow/job. Only closed scalar fields,
+selected play symbols and event IDs are public. Bounds are12000 hosts,4 stations,
+128-character symbols,128 events,16KiB per line and16MiB total. Invalid or missing
+bindings, gaps and overflow explicitly mark capture incomplete without replacing
+the original terminal outcome. No raw replay, receipt, model, poses or RNG bundle
+is uploaded. The existing runner's `finally` path emits only prefixed
+`SOURCE_CURRENT_TRAJECTORY_ROW_V1` rows and a `SOURCE_CURRENT_TRAJECTORY_SEAL_V1`
+envelope to the same job log, including on a failed mandatory positive replay.
+The workflow remains byte-identical: its frozen inherited guard disallows adding
+upload steps. Intake only these prefixes from the exact Core or defensive job's
+retained log, not arbitrary artifacts or raw bundles. `read_m1_trajectory_log`
+validates their scalar schema, contiguous prefix, seals and explicitly supplied
+workflow/job/checkout/profile bindings; it returns the same two safe projections.
+Only the provider's physical-line envelope is normalized: one leading UTF-8 BOM
+before the optional recognized GitHub timestamp, plus transport CRLF. BOMs inside
+the prefix or payload, repeated BOMs, row gaps and changed payloads are not repaired.
+The payload bytes and all producer hashes/seals remain unchanged. Workflow-retention
+tests bind the full outer checkout to its frozen Git source and validate the Core
+runtime view with the existing exact inherited-workflow projection; both replay
+commands belong to the full view, while only Core belongs to the inherited view.
+Existing repository job-log retention applies; intake promptly after the one
+authorized cycle rather than assuming permanent artifact storage.
+
+`first_m1_trajectory_difference` aligns finite original pre-visible projections
+with literal current pre-published rows and retains the earliest differing pair
+and predecessor/event IDs. It does not authenticate an original parent seal:
+Core comparisons remain provisional; defensive comparisons require their separate
+original seal. Neither diagnostic capture nor a green cycle proves a causal fix.
 
 ## Current281 canonical entry and honest coverage boundary
 
@@ -995,3 +1468,58 @@ budget/minimum30 guard remains required. Local timing projections and these
 component receipts are **not hosted acceptance**: focused Quality rereview and
 the coordinator's actual complete required CI remain pending. No native, Unity,
 whole-game, target-PRNG, DSP, browser-rebuild or sixteen-row completion is claimed.
+
+## Exhausted original-M1/281 v8 window — November 2, 2026
+
+`OriginalM1OpenSpaceChecks.csproj` is a separate authoring entrypoint importing
+the unchanged twelve-file normal replay harness. It reuses the byte-identical
+`source-trips-rollout-public-controller/v1`, not a new football policy. Its
+distinct original281 factory/configuration/input closure was prospectively
+sealed before the only seed1/unfiltered-vector window. Synthetic policy checks
+performed zero game constructions/steps.
+
+That window exited **1 / UNMET-public-R_SKIP**: 12000 hosts, 11400 source steps,
+27249 raw values, no faults, **zero R_SKIP frames**. It is exhausted: no retry,
+extension, seed/policy change, public input export, recipe or CI substitution
+is authorized. The permanent failure provenance is
+`provenance/original-m1-v8-failed-20261102.json`; full code, PE/PDB, markers and
+private capture remain separately retained. No full-graph/control/original-C
+qualification was run for v8.
+
+The current original-M1 replay gate remains required and blocked, not silently
+historical-only. Its old timer-v4 input still fails the original side guard at
+host4181/source3972: queued station0 Defense `play_suicide_blitz` while Home is
+offense. The authentic local negative and separately authenticated historical
+78-source view are retained; no historical-v4 positive is newly claimed.
+All existing five boundaries, v5 compatibility, failed v6, accepted v7 data,
+production files and both current workflow seals remain unchanged.
+
+## Final prevent-defense exhibition v9 window — November 2, 2026
+
+The separately authorized
+`source-running-taunt-exhibition-prevent-controller/v1` wraps, rather than
+edits, the original v7 public controller. It delegates that controller once
+every host. Only LiveBall/Away possession with a published opponent carrier at
+offensive FieldX75 inclusive through95 exclusive changes the human station:
+retreat directly away below8 yards, otherwise hold movement, preserving the
+original C/turbo output and removing defensive A/tackle. Coincident public
+points use the prospectively fixed positive-X escape. All other controls,
+CPU defenders, four running-taunt competitors and production code remain
+unchanged. This is an exhibition, not a competitive-football claim.
+
+The new separate project/entrypoint passed the original157 zero-game checks,
+408 wrapper assertions and six actually compiled named zero-game controls.
+Its policy, source, inputs, wrapper, PE/PDB and failed-v8 history were sealed
+before the one final12000-host window.
+
+That window also exited **1 / UNMET-public-R_SKIP**:11400 source steps,
+25442 raw draws,679 prevent hosts, no faults, **zero R_SKIP frames**.
+Both index1 draws had nonhuman CPU opponents within6 yards in the saved
+pre/post public snapshots while the human was over16 yards away; actual
+instruction-time override/TwoPart flags were not recorded. No production bug
+or directly observed override is claimed.
+
+`provenance/original-m1-v9-prevent-failed-20261102.json` preserves the failure.
+No inputs or recipe were exported, no full graph was qualified, no workflow
+was substituted, and no retry, extension or further policy window is
+authorized. The v8 authority, window and code remain byte-identical.

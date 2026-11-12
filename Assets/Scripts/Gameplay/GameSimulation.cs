@@ -36,12 +36,17 @@ namespace Blitz.Gameplay
         private readonly SourceMovementSettings sourceMovementSettings;
         private readonly SourceHandicapSettings sourceHandicapSettings;
         private readonly SourceKickMeterMetrics sourceKickMeterMetrics;
+        private readonly SourceDefaultAudibleData sourceDefaultAudibles;
+        private readonly Blitz.AssetImport.SourceTeamResourceProfile sourceTwoStationRecordProfile;
         private readonly Func<int, ISourceRandom> sourceRandomFactory;
         private ISourceRandom sourceRandom;
         private readonly List<SourceGameEvent> sourceStepEvents = new List<SourceGameEvent>();
         private readonly List<SourcePresentationCue> sourcePresentationCues = new List<SourcePresentationCue>();
         private readonly Queue<PlayerCommand> pendingSourceActions = new Queue<PlayerCommand>();
         private readonly Queue<SourceInputFrame> pendingSourceStationInputs = new Queue<SourceInputFrame>();
+        private readonly Queue<SourceInputFrame> sourceDigitalCaptures = new Queue<SourceInputFrame>();
+        private SourceInputFrame sourceDigitalHeld;
+        private SourcePhysicalSwitchFrame sourceCapturedPhysicalSwitches;
         private readonly SourceStationInput?[] sourceHeldStations = new SourceStationInput?[4];
         private readonly Queue<SourceCommand>[] pendingSourceStationCommands = {
             new Queue<SourceCommand>(), new Queue<SourceCommand>(),
@@ -55,9 +60,13 @@ namespace Blitz.Gameplay
 
         public SimulationProfile Profile { get; }
         public SourceGameplayCompatibility Compatibility { get; }
+        public Blitz.AssetImport.SourceTeamResourceProfile SourceTwoStationRecordProfile
+        { get { return sourceTwoStationRecordProfile; } }
+        public bool SourceDefaultAudiblesEnabled { get { return sourceDefaultAudibles != null; } }
         public bool SourceDefensivePreSnapSwitchEnabled
         {
-            get { return sourceC2Bootstrap != null && sourceC2Bootstrap.Data.Profile == SourceDefensivePreSnapSwitchProfile; }
+            get { return sourceC2Bootstrap != null &&
+                (sourceC2Bootstrap.Data.Profile == SourceDefensivePreSnapSwitchProfile || SourceCompleteProgramsEnabled); }
         }
         public string ReferenceProfile
         {
@@ -124,8 +133,14 @@ namespace Blitz.Gameplay
             SourceMovementSettings movementSettings = null, SourceC2Bootstrap c2Bootstrap = null,
             SourceHandicapSettings handicapSettings = null,
             SourceGameplayCompatibility compatibility = SourceGameplayCompatibility.StrictSource,
-            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null)
+            SourceFireGameplayConfiguration fireEffects = null, SourceKickMeterMetrics kickMeterMetrics = null,
+            SourceDefaultAudibleData defaultAudibles = null,
+            Blitz.AssetImport.SourceTeamResourceProfile twoStationRecordProfile = null)
         {
+            if (defaultAudibles != null)
+                RequireDefaultAudibleAdmission(defaultAudibles, animations, geometry, playbook, configuration,
+                    rosters, presentation, movementData, movementSettings, c2Bootstrap, compatibility);
+            sourceDefaultAudibles = defaultAudibles;
             sourceC2Bootstrap = c2Bootstrap;
             bool m1Bootstrap = c2Bootstrap != null &&
                 (c2Bootstrap.Data.Profile == Blitz.AssetImport.SourceC2CallbackData.M1Profile ||
@@ -162,16 +177,88 @@ namespace Blitz.Gameplay
             sourceConfiguration = configuration ?? DefaultSourceConfiguration();
             if (sourceConfiguration.Profile != SourceSimulationProfile.OriginalRelease57Hz)
                 throw new ArgumentException("The source constructor requires the explicit 57 Hz profile.", nameof(configuration));
+            if (twoStationRecordProfile != null)
+            {
+                if (!ReferenceEquals(twoStationRecordProfile,
+                        Blitz.AssetImport.SourceTeamResourceProfile.CompleteAv306TwoStationRecords)
+                    || !SourceCompleteAv306Enabled || Compatibility != SourceGameplayCompatibility.Portable
+                    || defaultAudibles == null || sourceConfiguration.StationLayout != SourceStationLayout.TwoStation
+                    || sourceConfiguration.Stations.Count != 2)
+                    throw new NotSupportedException("Named TwoStation records require their explicit complete AV306 Portable creation capability.");
+                foreach (SourceStationConfiguration station in sourceConfiguration.Stations)
+                    if (station.StationId > 1 || station.Team != (TeamId)station.StationId)
+                        throw new ArgumentException("Named TwoStation records require mapped stations 0/Home and 1/Away.",
+                            nameof(configuration));
+            }
+            sourceTwoStationRecordProfile = twoStationRecordProfile;
             sourceRandomFactory = randomFactory;
             Profile = SimulationProfile.OriginalRelease57Hz;
             Restart(seed);
         }
 
+        private static void RequireDefaultAudibleAdmission(SourceDefaultAudibleData data,
+            ISourceAnimationLibrary animations, ISourceActorGeometry geometry, SourcePlaybook playbook,
+            SourceMatchConfiguration configuration, ISourceTeamRoster rosters, SourcePresentationSettings presentation,
+            SourceMovementRuntimeData movementData, SourceMovementSettings movementSettings,
+            SourceC2Bootstrap bootstrap, SourceGameplayCompatibility compatibility)
+        {
+            if (data.ResourceProfileId != SourceDefaultAudibleData.StableProfileId
+                || data.FeatureContract != SourceDefaultAudibleData.RequiredFeatureContract
+                || data.HudSha256 != SourceDefaultAudibleData.RequiredHudSha256
+                || data.PlaybookSha256 != SourceDefaultAudibleData.RequiredPlaybookSha256)
+                throw new ArgumentException("Default audible data does not admit the exact successor feature/profile.", nameof(data));
+            if (!ReferenceEquals(data.Playbook, playbook))
+                throw new ArgumentException("Default audible data must reference this SAME actual playbook.", nameof(playbook));
+            if (compatibility != SourceGameplayCompatibility.Portable)
+                throw new NotSupportedException("Default audibles require explicit Portable successor admission.");
+            if (configuration == null || configuration.Profile != SourceSimulationProfile.OriginalRelease57Hz
+                || !(geometry is ISourceActorCameraGeometry) || rosters == null || presentation == null
+                || movementData == null || movementSettings == null)
+                throw new ArgumentException("Default audibles require explicit complete original57 kernel inputs before constructor execution.");
+            if (configuration.StationLayout == SourceStationLayout.FourStation)
+                foreach (SourceStationConfiguration station in configuration.Stations)
+                    if (station.Team != (TeamId)(station.StationId / 2))
+                        throw new ArgumentException("Default audibles require original four-station groups: 0/1 Home, 2/3 Away.",
+                            nameof(configuration));
+            bool completeOriginal = bootstrap != null
+                && bootstrap.Data.Profile == Blitz.AssetImport.SourceC2CallbackData.CompleteOriginalProfile
+                && bootstrap.Data.PayloadSha256 == Blitz.AssetImport.SourceTeamResourceProfile.CompleteOriginalCallbackSha256
+                && bootstrap.Data.AnimationManifestSha256 == Blitz.AssetImport.SourceTeamResourceProfile.CompleteOriginalAnimationSha256;
+            bool completeAv = bootstrap != null
+                && bootstrap.Data.Profile == Blitz.AssetImport.SourceC2CallbackData.CompleteAv306Profile
+                && bootstrap.Data.PayloadSha256 == Blitz.AssetImport.SourceTeamResourceProfile.CompleteAv306CallbackSha256
+                && bootstrap.Data.AnimationManifestSha256 == Blitz.AssetImport.SourceTeamResourceProfile.CompleteAv306AnimationSha256;
+            bool completePrograms = completeOriginal || completeAv;
+            if (bootstrap == null || bootstrap.EntryKind != (completePrograms
+                    ? SourceC2EntryKind.CompleteOriginalVersusSoundBanks : SourceC2EntryKind.OriginalProgramBootSoundBanks)
+                || !completePrograms && (bootstrap.Data.Profile != SourceDefensivePreSnapSwitchProfile
+                    || bootstrap.Data.PayloadSha256 != Blitz.AssetImport.SourceInterfacePackagePlan.PreSnapSwitchCallbackSha256
+                    || bootstrap.Data.AnimationManifestSha256 != Blitz.AssetImport.SourceTeamResourceProfile.PreSnapSwitchAnimationSha256)
+                || bootstrap.Data.Bindings.Count != 15
+                || bootstrap.Data.HitExtensionData == null
+                || bootstrap.Data.HitExtensionData.PayloadSha256 != Blitz.AssetImport.SourceInterfacePackagePlan.C2HitSha256)
+                throw new ArgumentException("Default audibles require the frozen fifteen-binding282 or distinct authenticated303/306 sound-bank bootstrap BEFORE constructor draws.", nameof(bootstrap));
+            bootstrap.RequireLibrary(animations);
+            if (configuration.StationLayout == SourceStationLayout.TwoStation)
+                for (int physical = 0; physical < 2; physical++)
+                {
+                    bool present = false;
+                    foreach (SourceStationConfiguration station in configuration.Stations)
+                        if (station.StationId == physical) present = true;
+                    if (!present)
+                        throw new NotSupportedException("pmisc.c:update_stations:" + (638 + physical) +
+                            " indexes player_blocks[plyr_control[" + physical + "]==-1]; original TwoStation input is undefined.");
+                }
+        }
+
         public void Restart(int seed = 1)
         {
+            if (sourceCabinetFlow != null && sourceCabinetFlow.Stage == SourceCabinetFlowStage.RecordCommitWait)
+                throw new InvalidOperationException("The actual final record commit must complete or be explicitly declined before reset.");
             randomState = unchecked((uint)seed) ^ 0x9E3779B9u;
             Model = new SimulationState();
             Model.SourceCompatibility = Compatibility;
+            Model.SourceDefaultAudiblesEnabled = SourceDefaultAudiblesEnabled;
             pendingSourceCameraHeading = 0;
             pendingSourceCameraSampleTick = 0;
             stepEvents.Clear();
@@ -180,6 +267,7 @@ namespace Blitz.Gameplay
             sourceContactEvents.Clear();
             unresolvedContactSounds.Clear();
             sourceSoundVmPending.Clear();
+            sourceDirectSoundPending.Clear();
             sourceSoundVmFailed = false;
             sourceC2Events.Clear();
             SourceCameraStageOrder = -1;
@@ -187,7 +275,9 @@ namespace Blitz.Gameplay
             if (Profile == SimulationProfile.OriginalRelease57Hz)
             {
                 sourceRandom = sourceRandomFactory == null
-                    ? new SourceInjectedRandom(site => NextInt(16777216),
+                    ? Compatibility == SourceGameplayCompatibility.Portable && SourceCompleteProgramsEnabled
+                        ? SourceRandom.CreatePortableLibrary(seed, "GameSimulation.Restart(" + seed + ")")
+                        : new SourceInjectedRandom(site => NextInt(16777216),
                         new SourceRandomProvenance("OriginalRelease57Hz/preview",
                             "Explicit legacy LCG preview provider; NOT the historical platform random()/rand() body",
                             "GameSimulation.Restart(" + seed + ")", SourceRandomEvidence.ExternalUnverified))
@@ -266,11 +356,18 @@ namespace Blitz.Gameplay
         {
             pendingSourceActions.Clear();
             pendingSourceStationInputs.Clear();
+            sourceDigitalCaptures.Clear();
+            sourceDigitalHeld = null;
+            sourceCapturedPhysicalSwitches = null;
+            ResetSourceConsumedSwitches();
             Array.Clear(sourceHeldStations, 0, sourceHeldStations.Length);
             foreach (Queue<SourceCommand> commands in pendingSourceStationCommands) commands.Clear();
             sourceStationInputSeen = false;
             if (Model != null)
             {
+                Array.Clear(Model.SourceDigitalPrior1, 0, 4);
+                Array.Clear(Model.SourceDigitalPrior2, 0, 4);
+                Array.Clear(Model.SourceDigitalScans, 0, 4);
                 Model.SourceCurrentInput = default(PlayerCommand);
                 foreach (ActorState actor in Model.Players)
                 {
@@ -353,7 +450,11 @@ namespace Blitz.Gameplay
 
         private void CaptureSourceStationInputs(SourceInputFrame frame)
         {
+            if (sourceCapturedPhysicalSwitches != null && frame.PhysicalSwitches == null)
+                throw new InvalidOperationException("The physical source input binding became unavailable without an input reset.");
             var captured = new SourceStationInput[frame.Stations.Count];
+            bool digitalChange = !sourceStationInputSeen || frame.PhysicalSwitches != null
+                && !frame.PhysicalSwitches.SameCurrent(sourceCapturedPhysicalSwitches);
             for (int i = 0; i < captured.Length; i++)
             {
                 SourceStationInput input = frame.Stations[i];
@@ -362,15 +463,27 @@ namespace Blitz.Gameplay
                     if (station.StationId == input.StationId) { configured = true; break; }
                 if (!configured)
                     throw new InvalidOperationException("Source input names unconfigured station " + input.StationId + ".");
+                if (frame.PhysicalSwitches != null
+                    && !SourcePhysicalSwitchFrame.SameCurrent(input, frame.PhysicalSwitches.Station(input.StationId)))
+                    throw new InvalidOperationException("Configured and physical source samples must describe the same cabinet capture.");
                 SourceButtons previous = sourceHeldStations[input.StationId].HasValue
                     ? sourceHeldStations[input.StationId].Value.Held : SourceButtons.None;
+                SourceStationInput? previousInput = sourceHeldStations[input.StationId];
+                digitalChange |= !previousInput.HasValue || input.StickX != previousInput.Value.StickX
+                    || input.StickZ != previousInput.Value.StickZ || input.DigitalCurrent != previousInput.Value.DigitalCurrent
+                    || input.Held != previous || input.Pressed != 0 || input.Released != 0 || HasSourceCommandEdge(input.Command);
                 captured[i] = new SourceStationInput(input.StationId, input.StickX, input.StickZ, input.Held,
-                    input.Pressed | input.Held & ~previous, input.Released | previous & ~input.Held, input.Command);
+                    input.Pressed | input.Held & ~previous, input.Released | previous & ~input.Held, input.Command,
+                    input.DigitalCurrent);
                 sourceHeldStations[input.StationId] = new SourceStationInput(input.StationId,
-                    input.StickX, input.StickZ, input.Held);
+                    input.StickX, input.StickZ, input.Held, digitalCurrent: input.DigitalCurrent);
             }
             sourceStationInputSeen = true;
-            pendingSourceStationInputs.Enqueue(new SourceInputFrame(captured));
+            sourceCapturedPhysicalSwitches = frame.PhysicalSwitches;
+            var sample = new SourceInputFrame(captured, frame.PhysicalSwitches);
+            pendingSourceStationInputs.Enqueue(sample);
+            if (SourceDefaultAudiblesEnabled && digitalChange)
+                sourceDigitalCaptures.Enqueue(sample);
         }
 
         private static bool HasSourceCommandEdge(SourceCommand command)
@@ -380,6 +493,7 @@ namespace Blitz.Gameplay
 
         private SourceInputFrame DrainSourceStationInputs()
         {
+            if (SourceDefaultAudiblesEnabled) return DrainSourceDigitalInputs();
             if (!sourceStationInputSeen && SourceStationInputTransform == null) return null;
             var pressed = new SourceButtons[4];
             var released = new SourceButtons[4];
@@ -401,9 +515,56 @@ namespace Blitz.Gameplay
                 SourceCommand command = pendingSourceStationCommands[station].Count == 0
                     ? default(SourceCommand) : pendingSourceStationCommands[station].Dequeue();
                 inputs[i] = new SourceStationInput(station, held.StickX, held.StickZ, held.Held,
-                    pressed[station], released[station], command);
+                    pressed[station], released[station], command, held.DigitalCurrent);
             }
-            return new SourceInputFrame(inputs);
+            return new SourceInputFrame(inputs, sourceCapturedPhysicalSwitches);
+        }
+
+        private SourceInputFrame DrainSourceDigitalInputs()
+        {
+            pendingSourceStationInputs.Clear();
+            SourceInputFrame selected = sourceDigitalCaptures.Count == 0 ? sourceDigitalHeld : sourceDigitalCaptures.Dequeue();
+            var sample = new SourceStationInput[sourceConfiguration.Stations.Count];
+            var held = new SourceStationInput[sample.Length];
+            for (int i = 0; i < sample.Length; i++)
+            {
+                int station = sourceConfiguration.Stations[i].StationId;
+                SourceStationInput input = new SourceStationInput(station);
+                if (selected != null)
+                    foreach (SourceStationInput value in selected.Stations)
+                        if (value.StationId == station) { input = value; break; }
+                sample[i] = input;
+                held[i] = new SourceStationInput(station, input.StickX, input.StickZ, input.Held,
+                    digitalCurrent: input.DigitalCurrent);
+            }
+            sourceDigitalHeld = new SourceInputFrame(held, selected == null ? null : selected.PhysicalSwitches);
+            return new SourceInputFrame(sample, selected == null ? null : selected.PhysicalSwitches);
+        }
+
+        private void ScanSourceDigitalInputs(SourceInputFrame frame)
+        {
+            if (!SourceDefaultAudiblesEnabled) return;
+            if (Model.SourceAudibleState != null) Model.SourceAudibleState.Calls.Clear();
+            for (int station = 0; station < 4; station++)
+            {
+                SourceStationInput input = new SourceStationInput(station);
+                if (frame != null && frame.PhysicalSwitches != null)
+                    input = frame.PhysicalSwitches.Station(station);
+                else if (frame != null)
+                    foreach (SourceStationInput value in frame.Stations)
+                        if (value.StationId == station) { input = value; break; }
+                SourceDigitalDirections current = sourceDefaultAudibles.DigitalCurrentAt(
+                    (3 - input.StickZ) * 7 + 3 - input.StickX);
+                if (input.DigitalCurrent.HasValue && input.DigitalCurrent.Value != current)
+                {
+                    Model.SourceAnimationFailure = "Source digital payload disagrees with the authenticated49-to8 decode.";
+                    throw new InvalidOperationException(Model.SourceAnimationFailure);
+                }
+                Model.SourceDigitalScans[station] = new SourceDigitalSwitchScan(station, Model.SourceTick,
+                    current, Model.SourceDigitalPrior1[station], Model.SourceDigitalPrior2[station]);
+                Model.SourceDigitalPrior2[station] = Model.SourceDigitalPrior1[station];
+                Model.SourceDigitalPrior1[station] = current;
+            }
         }
 
         private void SelectPlay(PlayId play)
@@ -722,6 +883,7 @@ namespace Blitz.Gameplay
 
         private void Publish()
         {
+            CaptureSourceAudibles();
             State = new GameSnapshot(Model);
             Events = Array.AsReadOnly(stepEvents.ToArray());
             SourceEvents = Array.AsReadOnly(sourceStepEvents.ToArray());

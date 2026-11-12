@@ -39,9 +39,23 @@ def stable_production_snapshot():
 def require_full_kernel(summary, animation_sha):
     if (not isinstance(summary, dict) or summary.get("status") != "passed"
             or summary.get("full_kernel_host_adapter_exercised") is not True
-            or summary.get("contract_assertions") != 332
+            or summary.get("contract_assertions") != 332 + 143 + 352
+            or summary.get("retained_contract_assertions") != 332
+            or summary.get("portable_library_contract_assertions") != 143
+            or summary.get("source_pose_contract_assertions") != 352
+            or animation_sha == CONTACT_ANIMATION_SHA and (
+                summary.get("rules_caller_cases") != 20 or summary.get("rules_caller_assertions") != 219)
             or summary.get("real_animation_library_sha256") != animation_sha):
-        raise RuntimeError("Actual full-kernel332 adapter checks and explicit animation identity are required.")
+        raise RuntimeError("Actual full-kernel retained332/portable143/source-pose352 checks, Contact272 rules20/219"
+                           " and explicit animation identity are required: "
+                           + json.dumps(summary, sort_keys=True))
+
+def require_rules_caller_control(code, summary, expected_failures, expected_field):
+    if (code != 1 or not isinstance(summary, dict) or summary.get("status") != "failed"
+            or summary.get("rules_caller_cases") != 20 or summary.get("rules_caller_assertions") != 219
+            or summary.get("failures") != expected_failures
+            or not any(expected_field in field for field in summary.get("failure_details", []))):
+        raise RuntimeError("A cleanly compiled rules caller control must reject its exact causal field partition.")
 
 
 def main():
@@ -53,9 +67,15 @@ def main():
     parser.add_argument("--sound-functions", type=Path, help="Explicit frozen SAFN input for actual source VM execution.")
     parser.add_argument("--c2-inputs", type=Path, help="Explicit frozen current281 inputs with real C2 composition.")
     parser.add_argument("--output", type=Path, help="New ignored child output; preserve historical matrix receipts.")
+    parser.add_argument("--project-assets", type=Path,
+                        help="Explicit existing project.assets.json; use --no-restore without preparing dependencies.")
     parser.add_argument("--input-profile", choices=("legacy", "contact272"), default="legacy",
                         help="Select the explicit production272 fixture without changing legacy117/157 defaults.")
     args = parser.parse_args()
+    assets = args.project_assets.absolute() if args.project_assets is not None else None
+    if assets is not None and (not assets.is_file() or assets.name != "project.assets.json"
+                               or any(path.is_symlink() for path in (assets, *assets.parents))):
+        parser.error("--project-assets requires an explicit existing regular project.assets.json.")
     if args.output is not None:
         selected = args.output.absolute()
         if not selected.is_relative_to(SUITE / ".artifacts") or selected.exists():
@@ -102,7 +122,10 @@ def main():
         command = [
             "dotnet", "run", "--project", str(SUITE / "ParityChecks.csproj"),
             "--configuration", "Release", "--verbosity", "quiet",
+            "-p:TreatWarningsAsErrors=true",
         ]
+        if assets is not None:
+            command += ["--no-restore", "-p:ProjectAssetsFile=" + str(assets)]
         if source_root is not None:
             command.append("-p:BlitzSourceRoot=" + str(source_root) + "/")
         if args.full_kernel:
@@ -136,10 +159,12 @@ def main():
         "original_c_cases_sha256": case_hash,
         "production_sha256_before": before, "commands": commands,
         "mutation": {"executed": False}, "browser_or_unity_executed": False,
+        "rules_caller_controls": [],
         "full_gameplay_parity_claimed": False,
         "full_kernel_adapter_requested": args.full_kernel,
         "input_profile": profile, "expected_animation_sha256": animation_sha if args.full_kernel else None,
         "real_input_sha256_before": fixture_before,
+        "project_assets_sha256_before": None if assets is None else hashlib.sha256(assets.read_bytes()).hexdigest(),
     }
     try:
         baseline, summary, text = execute("baseline")
@@ -176,6 +201,40 @@ def main():
                 or ".play_end_pos_bits" not in mutation_text):
             print(mutation_text)
             raise RuntimeError("Isolated actual C# rounding mutation did not fail the intended original-C numeric comparison.")
+        if args.full_kernel and profile == "contact272" and args.c2_inputs is None:
+            mutated.write_bytes(contents["Assets/Scripts/Gameplay/SourceMatchRules.cs"])
+            selection_anchor = (
+                "            // playsel.c retains play_type: normal ball-kind dispatch handles kicks;\n"
+                "            // result.c's PT_FIELD_GOAL/PT_PUNT rows are intentionally empty.")
+            selection_mutation = (
+                "            SourcePlayType type = (Model.SourceOffensePlay.Flags & SourcePlayFlags.Punt) != 0 ? SourcePlayType.Punt\n"
+                "                : (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourcePlayType.FieldGoal\n"
+                "                : Model.SourceRules.PlayType;\n"
+                "            SetSourceRules(new SourceRulesState(Model.SourceRules.OffenseSide, Model.SourceRules.InitialOffenseSide,\n"
+                "                Model.SourceRules.Down, Model.SourceRules.LineOfScrimmage, Model.SourceRules.FirstDown, type,\n"
+                "                Model.SourceRules.NoFirstDown));")
+            receiver_anchor = "            if (mode == SourceActorMode.ReceiverPreSnap && RunSourceQuickKickPreSnap(actor)) return;"
+            controls = (
+                ("selected-special-wrong-result-row", "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+                 selection_anchor, selection_mutation, 98, "/field-goal-good/selected-special-stays-normal"),
+                ("quick-kick-receiver-disconnected", "Assets/Scripts/Gameplay/SourceMovementIntegration.cs",
+                 receiver_anchor, "", 14, "/quick-kick-clock/public-continue-first-receiver-countdown"),
+            )
+            for identity, name, anchor, replacement, expected_failures, field in controls:
+                target = workspace / "source" / name
+                raw = contents[name].decode("utf-8")
+                if raw.count(anchor) != 1:
+                    raise RuntimeError("Rules caller control requires one actual production anchor: " + identity)
+                target.write_text(raw.replace(anchor, replacement), encoding="utf-8")
+                control, control_summary, control_text = execute(
+                    identity, workspace / "source", workspace / ("build-" + identity))
+                evidence["rules_caller_controls"].append({
+                    "id": identity, "source": name, "exit_code": control.returncode,
+                    "summary": control_summary, "expected_failures": expected_failures, "expected_field": field,
+                    "live_source_modified": False,
+                })
+                require_rules_caller_control(control.returncode, control_summary, expected_failures, field)
+                target.write_bytes(contents[name])
         final, final_summary, final_text = execute("final-baseline")
         evidence["final_baseline"] = final_summary
         evidence["final_baseline_exit_code"] = final.returncode
@@ -185,7 +244,8 @@ def main():
         if args.full_kernel:
             require_full_kernel(final_summary, animation_sha)
         evidence["status"] = "passed"
-        print("PASS: original-C / exact production C# comparison; actual isolated rounding mutation rejected.")
+        print("PASS: original-C / exact production C# comparison; actual isolated rounding mutation rejected;"
+              " rules caller controls=" + str(len(evidence["rules_caller_controls"])) + ".")
         print(json.dumps(final_summary, separators=(",", ":")))
         return 0
     finally:
@@ -201,7 +261,9 @@ def main():
         if args.c2_inputs is not None:
             evidence["real_input_sha256_after"].update(canonical_hashes(args.c2_inputs))
         evidence["real_input_hashes_unchanged"] = evidence["real_input_sha256_after"] == fixture_before
-        stable = evidence["production_hashes_unchanged"] and evidence["real_input_hashes_unchanged"]
+        evidence["project_assets_sha256_after"] = None if assets is None else hashlib.sha256(assets.read_bytes()).hexdigest()
+        stable = (evidence["production_hashes_unchanged"] and evidence["real_input_hashes_unchanged"]
+                  and evidence["project_assets_sha256_before"] == evidence["project_assets_sha256_after"])
         if not stable:
             evidence["status"] = "inconclusive-inputs-or-sources-changed"
         report_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

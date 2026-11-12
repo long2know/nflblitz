@@ -1,0 +1,45 @@
+{
+  "schema": "source-public-replay-recording/v1",
+  "case": "portable-cabinet-wide-pass-clearance-source-bound-v5-12000",
+  "epoch": "OriginalRelease57Hz",
+  "input_profile": "contact272",
+  "c2_profile": "contact281-c2-m1",
+  "source_compatibility": "portable",
+  "seed": 1,
+  "ai_opponents": {
+    "home": 5,
+    "away": 11
+  },
+  "provider_profile": "source-sound-smoke/raw-vector-v1",
+  "hosts": 12000,
+  "commands_only": true,
+  "native_equivalent": false,
+  "jsonl": {
+    "file": "portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl",
+    "sha256": "d8588be9d8a793a7d3413d5bac202bdd8a3862844a7fc7950056059e34f6170d",
+    "bytes": 8534172
+  },
+  "gzip": {
+    "file": "portable-cabinet-wide-pass-clearance-source-bound-v5-12000.jsonl.gz",
+    "sha256": "9ad96f8d332d829d7eb09bccfd97b4a1a5de381cc91d808bdd0eb070bb4e132d",
+    "bytes": 66111
+  },
+  "recording_generation": "source-bound-public-input/v5",
+  "policy": "approved-portable-public-policy/v1",
+  "controller_sha256": "e123e5db745acb3d4952dc0f56a2379eea36515b90bcd5c375dc769b797b330d",
+  "source_manifest_sha256": "09af7b6fb13cd6812041db81414ce2d4e4d7b9ba6faaafaa4ae8ae19d1c04120",
+  "source_count": 104,
+  "harness_manifest_sha256": "53ac07b6647086696464f8728b07c0ef38ea4aa4356785fede60a78dff49908b",
+  "harness_count": 12,
+  "stable_profile": "original-teams-contact281-c2-m1",
+  "factory": "SourceC2Composition.CreateM1Simulation",
+  "station_layout": 2,
+  "public_snapshot_binding": "same-pre-Step-snapshot/station0-Home-captain/playbook-side",
+  "public_snapshot_binding_sha256": "55a5b43e86535a0a1758a036134f55d0a70f0a300f5e0b999663a67477a8a76c",
+  "author_policy_sha256": "d38f777465a168c0df19a544a452ac0d2677c8c16937c033bb1a3133693afe3a",
+  "author_entrypoint_sha256": "8856a26e30ebe3ae969c028bd42f8e450f7816bc1ee6316287bf6b9b13fb3202",
+  "author_input_manifest_sha256": "a9376da06060c35ab6474b0779ca4f0a04fa9f6b5dad25dae3c6375c244515a6",
+  "raw_vector_sha256": "bbf469b9c4de0ce8227ea126fa33510d927f815d879281dbcefd26dabc897827",
+  "retained_negative_case": "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000",
+  "retained_negative_public_sha256": "5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa"
+}

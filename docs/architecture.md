@@ -1,4 +1,21 @@
-# Unity source-port integration contract v1
+# Browser runtime architecture
+
+## Primary runtime: shared C# and direct WebGL2
+
+The current browser application is `tools/source-player`: the actual shared C#
+simulation runs as .NET 10 browser-WASM, and JavaScript delivers cabinet input
+and renders C#-supplied packets with WebGL2. It does not use a Unity player,
+Blazor UI, a backend API, or JavaScript football logic.
+See the [application contract and build recipe](../tools/source-player/README.md).
+
+Unity is not a build/runtime prerequisite or an acceptance gate for that
+application. The Unity project, importers, adapters and historical checks remain
+a separate path; their availability or entitlement does not determine whether
+the direct browser application can be built and tested. Full original-game
+fidelity remains the target, with actual browser and source-backed evidence
+required rather than an API compilation or a simplified preview.
+
+## Retained Unity source-port integration contract v1
 
 ## Explicit defensive pre-snap-switch descendant — October 20, 2026
 

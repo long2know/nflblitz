@@ -23,6 +23,11 @@ static void reset_case(void)
     raw_draw_count = 0;
     raw_draws[0] = raw_draws[1] = 0;
     supplied_scores[0] = supplied_scores[1] = 0;
+#ifdef SOURCE_RULES_CALLER_PROFILE
+    pup_no1stdown = dont_update_los = update_status_box = half_kickoff = 0;
+    pat_running = pat_delay = pat_wait_min = pat_wait_polls = 0;
+    range_count = range_go = range_free = 0;
+#endif
 }
 
 static int integer(const char *text)
@@ -96,12 +101,12 @@ int main(void)
         return 3;
     while (fgets(line, sizeof(line), stdin))
     {
-        char *args[20], *token;
+        char *args[32], *token;
         int count = 0;
         reset_case();
         for (token = strtok(line, " \t\r\n"); token; token = strtok(NULL, " \t\r\n"))
         {
-            if (count == 20)
+            if (count == 32)
                 return 2;
             args[count++] = token;
         }
@@ -109,6 +114,97 @@ int main(void)
             return 2;
         if (!strcmp(args[0], "meta") && count == 1)
             print_meta();
+#ifdef SOURCE_RULES_CALLER_PROFILE
+        else if (!strcmp(args[0], "pat") && count == 10)
+        {
+            int side = integer(args[1]), human = integer(args[2]), choice = integer(args[7]);
+            int skipped, two = 0, i, before0, before1;
+            game_info.off_side = game_info.off_init = side;
+            game_info.game_quarter = integer(args[3]);
+            game_info.game_time = integer(args[4]);
+            if (side < 0 || side > 1 || game_info.game_quarter < 0 ||
+                game_info.game_quarter >= MAX_QUARTERS || choice < 0 || choice > 2)
+                return 2;
+            supplied_scores[side] = integer(args[5]);
+            supplied_scores[!side] = integer(args[6]);
+            before0 = game_info.scores[0][game_info.game_quarter] = supplied_scores[0];
+            before1 = game_info.scores[1][game_info.game_quarter] = supplied_scores[1];
+            game_info.play_type = PT_EXTRA_POINT;
+            four_plr_ver = 1;
+            p_status = human ? 15 : 1 << ((!side) * 2);
+            range_go = integer(args[8]); range_free = integer(args[9]);
+            pat_running = 1;
+            skipped = original_pat_skip();
+            if (!skipped)
+            {
+                two = choice == 2 || (!human && choice == 0 && go_for_two(side));
+                if (!two)
+                {
+                    original_free_pat_miss();
+                    original_free_pat_award_and_wait();
+                    original_free_pat_return();
+                }
+            }
+            printf("{\"skip\":%s,\"two\":%s,\"good\":%s,\"home\":%d,\"away\":%d,"
+                   "\"home_points\":%d,\"away_points\":%d,\"play_type\":%d,"
+                   "\"delay\":%d,\"wait_min\":%d,\"wait_polls\":%d,\"draws\":[",
+                   skipped ? "true" : "false", two ? "true" : "false",
+                   !skipped && !two && !miss_kick ? "true" : "false",
+                   game_info.scores[0][game_info.game_quarter], game_info.scores[1][game_info.game_quarter],
+                   game_info.scores[0][game_info.game_quarter] - before0,
+                   game_info.scores[1][game_info.game_quarter] - before1, game_info.play_type,
+                   pat_delay, pat_wait_min, pat_wait_polls);
+            for (i = 0; i < range_count; i++)
+                printf("%s{\"bound\":%d,\"value\":%d}", i ? "," : "", range_bounds[i], range_values[i]);
+            printf("],\"events\":[%s]}\n", events);
+        }
+        else if (!strcmp(args[0], "resolve") && count == 22)
+        {
+            int quarter;
+            game_info.play_type = integer(args[1]);
+            game_info.play_end_cause = integer(args[2]);
+            ball_obj.type = integer(args[3]);
+            game_info.game_flags = integer(args[4]);
+            game_info.off_side = integer(args[5]);
+            game_info.off_init = integer(args[6]);
+            game_info.last_pos = integer(args[7]);
+            game_info.down = integer(args[8]);
+            game_info.los = integer(args[9]);
+            game_info.first_down = integer(args[10]);
+            game_info.play_end_pos = real(args[11]);
+            game_info.play_end_z = real(args[12]);
+            game_info.fumble_x = real(args[13]);
+            pup_no1stdown = integer(args[14]);
+            game_info.play_result = integer(args[15]);
+            quarter = game_info.game_quarter = integer(args[16]);
+            if (quarter < 0 || quarter >= MAX_QUARTERS || game_info.off_init < 0 ||
+                game_info.off_init > 1 || game_info.last_pos < 0 || game_info.last_pos > 1)
+                return 2;
+            game_info.scores[0][quarter] = integer(args[17]);
+            game_info.scores[1][quarter] = integer(args[18]);
+            game_info.first_pos = integer(args[19]);
+            game_info.captain = integer(args[20]);
+            game_info.game_time = integer(args[21]);
+            game_info.show_los = game_info.los;
+            game_info.show_fd = game_info.first_down;
+            clock_active = 1;
+            validate_dispatch();
+            original_resolve_caller();
+            printf("{\"play_result\":%d,\"off_side\":%d,\"off_init\":%d,\"last_pos\":%d,"
+                   "\"down\":%d,\"los\":%d,\"first_down\":%d,\"play_type\":%d,"
+                   "\"game_flags\":%d,\"fpend\":%d,\"play_end_pos_bits\":%u,"
+                   "\"line_pos_bits\":%u,\"show_los\":%d,\"show_fd\":%d,"
+                   "\"captain\":%d,\"off_turnover\":%d,\"just_got_1st\":%d,"
+                   "\"clock_active\":%d,\"packed\":%d,\"scores\":[%d,%d],\"events\":[%s]}\n",
+                   game_info.play_result, game_info.off_side, game_info.off_init, game_info.last_pos,
+                   game_info.down, game_info.los, game_info.first_down, game_info.play_type,
+                   game_info.game_flags, fpend, float_bits(game_info.play_end_pos),
+                   float_bits(game_info.line_pos), game_info.show_los, game_info.show_fd,
+                   game_info.captain, game_info.off_turnover, game_info.just_got_1st,
+                   clock_active, game_info.game_time, game_info.scores[0][quarter],
+                   game_info.scores[1][quarter], events);
+        }
+#endif
         else if ((!strcmp(args[0], "classify") || !strcmp(args[0], "spot")) && count == 10)
         {
             game_info.play_type = integer(args[1]);

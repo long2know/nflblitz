@@ -6,16 +6,1343 @@ using System.Text;
 using System.Text.Json;
 using Blitz.Contracts;
 using Blitz.Gameplay;
+using Blitz.Presentation;
 
 internal static partial class Program
 {
     private static int canonicalResultTimingAssertions;
+    private static bool contactWindowProductionCallers;
     private static readonly Dictionary<string, object> resultTimingEvidence = new Dictionary<string, object>();
 
     private static void C2ResultTimingCheck(bool condition, string identity)
     {
         canonicalResultTimingAssertions++;
         Check(condition, "C2 result timing: " + identity);
+    }
+
+    private const string LiveDroneOriginalBuilder = @"
+import hashlib,json,os,sys
+from pathlib import Path
+from unittest.mock import patch
+root=Path.cwd()
+sys.path.insert(0,str(root/'tests/playbooks'))
+import oracle
+source,output=map(lambda x:Path(x).resolve(),sys.argv[1:])
+recipe=json.loads((root/'tools/playbooks/recipe.json').read_text())
+driver_path=root/'tests/playbooks/driver.c'
+original_read=Path.read_text
+driver=original_read(driver_path)
+old=' geometry();\n if(update){assign_blockers();update_receiver_data();}'
+new=' if(update){assign_blockers();update_receiver_data();}'
+if driver.count(old)!=1: raise RuntimeError('Expected exactly one step geometry boundary')
+driver=driver.replace(old,new)
+old='  else if(!strcmp(token,""step""))step();'
+new='  else if(!strcmp(token,""cache""))geometry();\n'+old
+if driver.count(old)!=1: raise RuntimeError('Expected exactly one step command boundary')
+driver=driver.replace(old,new)
+def adapted(path,*args,**kwargs):
+    return driver if path==driver_path else original_read(path,*args,**kwargs)
+with patch.object(Path,'read_text',adapted):
+    receipt=oracle.build(source,output,recipe,os.environ.copy())
+receipt['cache_boundary']={
+    'geometry_before_earlier_player_callbacks':True,
+    'live_variables_after_earlier_player_callbacks':True,
+    'original_drone_function_expression_rewrites':0,
+    'existing_test_support_not_written':True,
+    'driver_sha256':hashlib.sha256(driver.encode()).hexdigest()}
+(output/'live-drone-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+print(json.dumps({'status':'passed','selected_original_functions':receipt['selected_function_count']}))
+";
+
+    private sealed class LiveDroneOriginal : IDisposable
+    {
+        private readonly System.Diagnostics.Process process;
+        private bool failedRead;
+        internal readonly List<string> Commands = new List<string>();
+        internal LiveDroneOriginal(string executable)
+        {
+            process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(executable) {
+                RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false
+            });
+        }
+        internal void Send(params object[] values)
+        {
+            string command = string.Join(" ", values.Select(v => v is float
+                ? ((float)v).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+                : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)));
+            Commands.Add(command);
+            process.StandardInput.WriteLine(command);
+        }
+        internal string[] Step()
+        {
+            Send("step", 11, 0, 0); process.StandardInput.Flush();
+            return ReadReply();
+        }
+        internal string[] ReadReply()
+        {
+            process.StandardInput.Flush();
+            string line = process.StandardOutput.ReadLine();
+            if (line == null) throw new IOException("Original C exited: " + process.StandardError.ReadToEnd());
+            return line.Split(' ');
+        }
+        internal string ReadJson(string command)
+        {
+            Send(command); process.StandardInput.Flush();
+            string line = process.StandardOutput.ReadLine();
+            if (line == null)
+            {
+                failedRead = true;
+                throw new IOException("Original C exited: " + process.StandardError.ReadToEnd());
+            }
+            return line;
+        }
+        public void Dispose()
+        {
+            if (!process.HasExited)
+            {
+                Send("quit"); process.StandardInput.Flush();
+                if (!process.WaitForExit(10000)) { process.Kill(); process.WaitForExit(); }
+            }
+            int code = process.ExitCode;
+            string error = process.StandardError.ReadToEnd();
+            process.Dispose();
+            if (code != 0 && !failedRead) throw new IOException("Original C failed: " + code + " " + error);
+        }
+    }
+
+    private static GameSimulation LiveDroneFixture(float defenderZ = 80f, SourceMatchConfiguration match = null)
+    {
+        var configuration = match ?? new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            SourceStationLayout.FourStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(2, TeamId.Away) },
+            TeamId.Home, SourceCaptainSlot.First);
+        GameSimulation game = real.Create(configuration: configuration,
+            presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0),
+            randomFactory: seed => SourceRandom.CreatePortableLibrary(seed,
+                "Nov10 live-drone caller; unchanged seed1; not original target PRNG evidence"));
+        lastGame = game;
+        SimulationState m = game.Model;
+        m.SourceTick = 100; m.SourceSnapTick = 0;
+        m.Phase = GamePhase.LiveBall; m.SourceMatchPhase = SourceMatchPhase.LiveBall;
+        m.SourceRules = new SourceRulesState(0, 0, 1, 30, 60, SourcePlayType.Normal);
+        m.Possession = TeamId.Home; m.SourceLastPossession = 0;
+        m.SourceOffensePlay = real.Playbook.GetPlay("play_spider");
+        m.SourceDefensePlay = real.Playbook.GetPlay("play_safe_cover");
+        m.SourceFlags = SourceGameFlags.None; m.CarrierId = 3;
+        m.BallKind = SourceBallKind.Pass; m.BallMode = BallMode.Held;
+        m.ThrowerId = 3; m.TargetPlayerId = 4;
+        m.CatchSourceTick = 0; m.SourcePlayEndX = 0f;
+        m.PassTicksElapsed = 45; m.PassTicksTotal = 80;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceMode = SourceActorMode.Dead; actor.SourceControllerStation = -1;
+            actor.SourceJob = SourceActorJob.None; actor.SourceTarget = -1;
+            actor.SourceVelocity = default(FieldVector); actor.SourceVerticalVelocity = 0f;
+            actor.SourceRoot = default(SourceVector3); actor.SourceFriction = 0f;
+            actor.SourceRawFlags = 0x2; actor.SourceBackpedal = actor.SourceThrowing = false;
+            actor.SourceButtons = actor.SourceNewButtons = SourceDroneButtons.None;
+            actor.SourceStick = actor.SourcePreviousStick = 24;
+            actor.PendingThrowTarget = -1;
+            actor.AnimationState.Primary.SetMovementMode(0u);
+            actor.AnimationState.Secondary.SetMovementMode(0u);
+            actor.Facing = actor.TargetFacing = actor.Team == TeamId.Home ? 256 : 768;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(-240f + actor.Id * 30f, 0f, 130f));
+            m.SourceDrones[actor.Id] = SourceRouteState.Begin(
+                (actor.Team == TeamId.Home ? m.SourceOffensePlay : m.SourceDefensePlay).Routes[actor.Id % 7]);
+        }
+        ActorState qb = m.Players[3], receiver = m.Players[4], defender = m.Players[11];
+        qb.SourceMode = SourceActorMode.Quarterback; qb.Role = ActorRole.Quarterback;
+        receiver.SourceMode = SourceActorMode.Receiver; receiver.Role = ActorRole.Receiver;
+        defender.SourceMode = SourceActorMode.DefensiveBack; defender.Role = ActorRole.Defender;
+        defender.SourceJob = SourceActorJob.Cover; defender.SourceTarget = 4;
+        m.SourceDrones[11] = m.SourceDrones[11].WithTarget(4);
+        SourcePlayerDriver.SetSourcePosition(qb, new SourceVector3(-100f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(receiver, new SourceVector3(0f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(defender, new SourceVector3(0f, 0f, defenderZ));
+        SourceBallDriver.SetPosition(m, new SourceVector3(-100f, 14f, 0f));
+        SourceBallDriver.SetTarget(m, 0f, 0f);
+        Cache(game); m.SourceCameraHeading = 0;
+        m.SourceAiFrame = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true);
+        return game;
+    }
+
+    private static void LiveDroneActorInput(LiveDroneOriginal original, GameSimulation game, int id)
+    {
+        ActorState actor = game.Model.Players[id];
+        SourceVector3 p = SourcePlayerDriver.WorldPosition(actor);
+        SourceAiActor current = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true).Actors[id];
+        original.Send("actor", id, p.X, p.Z, actor.SourceVelocity.X, actor.SourceVelocity.Z, p.Y,
+            (int)actor.SourceMode, (int)actor.SourceJob, actor.SourceTarget, (int)current.Flags,
+            actor.SourceControllerStation, actor.Facing, actor.TargetFacing, actor.SourceStick, actor.PendingThrowTarget);
+    }
+
+    private static void LiveDroneBallInput(LiveDroneOriginal original, GameSimulation game)
+    {
+        SimulationState m = game.Model;
+        SourceAiBall ball = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true).Ball;
+        original.Send("ball", m.SourceBallPosition.X, m.SourceBallPosition.Z, m.SourceBallVelocity.X,
+            m.SourceBallVelocity.Z, m.SourceBallTarget.X, m.SourceBallTarget.Z,
+            m.SourceBallPosition.Y, m.SourceBallVerticalVelocity, m.CarrierId, m.TargetPlayerId, m.ThrowerId,
+            (int)ball.Type, m.PassTicksElapsed, m.PassTicksTotal, ball.Bounced ? 1 : 0);
+    }
+
+    private static SourceGameEvent[] LiveDroneSourceEvents(GameSimulation game)
+    {
+        return ((IEnumerable<SourceGameEvent>)typeof(GameSimulation).GetField("sourceStepEvents",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .GetValue(game)).ToArray();
+    }
+
+    private static void LiveDroneCase(string name, string executable, Action<GameSimulation> change)
+    {
+        GameSimulation game = LiveDroneFixture(name == "earlier-receiver-physics" ? 75.5f : 80f);
+        SimulationState m = game.Model;
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        using (var original = new LiveDroneOriginal(executable))
+        {
+            original.Send("reset", 0, 30, 60, 1, 0, 0, (int)m.SourceFlags, 3, 3, 5, 5, 0, -1, 0f,
+                "play_spider", "play_safe_cover", 62.4f, 10, 0, 1, 0);
+            for (int id = 0; id < 14; id++) LiveDroneActorInput(original, game, id);
+            LiveDroneBallInput(original, game); original.Send("cache");
+            float[,] distances = (float[,])m.SourceDistances.Clone();
+            int[,] angles = (int[,])m.SourceAngles.Clone();
+            change(game);
+            SourceRouteState before = m.SourceDrones[11];
+            for (int id = 0; id < 14; id++) LiveDroneActorInput(original, game, id);
+            LiveDroneBallInput(original, game);
+            original.Send("clock", 100, 0, 0f, m.Phase == GamePhase.LiveBall ? 3 : 0, (int)m.SourceFlags);
+            original.Send("route", 11, before.Program.Identity, (int)before.Flags, before.BlitzTicks);
+            original.Send("timers", 11, before.ThinkTicks, before.EvadeTicks, before.BlitzTicks,
+                before.Stick, before.OldStick, before.StickTicks,
+                (int)before.Buttons, (int)before.OldButtons, before.ButtonTicks);
+            Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", 11, 12);
+            int start = random.Trace.Count;
+            Bind<Func<ActorState, PlayerCommand, FieldVector>>(game, "SourceDroneMove")(m.Players[11], default(PlayerCommand));
+            SourceRandomDraw[] draws = random.Trace.Skip(start).ToArray();
+            original.Send(new object[] { "tape", draws.Length }.Concat(draws.Select(d => (object)d.Raw.Value)).ToArray());
+            string[] expected = original.Step();
+            SourceRouteState actual = m.SourceDrones[11];
+            File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+                name, sourceTick = m.SourceTick, actor = 11, original = string.Join(" ", expected),
+                actual = new { actual.Stick, buttons = (int)actual.Buttons, job = (int)m.Players[11].SourceJob,
+                    actual.Target, actual.PassReactTicks, actual.ThinkTicks },
+                rawDraws = draws.Select(d => new { d.Raw, d.Value, bound = d.Site.BoundOrModulus,
+                    d.Site.SourceIdentity, d.Site.SourceTick, d.Site.ActorId, d.Site.CallIndex }),
+                commands = original.Commands.ToArray(), c2Events = game.C2Events,
+                sourceEvents = LiveDroneSourceEvents(game),
+                full_gameplay_parity_claimed = false
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            Check(actual.Stick == int.Parse(expected[4]), name + ": live original stick");
+            Check((int)actual.Buttons == int.Parse(expected[7]), name + ": live original buttons");
+            Check((int)m.Players[11].SourceJob == int.Parse(expected[10]), name + ": live original job");
+            Check(actual.Target == int.Parse(expected[11]), name + ": original target");
+            Check(actual.PassReactTicks == int.Parse(expected[12]), name + ": original reaction timer");
+            Check(actual.ThinkTicks == int.Parse(expected[18]), name + ": original think timer");
+            Check(draws.Length == int.Parse(expected[45]), name + ": exact original RNG draw count");
+            for (int i = 0; i < draws.Length; i++)
+                Check(draws[i].Site.BoundOrModulus == int.Parse(expected[46 + i * 3])
+                    && draws[i].Value == int.Parse(expected[47 + i * 3])
+                    && draws[i].Raw == int.Parse(expected[48 + i * 3]), name + ": ordered original RNG " + i);
+            for (int i = 0; i < 14; i++)
+                for (int j = 0; j < 14; j++)
+                    Check(Bits(m.SourceDistances[i, j]) == Bits(distances[i, j]) && m.SourceAngles[i, j] == angles[i, j],
+                        name + ": pre-player geometry remains frozen " + i + "/" + j);
+        }
+    }
+
+    private static void LiveDroneCallerChecks(string originalRoot)
+    {
+        Check(real.IsC2M1Profile, "live-drone cases use actual M1 caller composition and original animation programs");
+        string worker = Path.Combine(output, "live-drone-original.py");
+        File.WriteAllText(worker, LiveDroneOriginalBuilder);
+        string native = Path.Combine(output, "original-live-drone");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, native }, "original-live-drone-build.log");
+        string executable = Path.Combine(native, "source-oracle");
+        var failures = new List<string>();
+        foreach (var item in new[] {
+            new KeyValuePair<string, Action<GameSimulation>>("earlier-receiver-position", game =>
+                SourcePlayerDriver.SetSourcePosition(game.Model.Players[4], new SourceVector3(0f, 0f, 160f))),
+            new KeyValuePair<string, Action<GameSimulation>>("earlier-receiver-physics", game => {
+                ActorState receiver = game.Model.Players[4];
+                receiver.SourceVelocity = new FieldVector(0f, 1.15f);
+                Bind<Action<ActorState>>(game, "IntegrateSourceMovementPlayer")(receiver);
+                Check(SourcePlayerDriver.WorldPosition(receiver).Z == 1.15f,
+                    "actual preceding source player physics advances the receiver one ordinary tick");
+            }),
+            new KeyValuePair<string, Action<GameSimulation>>("earlier-qb-release", game => {
+                game.Model.Players[11].SourceJob = SourceActorJob.Rush;
+                game.Model.Players[11].SourceTarget = -1;
+                game.Model.SourceDrones[11] = game.Model.SourceDrones[11].WithTarget(-1);
+                game.Model.SourceAiFrame = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true);
+                game.Model.Players[3].PendingThrowTarget = 4;
+                Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", 3, 4);
+                Bind<Action<int>>(game, "ReleaseSourcePass")(3);
+                Check(game.Model.CarrierId == -1 && game.Model.PassTicksElapsed == 0,
+                    "actual original release callback runs before later defender");
+                SourceGameEvent[] released = LiveDroneSourceEvents(game)
+                    .Where(e => e.SourceTick == 100 && e.Type == SourceEventType.PassReleased).ToArray();
+                Check(released.Length == 1 && released[0].ActorPlayerId == 3 && released[0].TargetPlayerId == 4,
+                    "actual original release emits one source100 passer3 target4 event");
+            }),
+            new KeyValuePair<string, Action<GameSimulation>>("earlier-player-down", game => {
+                game.Model.CarrierId = 4;
+                game.Model.SourceAiFrame = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true);
+                Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", 4, 5);
+                Bind<Action<int>>(game, "SourcePlayerDown")(4);
+                Check(game.Model.Phase == GamePhase.DeadBall, "actual original player_down ends live mode");
+                SourceC2Event[] events = game.C2Events.Where(e => e.SourceTick == 100).ToArray();
+                Check(events.Length == 2 && events[0].Kind == SourceC2EventKind.WhistleSpawned
+                    && events[1].Kind == SourceC2EventKind.PlayOverQueued,
+                    "actual player_down preserves source100 whistle creation before play-over queue");
+            })
+        })
+        {
+            try { LiveDroneCase(item.Key, executable, item.Value); }
+            catch (ContactAssertion error) { failures.Add(error.Message); }
+        }
+        try { LiveDroneDetectorCache(); }
+        catch (ContactAssertion error) { failures.Add(error.Message); }
+        Check(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    private static void LiveDroneDetectorCache()
+    {
+        GameSimulation game = LiveDroneFixture();
+        SimulationState m = game.Model;
+        m.SourceTick = m.SourceProcesses.SourceTick;
+        foreach (ActorState actor in m.Players) actor.SourceRawFlags |= 0x20;
+        m.Players[0].SourceRawFlags &= ~0x20;
+        m.Players[1].SourceRawFlags &= ~0x20;
+        SourcePlayerDriver.SetSourcePosition(m.Players[0], new SourceVector3(0f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(m.Players[1], new SourceVector3(8f, 0f, 0f));
+        Cache(game);
+        Bind<Action>(game, "SourceContacts")();
+        SourceContactEvent[] detectorEvents = game.ContactEvents.ToArray();
+        Check(m.SourceDistances[0, 1] == 8f
+            && SourcePlayerDriver.WorldPosition(m.Players[0]).X == -1f
+            && SourcePlayerDriver.WorldPosition(m.Players[1]).X == 9f,
+            "actual detect caches eight before original body collision separates teammate roots to ten");
+        Check(detectorEvents.Length == 1 && detectorEvents[0].Kind == SourceContactEventKind.Collision
+            && detectorEvents[0].ActorPlayerId == 0 && detectorEvents[0].OtherPlayerId == 1
+            && detectorEvents[0].AttackMode == 0,
+            "actual prior detector emits exactly the ordered teammate body contact, not a synthetic cache write");
+        m.SourceProcesses.SuspendMultiple(0x0500, -1);
+        int drawsBefore = ((SourceInjectedRandom)game.SourceRandomService).Trace.Count;
+        Wake(game);
+        File.WriteAllText(Path.Combine(output, "previous-detector-cache.json"), JsonSerializer.Serialize(new {
+            sourceTick = m.SourceTick, previousDetectorDistance = 8f,
+            consumerDistance = m.SourceAiFrame.Distance(0, 1), newDetectorDistance = m.SourceDistances[0, 1],
+            detectorEvents, nextDetectorEvents = game.ContactEvents, actorProcessesSuspended = true,
+            rngDraws = ((SourceInjectedRandom)game.SourceRandomService).Trace.Count - drawsBefore,
+            sourceAuthority = "player.c:pre_player_proc calls drone_update only; detect.c:540-552 is cache writer",
+            full_gameplay_parity_claimed = false
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(((SourceInjectedRandom)game.SourceRandomService).Trace.Count == drawsBefore,
+            "isolated retained-cache Step consumes no additional RNG");
+        Check(m.SourceAiFrame.Distance(0, 1) == 8f && m.SourceDistances[0, 1] == 10f,
+            "next real Step pre-player consumes prior detector cache, not recomputed post-response positions");
+    }
+
+    private const string PossessionRecoveryOriginalBuilder = @"
+import hashlib,json,os,sys
+from pathlib import Path
+from unittest.mock import patch
+root=Path.cwd()
+sys.path.insert(0,str(root/'tests/playbooks'))
+import oracle
+source,output=map(lambda x:Path(x).resolve(),sys.argv[1:])
+documents=oracle.verify_inputs(source)
+player=documents['player.c'].decode('latin1')
+catch=oracle.body(player,'standard_catch')
+marker='for( i = 0; i < NUM_PLAYERS; i++ )'
+begin=catch.index(marker,catch.index('game_info.old_los = FIELDX'))
+end=catch.index('drone_poss_change();',begin)+len('drone_poss_change();')
+block=catch[begin:end]
+if block.count('~PF_SPEED_OVERRIDE')!=1: raise RuntimeError('Expected original recovery speed-latch clear')
+drone_change=oracle.body(documents['drone.c'].decode('latin1'),'drone_poss_change')
+farthest=oracle.body(player,'farthest_teammate')
+extra=drone_change+'\n'+farthest+'\nstatic void recovery(void) {\n'
+extra+='game_info.off_side=ni();int change=ni(),i;for(i=0;i<14;i++){player_blocks[i].odata.flags=ni();player_blocks[i].odata.plyrmode=ni();}\n'
+extra+='if(change){\n'+block+'\n}\nprintf(""R"");for(int i=0;i<14;i++)printf("" %d %d"",player_blocks[i].odata.flags,player_blocks[i].odata.plyrmode);puts("""");fflush(stdout);\n}\n'
+extra+='static void farthest_input(void){int target=ni();for(int i=0;i<14;i++){player_blocks[i].plyrnum=i;player_blocks[i].team=i/7;player_blocks[i].station=ni();distxz[target][i]=nf();}printf(""F %d\\n"",farthest_teammate(player_blocks+target));fflush(stdout);}\n'
+extra+='static void diver_input(void){int me=ni();for(int i=0;i<14;i++){int seq=ni();player_blocks[i].plyrnum=i;player_blocks[i].team=i/7;player_blocks[i].odata.adata[0].seq_index=seq==1?SEQ_T_CRZDIV:seq==2?SEQ_T_SPRHED:0;player_blocks[i].throw_target=ni();distxz[me][i]=nf();}printf(""D %d\\n"",find_diver(player_blocks+me));fflush(stdout);}\n'
+driver_path=root/'tests/playbooks/driver.c'
+original_read=Path.read_text
+driver=original_read(driver_path)
+old='int main(void){'
+if driver.count(old)!=1: raise RuntimeError('Expected original test command entry')
+driver=driver.replace(old,extra+'\n'+old)
+old='  else if(!strcmp(token,""step""))step();'
+if driver.count(old)!=1: raise RuntimeError('Expected original test command dispatcher')
+driver=driver.replace(old,'  else if(!strcmp(token,""recovery""))recovery();\n  else if(!strcmp(token,""farthest""))farthest_input();\n  else if(!strcmp(token,""diver""))diver_input();\n'+old)
+def adapted(path,*args,**kwargs):
+    return driver if path==driver_path else original_read(path,*args,**kwargs)
+recipe=json.loads((root/'tools/playbooks/recipe.json').read_text())
+try:
+    with patch.object(Path,'read_text',adapted):
+        receipt=oracle.build(source,output,recipe,os.environ.copy())
+except Exception:
+    if (output/'compiler.log').is_file(): print((output/'compiler.log').read_text(),file=sys.stderr)
+    raise
+receipt['recovery_fragment']={'path':'player.c','symbol':'standard_catch:defensive-transition',
+    'git_blob_sha1':oracle.blob_sha1(documents['player.c']),
+    'sha256':hashlib.sha256(block.encode('latin1')).hexdigest(),'expression_rewrites':0,
+    'drone_poss_change_sha256':hashlib.sha256(drone_change.encode('latin1')).hexdigest(),
+    'farthest_teammate_sha256':hashlib.sha256(farthest.encode('latin1')).hexdigest()}
+(output/'recovery-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+";
+
+    private static void PossessionRecoveryChecks(string originalRoot)
+    {
+        string worker = Path.Combine(output, "recovery-original.py");
+        File.WriteAllText(worker, PossessionRecoveryOriginalBuilder);
+        string native = Path.Combine(output, "original-recovery");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, native }, "original-recovery-build.log");
+        string executable = Path.Combine(native, "source-oracle");
+        var failures = new List<string>();
+        foreach (int side in new[] { 0, 1 })
+            foreach (string kind in new[] { "fumble", "bounced-lateral", "same-team", "too-early" })
+            {
+                try { PossessionRecoveryCase(executable, side, kind); }
+                catch (ContactAssertion error) { failures.Add(error.Message); }
+            }
+        foreach (int side in new[] { 0, 1 })
+            foreach (string kind in new[] { "airborne-distance", "prior-detector", "equal-distance" })
+            {
+                try { CatchControlCacheCase(executable, side, kind); }
+                catch (ContactAssertion error) { failures.Add(error.Message); }
+            }
+        try { PublicRecoverySpeedStep(); }
+        catch (ContactAssertion error) { failures.Add(error.Message); }
+        Check(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    private static void PublicRecoverySpeedStep()
+    {
+        GameSimulation game = LiveDroneFixture();
+        SimulationState m = game.Model;
+        m.SourceTick = m.SourceProcesses.SourceTick;
+        m.Possession = TeamId.Away; m.SourceLastPossession = 1;
+        m.SourceRules = new SourceRulesState(1, 1, 1, 30, 60, SourcePlayType.Normal);
+        m.SourceFlags = SourceGameFlags.BallCrossedLine | SourceGameFlags.OverLineSpeedsSet | SourceGameFlags.Fumble;
+        m.CarrierId = -1; m.BallMode = BallMode.InFlight; m.BallKind = SourceBallKind.Fumble;
+        m.SourceBallFlags = SourceBallFlags.Bounce; m.PassTicksElapsed = 31; m.PassTicksTotal = 0;
+        m.TargetPlayerId = -1; m.ThrowerId = 10;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceMode = SourceActorMode.Dead; actor.SourceControllerStation = -1;
+            actor.SourceRawFlags = (int)(SourceMovementFlags.NoCollision | SourceMovementFlags.SpeedOverride);
+            actor.SourceOverrideSpeed = 1.85f; actor.SourceOverrideTime = 0;
+            actor.SourceVelocity = default(FieldVector); actor.SourceVerticalVelocity = 0f;
+            actor.SourceTarget = -1; actor.SourceJob = SourceActorJob.None; actor.NoCatchTicks = 0;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 25f - 150f, 0f, 130f));
+        }
+        m.Players[3].SourceControllerStation = 0; m.SourceStationPlayers[0] = 3;
+        m.Players[10].SourceControllerStation = 2; m.SourceStationPlayers[2] = 10;
+        ActorState catcher = m.Players[4], runner = m.Players[5];
+        catcher.SourceMode = SourceActorMode.DefensiveBack; catcher.Role = ActorRole.Defender;
+        runner.SourceJob = SourceActorJob.Block; runner.SourceTarget = 9;
+        m.SourceDrones[5] = m.SourceDrones[5].WithTarget(9);
+        SourcePlayerDriver.SetSourcePosition(catcher, default(SourceVector3));
+        SourcePlayerDriver.SetSourcePosition(runner, new SourceVector3(-60f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(m.Players[9], new SourceVector3(40f, 0f, 0f));
+        SourceBallDriver.SetPosition(m, default(SourceVector3)); SourceBallDriver.SetTarget(m, 0f, 0f);
+        Cache(game);
+        game.SourceCameraHeadingProvider = (snapshot, tick) => {
+            SourceVector3 focus = game.SourceBallWorldPosition;
+            var eye = new SourceVector3(focus.X, 85f, focus.Z - 120f);
+            SourceCinematicTransform frame = SourceCinematicTransform.FromState(
+                new SourceCinematicSeed(eye, focus, 150f, 0f, -.4f));
+            game.SetSourceMovementCameraFrame(new SourceMovementCameraFrame(frame.Position, frame.Transform, 512f, 384f), tick);
+            return 0;
+        };
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        int before = random.Trace.Count;
+        Wake(game);
+        File.WriteAllText(Path.Combine(output, "public-Step-recovery-speed.json"), JsonSerializer.Serialize(new {
+            sourceTick = m.SourceTick, m.CarrierId, m.Possession,
+            flags = m.Players.Select(a => a.SourceRawFlags).ToArray(),
+            runnerVelocity = runner.SourceVelocity, runnerMode = runner.SourceMode,
+            events = game.SourceEvents, draws = random.Trace.Skip(before).Select(d => new {
+                d.Raw, d.Value, d.Site.SourceIdentity, d.Site.ActorId, d.Site.CallIndex }),
+            boundary = "declared live loose-ball frame -> real public Step; no direct catch/AI/movement dispatch"
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(m.SourceTick == 1 && m.CarrierId == 4 && m.Possession == TeamId.Home,
+            "public Step performs real defender recovery before later offensive runner");
+        Check(m.Players.All(a => (a.SourceRawFlags & (int)SourceMovementFlags.SpeedOverride) == 0),
+            "public Step recovery clears original speed override on all fourteen actors");
+        Check(runner.SourceMode == SourceActorMode.Receiver && Bits(runner.SourceVelocity.X) == Bits(1.15f)
+            && runner.SourceVelocity.Z == 0f,
+            "public Step later new-offense runner uses original1.15, not inherited1.85");
+        Check(random.Trace.Count == before, "public Step isolated loose recovery has no extra RNG");
+    }
+
+    private static void CatchControlCacheCase(string executable, int side, string kind)
+    {
+        var configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            SourceStationLayout.FourStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(1, TeamId.Home),
+                new SourceStationConfiguration(2, TeamId.Away), new SourceStationConfiguration(3, TeamId.Away) },
+            TeamId.Home, SourceCaptainSlot.First);
+        GameSimulation game = LiveDroneFixture(match: configuration);
+        SimulationState m = game.Model;
+        int catcherId = side * 7 + 4, first = side * 7 + 3, second = side * 7 + 5;
+        ActorState catcher = m.Players[catcherId];
+        m.Possession = (TeamId)(1 - side); m.SourceLastPossession = 1 - side;
+        m.SourceRules = new SourceRulesState(1 - side, 1 - side, 1, 30, 60, SourcePlayType.Normal);
+        m.SourceFlags = SourceGameFlags.BallCrossedLine | SourceGameFlags.OverLineSpeedsSet;
+        m.CarrierId = -1; m.BallMode = BallMode.InFlight; m.BallKind = SourceBallKind.Fumble;
+        m.PassTicksElapsed = 31; m.PassTicksTotal = 0; m.TargetPlayerId = -1;
+        m.ThrowerId = (1 - side) * 7 + 3;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceRawFlags = (int)SourceMovementFlags.NoCollision;
+            actor.SourceMode = actor.Team == m.Possession ? SourceActorMode.Receiver : SourceActorMode.DefensiveBack;
+            actor.Role = actor.Team == m.Possession ? ActorRole.Receiver : ActorRole.Defender;
+            actor.NoCatchTicks = 0;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 15f - 100f, 0f, 130f));
+        }
+        for (int station = 0; station < 4; station++)
+        {
+            int id = station / 2 * 7 + (station % 2 == 0 ? 3 : 5);
+            m.SourceStationPlayers[station] = id; m.Players[id].SourceControllerStation = station;
+        }
+        SourcePlayerDriver.SetSourcePosition(catcher, default(SourceVector3));
+        SourcePlayerDriver.SetSourcePosition(m.Players[first], kind == "airborne-distance"
+            ? new SourceVector3(20f, 60f, 0f) : new SourceVector3(kind == "prior-detector" ? 29.5f : 30f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(m.Players[second], kind == "equal-distance"
+            ? new SourceVector3(0f, 0f, 30f) : new SourceVector3(30f, 0f, 0f));
+        SourceBallDriver.SetPosition(m, default(SourceVector3));
+        Cache(game); m.SourceCameraHeading = 0;
+        Bind<Action>(game, "SourceContacts")();
+        float distanceFirst = m.SourceDistances[catcherId, first], distanceSecond = m.SourceDistances[catcherId, second];
+        int expectedPlayer;
+        using (var original = new LiveDroneOriginal(executable))
+        {
+            var command = new List<object> { "farthest", catcherId };
+            foreach (ActorState actor in m.Players)
+            { command.Add(actor.SourceControllerStation); command.Add(m.SourceDistances[catcherId, actor.Id]); }
+            original.Send(command.ToArray()); expectedPlayer = int.Parse(original.ReadReply()[1]);
+        }
+        int expectedStation = m.Players[expectedPlayer].SourceControllerStation;
+        if (kind == "prior-detector")
+        {
+            m.Players[first].SourceVelocity = new FieldVector(1.15f, 0f);
+            Bind<Action<ActorState>>(game, "IntegrateSourceMovementPlayer")(m.Players[first]);
+        }
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        int before = random.Trace.Count;
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", catcherId, catcherId + 1);
+        Bind<Action<ActorState>>(game, "TrySourceCatch")(catcher);
+        SourceGameEvent[] control = LiveDroneSourceEvents(game).Where(e => e.Type == SourceEventType.ControllerChanged).ToArray();
+        string name = "catch-control-side" + side + "-" + kind;
+        File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+            name, sourceTick = m.SourceTick, catcherId, expectedPlayer, expectedStation,
+            actualStation = catcher.SourceControllerStation, distanceFirst, distanceSecond,
+            currentFirst = SourcePlayerDriver.WorldPosition(m.Players[first]),
+            currentSecond = SourcePlayerDriver.WorldPosition(m.Players[second]),
+            sourceEvents = LiveDroneSourceEvents(game), rngDraws = random.Trace.Count - before
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(m.CarrierId == catcherId && (int)m.Possession == side, name + ": real loose-ball catch");
+        Check(catcher.SourceControllerStation == expectedStation, name + ": original cached farthest controller");
+        Check(control.Length == 1 && control[0].StationId == expectedStation
+            && control[0].ActorPlayerId == catcherId && control[0].TargetPlayerId == expectedPlayer,
+            name + ": exact immediate controller-transfer event");
+        Check(m.SourceStationPlayers[expectedStation] == catcherId
+            && m.Players[expectedPlayer].SourceControllerStation == -1, name + ": exclusive transferred ownership");
+        Check(random.Trace.Count == before, name + ": original controller selection uses zero RNG");
+        Check(m.SourceDistances[catcherId, first] == distanceFirst
+            && m.SourceDistances[catcherId, second] == distanceSecond, name + ": original detector cache retained");
+    }
+
+    private static void PossessionRecoveryCase(string executable, int side, string kind)
+    {
+        GameSimulation game = LiveDroneFixture();
+        SimulationState m = game.Model;
+        bool sameTeam = kind == "same-team", eligible = kind != "too-early";
+        int recovering = sameTeam ? 1 - side : side, previous = 1 - side;
+        int catcherId = recovering * 7 + 4, runnerId = recovering * 7 + 5;
+        string name = "recovery-side" + side + "-" + kind;
+        ActorState catcher = m.Players[catcherId], runner = m.Players[runnerId];
+        m.Possession = (TeamId)previous; m.SourceLastPossession = previous;
+        m.SourceRules = new SourceRulesState(previous, previous, 1, 30, 60, SourcePlayType.Normal);
+        m.SourceFlags = SourceGameFlags.BallCrossedLine | SourceGameFlags.OverLineSpeedsSet;
+        m.CarrierId = -1; m.BallMode = BallMode.InFlight;
+        m.BallKind = kind == "bounced-lateral" ? SourceBallKind.Lateral : SourceBallKind.Fumble;
+        m.SourceBallFlags = SourceBallFlags.Bounce;
+        m.PassTicksElapsed = eligible ? 31 : 30; m.PassTicksTotal = 0;
+        m.ThrowerId = previous * 7 + 3; m.TargetPlayerId = -1;
+        m.Players[3].SourceControllerStation = 0; m.SourceStationPlayers[0] = 3;
+        m.Players[10].SourceControllerStation = 2; m.SourceStationPlayers[2] = 10;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceMode = actor.Team == m.Possession ? SourceActorMode.Receiver : SourceActorMode.DefensiveBack;
+            actor.Role = actor.Team == m.Possession ? ActorRole.Receiver : ActorRole.Defender;
+            actor.SourceRawFlags = (int)(SourceMovementFlags.OnScreen | SourceMovementFlags.SpeedOverride);
+            actor.SourceOverrideSpeed = 1.85f; actor.SourceOverrideTime = 0;
+            actor.NoCatchTicks = 0;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 15f - 100f, 0f, 100f));
+        }
+        SourcePlayerDriver.SetSourcePosition(catcher, new SourceVector3(0f, 0f, 0f));
+        SourcePlayerDriver.SetSourcePosition(runner, new SourceVector3(-20f, 0f, 80f));
+        SourceBallDriver.SetPosition(m, SourcePlayerDriver.WorldPosition(catcher));
+        Cache(game); m.SourceCameraHeading = 0;
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        int drawsBefore = random.Trace.Count;
+        int[] beforeFlags = m.Players.Select(a => a.SourceRawFlags).ToArray();
+        int[] beforeModes = m.Players.Select(a => (int)a.SourceMode).ToArray();
+        string[] expected;
+        using (var original = new LiveDroneOriginal(executable))
+        {
+            var command = new List<object> { "recovery", recovering, eligible && !sameTeam ? 1 : 0 };
+            for (int id = 0; id < 14; id++) { command.Add(beforeFlags[id]); command.Add(beforeModes[id]); }
+            original.Send(command.ToArray()); expected = original.ReadReply();
+        }
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", catcherId, catcherId + 1);
+        Bind<Action<ActorState>>(game, "TrySourceCatch")(catcher);
+        int[] afterFlags = m.Players.Select(a => a.SourceRawFlags).ToArray();
+        int[] afterModes = m.Players.Select(a => (int)a.SourceMode).ToArray();
+        if (eligible)
+        {
+            runner.SourceStick = 21; runner.SourcePreviousStick = 24;
+            runner.SourceButtons = SourceDroneButtons.None; runner.Turbo = false;
+            Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", runnerId, runnerId + 1);
+            Bind<Func<ActorState, bool, SourceMovementResult>>(game, "RunSourceMovement")(runner, false);
+        }
+        File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+            name, sourceTick = m.SourceTick, catcherId, runnerId, beforeFlags, beforeModes,
+            expectedOriginal = expected, afterFlags, afterModes, m.CarrierId, m.Possession,
+            runnerVelocity = runner.SourceVelocity, sourceEvents = LiveDroneSourceEvents(game),
+            draws = random.Trace.Skip(drawsBefore).Select(d => new { d.Raw, d.Value, d.Site.SourceIdentity }),
+            full_gameplay_parity_claimed = false
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(m.CarrierId == (eligible ? catcherId : -1) && (int)m.Possession == (eligible ? recovering : previous),
+            name + ": actual deterministic loose-ball catch preserves eligibility/possession");
+        for (int id = 0; id < 14; id++)
+        {
+            Check(afterFlags[id] == int.Parse(expected[1 + id * 2]), name + ": original actor speed-latch flags " + id);
+            Check(afterModes[id] == int.Parse(expected[2 + id * 2]), name + ": original actor mode " + id);
+        }
+        Check(random.Trace.Count == drawsBefore, name + ": catch/next ordinary movement consume no RNG");
+        if (eligible)
+            Check(Bits(runner.SourceVelocity.X) == Bits(sameTeam ? 1.85f : 1.15f)
+                && runner.SourceVelocity.Z == 0f,
+                name + ": next real ordinary runner uses cleared-latch source speed");
+    }
+
+    private const string ThrowMonitorOriginalBuilder = @"
+import hashlib,json,os,re,subprocess,sys
+from pathlib import Path
+root=Path.cwd()
+sys.path.insert(0,str(root/'tests/playbooks'))
+import oracle
+source,output=map(lambda x:Path(x).resolve(),sys.argv[1:])
+documents=oracle.verify_inputs(source)
+player=documents['player.c'].decode('latin1')
+monitor=oracle.body(player,'qb_throw_monitor')
+release=oracle.body(player,'qb_release_ball')
+lateral=oracle.body(player,'lateral_ball')
+qb_mode=oracle.body(player,'_mode_qb')
+special=qb_mode[qb_mode.index('// allow qb to throw ball from hurdle'):qb_mode.index('// TEMP',qb_mode.index('// allow qb to throw ball from hurdle'))]
+if 'BF_TURBO_PASS' in oracle.strip_comments(special): raise RuntimeError('Original special branch unexpectedly writes turbo flag')
+vels=oracle.body(player,'set_ball_vels')
+speed_begin=vels.index('if ( ((ppdata->station >= 0)')
+speed_end=vels.index('throw_joint =',speed_begin)
+speed_choice=vels[speed_begin:speed_end]
+mode_assignment='pobj->plyrmode = MODE_WPN;'
+if lateral.count(mode_assignment)!=1: raise RuntimeError('Expected original lateral actor-mode assignment')
+begin=release.index('if ((ISHUMAN(ppdata)) && (target_human))')
+end=release.index('#if 1',begin)
+override=release[begin:end]
+decl=monitor[monitor.index('{')+1:monitor.index('target_human = FALSE;')]
+tail=monitor[monitor.index('last_pass_hist[0]'):monitor.rfind('}')]
+header=documents['include/player.h'].decode('latin1')
+mode=re.search(r'^#define\s+MODE_WPN\s+.*$',header,re.M)[0]
+human=re.search(r'^#define ISHUMAN\(x\).*$',header,re.M)[0]
+drone=re.search(r'^#define ISDRONE\(x\).*$',header,re.M)[0]
+unit=r'''#include <stdio.h>
+#include <stdlib.h>
+#include <setjmp.h>
+#include <string.h>
+#define FALSE 0
+#define TRUE 1
+#define P_A 1
+#define P_B 2
+#define P_ABCD_MASK 15
+typedef struct { int plyrmode; } obj_3d;
+typedef struct { obj_3d odata; int station,team,plyrnum,throw_target,but_hist[5]; } fbplyr_data;
+static fbplyr_data player_blocks[14];
+static int target_human,last_pass_hist[5],current_switches,sleep_ticks;
+static jmp_buf stopped;
+static int get_player_sw_current(void){return current_switches;}
+static void sleep(int ticks){sleep_ticks=ticks;longjmp(stopped,1);}
+static void die(int value){(void)value;longjmp(stopped,2);}
+'''
+unit+='\n'+mode+'\n'+human+'\n'+drone+'\n'+monitor
+for name in ('BALL_VELOCITY','BALL_YARDS','BALL_YMAX','TIME_MAX','TBALL_VELOCITY','TBALL_YMAX',
+             'TTIME_MAX','FBALL_YARDS','FBALL_VELOCITY','FBALL_YMAX','FTIME_MAX'):
+    unit+='\n'+re.search(r'^#define\s+'+name+r'\s+.*$',player,re.M)[0]
+unit+='\n#define GRAVITY -0.08f\n#define YD2UN 7.8f\n'
+unit+='\n'+re.search(r'^#define\s+BF_TURBO_PASS\s+.*$',header,re.M)[0]+'\n'
+unit+='\nstatic float special_speed(int flags){float ball_velocity,ball_ymax,time_max;int pup_fastpass=0;'
+unit+='struct {int team_fire[2];} game_info={{0,0}};struct {int flags;} ball_obj={flags};fbplyr_data *ppdata=player_blocks+3;\n'+speed_choice+'\nreturn ball_velocity;}\n'
+unit+='\nstatic void monitor_tail(int *args){'+decl+tail+'}\n'
+unit+='\nstatic void release_target(fbplyr_data *ppdata){int i;obj_3d *ptgt,*pobj=(obj_3d*)ppdata;\n'+override+'\n}\n'
+unit+='\nstatic void lateral_tail(obj_3d *pobj){'+mode_assignment+'}\n'
+unit+=r'''int main(int argc,char **argv){
+ if(argc==2&&!strcmp(argv[1],""lateral"")){obj_3d value={5};lateral_tail(&value);printf(""%d\n"",value.plyrmode);return 0;}
+ if(argc==3&&!strcmp(argv[1],""special-speed"")){printf(""%.9g\n"",special_speed(atoi(argv[2])));return 0;}
+ if(argc!=13)return 2;
+ int side=atoi(argv[1]),actor=side*7+3,args[1]={actor},first;
+ for(int i=0;i<14;i++){player_blocks[i].station=-1;player_blocks[i].team=i/7;player_blocks[i].plyrnum=i;player_blocks[i].odata.plyrmode=MODE_WPN;}
+ player_blocks[actor].station=atoi(argv[2]);target_human=1;
+ first=setjmp(stopped);if(first==0)qb_throw_monitor(args);
+ int first_flag=target_human;
+ player_blocks[actor].station=atoi(argv[3]);
+ for(int i=0;i<5;i++)player_blocks[actor].but_hist[i]=atoi(argv[5+i]);
+ current_switches=atoi(argv[4])<<(atoi(argv[3])<0?0:atoi(argv[3])*8);
+ int second=setjmp(stopped);if(first==1&&second==0)monitor_tail(args);
+ player_blocks[actor].throw_target=atoi(argv[10]);
+ player_blocks[side*7+5].odata.plyrmode=atoi(argv[11]);player_blocks[side*7+5].station=atoi(argv[12]);
+ release_target(player_blocks+actor);
+ printf(""M %d %d %d %d %d"",first,sleep_ticks,first_flag,target_human,player_blocks[actor].throw_target);
+ for(int i=0;i<5;i++)printf("" %d"",last_pass_hist[i]);puts("""");return 0;
+}
+'''
+output.mkdir(parents=True,exist_ok=True)
+(output/'monitor-unit.c').write_text(unit)
+command=['gcc','-std=c99','-O0','-fno-fast-math',str(output/'monitor-unit.c'),'-o',str(output/'monitor-oracle')]
+p=subprocess.run(command,capture_output=True,text=True,env=os.environ)
+(output/'compiler.log').write_text(p.stdout+p.stderr)
+if p.returncode:raise RuntimeError(p.stderr)
+receipt={'source_revision':oracle.PINS['revision'],'player_blob_sha1':oracle.blob_sha1(documents['player.c']),
+    'monitor_sha256':hashlib.sha256(monitor.encode('latin1')).hexdigest(),
+    'tail_sha256':hashlib.sha256(tail.encode('latin1')).hexdigest(),
+    'release_override_sha256':hashlib.sha256(override.encode('latin1')).hexdigest(),
+    'lateral_mode_assignment_sha256':hashlib.sha256(mode_assignment.encode('latin1')).hexdigest(),
+    'special_throw_branch_sha256':hashlib.sha256(special.encode('latin1')).hexdigest(),
+    'set_ball_vels_speed_choice_sha256':hashlib.sha256(speed_choice.encode('latin1')).hexdigest(),
+    'expression_rewrites':0,'raw_button_boundary':'logical original A/B bits1/2 packed in source station byte',
+    'sleep_boundary':'original first entry yields via setjmp; original post-sleep block resumes with same actor argument',
+    'native_target_stack_or_scheduler_executed':False,'random_calls':0}
+(output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+";
+
+    private static PlayerCommand ThrowMonitorInput(int station, SourceButtons held, int stickZ = 0)
+    {
+        var stations = new SourceStationInput[4];
+        for (int id = 0; id < 4; id++)
+            stations[id] = new SourceStationInput(id, stickZ: id == station ? stickZ : 0,
+                held: id == station ? held : SourceButtons.None,
+                digitalCurrent: id != station || stickZ == 0 ? SourceDigitalDirections.None
+                    : stickZ < 0 ? SourceDigitalDirections.Down : SourceDigitalDirections.Up);
+        return new PlayerCommand(stationInputs: new SourceInputFrame(stations, new SourcePhysicalSwitchFrame(stations)));
+    }
+
+    private static GameSimulation ThrowMonitorFixture(int side, string pattern)
+    {
+        var configuration = new SourceMatchConfiguration(SourceSimulationProfile.OriginalRelease57Hz,
+            SourceStationLayout.FourStation, new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(1, TeamId.Home),
+                new SourceStationConfiguration(2, TeamId.Away), new SourceStationConfiguration(3, TeamId.Away) },
+            TeamId.Home, SourceCaptainSlot.First);
+        GameSimulation game = LiveDroneFixture(match: configuration);
+        SimulationState m = game.Model;
+        m.SourceTick = m.SourceProcesses.SourceTick;
+        m.Possession = (TeamId)side; m.SourceLastPossession = side; m.ClockActive = true;
+        m.SourceRules = new SourceRulesState(side, side, 1, 30, 60, SourcePlayType.Normal);
+        m.SourceFlags = SourceGameFlags.None; m.CarrierId = side * 7 + 3;
+        m.BallMode = BallMode.Held; m.BallKind = SourceBallKind.Pass; m.TargetPlayerId = -1;
+        m.PassTicksElapsed = m.PassTicksTotal = 0; m.SourceBallFlags = SourceBallFlags.None;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceMode = SourceActorMode.Dead; actor.SourceControllerStation = -1;
+            actor.SourceRawFlags = (int)SourceMovementFlags.NoCollision;
+            actor.SourceButtons = actor.SourceOldButtons = SourceDroneButtons.None;
+            actor.SourceJob = SourceActorJob.None; actor.SourceTarget = -1;
+            actor.SourceVelocity = default(FieldVector); actor.SourceVerticalVelocity = 0;
+            actor.NoCatchTicks = 0; actor.PendingThrowTarget = -1;
+            Array.Clear(actor.SourceButtonHistory, 0, actor.SourceButtonHistory.Length);
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 25f - 150f, 0f, 130f));
+        }
+        for (int station = 0; station < 4; station++)
+        {
+            int id = station / 2 * 7 + (station % 2 == 0 ? 3 : 5);
+            m.SourceStationPlayers[station] = id; m.Players[id].SourceControllerStation = station;
+        }
+        float direction = side == 0 ? 1f : -1f;
+        for (int index = 3; index <= 6; index++)
+        {
+            ActorState actor = m.Players[side * 7 + index];
+            actor.SourceMode = index == 3 ? SourceActorMode.Quarterback : SourceActorMode.Receiver;
+            actor.Role = index == 3 ? ActorRole.Quarterback : ActorRole.Receiver;
+            SourceRouteState drone = m.SourceDrones[actor.Id]; drone.ThinkTicks = 100; m.SourceDrones[actor.Id] = drone;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(
+                (index == 3 ? -200f : index == 4 ? -110f : index == 5 ? -90f : -80f) * direction,
+                0f, index == 5 ? 50f : index == 6 ? -50f : 0f));
+        }
+        ActorState qb = m.Players[m.CarrierId];
+        qb.Facing = qb.TargetFacing = qb.UpperFacing = qb.TargetUpperFacing = side == 0 ? 256 : 768;
+        if (pattern == "old-A" || pattern == "recent-A")
+        {
+            qb.SourceButtons = qb.SourceOldButtons = SourceDroneButtons.A;
+            if (pattern == "old-A")
+                for (int i = 0; i < qb.SourceButtonHistory.Length; i++) qb.SourceButtonHistory[i] = SourceDroneButtons.A;
+        }
+        typeof(GameSimulation).GetField("sourceTargetHuman",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(game, true);
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", qb.Id, qb.Id + 1);
+        qb.AnimationState.FullBody("qb_stance_anim", qb, m.SourceTick, Bind<Func<int, int>>(game, "SourceDraw"),
+            AnimationSelectionEvidence.SourceVerified);
+        SourceBallDriver.SetPosition(m, SourcePlayerDriver.WorldPosition(qb));
+        Cache(game);
+        game.SourceCameraHeadingProvider = (snapshot, tick) => {
+            SourceVector3 focus = game.SourceBallWorldPosition;
+            var eye = new SourceVector3(focus.X, 85f, focus.Z - 120f);
+            SourceCinematicTransform frame = SourceCinematicTransform.FromState(
+                new SourceCinematicSeed(eye, focus, 150f, 0f, -.4f));
+            game.SetSourceMovementCameraFrame(new SourceMovementCameraFrame(frame.Position, frame.Transform, 512f, 384f), tick);
+            return 0;
+        };
+        return game;
+    }
+
+    private static void ThrowMonitorChecks(string originalRoot)
+    {
+        string worker = Path.Combine(output, "throw-monitor-original.py");
+        File.WriteAllText(worker, ThrowMonitorOriginalBuilder);
+        string native = Path.Combine(output, "original-throw-monitor");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, native }, "throw-monitor-C-build.log");
+        var failures = new List<string>();
+        foreach (int side in new[] { 0, 1 })
+            foreach (string pattern in new[] { "fresh-A", "no-A", "A-only", "stale-A", "old-A", "recent-A" })
+            {
+                try { ThrowMonitorCase(Path.Combine(native, "monitor-oracle"), side, pattern); }
+                catch (ContactAssertion error) { failures.Add(error.Message); }
+            }
+        foreach (int side in new[] { 0, 1 })
+        {
+            try { LateralActorModeCase(Path.Combine(native, "monitor-oracle"), side); }
+            catch (ContactAssertion error) { failures.Add(error.Message); }
+        }
+        Check(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    private static void LateralActorModeCase(string executable, int side)
+    {
+        GameSimulation game = ThrowMonitorFixture(side, "no-A");
+        SimulationState m = game.Model;
+        int qbId = side * 7 + 3, target = side * 7 + 5;
+        SourcePlayerDriver.SetSourcePosition(m.Players[target],
+            new SourceVector3(side == 0 ? -230f : 230f, 0f, 0f));
+        Cache(game);
+        SourceGameEvent released = default(SourceGameEvent);
+        for (int wake = 0; wake < 50 && !released.IsSpecified; wake++)
+        {
+            Wake(game, ThrowMonitorInput(side * 2, SourceButtons.B, -3));
+            released = game.SourceEvents.FirstOrDefault(e => e.Type == SourceEventType.LateralReleased && e.ActorPlayerId == qbId);
+        }
+        int expected = int.Parse(RunHeadingProcess(executable, new[] { "lateral" }, "lateral-mode-C.log").Trim());
+        File.WriteAllText(Path.Combine(output, "public-lateral-mode-side" + side + ".json"), JsonSerializer.Serialize(new {
+            side, sourceTick = m.SourceTick, released, actualMode = (int)m.Players[qbId].SourceMode,
+            expectedMode = expected, m.ThrowerId, m.TargetPlayerId, m.CarrierId,
+            boundary = "declared live QB -> actual public rear-stick B -> original lateral animation callback"
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(released.IsSpecified && released.TargetPlayerId == target, "lateral-side" + side + ": actual public QB lateral release");
+        Check((int)m.Players[qbId].SourceMode == expected, "lateral-side" + side + ": original release switches QB actor to weapon");
+        Check(m.ThrowerId == qbId && m.TargetPlayerId == target && m.CarrierId == -1,
+            "lateral-side" + side + ": original loose-ball ownership at release");
+    }
+
+    private static void ThrowMonitorCase(string executable, int side, string pattern)
+    {
+        GameSimulation game = ThrowMonitorFixture(side, pattern);
+        SimulationState m = game.Model;
+        int qbId = side * 7 + 3, station = side * 2, intent = side * 7 + 4;
+        var wakes = new List<object>();
+        SourceProcessView born = default(SourceProcessView), first = default(SourceProcessView);
+        bool firstFlag = true;
+        SourceDroneButtons[] history = null;
+        SourceGameEvent released = default(SourceGameEvent);
+        SourceButtons secondButtons = pattern == "fresh-A" || pattern == "old-A" || pattern == "recent-A"
+            ? SourceButtons.A | SourceButtons.B : pattern == "A-only" ? SourceButtons.A : SourceButtons.B;
+        for (int wake = 1; wake <= 50 && !released.IsSpecified; wake++)
+        {
+            SourceButtons buttons = wake == 1 ? pattern == "old-A" || pattern == "recent-A"
+                    ? SourceButtons.A | SourceButtons.B : SourceButtons.B
+                : wake == 2 ? pattern == "stale-A" || pattern == "old-A" || pattern == "recent-A"
+                    ? SourceButtons.A | SourceButtons.B : SourceButtons.B
+                : wake == 3 ? secondButtons : SourceButtons.B;
+            if (wake == 3) history = m.Players[qbId].SourceButtonHistory.Take(5).ToArray();
+            Wake(game, ThrowMonitorInput(station, buttons));
+            SourceProcessView process = m.SourceProcesses.Processes.FirstOrDefault(p => p.Function == "qb_throw_monitor");
+            if (wake == 1) born = process;
+            if (wake == 2)
+            {
+                first = process;
+                firstFlag = (bool)typeof(GameSimulation).GetField("sourceTargetHuman",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(game);
+            }
+            wakes.Add(new { sourceTick = m.SourceTick, buttons = (int)buttons,
+                target = m.Players[qbId].PendingThrowTarget, process });
+            released = game.SourceEvents.FirstOrDefault(e => e.Type == SourceEventType.PassReleased && e.ActorPlayerId == qbId);
+        }
+        if (history == null) throw new InvalidOperationException("The selected original throw released before the declared monitor's second wake.");
+        var arguments = new List<string> { side.ToString(), station.ToString(), station.ToString(), ((int)secondButtons).ToString() };
+        arguments.AddRange(history.Select(v => ((int)v).ToString()));
+        arguments.AddRange(new[] { intent.ToString(), ((int)SourceActorMode.Receiver).ToString(), (station + 1).ToString() });
+        string[] native = RunHeadingProcess(executable, arguments, "throw-monitor-side" + side + "-" + pattern + ".log")
+            .Trim().Split(' ');
+        SourceDroneButtons[] copied = (SourceDroneButtons[])typeof(GameSimulation).GetField("sourceLastPassHistory",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(game);
+        string name = "throw-monitor-side" + side + "-" + pattern;
+        File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+            name, native, history = history.Select(v => (int)v), copied = copied.Select(v => (int)v), born, first, firstFlag,
+            released, wakes, finalProcesses = m.SourceProcesses.Processes,
+            boundary = "declared live QB/previous target flag -> public raw B/ABC Steps -> actual animation release"
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(released.IsSpecified && released.ActorPlayerId == qbId, name + ": actual public throw releases");
+        Check(released.TargetPlayerId == int.Parse(native[5]), name + ": original late human-target override");
+        Check(born.Serial != 0 && born.Id == 0x0591 && born.BirthTick == 1 && born.RunLevel == 0,
+            name + ": actual request admits original monitor process");
+        Check(first.Serial != 0 && first.LastWakeTick == 2 && first.SleepRemaining == 1
+            && native[1] == "1" && native[2] == "1" && !firstFlag && native[3] == "0",
+            name + ": first real monitor wake clears target and sleeps one");
+        Check(!m.SourceProcesses.Processes.Any(p => p.Function == "qb_throw_monitor"),
+            name + ": monitor terminates after original second-wake decision");
+        Check((native[4] == "1") == (pattern == "fresh-A" || pattern == "recent-A"),
+            name + ": native three-history A guard");
+        Check(copied.Select(v => (int)v).SequenceEqual(native.Skip(6).Select(int.Parse)),
+            name + ": actual child copies original five history slots");
+    }
+
+    private static readonly Dictionary<string, float[]> specialThrowObservations = new Dictionary<string, float[]>();
+
+    private static void SpecialThrowChecks(string originalRoot)
+    {
+        specialThrowObservations.Clear();
+        string worker = Path.Combine(output, "special-throw-original.py");
+        File.WriteAllText(worker, ThrowMonitorOriginalBuilder);
+        string native = Path.Combine(output, "original-special-throw");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, native }, "special-throw-C-build.log");
+        var failures = new List<string>();
+        foreach (int side in new[] { 0, 1 })
+            foreach (bool previousTurbo in new[] { false, true })
+                foreach (bool heldTurbo in new[] { false, true })
+                {
+                    try { SpecialThrowCase(Path.Combine(native, "monitor-oracle"), side, previousTurbo, heldTurbo); }
+                    catch (ContactAssertion error) { failures.Add(error.Message); }
+                }
+        foreach (int side in new[] { 0, 1 })
+            foreach (bool previousTurbo in new[] { false, true })
+            {
+                string key = side + "/" + previousTurbo + "/";
+                try
+                {
+                    float[] off = specialThrowObservations[key + false], on = specialThrowObservations[key + true];
+                    Check(off.Select(Bits).SequenceEqual(on.Select(Bits)),
+                        "special-side" + side + "-old" + previousTurbo + ": ignored live C preserves exact release origin/velocity/time");
+                }
+                catch (ContactAssertion error) { failures.Add(error.Message); }
+            }
+        Check(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    private static void SpecialThrowCase(string executable, int side, bool previousTurbo, bool heldTurbo)
+    {
+        GameSimulation game = ThrowMonitorFixture(side, "no-A");
+        SimulationState m = game.Model;
+        int qbId = side * 7 + 3;
+        ActorState qb = m.Players[qbId];
+        m.SourceBallFlags = previousTurbo ? SourceBallFlags.TurboPass : SourceBallFlags.None;
+        Wake(game, ThrowMonitorInput(side * 2, SourceButtons.A));
+        string hurdle = qb.AnimationState.Primary.SequenceName;
+        Wake(game, ThrowMonitorInput(side * 2, SourceButtons.B | (heldTurbo ? SourceButtons.C : 0)));
+        bool captured = qb.SourceCapturedControlBlock, pendingTurbo = qb.PendingThrowTurbo;
+        SourceGameEvent released = default(SourceGameEvent);
+        for (int wake = 0; wake < 50 && !released.IsSpecified; wake++)
+        {
+            Wake(game, ThrowMonitorInput(side * 2, SourceButtons.B | (heldTurbo ? SourceButtons.C : 0)));
+            released = game.SourceEvents.FirstOrDefault(e => e.Type == SourceEventType.PassReleased && e.ActorPlayerId == qbId);
+        }
+        float speed = float.Parse(RunHeadingProcess(executable, new[] { "special-speed",
+            previousTurbo ? ((int)SourceBallFlags.TurboPass).ToString() : "0" }, "special-speed-C.log"),
+            System.Globalization.CultureInfo.InvariantCulture);
+        specialThrowObservations[side + "/" + previousTurbo + "/" + heldTurbo] = new[] {
+            m.SourceBallOrigin.X, m.SourceBallOrigin.Y, m.SourceBallOrigin.Z, m.SourceBallVelocity.X,
+            m.SourceBallVerticalVelocity, m.SourceBallVelocity.Z, (float)m.PassTicksTotal };
+        string name = "special-side" + side + "-old" + previousTurbo + "-held" + heldTurbo;
+        File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+            name, sourceTick = m.SourceTick, hurdle, captured, pendingTurbo, previousTurbo, heldTurbo,
+            expectedSourceSpeed = speed, actualFlags = (int)m.SourceBallFlags,
+            actualVelocity = m.SourceBallVelocity, released,
+            boundary = "declared live QB -> actual public A/hurdle -> subsequent B/C special throw -> original release"
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(hurdle == "HURDLE" && !captured, name + ": actual special uninterruptible throw caller reached");
+        Check(released.IsSpecified && released.SourceTick == 9 && released.TargetPlayerId == side * 7 + 4,
+            name + ": actual original throw releases at source9");
+        Check(pendingTurbo == previousTurbo, name + ": special caller retains prior ball turbo flag");
+        Check(((m.SourceBallFlags & SourceBallFlags.TurboPass) != 0) == previousTurbo
+            && speed == (previousTurbo ? 5.70f : 5.50f), name + ": original release speed-selection flag");
+    }
+
+    private static void DiverBridgeChecks(string originalRoot)
+    {
+        string worker = Path.Combine(output, "diver-original.py");
+        File.WriteAllText(worker, PossessionRecoveryOriginalBuilder);
+        string native = Path.Combine(output, "original-diver");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, native }, "diver-C-build.log");
+        var failures = new List<string>();
+        foreach (int side in new[] { 0, 1 })
+            foreach (float distance in new[] { 20f, 40f, 40.000004f, 200f })
+            {
+            try { DiverBridgeCase(Path.Combine(native, "source-oracle"), side, distance); }
+            catch (ContactAssertion error) { failures.Add(error.Message); }
+            }
+        Check(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    private static void DiverBridgeCase(string executable, int side, float distance)
+    {
+        GameSimulation game = LiveDroneFixture();
+        SimulationState m = game.Model;
+        int qbId = side * 7 + 3, diverId = (1 - side) * 7 + 4;
+        m.Possession = (TeamId)side; m.CarrierId = qbId; m.TargetPlayerId = qbId;
+        m.SourceRules = new SourceRulesState(side, side, 1, 30, 60, SourcePlayType.Normal);
+        ActorState qb = m.Players[qbId], diver = m.Players[diverId];
+        qb.SourceMode = SourceActorMode.Quarterback; qb.Role = ActorRole.Quarterback;
+        diver.SourceMode = SourceActorMode.DefensiveBack; diver.Role = ActorRole.Defender;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceRawFlags |= (int)SourceMovementFlags.NoCollision;
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 25f - 150f, 0f, 130f));
+        }
+        SourcePlayerDriver.SetSourcePosition(qb, default(SourceVector3));
+        SourcePlayerDriver.SetSourcePosition(diver, new SourceVector3(distance, 0f, 0f));
+        diver.Facing = diver.TargetFacing = diver.UpperFacing = diver.TargetUpperFacing = 768;
+        Cache(game);
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", diverId, diverId + 1);
+        diver.AnimationState.FullBody("t_crzdiv_anim", diver, m.SourceTick, Bind<Func<int, int>>(game, "SourceDraw"),
+            AnimationSelectionEvidence.SourceVerified);
+        var random = (SourceInjectedRandom)game.SourceRandomService;
+        int drawsBefore = random.Trace.Count;
+        SourceAiFrame frame = Bind<Func<bool, SourceAiFrame>>(game, "BuildSourceAiFrame")(true);
+        int expected;
+        using (var original = new LiveDroneOriginal(executable))
+        {
+            var command = new List<object> { "diver", qbId };
+            foreach (ActorState actor in m.Players)
+            {
+            string sequence = actor.AnimationState.Primary.SequenceName;
+            command.Add(sequence == "T_CRZDIV" ? 1 : sequence == "T_SPRHED" ? 2 : 0);
+            command.Add(actor.PendingThrowTarget); command.Add(m.SourceDistances[qbId, actor.Id]);
+            }
+            original.Send(command.ToArray()); expected = int.Parse(original.ReadReply()[1]);
+        }
+        int actual = (int)typeof(SourceDroneAI).GetMethod("FindDiver",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            .Invoke(null, new object[] { frame, qbId });
+        string name = "diver-side" + side + "-distance" + distance.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(new {
+            name, qbId, diverId, distance, expected, actual,
+            actualSequence = diver.AnimationState.Primary.SequenceName, actualTarget = diver.PendingThrowTarget,
+            projectedTarget = frame.Actors[diverId].AttackTarget, projectedFlags = frame.Actors[diverId].Flags,
+            diver.SourceAttackMode, extraRng = random.Trace.Count - drawsBefore,
+            scope = "actual source dive script -> actual production AI frame -> unchanged original find_diver; undefined downstream evade_dir excluded"
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Check(diver.AnimationState.Primary.SequenceName == "T_CRZDIV" || diver.AnimationState.Primary.SequenceName == "T_SPRHED",
+            name + ": actual original dive branch selected without seed or script substitution");
+        int expectedTarget = distance == 200f ? -1 : qbId;
+        Check(diver.PendingThrowTarget == expectedTarget, name + ": actual original target acquisition");
+        Check(frame.Actors[diverId].AttackTarget == expectedTarget, name + ": production bridge preserves throw_target");
+        Check((frame.Actors[diverId].Flags & SourceAiActorFlags.DiveAttack) != 0,
+            name + ": production bridge preserves active dive sequence");
+        Check(actual == expected && expected == (distance <= 40f ? diverId : -1),
+            name + ": unchanged original forty-unit diver boundary");
+        Check(random.Trace.Count == drawsBefore, name + ": bridge and original classification consume zero RNG");
+    }
+
+    private const string MovementWindowOriginalBuilder = @"
+import hashlib,json,os,sys
+from pathlib import Path
+from unittest.mock import patch
+root=Path.cwd()
+sys.path.insert(0,str(root/'tests/movement'))
+import oracle
+source,output=map(lambda x:Path(x).resolve(),sys.argv[1:])
+driver_path=root/'tests/movement/driver.c'
+original_read=Path.read_bytes
+driver=original_read(driver_path)
+old=b'        dump_state(p,allowed,human,resource);\n'
+if driver.count(old)!=1: raise RuntimeError('Expected exact original test output boundary')
+driver=driver.replace(old,old+b'        fflush(stdout);\n')
+old=b'        reset();fbplyr_data *p=&player_blocks[3];obj_3d *o=&p->odata;\n'
+if driver.count(old)!=1: raise RuntimeError('Expected exact original test command boundary')
+driver=driver.replace(old,b'        if(!strncmp(line,""quit"",4))break;\n'+old)
+class CallerOracle(oracle.Oracle):
+    def __init__(self):
+        self.artifacts=output
+        self.artifacts.mkdir(parents=True,exist_ok=True)
+        self.sources={}
+        for name,pin in oracle.PINS['blobs'].items():
+            raw=original_read(source/name)
+            if oracle.blob_sha1(raw)!=pin: raise RuntimeError('Original movement source pin differs: '+name)
+            self.sources[name]=raw
+        self.selections=[];self.sites={}
+        def adapted(path):
+            return driver if path==driver_path else original_read(path)
+        with patch.object(Path,'read_bytes',adapted): self.build()
+native=CallerOracle()
+(output/'caller-receipt.json').write_text(json.dumps({
+    'source':oracle.PINS,'compiler':native.compiler,'selected_original_windows':native.selections,
+    'test_transport_only_change':'fflush after JSON dump; explicit quit command',
+    'original_function_expression_rewrites':0,
+    'animation_boundary':'Existing explicit metadata-only original animation entry; observed managed side uses actual VM/public Step',
+    'native_target_ABI_or_PRNG_claimed':False},indent=2)+'\n')
+";
+
+    private static GameSimulation MovementWindowFixture(int field = 0, bool friction = false)
+    {
+        GameSimulation game = real.Create(configuration: new SourceMatchConfiguration(
+            SourceSimulationProfile.OriginalRelease57Hz, SourceStationLayout.FourStation,
+            new SourceTeamSelection(0, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new SourceTeamSelection(1, new[] { 0, 1, 2, 3, 4, 5, 6 }),
+            new[] { new SourceStationConfiguration(0, TeamId.Home), new SourceStationConfiguration(2, TeamId.Away) },
+            TeamId.Home, SourceCaptainSlot.First),
+            randomFactory: seed => SourceRandom.CreatePortableLibrary(seed, "M1 remaining public caller cases; unchanged seed1"),
+            presentation: new SourcePresentationSettings(TeamId.Home, new[] { -1, -1, -1, -1 }, 0),
+            movementSettings: new SourceMovementSettings(field, 0, false, 0, 0, false));
+        lastGame = game;
+        SimulationState m = game.Model;
+        m.Phase = GamePhase.LiveBall; m.SourceMatchPhase = SourceMatchPhase.LiveBall; m.ClockActive = true;
+        m.Possession = TeamId.Home; m.SourceLastPossession = 0; m.CarrierId = 4;
+        m.SourceRules = new SourceRulesState(0, 0, 1, 30, 60, SourcePlayType.Normal);
+        m.SourceFlags = SourceGameFlags.BallCrossedLine | SourceGameFlags.OverLineSpeedsSet;
+        m.SourceOffensePlay = real.Playbook.GetPlay("play_spider");
+        m.SourceDefensePlay = real.Playbook.GetPlay("play_safe_cover");
+        m.BallMode = BallMode.Held; m.BallKind = SourceBallKind.Pass; m.TargetPlayerId = -1;
+        foreach (ActorState actor in m.Players)
+        {
+            actor.SourceMode = SourceActorMode.Dead; actor.SourceControllerStation = -1;
+            actor.SourceRawFlags = (int)SourceMovementFlags.NoCollision;
+            actor.SourceVelocity = default(FieldVector); actor.SourceVerticalVelocity = actor.SourceFriction = 0f;
+            actor.SourceButtons = actor.SourceOldButtons = SourceDroneButtons.None;
+            actor.SourceStick = actor.SourcePreviousStick = 24;
+            actor.SourceJob = SourceActorJob.None; actor.SourceTarget = -1;
+            actor.AnimationState.Primary.SetMovementMode(0); actor.AnimationState.Secondary.SetMovementMode(0);
+            SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(actor.Id * 25f - 150f, 0f, 130f));
+        }
+        m.Players[10].SourceControllerStation = 2; m.SourceStationPlayers[2] = 10;
+        ActorState mover = m.Players[4];
+        mover.SourceMode = SourceActorMode.Receiver; mover.Role = ActorRole.Receiver;
+        mover.SourceControllerStation = 0; m.SourceStationPlayers[0] = m.ControlledPlayerId = 4;
+        mover.Facing = mover.TargetFacing = mover.UpperFacing = mover.TargetUpperFacing = 256;
+        SourcePlayerDriver.SetSourcePosition(mover, default(SourceVector3));
+        Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", 4, 5);
+        mover.AnimationState.FullBody(friction ? "hurdle_anim" : "run_wb_anim", mover, 0,
+            Bind<Func<int, int>>(game, "SourceDraw"), AnimationSelectionEvidence.SourceVerified);
+        if (friction) { mover.SourceVelocity = new FieldVector(1.5f, .75f); mover.SourceFriction = .2f; }
+        SourceBallDriver.SetPosition(m, new SourceVector3(0f, 14f, 0f)); Cache(game); m.SourceCameraHeading = 0;
+        game.SourceCameraHeadingProvider = (snapshot, tick) => {
+            SourceVector3 focus = game.SourceBallWorldPosition;
+            var eye = new SourceVector3(focus.X, 85f, focus.Z - 120f);
+            SourceCinematicTransform frame = SourceCinematicTransform.FromState(
+                new SourceCinematicSeed(eye, focus, 150f, 0f, -.4f));
+            game.SetSourceMovementCameraFrame(new SourceMovementCameraFrame(frame.Position, frame.Transform, 512f, 384f), tick);
+            return 0;
+        };
+        return game;
+    }
+
+    private static string MovementNativeCommand(SourceMovementState state, string operation,
+        IDictionary<string, object> context, IEnumerable<int> raw)
+    {
+        var tokens = new List<string> { "Op=" + operation };
+        foreach (var field in typeof(SourceMovementState).GetFields())
+        {
+            object value = field.GetValue(state);
+            string text = value is float ? ((float)value).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+                : value is Enum ? Convert.ToInt64(value).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
+            if (field.Name.EndsWith("Sequence", StringComparison.Ordinal) && string.IsNullOrEmpty(text)) text = "-";
+            tokens.Add("s." + field.Name + "=" + text);
+        }
+        foreach (var item in context)
+            tokens.Add("c." + item.Key + "=" + (item.Value is float
+                ? ((float)item.Value).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+                : Convert.ToString(item.Value, System.Globalization.CultureInfo.InvariantCulture)));
+        tokens.Add("Raw=" + string.Join(",", raw));
+        return string.Join(" ", tokens);
+    }
+
+    private static void MovementWindowTick(LiveDroneOriginal native, GameSimulation game, string name,
+        int ordinal, SourceButtons buttons, int field, int actorId = 4, int backpedalHeading = -1)
+    {
+        ActorState mover = game.Model.Players[actorId];
+        SourceMovementState before = Bind<Func<ActorState, SourceMovementState>>(game, "CaptureSourceMovement")(mover);
+        float resource = game.Model.SourceStationTurbo[0];
+        var context = new Dictionary<string, object> {
+            { "OffenseSide", 0 }, { "Phase", 2 }, { "GameFlags", (int)game.Model.SourceFlags }, { "PlayType", 0 },
+            { "Carrier", game.Model.CarrierId },
+            { "CarrierMode", game.Model.CarrierId < 0 ? 0 : (int)game.Model.Players[game.Model.CarrierId].SourceMode },
+            { "BallType", (int)GameSimulation.SourceBallTypeFor(game.Model.BallKind) },
+            { "IntendedReceiver", game.Model.TargetPlayerId },
+            { "CameraHeading", 0 }, { "LineOfScrimmage", 30 }, { "Handicap", mover.SourceHandicap },
+            { "Field", field }, { "InputStick", ordinal }, { "InputButtons", (int)buttons },
+            { "StationTurbo", resource }, { "StationActive", 1 }, { "StationControlled", 1 },
+            { "StationHeld", (buttons & SourceButtons.C) != 0 ? 1 : 0 }, { "StationDefends", 0 } };
+        if (backpedalHeading >= 0)
+        {
+            context["InputBackpedal"] = 1;
+            context["BackpedalTargetHeading"] = backpedalHeading;
+        }
+        float expectedResource;
+        using (var document = JsonDocument.Parse(native.ReadJson(MovementNativeCommand(before, "station", context, new int[0]))))
+            expectedResource = BitConverter.Int32BitsToSingle(unchecked((int)document.RootElement.GetProperty("Turbo").GetUInt32()));
+        context["InputTurbo"] = context["TeamIndexedTurbo"] = expectedResource;
+        var stations = new[] {
+            new SourceStationInput(0, 3 - ordinal % 7, 3 - ordinal / 7, buttons, digitalCurrent: SourceDigitalDirections.None),
+            new SourceStationInput(2, digitalCurrent: SourceDigitalDirections.None) };
+        var random = (SourceInjectedRandom)game.SourceRandomService; int firstDraw = random.Trace.Count;
+        Wake(game, new PlayerCommand(stationInputs: new SourceInputFrame(stations)));
+        SourceMovementState after = Bind<Func<ActorState, SourceMovementState>>(game, "CaptureSourceMovement")(mover);
+        SourceRandomDraw[] movementDraws = random.Trace.Skip(firstDraw).Where(d => d.Site.ActorId == actorId
+            && d.Site.SourceIdentity.StartsWith("player.c:", StringComparison.Ordinal)).ToArray();
+        int[] raw = movementDraws.Where(d => d.Raw.HasValue).Select(d => d.Raw.Value).ToArray();
+        using (var document = JsonDocument.Parse(native.ReadJson(MovementNativeCommand(before, "input", context, new int[0]))))
+        {
+            JsonElement expectedInput = document.RootElement.GetProperty("State");
+            Check(after.NonTurboTime == expectedInput.GetProperty("NonTurboTime").GetInt32()
+                && (int)(after.Flags & SourceMovementFlags.Turbo) ==
+                    (expectedInput.GetProperty("Flags").GetInt32() & (int)SourceMovementFlags.Turbo),
+                name + ": exhaustion/repress counters and turbo gate match original");
+        }
+        using (var document = JsonDocument.Parse(native.ReadJson(MovementNativeCommand(before, "step", context, raw))))
+        {
+            JsonElement expected = document.RootElement.GetProperty("State");
+            File.AppendAllText(Path.Combine(output, "movement-window-trace.jsonl"), JsonSerializer.Serialize(new {
+                name, sourceTick = game.SourceTick, ordinal, buttons = (int)buttons, resource,
+                actualResource = game.Model.SourceStationTurbo[0], expectedResource, before, after,
+                expected = expected.Clone(), raw, actualScript = mover.AnimationState.Primary.ScriptSymbol,
+                nativeDraws = document.RootElement.GetProperty("Draws").Clone(), actualDraws = movementDraws,
+                nativeCommands = document.RootElement.GetProperty("Commands").Clone(),
+                events = game.SourceEvents.Select(e => new { e.Type, e.ActorPlayerId, e.TargetPlayerId, e.Value }).ToArray()
+            }, new JsonSerializerOptions { IncludeFields = true }) + "\n");
+            Check(Bits(game.Model.SourceStationTurbo[0]) == Bits(expectedResource), name + ": actual station resource matches original");
+            Check(after.Stick == expected.GetProperty("Stick").GetInt32(), name + ": actual49-way ordinal matches original");
+            Check(Bits(after.VelocityX) == expected.GetProperty("VelocityX").GetUInt32()
+                && Bits(after.VelocityZ) == expected.GetProperty("VelocityZ").GetUInt32(),
+                name + ": public movement/physics velocity matches unchanged original C");
+            Check(Bits(after.Friction) == expected.GetProperty("Friction").GetUInt32(),
+                name + ": actual selected field friction matches original");
+            Check(after.TeamSpinCount == expected.GetProperty("TeamSpinCount").GetInt32(),
+                name + ": real repress spin count matches original");
+            JsonElement[] draws = document.RootElement.GetProperty("Draws").EnumerateArray().ToArray();
+            Check(draws.Length == movementDraws.Length && draws.Select((d, i) =>
+                d.GetProperty("Bound").GetInt32() == movementDraws[i].Site.BoundOrModulus
+                && (d.GetProperty("Raw").ValueKind == JsonValueKind.Null ? !movementDraws[i].Raw.HasValue
+                    : movementDraws[i].Raw == d.GetProperty("Raw").GetInt32())).All(equal => equal),
+                name + ": original movement consumes exact ordered raw calls/bounds");
+        }
+    }
+
+    private static void MovementWindowChecks(string originalRoot)
+    {
+        string worker = Path.Combine(output, "movement-window-original.py");
+        File.WriteAllText(worker, MovementWindowOriginalBuilder);
+        string destination = Path.Combine(output, "original-movement-window");
+        RunHeadingProcess("python3", new[] { "-B", worker, originalRoot, destination }, "movement-window-C-build.log");
+        using (var native = new LiveDroneOriginal(Path.Combine(destination, "original-movement")))
+        {
+            for (int ordinal = 0; ordinal < 49; ordinal++)
+                MovementWindowTick(native, MovementWindowFixture(), "49-way/" + ordinal, ordinal, SourceButtons.None, 0);
+            foreach (float resource in new[] { 0f, .1f, .35f, .350001f })
+            {
+                GameSimulation game = MovementWindowFixture(); game.Model.SourceStationTurbo[0] = resource;
+                MovementWindowTick(native, game, "exhaust/" + resource, 21, SourceButtons.C, 0);
+                MovementWindowTick(native, game, "recharge/" + resource, 21, SourceButtons.None, 0);
+            }
+            foreach (int gap in new[] { 1, 8, 9 })
+            {
+                GameSimulation game = MovementWindowFixture();
+                MovementWindowTick(native, game, "repress/" + gap + "/press", 21, SourceButtons.C, 0);
+                for (int release = 0; release < gap; release++)
+                    MovementWindowTick(native, game, "repress/" + gap + "/release" + release, 21, SourceButtons.None, 0);
+                MovementWindowTick(native, game, "repress/" + gap + "/again", 21, SourceButtons.C, 0);
+                Check(game.Model.Players[4].AnimationState.Primary.ScriptSymbol == (gap < 9 ? "spin_anim" : "run_t_wb_anim"),
+                    "actual public turbo release" + gap + " selects original spin-or-run script");
+            }
+            for (int field = 0; field < 7; field++)
+                MovementWindowTick(native, MovementWindowFixture(field, true), "friction/" + field, 24, SourceButtons.None, field);
+            foreach (float resource in new[] { 99.6f, 99.9f, 100f })
+            {
+                GameSimulation game = MovementWindowFixture(); game.Model.SourceStationTurbo[0] = resource;
+                MovementWindowTick(native, game, "recharge-cap/" + resource, 24, SourceButtons.None, 0);
+            }
+            foreach (SourceBallKind kind in new[] { SourceBallKind.Pass, SourceBallKind.Lateral })
+                foreach (int target in new[] { -1, 4, 5 })
+                {
+                    GameSimulation game = MovementWindowFixture();
+                    game.Model.SourceStationTurbo[0] = 0f;
+                    game.Model.CarrierId = -1; game.Model.BallMode = BallMode.InFlight;
+                    game.Model.BallKind = kind; game.Model.TargetPlayerId = target;
+                    game.Model.PassTicksElapsed = 20; game.Model.PassTicksTotal = 100;
+                    SourceBallDriver.SetPosition(game.Model, new SourceVector3(200f, 100f, 0f));
+                    SourceBallDriver.SetTarget(game.Model, 200f, 0f);
+                    SourceRouteState prior = game.Model.SourceDrones[4];
+                    prior.ThinkTicks = 100; prior.Stick = prior.OldStick = 24;
+                    game.Model.SourceDrones[4] = prior;
+                    Cache(game);
+                    MovementWindowTick(native, game, "intended-exhaust/" + kind + "/" + target, 24, SourceButtons.C, 0);
+                }
+            {
+                GameSimulation game = MovementWindowFixture(); SimulationState m = game.Model;
+                ActorState qb = m.Players[3], receiver = m.Players[4], defender = m.Players[11];
+                receiver.SourceControllerStation = -1;
+                SourceRouteState waiting = m.SourceDrones[4]; waiting.ThinkTicks = 100;
+                waiting.Stick = waiting.OldStick = 24; m.SourceDrones[4] = waiting;
+                qb.SourceControllerStation = 0; qb.SourceMode = SourceActorMode.Quarterback; qb.Role = ActorRole.Quarterback;
+                m.SourceStationPlayers[0] = m.ControlledPlayerId = m.CarrierId = 3;
+                m.SourceFlags = SourceGameFlags.None;
+                SourcePlayerDriver.SetSourcePosition(qb, new SourceVector3(-200f, 0f, 0f));
+                defender.SourceMode = SourceActorMode.DefensiveBack; defender.Role = ActorRole.Defender;
+                defender.SourceJob = SourceActorJob.Cover; defender.SourceTarget = 4;
+                defender.Facing = defender.TargetFacing = defender.UpperFacing = defender.TargetUpperFacing = 768;
+                SourcePlayerDriver.SetSourcePosition(defender, new SourceVector3(10f, 0f, 0f));
+                SourceRouteState cover = SourceRouteState.Begin(m.SourceDefensePlay.Routes[4], 4);
+                cover.Job = SourceActorJob.Cover; m.SourceDrones[11] = cover;
+                Bind<Action<string, int, int>>(game, "BeginSourceProcess")("player_proc", 11, 12);
+                defender.AnimationState.FullBody("run_anim", defender, 0,
+                    Bind<Func<int, int>>(game, "SourceDraw"), AnimationSelectionEvidence.SourceVerified);
+                SourceBallDriver.SetPosition(m, new SourceVector3(-200f, 14f, 0f));
+                Cache(game);
+                Check(m.SourceAngles[11, 4] == 768 && defender.SourceControllerStation == -1 && qb.SourceControllerStation == 0
+                    && SourceMatchRules.FieldPosition(-200f, 0) < m.SourceRules.LineOfScrimmage,
+                    "backpedal caller starts actual cover geometry with genuine human QB, not a synthetic QB plan");
+                MovementWindowTick(native, game, "actual-DB-cover-backpedal", 21, SourceButtons.None, 0, 11, 768);
+                Check(defender.SourceBackpedal && defender.SourceBackpedalTarget == 4 && defender.Facing == 768
+                    && defender.SourceStick == 21 && defender.SourceVelocity.X > 0f,
+                    "actual AI cover selects opposite travel/facing and original backpedal consumer");
+            }
+        }
+    }
+
+    private static void ContactWindowChecks(string originalRoot)
+    {
+        Check(real.IsC2M1Profile, "contact-window selector requires genuine M1 composition");
+        contactWindowProductionCallers = true;
+        BlockAndPuppet();
+        ContactBeforeBall();
+        DeadBallPushAndGetUp();
+        SpearHelmet();
+        LateBodySelection();
+        HelpUp();
+        File.WriteAllText(Path.Combine(output, "contact-window-scenarios.json"),
+            JsonSerializer.Serialize(kernelEvidence, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static SourceC2PendingEnd VerifyQueuedPlayerDown(GameSimulation game, ActorState victim, long hit)

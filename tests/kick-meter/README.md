@@ -130,6 +130,100 @@ python3 -B tests/kick-meter/test_runner.py
 python3 -B tests/test-runner.py
 ```
 
+## Nov11 public special-team caller sets
+
+`PublicSpecialTeamsChecks.cs` adds two separately qualified, finite entry points
+to the existing project. They do **not** replace the preceding legacy inventory
+or run its458K campaign again:
+
+```sh
+dotnet build tests/kick-meter/KickMeterChecks.csproj --no-restore -c Release
+dotnet tests/kick-meter/bin/Release/net10.0/KickMeterChecks.dll \
+  "$CONTACT272_FIXTURE" "$UNCHANGED_SAFN" "$OLD_NINE_288_FILES" \
+  "$M1_288_FILES" "$PINNED_EXISTING_INTERFACE_JSON" \
+  "$NEW_RECEIPT" public-s2-final "$ORIGINAL_KICK_COMPONENTS"
+# Use a different new receipt for the four full return continuations:
+# ... "$NEW_RETURN_RECEIPT" public-s2-return-results "$ORIGINAL_KICK_COMPONENTS"
+```
+
+`ORIGINAL_KICK_COMPONENTS` is the executable produced by this suite's unchanged
+`oracle.py`; preserve its provenance and complete pinned source/header inputs.
+In particular, `include/handicap.h` must be actual blob
+`45eef32b32721196e4575e59a0fd2ce01e0fbbdb`, not an invented missing-cache
+replacement. Use the existing approved POSIX build wrapper when the checkout
+filesystem cannot build; keep SDK/intermediate/output paths project-local
+inside that namespace and export only compact evidence.
+
+The Nov11 captures explicitly bind animation state `d8de8248…` **and**
+original-sound programme `eb68dd56…`; older `b9`/`6b83` captures are not promoted.
+
+| Separate set | Actual executing caller windows |
+| --- | --- |
+|33 cases /37,786 assertions /2,443 original-C requests | Four physical-menu fake punt/FG continuations through raw B/VM throws; eight same-team ABC/exact-UP onside/quick positives and negatives; thirteen real kick/block/recovery/return/miss/down/OOB/scoring callers; four real safety→quick40/onside30 restarts; four held-chord opening/halftime/first-OT input cases |
+|Four continuations /18,477 assertions /1,224 original-C requests | The **same** FG-block/punt-return prefixes, both directions, continue through the ordinary-running wall, fresh raw A hurdle, actual carrier-OOB, exactly one `NewPossession`, and receiving-side `Continue`→normal play selection |
+
+These are not37 independent full plays. The four continuations share prefixes
+with the33-case set. Every actual meter wake and all thirteen initial-set kick
+launches are compared with unchanged original C using the **actual production**
+raw draws and their exact bounds/order. The protocol's unused padding is
+explicitly checked as unconsumed. RNG is the declared unfiltered portable
+library seeded1, **not** recovered target libc.
+
+Three clean compiled controls disconnect actual onside input, FG first-touch
+deflection, and punt-down contact; each fails its public caller. A separate
+compiled control wrongly applies the running wall during `MODE_UNINT` and
+fails all four full returns. Both sets have fresh identical baseline/final
+DLLs, complete observations/events/RNG and native transcripts, unchanged
+inputs, and fresh-host archive-member readback before namespace teardown.
+
+Fixtures remain explicit: initial play/result/final-subtick boundaries,
+controlled camera, a blocker positioned once at the real holder with
+`PF_NOCOLL` body isolation, and declared punt coverage/late-ball positions.
+Safety cases reuse the qualified declared loose-fumble/EZ geometry and then
+execute the actual recovery, control18, OOB, result and restart. `Continue` is
+an actual station-command seam, not a claim about a browser key binding.
+
+Source quirks are retained, not repaired into NFL conventions:
+
+- `player.c:1013–1110` prevents ordinary running past `FIELDW-4` unless
+  `MODE_UNINT`/non-SPIN or the original powerup permits it. `_mode_wpn` tests
+  the **player root**, not the held ball's wrist/drawing position. Real raw A
+  hurdles provide the qualified legal exit; no clamp or flag is weakened.
+- Grounding a punt does not automatically end it. The Home downed-EZ case
+  actually produces `DownedPunt` with placement20; the Away field98 case yields2.
+- Punt Z velocity is not universally mirrored. The tested Away sideline input
+  is an explicit **inward/inbounds negative**, not Away-OOB qualification.
+- The13-wake FG case legitimately hits the upright and scores; the separately
+  defined11-wake manual attempts miss and actually place the opponent at40.
+
+Durable scoped receipts are
+`S2-qualified-callers-20261111-01.json` (`41a8c58e…`) and
+`S2-qualified-complete-returns-20261111-01.json` (`36d152f2…`) under the owned
+Nov11 `unity-s2-public-20261111-01` evidence root. Failed fixture expectations
+remain archived. The original180-assertion block stream is still stream-only;
+later durable cases are distinct captures, not a recovered/reminted archive.
+
+The separate asset-free guard now checks the exact named kernel inventory and
+the actual `twoStationRecordProfile` factory-to-constructor forwarding. Both
+old expectations were stale because of **our earlier changes in this same
+task**, not unrelated base failures: `454bb8` contains103 kernel files, while
+the current closure adds only `SourceAnimationPrograms.OriginalSound.cs`;
+the new named TwoStation factory also adds the constructor capability.
+The check preserves every base path, admits that exact added path, and
+requires the dedicated factory capability, normal-entry isolation, admission
+guard and non-null forwarding rather than merely changing a count/string.
+
+Strict native manual meters remain blocked by the exact original
+Composit→generated-header producer, **not absence of source timing arithmetic**.
+`img2d.mak` invokes
+`c -newpack -quiet_batch_file -clipon -lfile plyrinfo.lod`; the complete
+`ingame` pack consumes all four WIFF inputs. `MIDST OFF`, authored151/27/209
+and texture dimensions do not prove the clipped runtime `image_info_t`.
+The original producer/dependencies or a bound generated `plyrinfo.h` are still
+required (Lead's scoped packet `7e16bf46…`). The default native guard is intact.
+Neither set claims natural full-match positioning, untouched far-endline punt
+touchback, target ABI/RNG, browser/native GPU, DSP or pixel equivalence.
+
 ## Boundaries
 
 Original/native generated metric parity remains blocked. Original Glide color

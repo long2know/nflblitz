@@ -233,9 +233,49 @@ namespace Blitz.Gameplay
 
     public static class SourceRandom
     {
+        private sealed class PortableLibraryState
+        {
+            private readonly uint[] words = new uint[31];
+            private int cursor = 3;
+            private ulong standardState;
+
+            internal PortableLibraryState(int seed)
+            {
+                words[0] = unchecked((uint)seed);
+                for (int i = 1; i < words.Length; i++)
+                    words[i] = unchecked(words[i - 1] * 1103515245u + 12345u);
+                for (int i = 0; i < 310; i++) NextRandom();
+            }
+
+            internal int Draw(SourceRandomSite site)
+            {
+                if (site.Kind != SourceRandomKind.CStandardRand) return NextRandom();
+                standardState = unchecked(standardState * 1103515245ul + 12345ul);
+                standardState = (standardState << 15) ^ (standardState >> 27);
+                return (int)((standardState >> 4) & 0x7ffffffful);
+            }
+
+            private int NextRandom()
+            {
+                words[cursor] = unchecked(words[cursor] + words[(cursor + 28) % words.Length]);
+                int value = (int)(words[cursor] >> 1);
+                cursor = (cursor + 1) % words.Length;
+                return value;
+            }
+        }
+
         public const string MissingImplementation =
             "Missing target /video/lib/libc.a random()/srandom() and rand()/srand() bodies; " +
             "midwayvideo@1792293 provides randper.c random()%val and DJGPP STDLIB.H declarations, not the linked PRNG implementation";
+
+        public static ISourceRandom CreatePortableLibrary(int seed, string seedProvenance)
+        {
+            var state = new PortableLibraryState(seed);
+            return new SourceInjectedRandom(state.Draw, new SourceRandomProvenance(
+                "OriginalRelease57Hz/portable-library",
+                "Portable TYPE3 random() and independent 64-bit rand(); original target equivalence unverified",
+                seedProvenance, SourceRandomEvidence.ExternalUnverified));
+        }
 
         public static SourceRandomDraw FulfillMatchRequest(ISourceRandom random, SourceRandomRequest request,
             SourceRandomContext context)

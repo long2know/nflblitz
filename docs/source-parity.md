@@ -1,5 +1,624 @@
 # Source parity and port evidence
 
+<a id="current-cache-corrected-portable-delivery--november-11-2026"></a>
+
+## Current cache-corrected portable delivery — November 11, 2026
+
+**Bounded corrected-source implementation, affected finite regression,
+fresh AOT, natural browser match and matching private-image delivery passed.**
+This is not whole/native parity, a default-engine container launch, or remote
+publication. The current immutable source is **9fd5…/f3ba…** below, not
+pre-cache-fix Nov11 `229…/e3a…` or Nov10 `edbf…/235…/2d34…`.
+
+### Actual repair and affected execution
+
+- **Three authorized production spans only:** `SourceCatchGeometry.CameraJoints`
+  now routes authenticated complete303/306 OriginalPortable affine actors
+  through original camera×yaw→scale→skeletal hierarchy arithmetic; the new pure
+  sampling helper preserves old world/legacy methods. Complete-programme
+  `ReleaseSourcePass` uses the actual preceding player camera-joint cache with
+  the actual **current** camera, not a fresh world-wrist substitute. All three
+  old whole files reconstruct exactly by removing the authorized spans; the
+  other144/147 compiled production inputs, including d8 MODE_ZERO and eb68
+  release brackets, were unchanged.
+- **Independent core fix proof:** Home cache780→release781 and Away792→793,
+  nonidentity headingsπ/2 and3π/2 plus actual9→0→8→0 camera transitions.
+  Baseline and forced-fresh final passed **2834 float-bit comparisons**:
+  744 original camera-transform,2070 original cached-joint and20 release
+  values. A clean cache-producer-only reversion failed1146 comparisons
+  (1140 joints/six release/no camera); a fresh-wrist-caller-only control failed
+  exactly12 origin/velocity comparisons, no joint/camera comparisons.
+  All four C# builds had zero warnings/errors and stable164 inputs.
+- **Strict and legacy boundaries:**969 managed guards included14 actual
+  release negatives for missing/stale/future cache, missing/stale camera and
+  NaN/infinite wrist, both sides. Rejection left ball/sound/RNG unchanged.
+  Four LegacyNormalized/other-library components remained bit-identical;
+  old world-joint/fallback bodies stayed unchanged. Callback timing, current
+  pose bits and RNG counts were unchanged across controls.
+- **Only affected finite retargets:** actual cached-controller and airborne
+  catch/control18/physical-landing cases; existing M1/C1 windows691/25 assertions
+  (C1 includes one private puppet-predicate supplement); six actual AV306 raw
+  throw selectors; four raw fake kick/throw launches and four complete
+  block/punt-return→hurdle/OOB/result/Continue cases with the unchanged original-C
+  meter/launch builder. Full Contact835 relative inputs, genuine M1-288 and
+  old-nine inputs remained distinct. The retained M1/Contact component cases
+  do not become complete-AV306 native-cache proof by alias; the2834 core cases
+  and AV306 raw selectors exercise that repaired path.
+- **One fresh natural browser campaign:** actual two-human named1154 match,
+  four regulation periods0..3, **0–2 at source31997**, one MatchEnded and final
+  career **Committed, gen3/count1**. Source events included116 PassReleased,
+  nine interceptions and three laterals. All116 release observations retained
+  finite actual ball matrices/actor positions. Secondary running-left/right
+  programmes were naturally observed on actors3 and10; all six natural
+  selectors were **not** claimed. Original graph maximum RMS was
+  0.6094222060344325; no natural on-fire GPU evidence was observed/inferred.
+  Source clocks, seed, RNG, lead/deadline, input and normal sandbox guards were
+  unchanged. The new score was observed, not forced to old0–14 or6–8.
+- **Terminal collection:** the602.47-second command outlived its initial
+  600-second wait, then `read_bash` collected exit0 before clearance. Every
+  output member was read back; Chrome PID/process references were gone, owned
+  HTTP closed and0700 runtime removed. The lease also closed exit0.
+
+The earlier six full-script PF release cases admitted **fresh world-wrist /
+identity-camera boundary inputs**. Their immutable prior-epoch receipt is not
+automatically a current-cache test. Separate raw-six managed selector evidence
+uses typed play setup and actual raw snap/movement/throw; it is not raw play-menu
+or all-six natural-browser proof. No old105K/458K oracle or extra full-script
+campaign was rerun to inflate this corrected clearance.
+
+### Exact corrected identities and durable artifacts
+
+All values are SHA-256. `C` denotes host-local
+`/home/long2know/nflblitz-frontend-evidence-20261111/cache-corrected-20261111-02`.
+These local receipts/data are not public download URLs or committed original
+assets. Source directories/files were actually0500/0400 with write denial.
+
+| Current identity | Exact value |
+| --- | --- |
+| `C/sealed-input-manifest-cache-corrected-20261111.json`,2560 frozen inputs | `9fd5acde6b0a7e168e816c798143b82845cf76835eff33b0abc7d5e4321afaaa` |
+| Compiled-source descriptor | `f3ba295abce2dfc772d13b26ac9d5a593640b7a4a856bef6266872ab3c22f813` |
+| `SourceCatchGeometry.cs` | `7508d8951e826a81368953ac386a83529f281097d2822c796d808fb4891f9782` |
+| `SourceAnimationSampling.cs` | `00cf9341fc8f54030b634f2cb098207cdc0a5ebeec69e34fb91b342c2596763d` |
+| `GameSimulation.Source.cs` | `9e747e64685c5e67aeb2d8beaee13b9423190092905e147d12a130adbd267aa4` |
+| Retained `SourceAnimationState.cs` / MODE_ZERO | `d8de82480d7a2a555af32ddf6730caecdc378c28b655ee55a7bc602b892cc2b8` |
+| Retained `SourceAnimationPrograms.OriginalSound.cs` / three PF brackets | `eb68dd5619baac142dea37d1c37e3d06b16ce0483388941e9d1082ccff5c1362` |
+| Browser project | `235edcd782974d585534d907b98d5fe733f7b8125e8a1281dd9c8da85cb57dcf` |
+| Fresh native WASM, same in both products | `33b35e3a8db04aed259ae4dc58ad71f1402fd9d1e135dbd4fddd03caec01f905` |
+| Fresh Core AOT object | `c6245661f0ef6c990b93cda7b8a5a234caa661213ed4b62fc00603985378ac8b` |
+| Module/driver registration | `937b8645e984937bab3a02d38fda03432cf1d988bf5e4335da469f2ae9331f29` |
+| Core Webcil | `38f25389b7fdc52e54b9dc7da89748938c5b8ba71622f8ef98f1f1a407e05c57` |
+| Browser Webcil | `ed7c3794fde8a16c8f4f8738d66c428cdd1e21b784983bdaba57ca2eb8bc3b4a` |
+
+| Strict distinct product/caller | Data manifest | Current `build-info.json` | AppBundle archive under `C/products` |
+| --- | --- | --- | --- |
+| `original-teams-complete-av306`,1153 inputs; `aot-rooted-bounded-caller-drain-av306/v1` | `51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d` | `57e3dda8e46d1ed117c37500edb4b8067cb68e9e8ec71f361c153e0bed7c1359` | `legacy1153/AppBundle.tgz`,217,562,617 bytes; `1ca6718e387ed62dcd4971f278b59b80fcbbcea642ac479e136ba61f29f9d53d` |
+| `original-teams-complete-av306-two-station-records-v1`,1154 inputs; `aot-rooted-bounded-caller-drain-av306-two-station-records/v1` | `745129381c326e9f237ac4e6c3e020503553aada3e1f993dfb9321c09ee8f32d` | `f50ee08f3e191f17c99ed62f3cfa9aaea1a98d98ef07b55b85f0930bc19bc6c5` | `named1154/AppBundle.tgz`,217,562,634 bytes; `08e85fca67c685f1a33e6d795b489869c2f02f0afd854bd602d1843edbc91a73` |
+
+Factories, strict data/profile counts, six served JS/HTML files and caller
+contracts were preserved. One fresh corrected AOT generation supplied both
+products; no pre-cache-fix application/native objects were reused.
+All1218/1219 AppBundle files were host-read back before build-namespace exit.
+External old-nine/HUD finite inputs are separately bound by sidecar
+`6fc9d441bcdb1d7a0cf6a024513d483b4cac36803843df1982629332bffd6956`,
+not folded into a data-profile alias.
+
+### Matching corrected local images and execution limits
+
+The final receipt `C/FINAL-CORRECTED-NOV11-PORTABLE-DELIVERY.json` is20,665 bytes,
+SHA `ec669d57ebbe33c055333c85e29a02f43eef4f1cfa7b6288c61053f860c64520`.
+
+| Current local tag | Image ID | Docker-save gzip member, bytes and SHA-256 |
+| --- | --- | --- |
+| `nflblitz-original:20261111-f50ee08f3e19-named1154-aot-amd64` | `sha256:1dee82cf9e4c3e7fedc0f5f528cfa3381c6868f72384b5023143bd1f9ecde872` | `container-proof/named1154-image.tgz`,226,093,907; `b4846bce34aab0c002b6f5e7160a5df6500f986d8cddc94ac874716ea734da0a` |
+| `nflblitz-original:20261111-57e3dda8e46d-legacy1153-aot-amd64` | `sha256:0f0af7b7dbcd69adaa8d943e69400a03c10fba5ca685848255a8ae12f717752b` | `container-proof/legacy1153-image.tgz`,226,092,284; `55efc78dcfabfc794dcda9eb0c3fe7b7015dc316cea1457bdb1fb5c71d596025` |
+
+Both gzip images are stored **once as members**, not standalone duplicate
+files, inside
+`C/images-cache-corrected-20261111-02/CACHE-CORRECTED-NOV11-IMAGES-AND-PROOF.tar`,
+453,396,480 bytes, SHA
+`04e3f30f2fa6b740f6e6c44e580045d7a9013b48a21a90c4209a1acd2b8a41d6`.
+Its42 regular members and both saved-image config IDs/every layer digest were
+independently host-verified. A future capable destination can stream the exact
+member using `tar -xOf BUNDLE MEMBER | docker load`; **this was not run against
+the default engine here**.
+
+Both current images passed build/save/tag-remove/reload in the same owned
+private engine `3ddd5f4a-3e82-4429-81d4-a037437d1c12`,
+`unix:///r/docker.sock`. Every1218/1217 shipped app file matched the new product
+bytes and root0:0 ownership, files0444/directories0755, config/inventory0444.
+Only the pre-existing inventory rule's SDK `.stamp` omission separates these
+counts from AppBundle1219/1218; all1154/1153 game-data inputs remain present.
+Extracted-image nginx master/workers each ran as101:101; `nginx -t`, the
+existing two full `ImageHttpTests` per image and production registry payload
+verification passed.
+
+**No current secured `runc` start or Docker healthcheck was executed.**
+The nginx proof is **extracted-image, non-container HTTP**, not a security-
+relaxed container launch. Historical private AppArmor-profile denial is not
+retargeted to these images. Separately, Nov11's ordinary default engine
+`2078baaa-61ba-4622-9082-ca5ec8f3a819` failed image import with VFS ENOSPC
+**before any runc/start/health/HTTP**. Matched probes then found regular-file
+creation as well as symlink creation failing on `/data`, while the owned ext4
+controls passed. Root filesystem cause is still undiagnosed; no regular-only
+image workaround, default-engine retry, daemon/security/global mount change
+or shared prune/cleanup was performed.
+
+Default-engine receipt SHA
+`168301cfda7c609a928d59d39e9092509c34a4ccf88907af0f77bb5d064810b9`
+and metadata-diagnosis SHA
+`6b6f7f3ba8993523480c9ce2f90a1d5458cd2b2d2084040d705f67f61648ecef`
+remain separate from the current private assembly result.
+Neither current image is loaded in the default engine. Both RepoDigests are
+`[]`; no remote GHCR digest/manifest/publication exists.
+
+Image export finished before the assembly namespace exited. The subsequent
+independent full member/layer/config **host readback held a separate read-only
+verification namespace until HOST-ACK**; it is not falsely described as
+preceding the original assembly namespace's exit. ACK
+`C/final-host-readback/HOST-ACK.json` hashes to
+`2fd6e98bd5f72f9efec20a788ba3db4704cc718109c31fa06720e8d0912078ed`.
+Both image assembly/readback commands exited0; private engine PID3841123
+exited0, image namespace process count0, all nginx workers/ports closed.
+The finite/browser lease PID3787701 is gone/exit0. No owned service remains.
+
+The unchanged [publication workflow](../.github/workflows/publish-container.yml)
+remains SHA
+`b5a3f54f3dc64ff021506be547311dddc918a1957baf8f78e0452bf9cc7dc7e6`:
+local setup only, **not dispatched; run ID NONE**. No commit, push, PR or
+publication occurred. No next build is implied by these retained artifacts.
+
+### Corrected acceptance receipts and original unknowns
+
+| Host-local receipt | SHA-256 |
+| --- | --- |
+| `/home/long2know/nflblitz-unity-evidence-20261111/quality-camera-cache-independent-01/APPROVAL-CAMERA-CACHE-RELEASE-20261111-01.json` | `994886a20c7244b4f520296c681ea1da9915df9465c1697a318102441febee96` |
+| `/home/long2know/nflblitz-unity-evidence-20261111/quality-cache-corrected-finite-20261111-01/FINITE-CLEAR-20261111-01.json` | `2ae6acbec6af97856afc4642bbcaf9f58516ce1487cb91fa622067168421771f` |
+| `/home/long2know/nflblitz-unity-evidence-20261111/quality-cache-corrected-browser-20261111-02/BROWSER-CLEAR-CORRECTED-20261111-02.json` | `caf2ef5563371379a68c1f07844a7237f2ce269365e02eb31b31f0d7ac24e8c4` |
+| Same browser directory, `NATURAL-CORRECTED-PASS.json` | `a1ec940a732959c00d40be703a55b241440dfd516b2e7b1102386c4a50b86543` |
+| Actual browser receipt within output archive | `2e9692988260cf11ccce8708ef091dacb09631970d9e2d4d764d36a38662be02` |
+| Browser `outputs.tgz`, retained under `C/qa-lease/results/quality-cache-corrected-natural-02` | `ce7d2f99c8954f17b133c3479422b244a810ba20e13964c02a0e970b5b997e7c` |
+
+**Remaining qualification boundary:** source-defined eye/focus→xform and
+native-order cache/current-camera release arithmetic are tested above. Full
+native camera tracking, external DG2RD defining-header qualification, shipped
+ABI/FPU, original target PRNG/default-state/seed behavior, q0's reachable
+out-of-object negative-attacker read and native Composit `-clipon/-newpack`
+meter dimensions remain open. No preceding-memory alias, RNG replacement,
+authored-metric waiver, guard removal, native DSP/pixel/hardware equality,
+all31 heard teams, all-six natural throws or all-sixteen-row/full-fidelity
+completion is claimed.
+
+**Epoch and documentation boundary:** all corrected9fd5/f3ba source/data/build-
+info/native/AppBundle/image identities above predate this documentation and
+are not reminted to include it. Pre-cache-fix Nov11 `229…/e3a…` retained a real
+0–14/gen3 browser pass and separate image facts, but did not qualify the
+subsequently repaired cache/release arithmetic; those artifacts remain byte-
+identical historical evidence, not current substitutes. Nov10 edbf/235/2d34,
+e44/1114 and all their original failures/profiles/receipts are unchanged below.
+
+<a id="current-bounded-portable-delivery--november-10-2026"></a>
+
+## Historical bounded portable delivery — November 10, 2026
+
+This unchanged evidence belongs to the Nov10 epoch. “Current” within this
+historical section does not refer to the corrected Nov11 generation above.
+
+**Current portable browser and matching local-image evidence passed within the
+scopes below; this is not whole-game/all-sixteen-row or native-target parity.**
+The application is `.NET10/browser-WASM + WebGL2`, with genuine original data
+and decoded PCM, not a Unity build. No game clock, seed, RNG, lead/deadline,
+input/sandbox guard or frozen gameplay/JS/data was relaxed.
+
+### Actual current cases and continuation
+
+| Contract area | Executed current observation and boundary |
+| --- | --- |
+| I1 | Normal-sandbox Chrome, trusted Start/keyboard/mouse only: FourStation mask15 with four actual controller assignments; second captains P2/P4 commit while participating P1/P3 do not. Same-side FourStation co-op uses two humans and P2 captain; legacy TwoStation uses two opposing guests. Both genuinely fresh post-blur samples were neutral before any key-up, with exact logical-audio sample continuation. Not merely four unused physical slots. |
+| F1/P1 saved selection | The distinct1154 TwoStation product admitted a public v2-created synthetic record, displayed the exact font-safe Unknown-history diagnostic without advancing/writing, survived P2 leave/P1 Continue/rejoin, and committed no-edit CAP exit at gen2→3. Cold page reload retained acquired-empty saved inventory. Manual missing custom choice stayed unselected; the real public source timer exposed ForceTick1900 and built-in page0 selection followed at1904, without input/clock/RNG mutation. The browser does not claim the underlying RNG-draw count from a menu event. |
+| A1/V1 TMSEL | Actual render-consumed normal/flipped actor packets, real hover retaining instances, observed77-frame loop and visible packet cleanup at gameplay. First child wake and hidden PID retirement were not inferred from browser sampling. Existing managed evidence for those separate boundaries is not relabelled. |
+| T1/T2/S1/F1 natural match | Named03 completed actual regulation periods0..3, final6–8 at source23298, exactly one MatchEnded and acknowledged final career commit gen4. Original graph signal, cursor36 clock warning and Falcons programme1 winning speech were observed; these are not31 freshly heard teams. |
+| Exact F1 extension | Named03's profile had actually been removed during cleanup, so one additional natural match was necessary. The authenticated **same** named AppBundle finished13–8 at source34171 through periods0..5, including **two naturally observed OTs**, and committed gen4. Trusted B→A rematch produced a new public game epoch2, source7→19, started2/completed1, unchanged gen4/count1, cleared previous final/MatchEnded batch and fresh animation ticks on all14 actors. |
+| F1 cold reload/next game | Genuine `Page.reload(ignoreCache:true)`, public re-login and rendered career `GAMES 1  WINS 1  LOSSES / TIES 0` retained gen4 without duplicate award. A fresh loader, live TMSEL→lineup and source2→16 next game passed. Per-document counters correctly reset0/0 on reload, then1/0 at startup; **2/1 is the retained-session rematch, not a fabricated durable counter**. Public `(loaderId, gameEpoch)` identities were checked; an unexported record GUID or hidden-process retirement was not claimed. |
+| V1/cleanup | Actual original PCM graph, public pause/exact-sample resume and field/actor GPU shadow/material readback passed. No JS exceptions, console errors or nonlocal requests in the successful campaigns. All commands were collected, every exported artifact read back, owned Chrome PIDs/process references and HTTP ports closed, private runtimes removed. Native DSP/pixel/hardware equality and natural on-fire GPU evidence are not inferred. |
+
+The two initial private browser-oracle errors were retained, not made green:
+one mistook a still-suspended cached pre-blur render for fresh input; the other
+required a menu-random event for a gameplay missing-custom fallback that is not
+exported as that event. Corrected private observations kept the source,
+deadlines and strict guards unchanged. They are not production regressions.
+
+### Immutable pre-documentation source and product identities
+
+All values below are SHA-256. These are local/private artifacts, not committed
+data or public download URLs. `A` denotes the project-relative directory
+`.squad/.scratch/frontend-joint-build-20261110-03`; `Q` denotes
+`/home/long2know/.cache/nflblitz-quality-20261110-1440`.
+
+| Identity | Exact value |
+| --- | --- |
+| Base game/input manifest,2552 files | `edbf823f293bb7b460fad46e1fb63110d27919b70ee3e3fe532310f5e306b0f5` |
+| Base archive `A/joint-inputs-03-COMPLETE-20261110.zip`,106,287,070 bytes | `e7f0884b5fd66dd1ab01ee2cde7507c6763dc607f10806988ce4a315f8c6362a` |
+| Approved clock producer `GameSimulation.Possession.cs` | `e424cdd2b973cab43a1148008e8700cb95256ebdac8e9c63e74c06b7cc075dfd` |
+| Independent one-item `SourcePlayer.Browser.csproj` overlay | `235edcd782974d585534d907b98d5fe733f7b8125e8a1281dd9c8da85cb57dcf` |
+| Project-only approval `Q/joint03-browser-project-APPROVAL-20261110-02.json` | `f5e1e93a0e643352e28e532786523353676142618b0179da7fb8b45705395c93` |
+| Actual compiled-source inventory, base plus that project only | `2d34b3e5bfef0d0807903218c0c2425c81ed368ff2fa8f8e88e3a777260d78b2` |
+| Fresh native WASM, identical in both products | `75b63ac8199b3355cfbe1770fb1e047ea944932295b23dfb2b52a717b76a6851` |
+| Actual generated module/driver registration | `937b8645e984937bab3a02d38fda03432cf1d988bf5e4335da469f2ae9331f29` |
+| Core Webcil | `62bc4f39a7354f4d83b50ca7c69dfa6b401dd82767aaa57cd65f239cc033116d` |
+| Browser Webcil | `2a01fac9e444b0758ea278ef2c49cfaed656c94bd00257b6cb52adf6a64b70f6` |
+| Actual served `main.js` | `443eaa46341029f0567f1caca184d5d9affc3cd56df389ea89469256679c2ed6` |
+| Original-audio manifest shared by1153/1154 | `c695b7c04befa93124e29b9454edb865d4fc8b1e981f2cf329485d7c0cbc01ee` |
+
+The independent Backend project repair removed **only** duplicate
+`WasmExtraFilesToDeploy` for `main.js`; `WasmMainJSPath`, all rooted trimming,
+reflection/JSON/AOT flags and actual six served files were preserved.
+The installed SDK already adds that main script. Actual publish, native/link
+identity and both full product archives were verified after approval, not just
+an XML/helper check. One fresh AOT generation supplied both distinct data
+products; its own fresh checkpoint was resumed after setup/copy failures, not
+replaced with the historical e44 application or prebuilt SDK runtime.
+
+| Distinct product | Data-manifest SHA-256 | Actual `build-info.json` SHA-256 |
+| --- | --- | --- |
+| `original-teams-complete-av306`:1153 files/300,324,289 bytes; caller `aot-rooted-bounded-caller-drain-av306/v1` | `51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d` | `1ede13ab74cf71b06753d55ced769fb02f657bd07bfaee7b76cb8301ecabf626` |
+| `original-teams-complete-av306-two-station-records-v1`:1154 files/300,324,845 bytes; caller `aot-rooted-bounded-caller-drain-av306-two-station-records/v1` | `745129381c326e9f237ac4e6c3e020503553aada3e1f993dfb9321c09ee8f32d` | `00e0520466ccdc93a8c722bbdd21f54c253d92de949c8fa2e9b6fe8e0c2fe6bf` |
+
+The factories are respectively
+`SourceC2Composition.CreateCompleteAv306Simulation` and
+`SourceC2Composition.CreateCompleteAv306TwoStationRecordsSimulation`.
+The latter is an explicit new TwoStation saved-record profile, not an alias or
+promotion of legacy TwoStation guests. AV306 admits306 clips and1205 compiled
+playlist programmes; all31 eligible team-speech inventories are admission
+evidence, not31 freshly heard runtime cases. Genuine M1-288 and the full
+Contact835 relative-input closure remain separate component inputs.
+
+| Durable AppBundle archive under `A/products-final-approved` | Bytes | SHA-256 |
+| --- | --- | --- |
+| `legacy1153/AppBundle.tgz` | 217,559,230 | `c5c33230fe97300ce78feca5e4b4034eff30405c523417948db2d33146b00174` |
+| `named1154/AppBundle.tgz` | 217,559,475 | `7b122c5db3e33d11b7ee18c35e95ea17941da07ae46a18a3437f948b5aeba74e` |
+
+Quality read back every1218/1219 archived file and its inventory hash. The F1
+extension independently materialized the authenticated named archive in the
+unchanged supported POSIX wrapper, kept1219 files0400/directories0500 with
+write denial and before/after hashes, and made **no new AOT build**.
+
+### Current local images, HTTP scope and workflow
+
+`D` denotes `A/container-current-20261110-01`.
+The [final current image-delivery receipt](../.squad/.scratch/frontend-joint-build-20261110-03/container-current-20261110-01/FINAL-CURRENT-IMAGE-DELIVERY-20261110.json)
+is17,761 bytes, SHA
+`6e600a184dd4b541361751a9298c4ac468aeabd574c5b8199e5d44b8d10bf877`.
+
+| Current local image | Image ID | Saved archive, bytes and SHA-256 |
+| --- | --- | --- |
+| `nflblitz-original:20261110-00e0520466cc-named1154-aot-amd64` | `sha256:c0e42a63d5236e5b845991b36edbee7965b9008b1259f720536ab8c21f3e7bd5` | `D/attempt-01/named1154-image.tgz`,226,091,869; `55bd2e510c730e37ceb03041baec036941240ddfe7516629fc77c8c5baba7ef5` |
+| `nflblitz-original:20261110-1ede13ab74cf-legacy1153-aot-amd64` | `sha256:869a4474746948cf18327abf7730c1aafe0395a11fdc71f8fd54e904f68b7b19` | `D/legacy1153-image.tgz`,226,084,873; `319d78fb63a36f68350f2338ebba740f70d7dcbb96ead819f8902ba6fc0a5654` |
+
+Both were built/saved/tag-removed/reloaded in the owned **private** engine
+`47b1cff7-db75-4f05-8843-cdc390754453`, `unix:///r/docker.sock`.
+The named image was built once; earlier failed orchestration batches remain
+failed, and the same archived image supplied the final proof. All saved-layer
+digests/config IDs, every shipped app byte and ownership/mode passed:
+root0:0, files0444/directories0755, nginx config/inventory0444. Private source
+0400/0500 modes were not carried into the image. Only the SDK `.stamp` is
+omitted by the pre-existing inventory rule: source archives1219/1218 become
+image app files1218/1217; **all1154/1153 game-data inputs remain intact**.
+
+**Normal secured container startup did not succeed.** The same named image's
+`runc` launch could not inspect the normal `docker-default` AppArmor profile:
+`open /sys/kernel/security/apparmor/profiles: permission denied`.
+No security change or repeated secured launch bypassed this failure, and the
+Docker healthcheck **was not executed**. This current AppArmor failure is not
+the historical e44 cgroup failure.
+
+Separately, **actual extracted-image, non-container nginx** ran its master and
+two workers each at UID/GID101:101. Both `nginx -t` and the existing two
+`ImageHttpTests` passed per image, checking every shipped file's bytes and
+headers/MIME, range/HEAD and error behavior. The private oracle's stderr/stdout
+ownership fix affected only that harness, not image/source/security settings.
+This HTTP proof does not claim a secured container launch or rerun Chrome
+inside a container.
+
+Final execution and artifact handoff exited0; all37 regular output members
+were read back. `D/attempt-04/outputs-export.tar` is227,276,800 bytes, SHA
+`eb0801cd2897be36fb7ae3f8cd8b9851f56927cffc092a02141c345437838426`;
+member `container-proof/delivery-result.json` hashes to
+`e0982207f1a51e6131b01a18ac2cda14f591ab9a7a389793739bec7f5891cd71`.
+Private engine PID1972337 exited0, namespace process count is0, all nginx
+processes and private8080/18135 ports closed; the SDK lease also exited0.
+Neither current image is loaded in the default host engine.
+
+The unchanged [manual publication workflow](../.github/workflows/publish-container.yml)
+hashes to
+`b5a3f54f3dc64ff021506be547311dddc918a1957baf8f78e0452bf9cc7dc7e6`.
+Its main-only accepted-archive lane was inspected, **not dispatched**:
+run ID **NONE**. Local18 asset-free transfer tests, real payload verification
+of both images, two real-source RED controls and fresh real-bundle tests passed;
+these are local setup, not a remote Actions run. Five coupled deployment
+admission/test/documentation files changed after the product build; no C#/JS/
+data/AOT changed. No commit, push, merge, PR or publication occurred.
+Both `RepoDigests` are `[]`; there is **no remote GHCR manifest/digest**.
+
+### Current receipt cross-references and remaining limits
+
+All following receipts are host-local under `Q`; no old receipt is relabelled:
+
+| Receipt | SHA-256 |
+| --- | --- |
+| `joint03-finite-CLEAR-20261110-01.json` — current7 clock/context,65 public integration, M1/C1 and canonical named/records retargets | `3f26518fc45e839c6bf55a82438d940238f90146dc49263255095e234991b748` |
+| `joint03-actual-AOT-products-readback-20261110.json` | `3d686205dcef34e299d1456d3f4792856f28a476a980d9858082aa458ad7ad2b` |
+| `joint03-browser-human-layouts-PASS-20261110.json` | `7fdec828d2e2a91c358b00716a6d8b808d0aa1a541081056e48fbec8c42f9daa` |
+| `joint03-browser-named-two-PASS-20261110.json` — named03, four quarters6–8 | `91b936c2e172b28d0c3c6d63dd27a05c14fb2deb6d4e8e6d30d8b6d1dac29890` |
+| `joint03-BROWSER-DELIVERY-CLEAR-20261110-01.json` | `e5566e1521075d6494672bfd60890f93ba3cd3ab19bd97265b41cbdcb04d0ba0` |
+| `joint03-F1-CONTINUATION-PASS-20261110-04.json` — additional13–8/two-OT final, rematch, cold reload and next game | `020ab0e70b7a65b942a7a05bcd77c1686310b65a2c55cef9c2905f08f16fa09e` |
+| `joint03-all-browser-os-cleanup-20261110.json` — four earlier attempts; F1 has its own cleanup in the preceding receipt | `0500bfd73d2dac4da2f1c2a6e8080cf809686ae2e86c6ee75e153e86bf4dae55` |
+
+Current finite T1 includes the actual Q2/Q4 warning process context, strict
+wrong/outside-process negatives and public65/1694 integration; M1/C1
+retargets691/25 assertions (C1 retains one private puppet-predicate supplement,
+not25 exclusively public wakes). Separate owner-qualified C2 case sets remain
+**806 plus two controls** and **986 plus three controls/fresh finals**:
+third-completion/two-loss/reset/catch/handicap and produced-fire pass/fumble/
+ordinary-lateral-turnover effects. The effects summary is
+`.squad/.scratch/unity-c2-fire-public-20261110-01/effects/qualified-effects-summary-joint03.json`,
+SHA `b690f27a062afc0568fa8fbb008f62133412e7a491d980d11ad99faabd8a4b9e`.
+These declared source cases are **not natural-browser fire GPU or target-RNG
+proof**. Other historical component positives keep their recorded epochs.
+
+**P1/native-target completion remains OPEN.** All14 actor rows can reach the
+preserved negative-attacker guard through public catch→QB promotion/dive/AI;
+ordinary QB indices3/10 are not an exhaustive domain. Authenticated archived
+SDK expression codegen gives `B + 56*q - 4`: rows1..13 lie inside the full
+196-int object, but actually reachable row0 lies before it. This does not prove
+the shipped compiler/library binding, whole evade function or preceding
+memory. No alias/default policy or guard removal was authorized. The final
+caller/cache packet under `Q/i1-snapshot-03/.squad/.scratch/lead-rules-20261110-02/lead-P1-final-caller-cache-packet-20261110-045.json`
+hashes to `c663eca4b04d87b9ee2d86ffe286c5daa3b62e707bcdbe11e43b3dd4a2d0e3a2`.
+Neither two/four-human browser success nor host/native-C comparisons close
+CPU-QB, original target PRNG/default-state/seed behavior, native audiovisual
+equivalence or representative hardware. Existing undefined-domain guards and
+explicit portability disclosures below remain intact.
+
+**Post-build documentation boundary:** the base `edbf…`, approved project
+`235…`, compiled inventory `2d34…`, both build-info IDs, AppBundles and images
+above are immutable **pre-documentation** identities. This README/ledger
+amendment and post-build deployment tooling are not folded into them. The
+following e44/1114 section, its profiles and `drain.tgz`/`image.tgz`/13-artifact
+receipts are retained historical evidence, not current image aliases.
+
+<a id="current-bounded-caller-browser-evidence--november-9-2026"></a>
+
+## Historical bounded caller browser evidence — November 9, 2026
+
+**One explicit portable-browser regulation case passed; the game is not marked
+complete. All sixteen whole/native completion rows remain OPEN.** This is
+`.NET10/browser-WASM + WebGL2`, not a Unity player. The execution profile is
+**`aot-rooted-bounded-caller-drain/v1`**, with the separately admitted
+`original-teams-complete-original303-selected-world-v2` dataset: **1114 inputs,
+including275 world files**, not the old963-input composition.
+
+The sole current campaign finished exit0 and wrote its result on
+**November 9, 2026 at 19:42:00.554 PST (`2026-11-09T19:42:00.554130-08:00`)**.
+Its completed Bash output was collected at21:12; the earlier “continuing”
+update was stale. No replacement campaign was run. Actual normal-sandbox
+Chrome157.0.8103.38 used ANGLE/Vulkan SwiftShader, not representative hardware.
+The tested loopback server was18113, not the historical Unity8080 preview.
+
+| Actual observation | Bounded result |
+| --- | --- |
+| Regulation/final | Four completed source periods; final view at source29022, score0–82, typed winnerAway. Genuine final save acknowledged, store generation5. |
+| Persistence/rematch | Public same-browser rematch reached source8/world epoch2, one completed/two started matches, unchanged committed generation5; a subsequent actual career reload retained the saved match. No separate browser KeyR campaign was run. |
+| Public controls | Saved custom play/audibles, pause/exact-logical-sample resume and real blur/focus release passed. All four physical slots returned neutral before driver key-ups; only one participating human station was configured. |
+| Original audio graph | Actual original decoded PCM,21 fresh post-resume voices over246 observed source ticks; maximum observed match RMS0.5657847428222533. This is signal/transport evidence, not listening or target/native DSP equivalence. |
+| Gameplay GPU | Paused actual WebGL readback:3324 shadow pixels and3324 material-differential pixels. Nine retained PNGs have verified signatures, sizes and hashes; gameplay/final/reloaded-career images were inspected. Not arcade/Unity pixel equality or hardware-GPU qualification. |
+| Runtime/network | Zero JS exceptions, console errors, nonlocal requests, HTTP failures or loading failures;3912 local HTTP requests. |
+| Caller evidence | Captured actual zero-new-elapsed MessageChannel drain: one host step, fresh LiveBall packet source697/host734, camera not suspended; public pause cancellation and read-only/frozen-sample inspection passed before the same browser continued. |
+| Cleanup | Chrome exited and its owned profile was removed. Frontend's final cleanup receipt at21:24:51 PST confirms18113 closed and its server, holder and private Docker namespace stopped; no shared preview/daemon was changed. No async campaign remains running. |
+
+This caller profile is a separate explicit opt-in, not a promotion of the
+default interpreted/AOT-only caller or any Unity selector. It drains retained
+debt through `Frame(0, sameViewport)`, keeping the existing six-host-step/100ms
+bridge bound, audio lead/deadline, source clock, input/RNG and audio-epoch policy.
+The sealed build discloses **reuse**, not recompilation, of the33e AOT/native
+objects. Only its caller JavaScript differs. Timestamped caller/JS/synchronous
+WebGL spans are not isolated Core CPU, full managed Render or GPU completion.
+The old585–648 instruction-wait window and unlocalized883.5ms render maximum
+do not establish active-football steady throughput or unique pump/AOT causality.
+
+### Exact current identities and retained evidence
+
+All identifiers below are SHA-256. These local/private receipts and original
+inputs are not committed assets or public download URLs.
+
+| Identity | Exact value |
+| --- | --- |
+| Tested `build-info.json` | `e44d261db3236fe2bf755c54a048a4fea6f104c909b34f6614d7cba72e068c6f` |
+| Current160-source inventory | `a0746273256ce54294b84f14b590e876a1399547628f687bd4633543faeaf8aa` |
+| Disclosed reused compiled-source inventory | `ad3733b519678ffe4ff17fc988d284d7edccdb5932439a037ffa957ef502da90` |
+| `data/manifest.json`,1114 inputs | `aeb2efdebdbe260f63f6d785c461048dc9cec337098490761c2815cd8ffc4edd` |
+| Native WASM,72,631,334 bytes | `79eeb6d652daa0b189856b74f4ef100ef85f270e40604e1bfbce742e62868245` |
+| Core Webcil | `55d9379583e1754d0d66fee71d674bc686072115580108bbae67d0238b7bde40` |
+| Browser Webcil | `1ffe8b6250c419ac68b6bfc633be4b5994aae248b06efed4470fc42c6184813f` |
+| Caller `main.js` | `3fb7d09376a4c487552f250342dc66d5d079b65d193180c6eaa4303c384fad8d` |
+| Caller `input.js` | `3d0daabe734c4b03806d26c19ae225b86a438d38d17c6d7cb261949c4f0a221e` |
+| Browser result,804,232 bytes | `9b160848a06b816853cb6d910b21976eb65fcd6a5336d5072b5bb97036928ea9` |
+|13-artifact/nine-PNG manifest | `1387a7e4e1520569bfcac7cd0ab5a45b2e9a466db83645238411d096aafd7698` |
+
+Retained host-local links:
+
+- [Actual completed result][nov9-result], [13-artifact hash manifest][nov9-artifacts],
+  [served-byte/source/data preflight][nov9-preflight] and
+  [final image-layer binding][nov9-image-binding].
+- [Consolidated current and historical QA outcomes][nov9-outcomes]. Its
+  `sole_current_caller_drain_browser_acceptance` is terminal, not pending.
+- [Frontend delivery receipt](../.squad/.scratch/frontend-delivery-20261109/delivery-receipt.json):
+  `boundedCallerDrain1114.localContainer`, `browserTerminalReceipt`,
+  `finalOwnedHelperCleanup` and `finalDeliveryOutcome`. This mutable delivery
+  index is not substituted for the immutable artifact hashes recorded here.
+
+All13 browser artifact hashes were rechecked without rerunning tests or Chrome.
+The final saved image's actual `/opt/nflblitz/www/build-info.json`,
+`data/manifest.json`, native WASM and both Webcil payloads independently match
+the browser receipt/preflight, including the complete source inventory and
+1114/275 data counts. The image-binding receipt hashes to
+`d9aad1010abde2e0424c4d77e9b8eae300096c2a82ac4b0a47a12b3a5dd746b0`.
+
+### Current private image and external blockers
+
+The current retained local-only image archive has tag
+`nflblitz-original:20261109-e44-aot1114-caller-amd64`, image ID
+`sha256:97b6a89c3b775fd2d9e85dd105a8e0d1875ab5f82c0d8cdd2398c4de29165575`.
+Frontend actually built, saved, removed the tag and reloaded the same ID/config/
+RootFS, and audited1308 embedded served files, **only in its uniquely owned
+private engine** `e5825853-f52e-4025-bfdb-03e4799f9e9a`. That engine is now
+stopped; this image is **not loaded in the default/shared Docker daemon**.
+This is packaging evidence:
+**the secured container did not start and its healthcheck was not executed**.
+The one secured current private-engine launch exited126 at
+`runc: unable to apply cgroup configuration: mkdir /sys/fs/cgroup/docker: permission denied`.
+Historical AppArmor failures remain separate; this current attempt failed
+cgroup delegation, not a newly observed AppArmor failure. A supported/admin-
+provided Docker/cgroup environment with normal AppArmor support is required.
+No security relaxation, bypass or launch retry was used.
+
+The [current private image archive](../.squad/.scratch/frontend-delivery-20261109/image.tgz)
+is204,102,385 bytes, SHA
+`a1d0d14bab82344a8b24cdd2e39f87be9aac77a4fd087422cd14d35cb421c62a`.
+The [same current AppBundle archive](../.squad/.scratch/frontend-delivery-20261109/drain.tgz)
+is198,251,732 bytes, SHA
+`99d5477db1aa76d4dd11ee3e82bb56d1f69b66d7eb4bf78fc4465b7d11321ec4`.
+The current image has not been published to GHCR, and this delivery made no
+commit, push, PR or registry publication.
+
+Despite its filename, retained `current.tgz` is the **historical AOT-only33e
+RED control**, SHA
+`043f14c281bcb8650dadab8d0dc73671aecfc884a223b9cf4c513e6a210bcb90`,
+not the tested e44 AppBundle. Use the explicitly pinned `drain.tgz`/`image.tgz`
+roles above; do not infer the latest candidate from a filename or an old tag.
+
+Separately, the pinned Unity6000.3.24f1 native Editor attempt exited198 before
+import/build: missing `com.unity.editor.headless` entitlement/no valid Editor
+license. The [sanitized owner-observed excerpt](../.squad/.scratch/contact-audio-20261109/green-build.log)
+is not a raw Editor log or independent native rerun. Reference-API compilation
+does not qualify native execution, and this blocker does not invalidate the
+separate browser-WASM result.
+
+### Entry points and recorded commands
+
+The worktree is `/data/source/nflblitz/.squad/.scratch/parity-completion-20261109`.
+Use the [explicit AOT/caller build and immutable reuse contract](../tools/source-player/README.md#separate-bounded-caller-drain-execution-profile),
+[browser driver contract](../tests/records/cabinet/README.md#actual-browser) and
+[hardened Compose entrypoint](../tools/source-player/deploy/compose.yaml).
+Prepared original inputs remain private; neither a clean checkout nor a
+default profile reconstructs this tested candidate.
+
+The following is the **recorded** one-campaign invocation, not a request to
+rerun it. Its18113 server is stopped and its evidence/profile names are already
+consumed; future authorized validation needs fresh owned names and an explicitly
+verified served build.
+
+```sh
+WORKTREE=/data/source/nflblitz/.squad/.scratch/parity-completion-20261109
+QA_ROOT=/data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001
+cd "$WORKTREE"
+SOURCE_PLAYER_BROWSER_WORKSPACE="$WORKTREE/.squad/.scratch/frontend-delivery-20261109/m1-after-owned-cleanup" \
+SOURCE_PLAYER_EVIDENCE_ROOT="$QA_ROOT" \
+SOURCE_PLAYER_CHROME_RUNTIME_ROOT=/r/qa-caller-001 \
+SOURCE_RECORDS_EVIDENCE_ROOT=/e \
+SOURCE_RECORDS_EXPECT_STEP_COSTS=1 SOURCE_RECORDS_EXPECT_CALLER_DRAIN=1 \
+SOURCE_RECORDS_EXPECT_WORLD_CATALOG=1 SOURCE_RECORDS_DESIGNATED_HOME_SIDE=Home \
+SOURCE_RECORDS_EXPECTED_BUILD_SHA256=e44d261db3236fe2bf755c54a048a4fea6f104c909b34f6614d7cba72e068c6f \
+bash tools/source-player/with-browser-runtime.sh tests/records/cabinet/browser.mjs \
+  http://127.0.0.1:18113/ /e/browser-caller-causal-001 --full-match
+```
+
+On a **capable external Docker host**, first verify the image archive hash and
+that loopback18098 is unused. These supported launch commands were **not**
+successfully executed here:
+
+```sh
+cd /data/source/nflblitz/.squad/.scratch/parity-completion-20261109
+gzip -dc .squad/.scratch/frontend-delivery-20261109/image.tgz | docker load
+NFLBLITZ_IMAGE=nflblitz-original:20261109-e44-aot1114-caller-amd64 \
+docker compose --env-file /dev/null --project-name nflblitz-e44 \
+  -f tools/source-player/deploy/compose.yaml up -d
+```
+
+### Historical failures and still-open scope
+
+The [retained QA outcomes][nov9-outcomes] preserve, without relabelling:
+
+| Separate historical browser case | Actual disposition |
+| --- | --- |
+| Non-AOT contact build946d… | Source649 audio underrun,1698.048ms late; failed. |
+| Correct-site fault-only buildc5cf… | Source715/host753 audio underrun,113.493ms late; failed. |
+| AOT-only build33e27… with the same1114 dataset | Source649/host684 audio underrun,34.048ms late; failed. New e44 caller-profile success does not turn33e green. |
+| Old c6fa… precontact A/B | Bounded movement/audio/GPU observations, but overall focus-oracle failure; not current-build or full-match qualification. |
+
+Old963 datasets, pre-fix9351 AOT preparation, original input/profile IDs and the
+older published/Unity generations below remain distinct. A passed regulation
+match does **not** establish overtime, exhaustive rules/playbooks/animations,
+all teams/venues/four-human configurations, target library/RNG order, native
+DSP/audible or pixel equivalence, hardware performance, hosted CI/publication,
+or all-sixteen-row/full100% parity. No original executable/native target oracle
+or new Editor execution was supplied by this browser campaign.
+
+[nov9-result]: /data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001/browser-caller-causal-001/result.json
+[nov9-artifacts]: /data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001/caller-causal-001-artifact-manifest.json
+[nov9-preflight]: /data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001/caller-drain-preflight-001.json
+[nov9-image-binding]: /data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001/caller-final-image-binding-001.json
+[nov9-outcomes]: /data/programs/Copilot/GitHub-Copilot-linux-x64.AppImage.home/.copilot/session-state/f60e44b8-ed4d-4262-9f31-56977a14c734/files/io-recovery-20261109/quality-browser-continued-001/continued-outcomes.json
+
+## Portable library behaviors — November 1, 2026
+
+The complete-original303 `Portable` runtime now separates the 31-word additive `random()`
+stream from the independent 64-bit `rand()` state. Zero-bound `randrng` consumes
+neither stream; negative bounds retain the source remainder semantics. The
+pregame owner transfers both streams through VS and rematches without reseeding.
+The historical strict-source preview, older Portable profiles and explicitly
+injected raw tapes remain separate and unchanged.
+
+Portable receiver selection completes equal-quantized-Z cases with the
+small-array minimum-sentinel/insertion ordering instead of throwing. The
+strict-source native-order guard remains. Regressions cover both teams,
+all-equal keys and ties moved by the minimum sentinel.
+
+The additional portable behavioral assertions pass alongside the existing original-C
+matrix. A real named-record four-quarter managed match also completed through
+career/world commit, custom-play reload and rematch using public input only.
+These runtime algorithms remain tagged `ExternalUnverified`: comparisons with
+the published recovered C algorithms establish the portable implementation,
+not independent execution of the original linked arcade library.
+
+## Current near-frame input compatibility — October 23, 2026
+
+The intended current-frame/root near-frame sampling is retained. Older
+state-dependent public menus are not native expected outputs and are not
+rewritten to disguise incompatibility. New explicit Core
+`source-selection-countdown/v4` and defensive
+`source-defensive-presnap-switch/v5` recordings use that same unchanged
+78-source production generation, manifest
+`bdb993db6b6d04c5bdbeb55ecbb44b9279ec3f1093ccddfc645075082e9267e2`.
+Exactly one unchanged seed1, unfiltered-provider/controller authoring per
+profile completed all 12,000 hosts / 11,400 source wakes.
+
+Both full normal qualifications passed all three complete positive replay
+jobs, observer/final byte equality, three cache/eight caller named compiled
+controls, controlled baseline/final and 664 actual post-VM inputs / 5,312
+independent unchanged original-C assertions per profile. Current old-v3 and
+old-v4 negative inputs actually fail their named playbook-side guard at
+zero-based hosts 2878 and 11868 respectively. These are additional current
+compatibility boundaries, not replacements for or reruns of the five immutable
+historical positive/stale boundaries described below.
+
+The [current input identities, operation counts, preparation and qualification
+limits](../tests/movement-callers/README.md#current-near-frame-input-generations--october-23-2026)
+separate public input data from private numerical proof. This repair changes
+no gameplay source, controller policy, physics or independent expected output.
+Local replay/guard evidence is not hosted CI, Unity entitlement, generated HUD
+metrics, DSP/bootstrap, genuine WholeWorld, sourceAll16, native or full 100%
+qualification. Fresh Quality review precedes any publication.
+
 ## Defensive pre-snap fresh-B integration — October 20, 2026
 
 The explicit new portable profile `original-teams-contact282-c2-m1-presnap-switch`
@@ -1254,6 +1873,53 @@ V = visual/audio/runtime. Quality records expected **and observed** state, order
 events, decisions and source ticks for each named case; a header constant alone
 does not close a row.
 
+**Current scoped execution:** the [corrected November11 generation](#current-cache-corrected-portable-delivery--november-11-2026)
+binds native-order camera-cache/current-camera release proof, affected finite
+retargets, actual0–2/gen3 regulation and matching private-image/extracted-nginx
+delivery. The [separate historical November10 evidence](#current-bounded-portable-delivery--november-10-2026)
+retains its2/4/co-op, named/CAP/Unknown/TMSEL, two-OT/rematch/reload cases and
+component epochs without automatic promotion. These are concrete scoped
+implementations, not16 unimplemented rows or full whole/native completion.
+P1/q0, target RNG, Composit metrics and native audiovisual boundaries remain
+explicitly open; current default-engine import ENOSPC is infrastructure, not
+an inferred gameplay or current AppArmor/runc failure.
+
+**November 10 caller repairs (R1/T1/S2):** actual special-play selection now
+retains `PT_NORMAL`, allowing `result.c` to classify punt/field-goal ball types
+instead of replaying the previous result through its intentionally empty rows.
+Quick-kick release now runs the receiving actor's original pre-decrement branch,
+starts the clock after its process wake, resets play time, and does not invent
+`GF_BALL_KICKED`. The [20-case production-caller regression](../tests/parity/README.md#selected-special-team-result-callers--november-10)
+records state, ordered events and source wakes; actual isolated controls reject
+both defects. The original123004 managed comparisons and retained143 lifecycle
+cases also pass at the recorded new source checkpoint. These are concrete caller
+repairs, not full-row acceptance: naturally played human FG/punt/fake/block/
+recovery/return sequences and fresh source-profile browser/native evidence
+remain separate requirements. T2/S1 conversion/period qualification is not
+inferred from the special-team result fixtures.
+
+**November 10 rules/flow refreeze:** the
+[separate full-player caller checkpoint](../tests/match-lifecycle/README.md#november-10-rules-clock-and-conversion-callers)
+now qualifies64 original-C result/spot callers plus actual clock-process
+retirement (**65/1694**, independently retargeted to current source with both
+real-source controls). Deferred results use flags as of the committing
+`game_proc`, including later `ball_proc` writes. The final subtick sleeps at58;
+return retires the clock at59, with no wake at60. Clock restart recreates an
+absent process without resetting global play time. Free PAT now really sleeps15
+before controls/sound/award and waits the source40-tick minimum/285 polls before
+cleanup, kickoff or EOQ. The exact306 coaching-tip EOQ bank-load producer guard
+is fixed without broadening the303 identity check.
+
+An additional **85/10164** actual-step baseline and fresh final pass cover60
+original-C-expected PAT decisions and25 source-defined live-expiry/halftime/
+three-OT/conversion callers. Two cleanly compiled real Flow timing mutations
+each reject the exact42 free-PAT cases. Current rules/clock/Flow hashes and
+immutable receipt `2631255d…` are in that checkpoint. These are implemented,
+tested caller branches, not16 unimplemented rows or a full-game claim.
+Quality separately retargeted the two actual public typed-selection→neutral
+auto-hike→punt/FG VM launch cases to this same source generation; raw-menu,
+fake/block/return and natural full-match coverage are not inferred.
+
 | ID / kind / status | Active source targets | Minimum discriminating cases / reference expectations |
 | --- | --- | --- |
 | A1 animation clock, poses, transitions — L/D/V, V/P; continuous increment partial | `player.c:player_proc` L750–1177; `plyrseq.c:qb_stance_anim` L1075–1084, `qb_run_anim/qb_t_run_anim` L306–343; `lib/ani3d/ANIM.C:_animate_block/_next_frame/_ani_inttoseq/_ani_runtoend/_ani_intstream/_ani_streamtoend`; `models/skeleton.h` | Different role stances and moving/action clips on fourteen actors; stance loops at one selected frame/tick; turbo QB streaming uses **0.81 ticks/frame**, not a universal FPS. Verify first/middle/last/loop frames, hold counts, interrupted transition, two-part torso heading, root anchors and no double drift. Authentic clip + approximate selector is still partial. |
@@ -1262,11 +1928,11 @@ does not close a row.
 | C2 on-fire/tuning — L/D/V, V/P | `player.c:check_receiver_fire/reset_team_fire/maybe_plyr_fire`; **active** `nfl.c` L1445–1512; `handicap.c:set_handicaps`; `ADJUST.C` | Same receiver's **third** consecutive completion enables offense fire; two qualifying loss-of-yard results enable defense fire; reset/turnover/loss and on-fire gameplay effects must match. `detect.c:update_onfire_stuff` is inside `#if 0` and is **not** the defense oracle. Default difficulty **5**, allowed **0..10**; compare seeded decisions across settings. |
 | B1 throw/receiver/catch/control — L/D/V, V/P | `player.c:_mode_qb/pick_receiver/qb_release_ball/set_ball_vels/standard_catch/wpn_change_player/db_change_player`; `plyrseq.c` throw callbacks; `include/GAME.H:CONTROL_TIME` | Intent vs actual release tick; normal/turbo throws, receiver selection and exact human-control versus possession-credit/TD ordering (**CONTROL_TIME=18** ticks; not an assumed controller-transfer delay). Active catch proximity is **<14 source units** to pelvis or **<5** to a wrist, not the nearby commented 12. Reject self-catch at flight time **<=10**, other offensive receiver **<=15**, fumble/bobble **<=30**; test each boundary and actual catch/deflect/interception outcome. |
 | B2 loose ball/possession — L/D/V, V/P | `player.c:ball_proc/fumble_ball/lateral_ball/standard_catch`; `include/ani3d.h:GRAVITY`; `detect.c:fumble_or_bobble`; `result.c:_norm_oobball/_norm_car_oez` | Pass, bobble, fumble, lateral, interception, recovery by either team, return, out-of-bounds and end-zone exceptions. Gravity is **−0.08 source units/tick²**, with the source half-step position update. Recovery in own end zone without leaving gives touchback only under the source possession/recovery flags; leaving then returning can give safety. Forward fumble OOB cannot improve the spot past the fumble point. Preserve source RNG consumption/probability tables. |
-| R1 downs/spotting — L, V/P; partial | `nfl.c` L1422–1443, L1626–1730; `result.c:result_functions/_norm_*` | Four downs, **30** yards, goal-to-go, incompletion/turnover both directions. Verify the actual source-space rounding expression (integer cast **before** `*10/78`, integer division) and `1..99` clamp, including negative and near-zero positions. That helper now has original-C comparisons; full caller/down/result-switch parity remains pending. Legacy yard-space ceil/floor is not exact. |
-| T1 clocks/snap — L, V/P; selection continuation bounded portable | `main.c:graphics_init/get_tsec`; `nfl.c:game_clock_proc/time_table` L2868–2993, fractional discard L1387–1388; `ADJUST.C` L21; `player.c:_mode_qbps`; `playsel.c` caller L1045–1053; `lib/select/select.c:timedown_play_select` L6524–6567 | Reference gameplay profile **57 ticks/s**; max auto-hike **5*tsec = 285**. Packed start **0x00020000**, first active clock iteration **0x00013b18**. Rates **[30,25,20,18,16]**, default index **2**, bad adjustment fallback **3**. At packed `0x00001f00`, quarter index 1/3 yields `0x00001e22`; quarter index 0/default yields `0x00001e14`; play-time increment reaching18 uses low byte `0x30` unless late-half branch wins. Stop clock and discard low byte at play end. Separate selection timer **9** first quarter / **5** later now advances and expires on the actual portable process host, including zero's **tsec+25** grace and actual cabinet current-highlight forcing. Native/global scheduler and full T1 acceptance remain open. |
-| T2 periods/halftime/overtime — L/V, V/P | `nfl.c:eoq_handling/start_new_quarter/game_over`, L1982–2101, L2448–2463; `include/GAME.H` L218–238 | Finish the live play and any required conversion after clock expiry. At halftime the other initial-possession team receives a kickoff. Tied regulation enters OT; maximum **three** overtimes, tied third OT may end the game. Test conversion skip only under L875–883's time/quarter/lead conditions, tied/untied final and OT kickoff alternation; do not import conventional NFL sudden-death rules. |
-| S1 scoring/PAT/2pt — L/D/V, V/P; TD/safety partial | `nfl.c` L1732–1818, L875–903; `playsel.c:play_select` L1241–1255, L1342–1368, L1489–1502; `result.c:_pat_*` | TD **6**, safety **2**, conversion **2**, FG **3**, PAT safety **1** to opponent. Free PAT adds **1** unless source miss branch: human lead >14, quarter index >2, draw <2/100; CPU lead >8, index >1, draw <3/100. Include failed conversion, defensive possession and period-ending exceptions, not automatic seven. |
-| S2 kick/punt/restarts — L/D/V, V/P | `nfl.c` kickoff branch L905–1173, result branches L1811–1891; `player.c:punt_ball/kick_ball/set_punt_ball_vels/set_field_goal_ball_vels/ball_proc`; `result.c:_norm_deadball/_norm_oobball/_kick_*` | Opening/post-score/halftime/OT kickoffs, quick kick, onside, punt/fake, FG/fake/block/miss/return, touchback and safety restart. Quick-kick setup **40**, touchback **20**, untouched kickoff OOB receiving LOS **40**. Verify actual dispatch: empty `_fg_*`/`_punt_*` result handlers are not invented kick logic; normal-play ball type classifies those outcomes. No universal own-20 restart. |
+| R1 downs/spotting — L; original-C caller subset qualified | `nfl.c` L1422–1443, L1626–1730; `result.c:result_functions/_norm_*` | Four downs, **30** yards, goal-to-go, incompletion/turnover both directions. Actual64-caller comparisons now include possession restoration, source-space rounding (integer cast **before** `*10/78`, integer division), non-TD clamp, full result switch, captain/display/hash spotting and PAT exceptions. Preserve the original subsequent turnover arithmetic, including its directional boundary quirks; do not add another clamp. Natural actor-produced coverage of every branch is separate. Legacy yard-space ceil/floor is not exact. |
+| T1 clocks/snap — L; selection/retirement callers bounded portable | `main.c:graphics_init/get_tsec`; `nfl.c:game_clock_proc/time_table` L2868–2993, fractional discard L1387–1388; `ADJUST.C` L21; `player.c:_mode_qbps`; `playsel.c` caller L1045–1053; `lib/select/select.c:timedown_play_select` L6524–6567 | Reference gameplay profile **57 ticks/s**; max auto-hike **5*tsec = 285**. Packed start **0x00020000**, first active clock iteration **0x00013b18**. Rates **[30,25,20,18,16]**, default index **2**, bad adjustment fallback **3**. At packed `0x00001f00`, quarter index 1/3 yields `0x00001e22`; quarter index 0/default yields `0x00001e14`; play-time increment reaching18 uses low byte `0x30` unless late-half branch wins. Actual retirement58/59/60 and recreated-clock/global-play-time behavior are tested, not just helpers. Stop clock and discard low byte at play end. Separate selection timer **9** first quarter / **5** later advances/expires on the portable process host, including zero's **tsec+25** grace and actual cabinet current-highlight forcing. Remaining scheduled rate/beep/fractional-resume/snap windows have explicit verification IDs in the caller checkpoint; no native scheduler claim is inferred. |
+| T2 periods/halftime/overtime — L/V; bounded actual callers qualified | `nfl.c:eoq_handling/start_new_quarter/game_over`, L1982–2101, L2448–2463; `include/GAME.H` L218–238 | Actual25 period/conversion cases now finish live play and required PAT after expiry, cover both halftime kickers, both untied winners in regulation/all OTs, and execute sequential **three**-OT tapes with one coin draw, alternating kickers and tied-third-OT termination. The separate60 original-C PAT cases exercise L875–883 skip and miss boundaries. These declared-boundary traces are not a naturally played four/seven-period match; no conventional NFL sudden-death rules are imported. |
+| S1 scoring/PAT/2pt — L/D/V; bounded result/PAT callers qualified | `nfl.c` L1732–1818, L875–903; `playsel.c:play_select` L1241–1255, L1342–1368, L1489–1502; `result.c:_pat_*` | TD **6**, safety **2**, conversion **2**, FG **3**, PAT safety **1** to opponent. Actual60-case original-C PAT comparison covers both teams, skip priority, GoForTwo, human lead >14/index >2/draw <2 and CPU lead >8/index >1/draw <3 boundaries, with exact RNG order. Real15-tick pre-award and40/285 post-award continuations are causally tested. The period/result callers include failed/defensive conversions and end-zone exceptions; this is not automatic seven or full flight/contact/browser qualification. |
+| S2 kick/punt/restarts — L/D/V; normal punt/FG/quick caller subset qualified | `nfl.c` kickoff branch L905–1173, result branches L1811–1891; `player.c:punt_ball/kick_ball/set_punt_ball_vels/set_field_goal_ball_vels/ball_proc`; `result.c:_norm_deadball/_norm_oobball/_kick_*` | Opening/post-score/halftime/OT kickoffs, quick kick, onside, punt/fake, FG/fake/block/miss/return, touchback and safety restart. Quick-kick setup **40**, touchback **20**, untouched kickoff OOB receiving LOS **40**. Actual normal-play result dispatch and receiver-stage quick timing are repaired/tested; current full306 public typed-selection→neutral auto-hike→punt/FG VM launches pass independent cue-omission controls. Human raw-menu/fake/block/recovery/return windows remain separate. Empty `_fg_*`/`_punt_*` handlers are not invented kick logic; no universal own-20 restart. |
 | P1 playbooks/routes/defense/audibles — L/D/V, V/P | `PlayStuf.c:off_slots/def_slots/play_pages/PlayStuf__SetupCurrentPlayPages/PlayStuf__ResetAudibles`; `playsel.c:PlaySel__MakeChoice/cpu_pick_play`; `playbook.c`; active `drone.c:_drone_qb` **L1163**, `_drone_wpn/_drone_db/assign_blockers/drone_cover_assign` | Enumerate reachable source pages/slots, including specials/custom/audibles; run every formation/route opcode and man/zone/blitz assignment with pinned inputs/RNG. Example `formation_stack` first lineman **(-12,-17.5)** source units and `off_slots[0]` **ZIG ZAG** → `play_zigzag`; Run/QuickPass/Cover/Blitz are not source play IDs. Earlier `_drone_qb` at L940 is disabled. |
 | D1 teams/rosters/stats/materials — L/D/V, V/P; all31 source/data partial | `include/GAME.H` L220–223; `teamdata.c`; `player.c:load_uniform/draw_player` L6816–6928; `plyrinfo.c`; `nfl.c` stats updates | **31 teams**, **16** static player records/team, seven on-field actors/side; not 32 teams or one Bears body for everyone. Verify all reachable roster assignments, ratings/scale/body/skin/home-away uniform, held-ball model and one/two-digit jersey overlay. Number digits come from packed nibbles, with zero mapped to atlas slot 9. Match gameplay and final statistical accounting, not just appearance. |
 | I1 input/multiplayer — L/V, V/P; raw cabinet adapter partial | `player.c:player_proc` input edge logic, `_mode_*`, `audible_check`; `include/GAME.H:MAX_PLYRS/plyr_control`; `playsel.c:play_select` | Two/four-station configuration up to **four humans**, same-side cooperation, defensive/receiver switching, A/B/C simultaneous held/edge state and double taps. Preserve source command order; the new raw adapter and menu checks do not close every live-action/browser case. Browser focus-release behavior remains mandatory; network play is not inferred from cabinet stations. |
@@ -1608,6 +2274,197 @@ Native font raster/placement, original global scheduling/ABI, tutorial,
 custom/native dependencies, audible PCM/DSP and performance acceptance remain
 unqualified. This closes the bounded portable selection-countdown gap only;
 **all sixteen full/native acceptance rows remain OPEN**.
+
+### Total team touchdowns — bounded source/component/static/NS21 acceptance
+
+The previously authenticated `historicalsource/nflblitz2000` revision
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`, `nfl.c` physical LF1762–1775,
+credits each touchdown to the classified final offense's cumulative team total,
+independently of forward-pass, initial-possession and fourth-down conditions.
+This total is separate from passing touchdowns at LF1548–1559. This
+documentation-only roll-forward imports or reacquires no original source or assets.
+
+`Assets/Scripts/Gameplay/SimulationState.cs` owns the two-entry
+`SourceTouchdowns` array and appends one checked Touchdown-only increment in
+`AccumulateSourcePlayEndStats`, using `resolution.Classification.OffenseSide`.
+All older accumulator statements/writers and the existing applied-result caller
+in `GameSimulation.Source.cs` remain unchanged. In
+`Assets/Scripts/Contracts/SourceMatchContracts.cs`, immutable
+`SourceTouchdownStatsView` exposes copied Home/Away counts through the optional
+`SourceMatchView.TouchdownStats` group and a tenth delegating overload. All nine
+old overloads retain unspecified/null total-touchdown observations and unchanged
+defaults/exception precedence. The actual Match construction in
+`Assets/Scripts/Gameplay/GameSnapshot.cs` prepends the copied Home/Away group;
+all older operands remain intact. This is static adapter evidence, not genuine
+`Capture`/Game or exactly-once caller qualification.
+
+The closed `tests/source-touchdown-stats` campaign observed **28 component/API
+cases / 78 named assertions / zero failures**, four clean-compiled
+actual-production semantic controls, three **STATIC-only** caller/adapter
+negatives and15 real-entry/artifact regression cases. The NS21 library compile
+used77 production sources and121 references. Six csc/five managed starts plus
+two preparer/ten entry-Python starts total23 scoped applications. Actual parent
+controller10649 and unit10651 both completed exit0, as recorded in the
+[parent-observed completion](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/implementation-01/parent-observed-completion.json).
+
+The [Qualityfc70 review](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/quality-review-01/quality-review.json)
+approved the authenticated-source/component/static/production-only NS21 gate
+with zero material findings. The [parent scoped acceptance](../.squad/.scratch/source-following-active-p1/metadata/source-after-current52-next-gap/parent-scoped-acceptance.json)
+records acceptance at2026-10-25T19:35:47Z. Preflight/catalogue `accepted:false`
+and proposed/nonexecuting metadata remain historical; this doc-only status
+roll-forward does not rewrite their old documentation pins or reauthorize the
+closed packet. Inherited rule custody is not a fresh semantic review, and
+**process compliance is not certified**; all recorded deviations remain.
+
+This reports the earlier closed observations, not a fresh test run or actual
+Game/Capture/Resolve, caller reachability/exactly-once timing, selector/scheduler,
+native execution or ABI/overflow qualification. All16 plusE1/E2/E3, genuine
+Core/selector/audible/snap/queue/C2/Step/Restart/natural-idle runtime, original
+assets/rights, whole-game100% and publication remain **OPEN**.
+
+### Tutorial caller admission and parent coordinator — conditionally qualified
+
+The preceding connected conditional admission artifact was actually executed and
+independently **APPROVED**, with zero supported material bugs:
+`source-instruction-original-admission-01/implementation-01/quality-review-01/quality-review.json`.
+Its12 production-component cases/seven separately compiled semantic kills,
+nine **STATIC** guards/five STATIC controls and current-at-that-time Core87
+C#7.3 library typecheck remain distinct evidence classes, not Game/Unity proof.
+Historical authoring metadata/results are immutable and are not replayed here.
+
+The authenticated caller remains the default play-type arm after play selection
+and fourth-down accounting, before player reinitialization: flag1, then ordered
+slots0–3 with games_played strictly below3 before each live participation bit.
+Initialization/restart writes0 for nonzero p_status, otherwise2. The real kickoff
+catch creates the parent with PID0 and no flag reservation; later entry writes1.
+Actual caller hooks, coherent flag/effect ownership and unbound/manual behavior
+are retained. The original instruction wait/page/effect/final-delay body is frozen.
+
+This independently released continuation implements the **parent coordinator**
+instead of requiring its entire opaque suffix. The previously authenticated
+prefix creates slots0,1, reads live four_plr_ver only afterward, optionally creates
+slots2,3, suspends(0,32768), specifically resumes the supplied child PID with-1,
+then polls any matching live PID with the full mask and returns through sleep1.
+The existing host query includes foreign/suspended live matches, not only owned
+children. No child factory/body executes inline during parent creation or spawn.
+
+One fresh exact-commit contents GET authenticated original plyrinfo.c before its
+single25-line LF4491–4515 observation. LF4493–4505 proves resume-all after the loop,
+then live per-slot participation/control checks and current-button followed by
+old-button OR writes with P_A|P_B. Control indices are reread for each write.
+The parent then falls through: no extra flag2, sleep, active new-button write or
+proved native retirement. No child body was acquired; prior GETs remain consumed.
+
+Explicit production opt-in uses the existing binding/message dispatcher and
+global serial namespace. It requires child PID, four-player/control readers,
+MAX_PLYRS and A/B operands, button services and real per-child continuations.
+Numeric native definitions, actor-count inference and no-op/default providers are
+not supplied. The explicit whole-suffix constructor remains compatible.
+Child external fallthrough is not automatically death; an independently owned
+retirement request is a separate external boundary.
+
+The `producer-coordinator-02/validation-fix-02` generation actually passed
+16 production-component cases and twelve separately compiled production-source
+semantic controls. All14 compiler exits were0 with zero diagnostics; the13
+managed exits were the baseline0 and twelve intended assertion failures.
+Six **STATIC** Game guards/five STATIC controls remain a separate evidence class.
+The current actual Core87 C#7.3 warnings-as-errors library also compiled cleanly
+and was **never executed**. Independent Quality **APPROVED** this bounded parent
+and tooling artifact with zero material findings; its report and exact result
+pins are recorded in that generation's metadata. Both earlier failed tooling
+generations remain immutable, not passing evidence or reusable execution grants.
+This is conditional component behavior, source wiring and typechecking, **not
+executed Game or native child/runtime proof**. Child bodies/native SDK/global
+timing, genuine Game/Unity/resources/Q1, assets/rights, all16 and whole100 remain
+**OPEN**.
+
+### Kickoff tutorial child and owned helpers
+
+**October 26, 2026 — conditional component qualification only.** This increment
+supersedes the preceding parent-only section's unimplemented child/helper
+boundary, not its historical evidence or the existing acceptance catalogue.
+
+The [authored child](../tests/source-kickoff-instruction-child/README.md) and
+[owned wait/flash](../tests/source-kickoff-owned-helpers/README.md) implement the
+factual contracts for `historicalsource/nflblitz2000` commit
+`89f840d58d152a2a9f230cb8d0cdffbd554c8ded`:
+[child/prelude, `plyrinfo.c:4516–4684`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-child-source-01/native-child-contract.json),
+[active-player wait, `attract.c:2054–2067`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-native-helpers-01/active-wait-source-02/native-active-player-wait-contract.json)
+and [flash, `plyrinfo.c:4804–4822`](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-native-helpers-01/public-acquisition-01/native-helper-contracts.json).
+No native source or resource payload is reproduced here.
+
+The real opt-in is `GameSimulation.BindSourceKickoffInstructionOwnedHelpers`:
+`WithOwnedHelpers` / `WithSourceChild` feed existing coherent admission, and the
+dispatcher builds factories with its actual host/state before deferred child
+and flash wakes. No whole wait/flash body is supplied on this path. Explicit
+coordinator/child operands, live inputs/buttons, current-switch sampling,
+captured player-object/live flags, numeric button/flash masks, child/flash
+return policies and resource/font/format/sound bindings remain mandatory.
+Constructors do not activate it automatically.
+
+The wait owns sleep1-first, post-resume tick increments, live participation and
+original-player-byte polling, minimum-last evaluation and timeout-after-poll.
+Flash owns the captured original object, unconditional white/clear sleep8 cycle,
+ID22/ANY full-mask query and repeated live-flag preservation. Source-function
+return remains separate from the explicitly bound retirement policy.
+
+[Current baseline evidence](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/baseline-output-01/result.json)
+records **12 new named cases / 908 assertions**, a clean compile, managed exit 0,
+empty stderr and stable pins.
+[Current-source regressions](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/regression-output-01/result.json)
+preserve child18/3,825 and coordinator16 with three clean compiles/two managed
+exit 0 results. The actual 89-unit Core library, including the Game binding, was
+typechecked and **never executed**. The earlier 29 compiled semantic controls
+remain historical older-pin evidence, not new-helper coverage.
+[Quality APPROVE](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/quality-review.json)
+has zero material findings and is conditional component acceptance only.
+
+[Minimal baseline-input metadata](../.squad/.scratch/source-following-active-p1/metadata/source-kickoff-owned-helpers-01/baseline-inputs.json)
+describes the pinned component/capture contract; existing outputs are consumed
+one-shot evidence, not blindly reusable commands. The parent did not execute
+the sealed historical all-phases `validate.py`; it is not a current passing
+runner and may reject these helper pins by design.
+
+Rollback/legacy behavior remains the existing unbound/manual, external child or
+helper-factory and whole-suffix paths on a fresh simulation, not a hot rebind.
+The frozen 9,470-byte original instruction-body suffix is unchanged. Genuine
+Game construction/execution, Unity/browser/rendering, native SDK/ABI/scheduling,
+authentic bindings/resources/assets/rights, all 16 and whole100 remain **OPEN**.
+
+### Runtime admission and owned child HUD
+
+**October 26, 2026 — source, portable and genuine-API qualification only.**
+The [runtime admission](../tests/source-kickoff-runtime-integration/README.md)
+now uses the retained actual simulation through its typed program binding.
+Pending initial-bind failures retry the same coherent admission only after an
+actual reset notification; established bindings are not initialized twice.
+The source-profile restart path reports repeated failures instead of silently
+switching to manual behavior. Its captured portable lifecycle passes 218
+assertions in one combined case, not 218 independent scenarios or engine runs.
+
+The [owned child HUD](../tests/source-kickoff-presentation/README.md) adds the
+explicit `BlitzRuntime.BindSourceKickoffInstructionHud` path. Child drawing
+commands use the existing HUD resource, glyph, graphic and retained renderer
+pipeline without a whole external child-effects implementation. Child graphics
+are merged with four-page graphics and can draw before a four-page invocation;
+shared numeric ID/mask cleanup and reset/abort/dispose remain source-owned.
+The external-effects, manual and unbound paths remain available without default
+or URL activation.
+
+The current child-HUD capture passes four portable cases / 240 assertions and
+API-compiles all 138 complete non-Editor player files with C#7.3, `UNITY_WEBGL`
+and warnings as errors, against 121 NetStandard2.1 references and seven genuine
+Unity 6000.3.24f1 modules. The missing audio built-in is now declared in both
+package files. Both runtime and child-HUD scoped reviews pass with no material
+findings; captured generations and source pins are linked from their test READMEs.
+
+Actual native formats, font/atlas/color bindings, sprite transform/defaults,
+object IDs, resolved sound output, input/flag masks and return policies are still
+mandatory. No native values, font metrics or replacement tutorial are inferred.
+This does **not** execute Game, Unity/Editor, original assets, native code or a
+browser. Genuine initialized runtime/HUD behavior, the five native-HUD cases,
+bitmap/GPU output, all 16 acceptance rows, assets/rights and whole-game fidelity
+remain **OPEN**.
 
 ### Available but not fully integrated
 

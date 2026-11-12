@@ -1,0 +1,23 @@
+{
+  "schema": "source-bound-public-recording-negative/v1",
+  "case": "portable-cabinet-wide-pass-clearance-selection-countdown-v4-12000",
+  "public_sha256": "5a147d8a2482c6abfc5d9d143c8a62a9b1aeadaa4ad2bcc64f6f0d2dc0c194fa",
+  "failed_production_sha256": "99dde2cb9f6e63bb64aabafbc0294aa0fb87c46a7d216b26dd0fe112f26d7020",
+  "capture_host": 4180,
+  "dispatch_host": 4181,
+  "source_tick": 3972,
+  "capture": {
+    "phase": 0,
+    "possessed_side": 0
+  },
+  "dispatch": {
+    "phase": 0,
+    "possessed_side": 0
+  },
+  "submitted_station": 0,
+  "submitted_playbook": 1,
+  "submitted_play": "play_suicide_blitz",
+  "guard_error": "The selected original playbook does not belong to the submitting source side.",
+  "classification": "invalid-at-capture-historical-recording-not-a-queue-side-transition",
+  "native_equivalent": false
+}

@@ -5,6 +5,133 @@ namespace Blitz.Gameplay
 {
     internal static partial class SourceAnimationPrograms
     {
+        private static SourceAnimationInstruction Celebrate(bool value)
+        { return new SourceAnimationInstruction(SourceAnimationOp.SetCelebrate, value ? 1 : 0); }
+
+        private static SourceAnimationInstruction DanceCamera(string table, int line, int count = 1)
+        { return new SourceAnimationInstruction(SourceAnimationOp.CameraCue, count, text: table, sourceLine: line); }
+
+        private static SourceAnimationInstruction DanceTurn(int heading)
+        { return new SourceAnimationInstruction(SourceAnimationOp.TurnHack, heading); }
+
+        private static void AddDance(Dictionary<string, SourceAnimationProgram> programs, string symbol,
+            string sequence, int transition, int frame, bool anchorY, params SourceAnimationInstruction[] body)
+        {
+            var words = new List<SourceAnimationInstruction> {
+                Mode(SourceAnimationModes.Uninterruptible | SourceAnimationModes.AnchorXZ
+                    | (anchorY ? SourceAnimationModes.AnchorY : 0)),
+                Op(SourceAnimationOp.ZeroVelocity), Celebrate(true), Int(sequence, transition, frame)
+            };
+            words.AddRange(body);
+            words.Add(new SourceAnimationInstruction(SourceAnimationOp.JumpProgram, text: "breath_anim", branchPc: -1));
+            words.Add(Op(SourceAnimationOp.End));
+            programs.Add(symbol, new SourceAnimationProgram(symbol, words.ToArray()));
+        }
+
+        internal static IReadOnlyDictionary<string, SourceAnimationProgram> CreateCompleteOriginalExtension()
+        {
+            var programs = new Dictionary<string, SourceAnimationProgram>();
+            foreach (KeyValuePair<string, SourceAnimationProgram> entry in CreateC2Extension())
+                programs.Add(entry.Key, entry.Value);
+            AddDance(programs, "endz_08", "ENDZ_08", 10, 4, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex_nf", 15723),
+                Call(SourceAnimationSignal.DropBall), Cue("taunt_speech", 15731),
+                Stream(69, 122), Celebrate(false));
+            Add(programs, "endz_06",
+                Mode(SourceAnimationModes.Uninterruptible | SourceAnimationModes.Anchor), Celebrate(true),
+                Int("ENDZ_06", 10),
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 5),
+                DanceCamera("csi_rs_suplex", 15763), Op(SourceAnimationOp.ZeroVelocity),
+                Call(SourceAnimationSignal.DropBall), Cue("taunt_speech", 15774),
+                Stream(40, 65), Stream(40, 65), Stream(40, 65), Stream(40, 65), Celebrate(false),
+                new SourceAnimationInstruction(SourceAnimationOp.JumpProgram, text: "breath_anim", branchPc: -1),
+                Op(SourceAnimationOp.End));
+            AddDance(programs, "endz_20", "ENDZ_20", 10, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_zm_divetack", 17889, 3),
+                Call(SourceAnimationSignal.DropBall), Cue("taunt_speech", 17897),
+                Stream(42, 60), Stream(42, 60), Stream(42, 60), Stream(42, 60),
+                DanceTurn(256), Celebrate(false));
+            AddDance(programs, "end_zone1_anim", "INZONE1", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex_nf", 7849), Cue("taunt_speech", 7853),
+                Stream(100, 80), Stream(100, 80), Cue("taunt_speech", 7860, 2),
+                Stream(23, 19), Call(SourceAnimationSignal.SpikeBall), Run(),
+                DanceTurn(-128), Celebrate(false));
+            AddDance(programs, "end_zone5_anim", "M_TAUNBC", 6, 0, true,
+                Cue("taunt_speech", 7896, 18),
+                new SourceAnimationInstruction(SourceAnimationOp.StreamToEnd, x: 1.90f), Celebrate(false));
+            AddDance(programs, "end_zone6_anim", "M_EZCTHR", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex", 7981), To(172), Cue("taunt_speech", 7988, 20),
+                Call(SourceAnimationSignal.FlingBall), Stream(47, 105),
+                DanceTurn(512), Celebrate(false));
+            AddDance(programs, "end_zone9_anim", "M_EZCGUN", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex_nf", 8026), Stream(100, 45),
+                Cue("attack_snd", 8033, 147), Stream(16, 11),
+                Cue("attack_snd", 8038, 147), Stream(12, 8),
+                Cue("attack_snd", 8043, 147), Stream(12, 8),
+                Cue("attack_snd", 8048, 147), Stream(10, 8),
+                Cue("attack_snd", 8053, 147), Stream(10, 8),
+                Cue("attack_snd", 8058, 182), Stream(11, 8),
+                Cue("attack_snd", 8063, 182), To(252),
+                Cue("attack_snd", 8068, 181), Stream(9, 10),
+                Cue("attack_snd", 8073, 183), Run(), Celebrate(false), DanceTurn(-256));
+            AddDance(programs, "end_zone3_anim", "INZONE3", 6, 0, true,
+                Call(SourceAnimationSignal.DropBall), Stream(100, 90), Stream(100, 90), Stream(100, 90),
+                Cue("taunt_speech", 17420, 5), Stream(87, 77), Celebrate(false));
+            AddDance(programs, "end_zone2_anim", "INZONE2", 6, 0, false,
+                To(31), Cue("taunt_speech", 17372, 3), To(82), Cue("taunt_speech", 17377, 3),
+                Run(), DanceTurn(-320), Celebrate(false));
+            AddDance(programs, "end_zone4_anim", "M_CELCHE", 6, 0, true,
+                To(68), To(120), To(211), Run(), Celebrate(false));
+            AddDance(programs, "end_zone7_anim", "M_EZCWHA", 6, 0, true,
+                Stream(100, 95), Stream(100, 95), Stream(73, 71), Celebrate(false), DanceTurn(512));
+            AddDance(programs, "end_zone8_anim", "M_EZWAV1", 6, 0, true,
+                Cue("taunt_speech", 17636, 3), Run(), Celebrate(false));
+            AddDance(programs, "end_zone10_anim", "M_EZCSPN", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex_nf", 17666), Stream(100, 80), Stream(100, 80),
+                Cue("taunt_speech", 17675, 19), Stream(100, 80), Stream(24, 18),
+                Celebrate(false), DanceTurn(256));
+            AddDance(programs, "end_zone11_anim", "M_EZCHRS", 6, 0, true,
+                Stream(37, 90), Stream(38, 90), Stream(38, 90), Stream(37, 90), Run(),
+                Celebrate(false), DanceTurn(512));
+            AddDance(programs, "end_zone13_anim", "M_EZPUSH", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex_nf", 17494),
+                Stream(36, 85), Stream(36, 85), Stream(36, 85), Stream(36, 85),
+                DanceTurn(-576), Celebrate(false));
+            AddDance(programs, "end_zone14_anim", "M_EZJASN", 6, 0, false,
+                To(14), Stream(41, 120), Stream(41, 120), DanceTurn(-576), Celebrate(false));
+            AddDance(programs, "end_zone15_anim", "M_EZDNCE", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex", 17567),
+                Stream(46, 105), Stream(46, 105), Stream(46, 105), Stream(46, 105),
+                DanceTurn(-768), Celebrate(false));
+            AddDance(programs, "end_zone18_anim", "M_EZJON1", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_rs_suplex", 17279), Call(SourceAnimationSignal.DropBall),
+                Cue("taunt_speech", 17289), Stream(37, 85), Stream(37, 85), Stream(37, 85), Stream(37, 85),
+                Celebrate(false));
+            AddDance(programs, "end_zone19_anim", "M_EZJON2", 6, 0, true,
+                new SourceAnimationInstruction(SourceAnimationOp.BranchIfNotHasBall, 6),
+                DanceCamera("csi_zm_divetack", 17331, 3), Call(SourceAnimationSignal.DropBall),
+                Cue("taunt_speech", 17338), Stream(37, 85), Stream(37, 85), Stream(37, 85), Stream(37, 85),
+                Celebrate(false));
+            Add(programs, "disapointed1_anim", Mode(SourceAnimationModes.Uninterruptible | SourceAnimationModes.Anchor),
+                new SourceAnimationInstruction(SourceAnimationOp.Friction, x: .095f), Seq("R_SLO_D1"), Run(),
+                DanceTurn(-256), new SourceAnimationInstruction(SourceAnimationOp.JumpProgram, text: "breath_anim", branchPc: -1),
+                Op(SourceAnimationOp.End));
+            Add(programs, "disapointed2_anim", Mode(SourceAnimationModes.Uninterruptible | SourceAnimationModes.Anchor),
+                new SourceAnimationInstruction(SourceAnimationOp.Friction, x: .095f), Seq("R_SLO_D2"), Run(),
+                new SourceAnimationInstruction(SourceAnimationOp.JumpProgram, text: "breath_anim", branchPc: -1),
+                Op(SourceAnimationOp.End));
+            return new ReadOnlyDictionary<string, SourceAnimationProgram>(programs);
+        }
+
         internal static IReadOnlyDictionary<string, SourceAnimationProgram> CreateC2Extension()
         {
             var programs = new Dictionary<string, SourceAnimationProgram>();

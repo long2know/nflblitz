@@ -14,8 +14,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Contracts/**/*.cs" />
-    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceRandom.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceMatchFlow.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceClock.cs;$(BlitzSourceRoot)/Assets/Scripts/Gameplay/SourceMatchRules.cs" />
-    <Compile Include=".artifacts/ActualCoreSupport.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Gameplay/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/AssetImport/*.cs"
+             Exclude="$(BlitzSourceRoot)/Assets/Scripts/AssetImport/SourceAudioFunctionData.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Storage/*.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Presentation/SourceCinematicModel.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Presentation/SourceC2SoundFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Runtime/SourceContactComposition.cs" />
+    <Compile Include="$(BlitzSourceRoot)/Assets/Scripts/Runtime/SourceC2Composition.cs" />
     <Compile Include="$(AudioDataSource);$(AudioFunctionsSource);Program.cs" />
   </ItemGroup>
 </Project>

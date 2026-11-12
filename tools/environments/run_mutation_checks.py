@@ -14,7 +14,10 @@ import prepare_environment as env
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bundle-root", required=True, type=Path)
+    profile = parser.add_mutually_exclusive_group(required=True)
+    profile.add_argument("--bundle-root", type=Path)
+    profile.add_argument("--catalog-root", type=Path,
+                         help="Focused runtime catalog fallback and closed-payload-pin mutations against actual data.")
     args = parser.parse_args()
     project = Path(__file__).absolute().parents[2]
     work = project / ".squad/.scratch" / ("environment-mutations-" + uuid.uuid4().hex)
@@ -30,14 +33,28 @@ def main():
         ("ARGB1555-alpha-bit", original, "a = 255 if word & 0x8000 else 0", "a = 255 if word & 1 else 0", "python"),
         ("visibility-volumes-not-art", original,
          '"zone-volume" if scene.name == "stadpie"', '"render" if scene.name == "stadpie"', "python"),
-        ("reader-SHA256", reader, "AuthorizedAssetRoot.Sha256(bytes) == expected", "true", "csharp"),
+        ("selected-team-endzones", original, "selected_name = home_prefix + selected_name[3:]",
+         'selected_name = "BEA" + selected_name[3:]', "python"),
+        ("reader-SHA256", reader, "AuthorizedAssetRoot.Sha256(bytes) == expected,", "true,", "csharp"),
         ("reader-index-range", reader, "Require(index >= 0 && index < count,", "Require(index >= 0,", "csharp"),
         ("reader-bounds", reader, "Require(Equal(bounds, info.boundsUnity),", "Require(true,", "csharp"),
         ("reader-native-clamp-contract", reader, 'state.clampMode == "GR_TEXTURECLAMP_CLAMP"',
          '(state.clampMode == "GR_TEXTURECLAMP_CLAMP" || state.clampMode == "GR_TEXTURECLAMP_WRAP")', "csharp"),
         ("reader-bound-WRAP-restore", reader, 'Require(info.samplingWrap == "GR_TEXTURECLAMP_WRAP",',
          'Require(true,', "csharp"),
+        ("reader-selected-material", reader,
+         "string.Equals(slot.selectedName, expected, StringComparison.OrdinalIgnoreCase)",
+         "true", "csharp"),
+        ("reader-selected-input", reader,
+         'texture != null && (string.Equals(texture.sourcePath, "img3d/" + expected, StringComparison.OrdinalIgnoreCase)',
+         'texture != null || (string.Equals(texture.sourcePath, "img3d/" + expected, StringComparison.OrdinalIgnoreCase)',
+         "csharp"),
     ]
+    if args.catalog_root:
+        mutations = [
+            ("catalog-no-default-fallback", reader, "return selections[actual.Identity];", "return Default;", "csharp"),
+            ("catalog-closed-payload-pin", reader, "AuthorizedAssetRoot.Sha256(raw) == file.sha256", "true", "csharp"),
+        ]
     files = {}
     for name, code, before, after, language in mutations:
         env.require(code.count(before) == 1, "Mutation target is not unique: " + name)
@@ -52,7 +69,9 @@ def main():
         else:
             environment = dict(os.environ)
             command = [sys.executable, "-B", str(project / "tools/environments/run_reader_checks.py"),
-                       "--bundle-root", str(args.bundle_root.absolute()), "--reader-source", str(work / (name + ".cs"))]
+                       "--catalog-root" if args.catalog_root else "--bundle-root",
+                       str((args.catalog_root or args.bundle_root).absolute()),
+                       "--reader-source", str(work / (name + ".cs"))]
         process = subprocess.run(command, env=environment, capture_output=True, text=True)
         output = process.stdout + process.stderr
         (work / (name + ".output.txt")).write_text(output)

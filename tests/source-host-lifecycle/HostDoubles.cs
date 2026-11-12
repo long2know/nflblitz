@@ -221,6 +221,17 @@ namespace Blitz.AssetImport
 namespace Blitz.Contracts
 {
     public readonly struct SourceCameraFeedback { public bool CameraCompleted { get { return true; } } }
+    // Opaque arguments to the unbound instruction collaborator. This lifecycle suite
+    // never executes or qualifies instruction gameplay/presentation.
+    public sealed class SourceInstructionProcessIds { }
+    public interface ISourceInstructionInputs { }
+    public interface ISourceInstructionAdmissionState { }
+    public interface ISourceKickoffInstructionChildInputs { }
+    public interface ISourceKickoffInstructionPlayerButtons { }
+    public sealed class SourceKickoffInstructionChildOperands { }
+    public interface ISourceKickoffInstructionChildEffects { }
+    public sealed class SourceKickoffInstructionOwnedHelpers { }
+    public interface ISourceKickoffInstructionChildReturnBinding { }
 }
 
 namespace Blitz.Gameplay
@@ -230,6 +241,7 @@ namespace Blitz.Gameplay
     public sealed class GameSimulation
     {
         public IGameState State { get; private set; }
+        public long SourceTick { get { return ((ISourceGameState)State).SourceTick; } }
         public bool SourceFireEnabled;
         public Func<SourceInputFrame, SourceInputFrame> SourceStationInputTransform;
         public Func<IGameState, long, int> SourceCameraHeadingProvider;
@@ -259,11 +271,22 @@ namespace Blitz.Gameplay
 
 namespace Blitz.Presentation
 {
+    public sealed class SourceHudViewport { }
+    public sealed class SourceInstructionHudResources { }
+    public sealed class SourceKickoffInstructionHudBindings { }
+    public interface ISourceInstructionObjectFlashBinding { }
+    public enum SourceInstructionPresentationError { InvalidLifecycle }
+    public sealed class SourceInstructionPresentationException : InvalidOperationException
+    {
+        public SourceInstructionPresentationException(SourceInstructionPresentationError error, string message)
+            : base(message) { }
+    }
     public sealed class SourcePlayerRig { }
     public sealed class SourceTeamResourceProfile
     {
         public string StableId { get { return "managed-profile"; } }
         public bool IsContact281C2M1 { get { return HostProbe.Source; } }
+        public bool IsContact282C2M1DefaultAudibles { get { return false; } }
         public bool UsesM1Services { get { return IsContact281C2M1; } }
         public bool UsesC2Data { get { return HostProbe.Source; } }
         public static SourceTeamResourceProfile SelectRuntimeProfile(string url, string stableId) { return new SourceTeamResourceProfile(); }
@@ -385,6 +408,35 @@ namespace Blitz.Presentation
 
 namespace Blitz.Runtime
 {
+    public interface ISourceInstructionSoundBatchBinding { }
+    public interface ISourceKickoffInstructionSoundBatchBinding { }
+    // Fail closed if a retained lifecycle scenario accidentally enters instruction
+    // execution. Do not manufacture instruction results to satisfy compilation.
+    public sealed class SourceInstructionRuntime
+    {
+        private static Exception Unbound() { return new NotSupportedException("Instruction execution is outside managed host lifecycle coverage."); }
+        public SourceInstructionRuntime(object game, object hud, object resources, object sounds, object transport, object flash)
+        { throw Unbound(); }
+        public UnboundInstructionConsumer Consumer { get { throw Unbound(); } }
+        public object KickoffPresentation { get { throw Unbound(); } }
+        public void BindSourceKickoffInstructionOwnedHelpers(params object[] arguments) { throw Unbound(); }
+        public void BindSourceKickoffInstructionHud(params object[] arguments) { throw Unbound(); }
+        public long Invoke(params object[] arguments) { throw Unbound(); }
+        public void Draw(object viewport) { throw Unbound(); }
+        public void Abort(Exception error) { throw Unbound(); }
+        public void AfterSourceStep(IGameState state) { throw Unbound(); }
+        public void OnSourceProgramReset() { throw Unbound(); }
+        public void Dispose() { throw Unbound(); }
+    }
+    public sealed class UnboundInstructionConsumer
+    {
+        public bool HasInvocation { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+        public UnboundInstructionPresentation Presentation { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+    }
+    public sealed class UnboundInstructionPresentation
+    {
+        public Exception Failure { get { throw new NotSupportedException("Instruction execution is not covered."); } }
+    }
     public sealed class SourceInterfaceServices
     {
         public readonly Blitz.Presentation.SourceHudAsset Hud = new Blitz.Presentation.SourceHudAsset();
@@ -421,7 +473,13 @@ namespace Blitz.Runtime
     public sealed class SourceCabinetUnityInput
     {
         public readonly CabinetBuffer Buffer = new CabinetBuffer();
-        public SourceCabinetUnityInput(object configuration, object input, bool gamepads) { HostProbe.Input = this; }
+        public SourceCabinetUnityInput(object configuration, object input, bool gamepads,
+            bool preserveSourceDigitalChanges = false)
+        {
+            if (preserveSourceDigitalChanges)
+                throw new NotSupportedException("Default-audibles input is outside historical M1 host lifecycle coverage.");
+            HostProbe.Input = this;
+        }
         public void Poll(SourceMatch match)
         { HostProbe.Record("input.poll"); if (!HostProbe.CabinetHeld) Buffer.WaitingForNeutral = false; }
         public void Clear() { HostProbe.Record("input.clear"); Buffer.WaitingForNeutral = true; }

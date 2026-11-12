@@ -1,9 +1,141 @@
 # nflblitz
 
-A Unity/C# source-based port targeting the **original NFL Blitz 2000 look and
-game logic**, running client-side in a browser. The procedural graybox
+A source-based C# port targeting the **original NFL Blitz 2000 look and
+game logic**, running client-side in a browser. The primary browser application
+uses **.NET browser-WASM and direct WebGL2 rendering**, without Unity.
+The Unity project remains a separate retained implementation path, not a build
+or runtime prerequisite for this application. The procedural graybox
 is a diagnostic baseline, **not the visual target**. This is an incomplete port,
 not a finished or whole-game-parity recreation.
+
+## Current cache-corrected portable delivery — November 11, 2026
+
+The current **.NET10/browser-WASM + WebGL2** generation includes the qualified
+native-order camera-joint cache and prior-cache/current-camera pass-release
+repair. Independent source comparisons, separate producer/caller controls,
+strict invalid-cache and legacy negatives passed. Only affected retained
+cached-controller/aircatch, M1/C1, raw-six-selector and special-team continuation
+cases were retargeted; no huge historical suite or old world-wrist PF fixture
+was silently promoted.
+
+One fresh, normally sandboxed, trusted-input named TwoStation browser match
+completed four regulation quarters: **0–2 at source31997**, one MatchEnded and
+acknowledged career save at **generation3**. It recorded116 real pass releases,
+live actor/ball matrices and original PCM signal. Running-left/right throws
+were naturally observed in the **secondary** layer; this is not all-six
+natural-selector, natural on-fire GPU or native audiovisual proof. All campaign
+output was collected after the602-second run, read back and cleaned up.
+
+| Distinct current product | Data-manifest SHA-256 | `build-info.json` SHA-256 |
+| --- | --- | --- |
+| AV306 legacy1153 | `51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d` | `57e3dda8e46d1ed117c37500edb4b8067cb68e9e8ec71f361c153e0bed7c1359` |
+| AV306 named TwoStation1154 | `745129381c326e9f237ac4e6c3e020503553aada3e1f993dfb9321c09ee8f32d` | `f50ee08f3e191f17c99ed62f3cfa9aaea1a98d98ef07b55b85f0930bc19bc6c5` |
+
+The immutable source manifest is
+`9fd5acde6b0a7e168e816c798143b82845cf76835eff33b0abc7d5e4321afaaa`,
+compiled-source inventory
+`f3ba295abce2dfc772d13b26ac9d5a593640b7a4a856bef6266872ab3c22f813`.
+These **pre-documentation** identities are not reminted to include this update.
+Matching local images are named
+`sha256:1dee82cf9e4c3e7fedc0f5f528cfa3381c6868f72384b5023143bd1f9ecde872`
+and legacy
+`sha256:0f0af7b7dbcd69adaa8d943e69400a03c10fba5ca685848255a8ae12f717752b`.
+Both passed owned-private-engine build/save/remove-reload, full payload/mode
+verification and **extracted-image, non-container** nginx HTTP at UID/GID101.
+No current secured container start or Docker healthcheck was attempted.
+
+The normal default engine's separately authorized import failed **before
+runc/start** with VFS allocation ENOSPC; ordinary new-file creation on `/data`
+also failed. Its underlying filesystem cause remains undiagnosed. The earlier
+private AppArmor launch failure is a different historical result, not a
+current-image launch attempt. Neither condition was bypassed or retried during
+this corrected delivery. Workflow dispatch/run ID, GHCR publication and remote
+RepoDigest are absent; no commit/push/PR/publication was made.
+
+See [exact corrected source pins, AppBundle/image bundle members, receipts,
+workflow and limits](docs/source-parity.md#current-cache-corrected-portable-delivery--november-11-2026).
+P1's reachable q0/negative-attacker guard, original target RNG, native Composit
+meter dimensions, full camera-tracking/DG2RD/shipped ABI/FPU and native
+DSP/GPU/hardware equivalence remain unqualified. No guard was disabled and no
+all-sixteen-row/full-fidelity completion is claimed. Pre-cache Nov11
+`229…/e3a…` and all Nov10/e44 evidence retain their own historical identities.
+
+## Historical bounded portable delivery — November 10, 2026
+
+The following section records the unchanged Nov10 epoch. Its “current” labels
+are relative to that historical delivery, not the corrected Nov11 products.
+
+The current **.NET10/browser-WASM + WebGL2** products passed normal-sandbox,
+trusted-input Chrome cases with **four participating humans**, two same-side
+cooperative humans and two opposing humans. The separate named TwoStation
+product passed saved-record selection, legacy-Unknown diagnostics, no-edit CAP
+exit/save/reload, live normal/flipped TMSEL actors, empty-custom-page forcing,
+focus release and original-PCM/GPU-material checks. Its natural four-quarter
+match finished **6–8**, with a committed career save at generation4.
+
+The exact F1 continuation used the **same exported named AppBundle**, not a new
+build or seeded final: a separate natural **13–8 match through two OTs** committed
+gen4, public rematch reached started2/completed1, cold page reload retained
+`GAMES 1  WINS 1  LOSSES / TIES 0`, and fresh TMSEL→lineup startup passed.
+Session counters reset across a cold reload; they are not durable career totals.
+All browser commands, artifacts and owned Chrome/HTTP/runtime cleanup are
+terminal and collected.
+
+| Distinct current product | Data-manifest SHA-256 | `build-info.json` SHA-256 |
+| --- | --- | --- |
+| AV306,1153 inputs; legacy TwoStation guests, FourStation/co-op | `51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d` | `1ede13ab74cf71b06753d55ced769fb02f657bd07bfaee7b76cb8301ecabf626` |
+| AV306 named TwoStation,1154 inputs; separate opt-in | `745129381c326e9f237ac4e6c3e020503553aada3e1f993dfb9321c09ee8f32d` | `00e0520466ccdc93a8c722bbdd21f54c253d92de949c8fa2e9b6fe8e0c2fe6bf` |
+
+Both use immutable compiled-source inventory
+`2d34b3e5bfef0d0807903218c0c2425c81ed368ff2fa8f8e88e3a777260d78b2`:
+base manifest `edbf823f293bb7b460fad46e1fb63110d27919b70ee3e3fe532310f5e306b0f5`
+plus only the approved Browser-project overlay
+`235edcd782974d585534d907b98d5fe733f7b8125e8a1281dd9c8da85cb57dcf`.
+This post-build documentation does **not** enter or remint those identities.
+
+Matching local images were built, saved and remove/reloaded in an owned private
+engine: named `sha256:c0e42a63d5236e5b845991b36edbee7965b9008b1259f720536ab8c21f3e7bd5`,
+legacy `sha256:869a4474746948cf18327abf7730c1aafe0395a11fdc71f8fd54e904f68b7b19`.
+Every shipped payload byte/mode and extracted-image nginx HTTP at UID/GID101
+passed. **That HTTP execution was not a container launch.** Normal secured
+`runc` startup failed host AppArmor-profile inspection; the Docker healthcheck
+did not run. Neither image is loaded in the default host engine or published
+to GHCR; the unchanged manual workflow was not dispatched.
+
+See the [exact AppBundle/image archive hashes, tags, receipts, workflow facts and
+current scoped status](docs/source-parity.md#current-bounded-portable-delivery--november-10-2026).
+**This is not all-sixteen-row or whole-game/native parity.** P1's reachable
+negative-attacker/CPU-QB guard and original target RNG remain OPEN. No guard was
+disabled; all31 admitted team-speech inventories are not31 heard runtime cases,
+and no natural on-fire GPU, native DSP/pixel or representative-hardware claim is
+made. Native Unity remains a separate unqualified path.
+
+## Historical bounded browser evidence — November 9, 2026
+
+The following e44/1114 result and its retained receipts are historical, not the
+current AV306 products or images above.
+
+The **explicit** `aot-rooted-bounded-caller-drain/v1` browser profile completed
+one real, normally sandboxed Chrome regulation match. Its retained result was
+written **November 9 at 19:42 PST**, exit0: four periods, final0–82, acknowledged
+career save, public rematch and career reload. Public pause/resume, four physical
+cabinet-slot focus release, original-PCM signal and actual gameplay GPU
+shadow/material readback passed, with zero JS/console/network failures.
+
+This is build `e44d261db3236fe2bf755c54a048a4fea6f104c909b34f6614d7cba72e068c6f`,
+using the separately admitted **1114-input selected-world-v2** dataset—not a
+default Unity profile or the older963-input build. The browser/profile exited
+and was cleaned up; this is a retained result, not a still-running campaign.
+See the [exact source/data/binary IDs, local receipts, commands and remaining
+limits](docs/source-parity.md#current-bounded-caller-browser-evidence--november-9-2026).
+
+**This does not mark the game complete.** One regulation case does not qualify
+overtime, every animation/team/venue, target RNG/DSP/pixels or representative
+hardware. All sixteen whole/native parity rows remain OPEN. Docker packaging
+is separate from actual container launch; current host cgroup/AppArmor and
+pinned-Editor entitlement blockers are recorded in the ledger. The current
+image has not been published to GHCR or loaded into the default shared Docker
+daemon; its verified archive must be loaded on a capable host.
 
 ## Playable portable browser versus the Unity generation
 
@@ -101,6 +233,35 @@ or relabeled by the separate portable browser or headless/API results.
 October 15 static-pose/title history.
 
 ## Import, build and run
+
+### Primary browser application: .NET/WASM and WebGL2
+
+Follow [the source-player build and serving recipe](tools/source-player/README.md).
+`tools/source-player/SourcePlayer.Browser.csproj` compiles the shared production
+C# simulation to `browser-wasm`; JavaScript supplies cabinet input and renders
+the C# packets directly with WebGL2. Use the existing explicit prepared-data and
+profile contracts. No Unity Editor, Unity build or Unity license is required for
+this route. Genuine browser/gameplay and source-fidelity acceptance are still
+required; Unity-specific checks do not replace or gate that acceptance.
+
+The November9 result requires the explicit selected-world/AOT/caller profile,
+not the default build. With the installed toolchain and authenticated local
+1114 inputs already prepared, its supported build entrypoint is:
+
+```sh
+python3 -B tools/source-player/build.py --aot --caller-drain --no-restore \
+  --profile original-teams-complete-original303-selected-world-v2 \
+  --data "$SELECTED1114_DATA"
+```
+
+See the [separate caller profile and immutable AOT reuse contract](tools/source-player/README.md#separate-bounded-caller-drain-execution-profile).
+Original data and retained build/image payloads are local, not included in a
+clean checkout; a rebuild is a new candidate until its identities are checked.
+
+### Separate Unity player path
+
+The instructions below apply only to the retained Unity player, not the primary
+portable browser application.
 
 Paths are relative to the **project root**. Offline preparation can use the
 checkout; native source imports/builds require the approved isolated candidate
@@ -279,12 +440,14 @@ coverage is separate from animation/browser acceptance.
 - The old live56 generation reuses **one normal-body Chicago home /
   `PC_WHITE` variant** and its approximate HUD. Checked-in source now has
   31-team/20-head/86-texture presentation and original bitmap HUD/selection
-  composition, but no new native or browser proof of those combined resources.
+  composition; the November9 browser result covers its selected CAR0/day case,
+  not every team/body/venue combination or a new native Unity generation.
   Complete original action/selector/root-transition parity remains open.
   Throw/GetUp clips have old native checks, not observed actions in that recording.
 - The [original field/stadium adapter](tools/environments/README.txt) has separate
-  original-C, native and world-only WebGL proof; actual game integration,
-  lighting and combined-game visual acceptance remain open. The source reference
+  original-C, native and world-only WebGL proof, plus bounded selected-world
+  in-game readback in the November9 browser case. Every-venue lighting and
+  native combined-game visual equivalence remain open. The source reference
   is arcade code;
   edition equivalence with the supplied N64 screenshot is unverified.
 - Thirty yards in four downs, six-point touchdowns and two-point safeties have
@@ -292,16 +455,18 @@ coverage is separate from animation/browser acceptance.
   PAT/kick/period helpers and a 60-host/57-source adapter; complete caller flow,
   AI/routes/RNG, contact/ball behavior and full playbooks remain open. Fixed
   live-time quarters and own-20 restarts describe the separate legacy baseline.
-- Full browser match/final restart, new cabinet/focus/DPR layout in the actual
-  game, original audio/FX consumers and representative hardware performance
-  remain unqualified. Pure/API success is not new pixels or a fresh deployment.
+- The explicit November9 browser passed one four-period final/save/rematch,
+  pause/focus and original-PCM case. Overtime, exhaustive restart/animation/FX
+  coverage, other layouts/DPRs, native audio fidelity and representative hardware
+  performance remain unqualified. Pure/API success is not new pixels or a
+  fresh deployment.
 
 Component receipts in the ledger are dated and source-generation-specific.
 The October 17, 2026 post-snap defined-domain report qualifies the named current
 surfaces, not older full contact/VM/P1/full-kernel or geometry-history campaigns.
 Its fingerprint excludes the five docs, workflow and CI guard; it does not
-qualify those mutable paths or hosted CI. Full-M1/CI acceptance, native/DSP
-and new playable-build evidence remain blocked.
+qualify those mutable paths or hosted CI. Full-M1/CI and native/DSP qualification
+remain separate from the new bounded browser result above.
 
 The [source-parity ledger](docs/source-parity.md) records the pinned references,
 provenance boundary and exact evidence limits. Original inputs, converted art,

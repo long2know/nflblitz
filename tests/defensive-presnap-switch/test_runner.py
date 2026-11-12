@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -7,8 +8,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
@@ -113,6 +116,7 @@ def root_boundary(argv):
     try:
         reference=run.oracle.generate(args.source_root,args.presnap_switch_inputs,output/"original")
         result["original_C"]=dict(extracted_bodies=reference["extracted_bodies"],
+            pose_math=reference["pose_math"],
             compiler_diagnostics=reference["compiler_diagnostics"],commands=reference["commands"],
             executions=reference["executions"],
             main_offsets=len(reference["vm"]),interrupted_offsets=sum(len(x["rows"]) for x in reference["vm_interrupted"]),
@@ -142,6 +146,70 @@ def root_boundary(argv):
 
 
 class RunnerTests(unittest.TestCase):
+    def test_original_portable_trigs_require_the_existing_blob_and_tree_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);metadata=root/"metadata";metadata.mkdir()
+            source=root/"original";source.mkdir()
+            pins={"lib/ani3d/pipe3D.c":b"authored synthetic pipe",
+                  "lib/ani3d/TRIGS.H":b"float trigs[] = {0, 1};\n"}
+            identities={}
+            for name,raw in pins.items():
+                path=source/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+                identities[name]=hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()
+            (metadata/"source-inputs.json").write_text(json.dumps(dict(tree="synthetic-tree",
+                inputs={"lib/ani3d/pipe3D.c":identities["lib/ani3d/pipe3D.c"]})))
+            recipe=root/"tools/playbooks/recipe.json";recipe.parent.mkdir(parents=True)
+            recipe.write_text(json.dumps(dict(inputs=dict(trigs=dict(path="lib/ani3d/TRIGS.H",
+                blob_sha1=identities["lib/ani3d/TRIGS.H"])))))
+            tree=dict(sha="synthetic-tree",truncated=False,tree=[
+                dict(path=name,sha=pin,type="blob") for name,pin in identities.items()])
+            (source/"tree.json").write_text(json.dumps(tree))
+            with patch.object(run.oracle,"HERE",metadata),patch.object(run.oracle,"ROOT",root):
+                self.assertEqual(run.oracle.authenticate(source),pins)
+                path=source/"lib/ani3d/TRIGS.H";path.write_bytes(pins["lib/ani3d/TRIGS.H"]+b"\n")
+                with self.assertRaisesRegex(ValueError,"Original source blob mismatch: lib/ani3d/TRIGS.H"):
+                    run.oracle.authenticate(source)
+                path.write_bytes(pins["lib/ani3d/TRIGS.H"])
+                tree["tree"][1]["sha"]="0"*40
+                (source/"tree.json").write_text(json.dumps(tree))
+                with self.assertRaisesRegex(ValueError,"Exact complete canonical tree"):
+                    run.oracle.authenticate(source)
+
+    def test_player_preparation_binds_current_source_without_relabelling_the_old563_program_payload(self):
+        sys.path.insert(0,str(ROOT/"tools/source-player"))
+        prior=sys.modules.pop("prepare",None)
+        try:
+            spec=importlib.util.spec_from_file_location("presnap_player_binding",
+                ROOT/"tools/source-player/prepare_presnap_switch.py")
+            player=importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(player)
+        finally:
+            sys.path.pop(0)
+            if prior is not None: sys.modules["prepare"]=prior
+            else: sys.modules.pop("prepare",None)
+        binding=player.program_binding()
+        self.assertEqual(binding["selected_historical_programs_sha256"],player.C2_PROGRAMS_SHA256)
+        self.assertNotEqual(binding["source_file_sha256"],player.C2_PROGRAMS_SHA256)
+        self.assertFalse(binding["whole_current_source_is_historical"])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            programs=root/"Assets/Scripts/Gameplay"
+            programs.mkdir(parents=True)
+            for name in ("SourceAnimationPrograms.C2.cs","SourceAnimationPrograms.Movement.cs"):
+                (programs/name).write_bytes((ROOT/"Assets/Scripts/Gameplay"/name).read_bytes())
+            with patch.object(player,"PROJECT",root):
+                self.assertEqual(player.program_binding(),binding)
+                path=programs/"SourceAnimationPrograms.C2.cs"
+                raw=path.read_bytes()
+                path.write_bytes(raw+b"\n")
+                with self.assertRaisesRegex(ValueError,"Exact known C2 source-generation"):
+                    player.program_binding()
+                path.write_bytes(raw)
+                path=programs/"SourceAnimationPrograms.Movement.cs"
+                path.write_bytes(path.read_bytes()+b"\n")
+                with self.assertRaisesRegex(ValueError,"SHA256 mismatch.*SourceAnimationPrograms.Movement"):
+                    player.program_binding()
+
     def test_ten_controls_change_real_unique_production_anchors(self):
         self.assertEqual(len(MUTATIONS),10)
         self.assertEqual(len({m[0] for m in MUTATIONS}),10)
@@ -225,11 +293,21 @@ class RunnerTests(unittest.TestCase):
                   original_C_station_cases=70,original_C_caller_cases=18,legal_ordered_randrng10_values=10,
                   actual_VM_offsets=116,interrupted_VM_offsets=232,secondary_VM_offsets=116,
                   root_boundary_offsets=[24,39,40,113,114,115],
+                  pose_interpolation_policy="OriginalPortable",
                   factory="SourceC2Composition.CreatePreSnapSwitchSimulation")
         run.require_result(0,good)
         for field in ("original_C_station_cases","original_C_caller_cases","legal_ordered_randrng10_values",
-                      "actual_VM_offsets","interrupted_VM_offsets","secondary_VM_offsets","root_boundary_offsets","factory"):
+                      "actual_VM_offsets","interrupted_VM_offsets","secondary_VM_offsets","root_boundary_offsets",
+                      "pose_interpolation_policy","factory"):
             with self.assertRaises(RuntimeError):run.require_result(0,{**good,field:None})
+        with self.assertRaises(RuntimeError):
+            run.require_result(0,{**good,"pose_interpolation_policy":"LegacyNormalized"})
+
+    def test_baseline_failure_keeps_the_actual_vm_assertion_in_the_runner_diagnostic(self):
+        receipt=dict(schema="defensive-presnap-switch-checks/v1",status="failed",assertions=1063,
+            failed_assertion="PRE_SNAP_ASSERTION: actual original fifteen-limb quaternion offset12/joint0")
+        with self.assertRaisesRegex(RuntimeError,"First failure: PRE_SNAP_ASSERTION: actual original fifteen-limb quaternion offset12/joint0"):
+            run.require_result(1,receipt)
 
     def test_production_projects_link_actual_sound_composition_and_cinematic_consumer(self):
         for name in ("PreSnapSwitch.Checks.csproj","PreSnapSwitch.Production.csproj"):

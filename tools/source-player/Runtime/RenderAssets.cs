@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using Blitz.AssetImport;
 using Blitz.Contracts;
+using Blitz.Gameplay;
 using Blitz.Runtime;
 using Blitz.Presentation;
 using OriginalPlayer = Blitz.AssetImport.SourcePlayer;
@@ -70,10 +71,14 @@ public sealed class RenderAssets
 
     private void UploadTextures()
     {
-        for (int i = 0; i < data.World.Manifest.textures.Length; i++)
+        var uploadedWorld = new HashSet<string>(StringComparer.Ordinal);
+        foreach (SourceEnvironmentBundle world in Worlds())
+        for (int i = 0; i < world.Manifest.textures.Length; i++)
         {
-            var info = data.World.Manifest.textures[i];
-            sink.Texture("world/" + i, info.width, info.height, data.World.TextureRgba[i], info.mipCount,
+            var info = world.Manifest.textures[i];
+            string id = WorldTextureId(world, i);
+            if (!uploadedWorld.Add(id)) continue;
+            sink.Texture(id, info.width, info.height, world.TextureRgba[i], info.mipCount,
                 true, true, info.rgbaSha256, info.sourcePath + " / " + info.sourceFormat);
             TextureCount++;
         }
@@ -83,6 +88,20 @@ public sealed class RenderAssets
             data.Teams.VerifyTexture(texture, source);
             sink.Texture("teams/" + texture.Id, texture.Width, texture.Height,
                 DecodeTga(source, texture.Path), 1, true, true, texture.Sha256, texture.Representation);
+            TextureCount++;
+        }
+        if (data.OriginalPresentation != null)
+            foreach (SourceOriginalRaster raster in data.OriginalPresentation.Rasters)
+            {
+                sink.Texture(raster.TextureId, raster.Width, raster.Height, raster.CopyRgba(), 1,
+                    raster.Kind == "shadow", true, raster.Sha256, raster.SourcePath + " / " + raster.Representation);
+                TextureCount++;
+            }
+        if (data.Catalog.Profile.UsesRecordPresentation)
+        {
+            byte[] solid = { 255, 255, 255, 255 };
+            sink.Texture("hud/record-solid", 1, 1, solid, 1, false, false, DataCatalog.Hash(solid),
+                "procedural original editor line/triangle geometry color carrier; NOT original raster art or an image substitute");
             TextureCount++;
         }
         foreach (var pair in data.Hud.Textures)
@@ -99,13 +118,38 @@ public sealed class RenderAssets
                 sink.Texture("hud/interface-white", texture.Width, texture.Height, white, 1, false,
                     !texture.PointSampled, hash, "original GR_COLORCOMBINE_ONE / black chroma key, authored-alpha portable mask");
                 TextureCount++;
+                if (data.Catalog.Profile.UsesDefaultAudibles)
+                {
+                    byte[] chroma = SourceHudTextureMask.BlackChromaKey(rgba);
+                    string chromaHash = DataCatalog.Hash(chroma);
+                    sink.Texture("hud/interface-chroma", texture.Width, texture.Height, chroma, 1, false,
+                        !texture.PointSampled, chromaHash, "original DECAL_TEXTURE / black chroma key, unchanged authored RGB/nonblack alpha");
+                    TextureCount++;
+                }
             }
         }
     }
 
     private void UploadWorld()
     {
-        var world = data.World;
+        foreach (SourceEnvironmentBundle world in Worlds()) UploadWorld(world);
+    }
+
+    private IEnumerable<SourceEnvironmentBundle> Worlds()
+    {
+        if (data.WorldCatalog == null) return new[] { data.World };
+        return data.WorldCatalog.Worlds.OrderBy(world => world.ManifestSha256 == data.World.ManifestSha256 ? 0 : 1);
+    }
+
+    private string WorldTextureId(SourceEnvironmentBundle world, int index)
+    {
+        return data.WorldCatalog == null ? "world/" + index :
+            "world/catalog/" + world.Manifest.textures[index].sourcePath.Substring("img3d/".Length).ToLowerInvariant();
+    }
+
+    private void UploadWorld(SourceEnvironmentBundle world)
+    {
+        object venue = SourceWorldPresentation.DescribeVenue(world);
         foreach (var draw in world.Manifest.draws.OrderBy(draw => draw.renderQueue))
         {
             SourceEnvironmentMeshData mesh = world.Meshes[draw.meshIndex];
@@ -130,8 +174,13 @@ public sealed class RenderAssets
                 var binding = world.Manifest.slots[slot];
                 DataCatalog.Require(binding.sourceSet == draw.sourceSet && binding.textureIndex >= 0,
                     "Missing original world texture binding: " + draw.name);
-                sink.WorldDraw(id, "world/" + binding.textureIndex, JsonSerializer.Serialize(new {
+                sink.WorldDraw(id, WorldTextureId(world, binding.textureIndex), JsonSerializer.Serialize(new {
                     name = draw.name, renderPass = draw.renderPass, draw.renderQueue,
+                    venue, sourceSet = draw.sourceSet, materialSlot = slot,
+                    binding.sourceTexture, binding.authoredName, binding.selectedName,
+                    sourcePath = world.Manifest.textures[binding.textureIndex].sourcePath,
+                    textureSha256 = world.Manifest.textures[binding.textureIndex].rgbaSha256,
+                    sourceDrawOrder = SourceWorldVenue.DrawOrder(draw.renderPass),
                     depthFunction = draw.state.depthFunction, depthMask = draw.state.depthMask,
                     depthBias = draw.state.depthBias, alphaFunction = draw.state.alphaFunction,
                     alphaValue = draw.state.alphaValue, colorFunction = draw.state.colorFunction,
@@ -223,7 +272,29 @@ public sealed class RenderAssets
         var appearance = SourceTeamPresentationModel.Select(data.Rosters,
             match.Configuration.HomeTeam.TeamIndex, match.Configuration.AwayTeam.TeamIndex,
             (int)SourceInterfacePresentation.Settings(state).DesignatedHomeSide, actor, state.Ball.CarrierId, draw, data.PoppedHead);
-        string key = appearance.SourcePlayerId + "/" + appearance.UniformIdentity + "/" +
+        return BindAppearance(appearance);
+    }
+
+    public (SourceTeamAppearance Appearance, int Id) BindTeamSelection(PlayerView actor)
+    {
+        DataCatalog.Require(actor.Id is 3 or 10 && actor.Source.Roster.RosterIndex == 3 &&
+            actor.Animation.Primary.ScriptSymbol is "qb_ready_anim" or "qb_ready_f_anim",
+            "Team selection binds only its actual side quarterback/static record3.");
+        SourceRosterPlayer player = data.Rosters.GetPlayerData(actor.Source.Roster);
+        SourceRosterUniform uniform = data.Rosters.GetUniform(actor.Source.Roster.TeamIndex,
+            SourceUniformVariant.Home, player.Skin);
+        SourceRosterModel model = data.Rosters.ActorModels.SelectModel(SourceBodySize.Normal, true,
+            actor.Team == TeamId.Home ? SourceHeldBallModel.Left : SourceHeldBallModel.Right);
+        SourceRosterJersey numbers = data.Rosters.ActorModels.Jerseys[2 |
+            ((player.Profile.PackedJerseyNumber >> 4) != 0 ? 4 : 0)];
+        var appearance = new SourceTeamAppearance(player, uniform, model, numbers, null,
+            (int)actor.Team * 2 + uniform.DecalOffset, 1f, null);
+        return BindAppearance(appearance, "tmsel/");
+    }
+
+    private (SourceTeamAppearance Appearance, int Id) BindAppearance(SourceTeamAppearance appearance, string prefix = "")
+    {
+        string key = prefix + appearance.SourcePlayerId + "/" + appearance.UniformIdentity + "/" +
             (int)appearance.Uniform.Skin + "/" + appearance.Numbers.LimbSymbol + "/" +
             (appearance.CustomHead?.Index ?? -1) + "/" + (appearance.PoppedHead?.ContentSha256 ?? "helmeted");
         if (!appearances.TryGetValue(key, out int id))
@@ -298,4 +369,162 @@ public sealed class RenderAssets
         }
         return rgba;
     }
+}
+
+internal sealed class SourceTeamSelectionActors
+{
+    private readonly PlayerData data;
+    private readonly SourcePortableProcessHost processes;
+    private readonly ISourcePoseInterpolation interpolation;
+    private readonly IReadOnlyDictionary<string, SourceAnimationProgram> programs;
+    private readonly ActorState[] actors = new ActorState[2];
+    private readonly long[] serials = new long[2];
+    private readonly int[] initialTeams = new int[2];
+    private SourceMatchConfiguration selection;
+    private long nextSerial;
+    private bool visible;
+    internal bool Completed { get; private set; }
+    internal long SourceTick => processes.SourceTick;
+    internal IReadOnlyList<SourceProcessView> Processes => processes.Processes;
+    internal IReadOnlyList<SourcePossessionProcessRecord> Records => processes.Records;
+    internal IReadOnlyList<PlayerView> Players => visible
+        ? Array.AsReadOnly(actors.Where(actor => actor != null).Select(View).ToArray())
+        : Array.Empty<PlayerView>();
+
+    internal SourceTeamSelectionActors(PlayerData data, long sourceTick)
+    {
+        DataCatalog.Require(data.Catalog.Profile.IsCompleteAv306TwoStationRecords,
+            "The original team-selection producer requires its separately selected workflow.");
+        this.data = data;
+        processes = SourcePortableProcessHost.AtSourceTick(sourceTick);
+        interpolation = SourceAnimationSampling.CreateOriginalPoseInterpolation(data.Playbook.Directions.Sin);
+        programs = SourceAnimationPrograms.CreateCompleteAv306Extension();
+    }
+
+    internal void Advance(long sourceTick, SourceMatchConfiguration selected)
+    {
+        DataCatalog.Require(!Completed, "A retired team-selection scene cannot resume its old player processes.");
+        processes.BeginTick(sourceTick);
+        if (selected != null && !visible)
+        {
+            RetireActors();
+            for (int side = 0; side < 2; side++)
+            {
+                initialTeams[side] = side == 0 ? selected.HomeTeam.TeamIndex : selected.AwayTeam.TeamIndex;
+                serials[side] = ++nextSerial;
+                processes.Create(serials[side], 0x0500, "tmsel_player_proc", 0);
+            }
+        }
+        visible = selected != null;
+        if (visible) selection = selected;
+        for (int side = 1; side >= 0; side--)
+        {
+            if (serials[side] == 0 || !processes.Visit(serials[side])) continue;
+            try
+            {
+                if (actors[side] == null)
+                {
+                    SourceRosterIdentity roster = new(initialTeams[side], 3);
+                    var actor = new ActorState(side == 0 ? 3 : 10) {
+                        Role = ActorRole.Quarterback, Action = ActorAction.Idle,
+                        SourceMode = SourceActorMode.Quarterback, SourceRoster = roster,
+                        SourceControllerStation = -1, ModelScale = data.Rosters.GetPlayerData(roster).Profile.ModelScale,
+                        Facing = side == 0 ? 490 : 512, TargetFacing = side == 0 ? 490 : 512,
+                        Flipped = side == 0, SourceRawFlags = side == 0 ? 1 : 0
+                    };
+                    SourcePlayerDriver.SetSourcePosition(actor, new SourceVector3(side == 0 ? 18 : -18, 0, 65));
+                    actor.AnimationState = new SourceAnimationState(data.Animations, actor.Id, programs);
+                    actor.AnimationState.BindSourcePoseInterpolation(interpolation);
+                    actor.AnimationState.BindOriginalChangeSemantics();
+                    actor.AnimationState.Primary.SourceFrameInterpolationRoots = true;
+                    actors[side] = actor;
+                    processes.Record("CreateObject", serials[side], 0x0500, actor.Id);
+                    actor.AnimationState.FullBody(side == 0 ? "qb_ready_f_anim" : "qb_ready_anim",
+                        actor, sourceTick, NoRandom, AnimationSelectionEvidence.SourceVerified);
+                    actor.AnimationState.Primary.AdvanceTeamSelectionEntry(actor, sourceTick, NoRandom, processes);
+                }
+                else
+                {
+                    if (visible)
+                        actors[side].SourceRoster = new SourceRosterIdentity(
+                            side == 0 ? selection.HomeTeam.TeamIndex : selection.AwayTeam.TeamIndex, 3);
+                    actors[side].AnimationState.Advance(actors[side], sourceTick, NoRandom);
+                }
+                processes.Sleep(1);
+            }
+            finally { processes.Complete(); }
+        }
+    }
+
+    internal void CompleteHandoff()
+    {
+        visible = false;
+        RetireActors();
+        Completed = true;
+    }
+
+    private void RetireActors()
+    {
+        for (int side = 0; side < 2; side++)
+        {
+            if (serials[side] != 0) processes.Kill(serials[side]);
+            actors[side] = null;
+            serials[side] = 0;
+        }
+    }
+
+    private PlayerView View(ActorState actor)
+    {
+        return new PlayerView(actor.Id, actor.Team, actor.Position, default, 0, actor.Height,
+            SourcePoseMath.Facing(actor.Facing), ActorRole.Quarterback,
+            actor.AnimationState.View(actor, SourceTick), actor.ModelScale,
+            new SourceActorView(-1, actor.SourceRoster,
+                presentation: new SourceActorPresentationView(actor.SourceRawFlags, 5)));
+    }
+
+    internal object RenderPacket(RenderAssets assets, IReadOnlyList<SourceHudPrimitive> hud, long epoch)
+    {
+        IReadOnlyList<PlayerView> views = Players;
+        if (views.Count == 0) return null;
+        DataCatalog.Require(views.Count == 2, "The active team-selection scene requires both actual side actors.");
+        int boundary = -1;
+        for (int i = 0; i < hud.Count; i++)
+            if (hud[i].TextContent != null) { boundary = i; break; }
+        DataCatalog.Require(boundary > 0, "The team actors require their actual opaque-backdrop/foreground HUD boundary.");
+        var matrices = new double[2 * 15 * 16];
+        var models = new int[2];
+        var appearances = new int[2];
+        var meta = new object[2];
+        for (int side = 0; side < 2; side++)
+        {
+            PlayerView player = views.Single(value => (int)value.Team == side);
+            var binding = assets.BindTeamSelection(player);
+            SourceJointPose pose = SourceAnimationSampling.SampleLayer(data.Animations, player.Animation.Primary);
+            SourceEvaluatedPose evaluated = SourceAnimationMatrices.EvaluateSource(data.ReferencePivots, pose,
+                player.Animation.Primary, player.FacingDirection, default, 1f);
+            SourceVector3 position = SourcePlayerDriver.WorldPosition(actors[side]);
+            for (int joint = 0; joint < 15; joint++)
+                FrameMath.Joint(matrices, (side * 15 + joint) * 16, evaluated.Joints[joint], position, 1f);
+            models[side] = binding.Appearance.Model.Index;
+            appearances[side] = binding.Id;
+            SourceProcessView process = processes.Require(serials[side]);
+            meta[side] = new {
+                id = player.Id, team = side, teamIndex = player.Source.Roster.TeamIndex, rosterIndex = 3,
+                facing = actors[side].Facing, rawFlags = actors[side].SourceRawFlags,
+                script = player.Animation.Primary.ScriptSymbol, sourceFrame = player.Animation.Primary.Sample.SourceFrame,
+                processSerial = process.Serial, processBirthTick = process.BirthTick, lastWakeTick = process.LastWakeTick,
+                sourcePosition = new[] { position.X, position.Y, position.Z }, ascale = player.ModelScale,
+                renderScale = 1, sourceInstance = player.Animation.Primary.InstanceId
+            };
+        }
+        return new {
+            schema = "source-tmsel-players/v1", epoch, sourceTick = SourceTick,
+            projection = FrameMath.CameraSpace(data.Bootstrap.HorizontalResolution, data.Bootstrap.VerticalResolution,
+                Math.Max(128f, 65f + assets.ActorHeightYards * SourceTiming.SourceUnitsPerYard * 4f)),
+            joints = matrices, models, appearances, beforeHudPrimitive = boundary, actors = meta
+        };
+    }
+
+    private static int NoRandom(int bound) =>
+        throw new InvalidOperationException("The original ready-animation team-selection loop consumes no RNG.");
 }

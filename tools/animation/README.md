@@ -5,6 +5,250 @@ operate only on explicit local input with an expected upstream **Git blob** pin.
 Decoded original motion and source WANs stay in ignored `.squad/.scratch/`; only
 tool code, metadata-only pins and original synthetic fixtures belong in publication.
 
+## Complete-profile original transition behavior
+
+The complete303 runtime now retains the primary VM pose when `change_anim`
+clears the torso, matching `ANIM.C`; it does not invent a composite upper-body
+transition origin. Turn hacks use signed integer `heading / 2`, the admitted
+original sine table and unnormalized `pipe3D.c:qxq` arithmetic. Other profiles
+keep their existing transition policy.
+
+`SourcePlayer.Checks "$COMPLETE_ORIGINAL_DATA" --original-gameplay-sounds-only`
+exercises actual cabinet turbo-QB selection, **0.81 ticks/frame**, selected-frame
+stream truncation, independent torso/leg masks and neutral carrier transition
+through public source wakes and the fourteen-actor matrix consumer. These are
+bounded A1 cases, not exhaustive selector/opcode/root or browser-pixel acceptance.
+
+### November 10 source-VM follow-up: two actual behavior fixes
+
+The complete303/306 instance overlay now follows original
+`plyrseq.c:8297–8314`: `block_ready_anim_rnd` skips50, then jumps through
+`block_ready_loop`'s NEWSEQ, displaying **BLK_RDY0**, not50. The actual
+LinePreSnap role producer and jumpback continuation exercise this path through
+the public Host, without directly starting an animation. The legacy base
+programme is unchanged.
+
+Complete-profile streaming also follows `ANIM.C:_stream_frame`'s exact float
+order: scale **each endpoint before interpolating**, then apply the scaled
+root/one-shot anchor once. Scaling the blended root afterward was not
+bit-equivalent and produced693 exact root/world mismatches in the scaled
+slow-stream case. Other profiles retain their previous arithmetic order.
+
+The bounded independent comparison executes the unchanged pinned original
+`_ani_inttoseq`, `_ani_intstream`, `_ani_streamtoend`, `_animate_block` and
+`_next_frame`, plus original interpolation/trigonometry helpers. Twelve cases
+compare **105050 bit-exact** frame/mode/hold/counter/pose/root/world predicates:
+
+* ordinary and random-entry first/middle/last frames and complete loops;
+* slow initial−1 streaming, normal QB and exact turbo-QB0.81 loops;
+* INTTOSEQ first/middle/last, interruptions before/after half, and proportional targets;
+* wait-true hold, one-shot XZ/Y anchors, scale1.5 and repeated-tick no-double-drift;
+* independently advancing torso/legs with the original−513 heading turn.
+
+Inputs are genuine admitted selected WAN float poses/roots. The original C
+receives decoded float frame memory; an explicit SKIP adapter preserves the
+source compressed-frame traversal through unchanged `_next_frame`. This does
+**not** assert shipped numeric SEQ IDs, native lossy compression/quantization or
+target binary ABI identity. None of those unknowns substitutes for source-defined
+frame/root behavior.
+
+An additional **8123-assertion** actual guest/Capture/Advance/SourceStep regression
+observes all twelve normal/turbo QB programme names, two receiver runs,
+44 genuine pre-instruction0.81 stream entries, neutral two-part collapse and the
+same-wake fourteen-actor pose/matrix renderer. Role/placement/energy preconditions
+are declared fixtures; animation/selector methods are not directly invoked.
+Four cleanly compiled real-source controls remove the GOTO fix, restore late
+root scaling, change QB0.81→0.75 or remove same-tick suppression. Each turns its
+focused assertion red; forced fresh unchanged component/public baselines pass.
+
+With the explicit new readonly dataset, installed SDK and approved POSIX scratch:
+
+```sh
+SOURCE_PLAYER_DOTNET="$DOTNET" SOURCE_PLAYER_DATA_ROOT="$DATA_ROOT" \
+SOURCE_PLAYER_POSIX_SCRATCH="$SCRATCH" \
+  bash tools/source-player/with-posix-build.sh bash -c '
+    set -e
+    bash tools/source-player/dotnet.sh build tools/source-player/SourcePlayer.Checks.csproj \
+      --no-restore -v:q -p:UseSharedCompilation=false
+    bash tools/source-player/dotnet.sh \
+      tools/source-player/bin/SourcePlayer.Checks/Debug/net10.0/SourcePlayer.Checks.dll \
+      "$SOURCE_PLAYER_DATA_ROOT" --original-animation-core-output "$OBSERVATIONS"
+    python3 -B tools/animation/prepare_complete_original.py \
+      --source "$ORIGINAL_SOURCE" --vm-observations "$OBSERVATIONS" --output "$NEW_ORACLE_OUTPUT"
+    bash tools/source-player/dotnet.sh \
+      tools/source-player/bin/SourcePlayer.Checks/Debug/net10.0/SourcePlayer.Checks.dll \
+      "$SOURCE_PLAYER_DATA_ROOT" --original-animation-callers-output "$NEW_COVERAGE"
+  '
+```
+
+The named source call/table closure enumerates269 programme names:17 public-wake
+covered, two additional original-C component covered,247 verification-only, and
+unreachable `m_hophop_anim` (`randrng(10)<35`). The remaining two
+`qb_ready_anim`/`qb_ready_f_anim` programmes existed, but their real native
+`tmsel_player_proc` team-screen producer was **still missing in that epoch**,
+not merely an untested clip import. All29 enumerated native opcode classes have compiled
+lowerings; the other operand/conditional/callback sites are verification-only,
+not asserted missing logic or accepted coverage. Three additional public-wake
+programme names outside this static closure are reported separately. This
+bounded result does not close whole A1/V1, native team-screen animation,
+natural-match, browser or pixel acceptance.
+
+### Separate named-TwoStation team-selection producer epoch
+
+The explicit successor
+`original-teams-complete-av306-two-station-records-v1` adds an actual UI-driven
+team-selection actor lifecycle, not another animation import. It retains all
+1153 AV306 payloads unchanged and uses a separately pinned two-station settings
+entry. Historical profiles and guest-only admission remain distinct.
+
+After the real pregame source menu consumes physical input, the Host reads the
+accepted `Session.CreateConfiguration()` and dispatches the original
+`tmsel_player_proc` children on that same source clock. They are actor3/Home,
+`QB_RDYF`, heading490/PF_FLIP and actor10/Away, `QB_RDY`, heading512. Both use
+the selected team's static quarterback record3, not the selected custom lineup.
+Birth140/first wake141 in the finite public proof demonstrates the new empty
+process-host factory at a real nonzero clock without changing default0,
+BeginTick/Visit/Sleep or birth guards.
+
+Original `player.c:1252–1288` calls `change_anim` **then** `animate_model` before
+its first sleep(1), so the first visible frame is1. A strictly caller-bound,
+once-per-instance initial continuation represents that original call; the
+normal same-tick suppression stays strict. Subsequent source wakes retain both
+77-frame loops. Accepted team navigation updates record/uniform without
+restarting the animation/process or changing its original initial `ascale`.
+Redraws do not advance animation. Visible objects leave with the team screen;
+hidden children retire at the real pregame-to-match handoff.
+
+The actual Present packet contains both fifteen-joint full-world matrices,
+native MOD498 left/right-held-ball models6/10, BCD jersey geometry and original
+home H uniform pixels. `draw_player2` uses its original camera-space projection,
+render scale1 and no animated `ay` offset; source `ascale` still drives animation
+root motion. The renderer consumes this packet between the actual opaque HUD
+backdrop/panels and the first foreground text primitive. No field-camera,
+generic avatar, recolor or render-time animation substitutes for it.
+
+The bounded public producer test is:
+
+```sh
+bash tools/source-player/dotnet.sh \
+  tools/source-player/bin/SourcePlayer.Checks/Debug/net10.0/SourcePlayer.Checks.dll \
+  "$NEW_TWO_STATION_DATA_ROOT" --original-team-selection-output "$NEW_PRIVATE_PACKET"
+```
+
+It exercises actual guest/menu input, normal/flipped source children, two
+complete loops, hover, zero-time redraw and source handoff. Its emitted packet
+and complete Present arguments are separately fed to the real browser renderer
+consumer. Cleanly compiled source controls remove the actual Host producer,
+choose the wrong flipped programme, or omit the original initial animate.
+These are new scoped proofs, not a relabeling of the105050/8123 epoch, whole
+A1/V1, native global scheduling or pixel equivalence.
+
+### November 11 finite opcode/branch campaign
+
+The separate `SourcePlayer.AnimationOpcodeChecks` executable covers the nineteen
+classes left verification-only in the November 10 list. Its **43 finite cases /
+3964 exact original-C predicates** retain the earlier twelve-case and public
+selector evidence without rerunning or relabeling it.
+
+The classes are ATTACK_ON/OFF, SETFLAG/CLRFLAG, CODE/CODE_BZ/CODE_BNZ, END,
+LEAPATT/LEAPAT_TGTX, PREP_XITION, RUNTOFRAME, SETCAMBOT, SETFRICTION,
+SETVELS/SETYVEL/SET_FACE_REL_VEL, SHAKER and TURNHACK. Cases exercise both integer
+return branches, the C-rand and randrng threshold boundaries, independent flag
+bits, frame below/equal/above target, signed headings, leap-distance caps and
+actual carrier/throw-target camera-joint caches.
+
+Four initial original-C mismatches exposed stale `MODE_ZERO` after known-int
+callbacks. Complete-profile execution now records their typed return and branches
+through that original zero bit. Legacy policy stays unchanged; no return value
+is invented for original void/opaque callbacks. Three explicit old-policy
+component checks and an invalid void-conditional negative protect those boundaries;
+they do not relabel the AV306 input as a legacy product.
+
+The public scheduled cases run real Capture/Advance/player wakes, Host CSI/shaker
+consumption and the same-wake fourteen-actor matrix packet. At source tick2 the
+live `plyr_have_ball` zero return must skip CSI1803. Removing the real zero-bit
+writer changes the executed branch, admits an extra randrng(3), and changes the
+actual camera from its preceding mode9 to mode4. A separately clean-compiled
+entire-old-state control also fails; forced-fresh final Core/test DLLs equal the
+baseline bytes. No canonical source is edited by these controls.
+
+```sh
+python3 -B tools/animation/tests/check_remaining_opcodes.py \
+  --source "$AUTHENTICATED_ORIGINAL_SOURCE" --run "$UNCHANGED_AV306_DATA" \
+  --dotnet "$EXISTING_DOTNET" --output "$NEW_IGNORED_NOV11_OUTPUT" \
+  --controls "$IMMUTABLE_B9_CAPTURE_ZIP"
+```
+
+The runner captures actual compile inputs, uses the existing supported private
+POSIX build wrapper, seals each variant separately, and exports/read-backs its
+receipts, logs, native bodies, observations and assemblies. Original function
+bodies are extracted unchanged. Clip storage is the already admitted decoded
+float boundary, not shipped SEQ numeric IDs. CSI selection/copy retains authored
+table scalars as opaque payload; this is not a DG2RD/native-angle comparison.
+Inactive original bodies and unused opcode forms remain separately classified,
+not replay substitutes. This closes these finite cases, not every reachable
+programme/callback operand, whole A1, browser GPU pixels or target DSP identity.
+
+### Repository-carried PF and camera/cache regressions
+
+The existing animation check executable also carries the qualified handwritten
+left-throw and nonidentity camera fixtures. No separate private C# project or
+old snapshot is needed. Its default43 cases and optional raw6 path remain
+separate; historical MODE_ZERO/PF/camera archives retain their original hashes.
+
+```sh
+# Six full-script release cases, with the current cached-joint release boundary.
+python3 -B tools/animation/tests/check_remaining_opcodes.py \
+  --source "$AUTHENTICATED_ORIGINAL_SOURCE" --run "$UNCHANGED_AV306_DATA" \
+  --suite left-releases --source-controls --output "$NEW_LEFT_OUTPUT"
+
+# Home/Away nonidentity camera -> previous joint cache -> current-camera release.
+python3 -B tools/animation/tests/check_remaining_opcodes.py \
+  --source "$AUTHENTICATED_ORIGINAL_SOURCE" --run "$UNCHANGED_AV306_DATA" \
+  --suite camera-cache --source-controls --output "$NEW_CAMERA_OUTPUT"
+
+# The separate ordinary raw snap/move/throw selector cases.
+python3 -B tools/animation/tests/check_remaining_opcodes.py \
+  --source "$AUTHENTICATED_ORIGINAL_SOURCE" --run "$UNCHANGED_AV306_DATA" \
+  --suite raw-throw-selectors --output "$NEW_RAW_OUTPUT"
+```
+
+`--dotnet "$EXISTING_DOTNET"` selects an already installed SDK. Omit `--suite`
+for the default opcode cases. Direct DLL selectors are `--left-releases`,
+`--camera-cache` and `--raw-throw-selectors`, after DATA and a new observation
+file. The existing project is unchanged; the additional isolated classes use
+`Run`, not competing entry points. All generated native C/binaries, authentic
+inputs and receipts stay in ignored/private output. No SDK installation, new
+production profile, archive overwrite or data alias is performed.
+
+The six full-script cases retain the exact original SET/release/CLEAR timing,
+left/right controls, pose bits, five ball-flight frames and actual PCM transport.
+Their native `set_ball_vels` now consumes the **actual preceding camera-space
+joint cache and current camera**. Fresh world wrists are diagnostic fields only.
+This is a new current-code boundary, not a promotion of the earlier identity-
+camera/world-wrist PF proof. These fixtures still do not prove physical selector
+reachability; the independent raw6 selector supplies its declared input scope.
+
+The camera selector retains744 exact original camera-transform comparisons,
+2070 native skeletal-cache coordinates and20 release values, plus969 managed
+guards including fourteen strict invalid-cache cases and four LegacyNormalized/
+other-library components. A small explicit test-local reference preserves the
+unchanged old world/fallback arithmetic; no old production-class snapshot is
+embedded or required. It does not claim construction of a whole legacy product.
+
+Portable source controls reconstruct the **entire** original6b83 programme or
+b2 geometry bytes and verify their hashes. The independent release-caller
+control changes only the real cached-wrist expression back to fresh sampling.
+Every control is cleanly compiled, its decisive comparison must fail, and a
+forced-fresh final must pass with the same baseline Core/test DLL hashes.
+Right-case invariance, callback ticks, pose bits and RNG counts remain checked.
+No prior Linux proof archive is required to reconstruct those controls.
+
+The runner seals actual compile inputs, reuses the supported POSIX wrapper, and
+requires fresh-host member readback before acknowledging namespace exit.
+These are finite source/consumer regressions, not another natural-match run,
+full camera-tracking/DG2RD/target ABI/FPU, DSP, GPU pixel or whole-A1 claim.
+
 ## Explicit pre-snap-switch successor: one authentic clip only
 
 `presnap_switch_sequences.json` adds only `M_HOPCLP`: original
