@@ -1,0 +1,68 @@
+name: Promote exact existing public image to latest
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/public_existing_latest.py'
+      - '.github/scripts/test_public_existing_latest.py'
+      - '.github/workflows/public-existing-latest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: closed-existing-public-nflblitz-latest
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Closed manifest-only promotion and foreign-image mutation controls
+        run: python3 -B .github/scripts/test_public_existing_latest.py -v
+
+  promote-exact-public-alias:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify all pinned bytes before same-package exact manifest alias
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B .github/scripts/public_existing_latest.py promote --work-dir .public-latest-promotion
+      - name: Remove only runner-owned verification data
+        if: always()
+        run: rm -rf -- .public-latest-promotion
+
+  independent-anonymous-coldpull:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: promote-exact-public-alias
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fresh anonymous latest pull, all pins and normal UID1000 prefix health/full HTTP
+        run: python3 -B .github/scripts/public_existing_latest.py anonymous-check --work-dir .public-anonymous-coldcheck
+      - name: Remove only runner-owned verification data
+        if: always()
+        run: rm -rf -- .public-anonymous-coldcheck
