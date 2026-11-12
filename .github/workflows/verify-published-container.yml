@@ -22,7 +22,7 @@ jobs:
           from urllib.error import HTTPError
           from urllib.request import Request, urlopen
           token = os.environ.pop("GH_TOKEN")
-          base = "https://api.github.com/users/long2know/packages/container/nflblitz"
+          base = "https://api.github.com/users/long2know/packages/container/nflblitz-private"
           def get(url):
               request = Request(url, headers={
                   "Authorization": "Bearer " + token,
@@ -51,7 +51,7 @@ jobs:
               selected["guard_comparisons"] = {
                   "visibility_private": selected["visibility"] == "private",
                   "type_container": selected["package_type"] == "container",
-                  "name_nflblitz": selected["name"] == "nflblitz",
+                  "name_nflblitz_private": selected["name"] == "nflblitz-private",
                   "owner_long2know": selected["owner"]["login"] == "long2know",
                   "repository_long2know_nflblitz":
                       selected["repository"]["full_name"] == "long2know/nflblitz",
