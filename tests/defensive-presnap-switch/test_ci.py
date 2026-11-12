@@ -482,7 +482,7 @@ def run_commands(commands, output):
                          log_sha256=sha(raw)))
         (output / "commands.json").write_text(json.dumps(rows, indent=2) + "\n")
         require(process.returncode == 0, "Actual pinned producer failed: " + shlex.join(command) +
-                "; see " + str(output / (str(index) + ".log")))
+                "; see " + str(output / (str(index) + ".log")) + "\n" + process.stderr[-6000:])
     return rows
 
 
@@ -1612,6 +1612,28 @@ class BrowserRuntimeCI(unittest.TestCase):
                                  if Path(path).is_dir() and not Path(path).is_symlink()]
                     self.assertEqual(len(sentinels), 1)
                     self.assertEqual(sentinels[0].read_text(), "untouched")
+
+
+class ProducerDiagnosticsCI(unittest.TestCase):
+    def test_failed_real_child_preserves_exit_and_surfaces_bounded_stderr(self):
+        directory = ROOT / ".squad/.scratch" / ("producer-diagnostic-" + uuid.uuid4().hex)
+        directory.mkdir(parents=True, mode=0o700)
+        self.addCleanup(shutil.rmtree, directory)
+        script = directory / "producer.py"
+        marker = "actual producer diagnostic sentinel"
+        beginning = "beginning of full retained diagnostic\n"
+        diagnostic = beginning + "x" * 7000 + "\n" + marker + "\n"
+        script.write_text("import sys\nsys.stderr.write(" + repr(diagnostic) +
+                          ")\nraise SystemExit(7)\n")
+        output = directory / "logs"
+        with self.assertRaises(AssertionError) as rejected:
+            run_commands([[sys.executable, "-B", str(script)]], output)
+        self.assertIn(marker, str(rejected.exception))
+        self.assertIn("Actual pinned producer failed:", str(rejected.exception))
+        self.assertNotIn(beginning, str(rejected.exception))
+        self.assertLess(len(str(rejected.exception)), 7000)
+        self.assertEqual((output / "0.log").read_text(), diagnostic)
+        self.assertEqual(json.loads((output / "commands.json").read_bytes())[0]["exit"], 7)
 
 
 class CheckoutBootstrapCI(unittest.TestCase):
