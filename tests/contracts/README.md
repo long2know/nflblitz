@@ -319,6 +319,15 @@ versioned project-source view reconstructed from pinned custody bytes and the
 original fourth-down hook. This is labelled a reconstructed source view, **not**
 a relabelled historical execution. No historical hash or assertion count changes.
 
+The accepted Nov11/f3ba source closure has its own exact current-source admission.
+A compact project-code-only line projection restores the same five-file
+`8ccb4d59...` base before the unchanged historical projections and inverses run;
+both the current input and every restored whole-file fingerprint are checked.
+This remains a pure static operation with no child process, SDK or Git lookup.
+Current caller checks separately follow PAT's actual shared `FinishSourcePat`
+and require the fourth-down hook before instruction admission and lineup, without
+reintroducing the removed selected-punt/FG play-type rewrite.
+
 The current package-free build links the six explicit clock/rules/flow and
 playbook/direction/random helpers required by the real contract declarations.
 It still does not compile GameSimulation or claim hardware RNG equivalence.

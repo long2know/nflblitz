@@ -201,6 +201,12 @@ STATIC_CONTROLS = (
 # still have to pass EVERY original whole-file inverse below. The caller is the
 # captured 157596-byte source plus its original 111-byte fourth-down hook.
 HISTORICAL_SOURCE_VIEW = json.loads(r'''{"base_commit":"8ccb4d59bc850269579be9b6365ee973d74c87ed","schema":"contract-historical-source-view/v1","sources":{"Assets/Scripts/Contracts/SourceMatchContracts.cs":{"base_sha256":"49c0bbf30c5497f545a464d5e70103e70f828078779b8bbf4708cb8c7bda9303","bytes":109912,"segments":[[0,6],[188,236],[238,241],"        public string Bank { get { return \"cursors\"; } }\n",[242,249],"        { SourceTick = tick; ProcessSerial = serial; Number = number; }\n",[260,265],"        HandicapConsumerIndex, BlockCountConsumerIndex, TargetlessRunningPush, CarrierlessDefensiveSwitch\n",[269,653],[801,1468],[1541,1780],[1782,2218],[2256,2326],[2476,2486]],"sha256":"6ffa5d633bda5dcc02f83d193bdc3d5cbb4a8a52a1cdedc78b9cb23110058225"},"Assets/Scripts/Gameplay/GameSimulation.Source.cs":{"base_sha256":"5a8a9284cf26b4328b82d7fae1aa413040507bf3ede7cd7f0b3838724acf23a4","bytes":157707,"segments":[[0,1],[2,3],[4,7],"    public sealed partial class GameSimulation\n",[8,9],[146,197],[198,204],[210,223],[224,285],"        private PlayerCommand TransformSourceStationInput(PlayerCommand command)\n",[286,288],"            SourceInputFrame transformed = SourceStationInputTransform(new GameSnapshot(Model),\n                Model.SourceTick, command.StationInputs);\n",[297,307],[308,314],[315,330],"                command = TransformSourceStationInput(command);\n",[331,480],"            SourcePlayDefinition chosen = sourcePlaybook.GetPlay(selected.PlaySymbol);\n",[481,534],"                        Model.SourcePlaySelectionReady[(int)other] ? sourcePlaybook.GetPlay(opponent.PlaySymbol) : null));\n",[535,572],[573,575],[588,660],"                play = sourceDefaultAudibles.Resolve(id, role, sourceTeam, Model.SourceRules, Model.Quarter - 1,\n                    Model.PackedGameTime, a.SuperFieldGoal, a.NoPunt, ref flip);\n",[680,681],"                int ordinal = role == SourceAudibleRole.Offense ? Math.Abs((int)id) - 1 : id - 1;\n                selected = new SourcePlaySelection(play.Identity, role == SourceAudibleRole.Offense\n                    ? SourcePlaybookKind.Offense : SourcePlaybookKind.Defense, ordinal % 9, ordinal / 9);\n",[681,877],[878,879],"            Model.SourceOffensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home\n                ? Model.SourceHomePlay.PlaySymbol : Model.SourceAwayPlay.PlaySymbol);\n            Model.SourceDefensePlay = sourcePlaybook.GetPlay(Model.Possession == TeamId.Home\n                ? Model.SourceAwayPlay.PlaySymbol : Model.SourceHomePlay.PlaySymbol);\n",[883,884],[885,1032],[1033,1186],"                        SourcePlayerDriver.ActorCommand(Model, quarterback, Model.SourceCurrentInput)));\n",[1188,1259],[1264,1395],[1396,1582],[1583,1645],[1646,1661],[1676,1698],"                    ChooseSourceCpuPlay(GameplayRules.Opponent(offense), sourcePlaybook.GetPlay(chosen.PlaySymbol)));\n",[1699,1703],[1704,1710],[1715,1718],"                continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate);\n",[1721,1727],"                    continueAfterCabinetGate: sourceConfiguration.ContinueAfterCabinetGate,\n",[1728,1742],[1743,1747],[1748,1812],[1814,1921],[1922,2118],"            return new SourceAiFrame(actors, sourcePlaybook.Directions, Model.SourceRules,\n",[2128,2587],"                if (kind != SourcePresentationCueKind.PlayerDownCallback) ExecuteSourceSoundVm(actor, cue);\n",[2590,2858]],"sha256":"efcfddb1936bd2c3c49355a0aa53cc3ddba926e0e20a175c58fe0bab57baa427"},"Assets/Scripts/Gameplay/GameSnapshot.cs":{"base_sha256":"43cd463fa93d9af8a10376015f4094ee1a2a0148ba46fb7ed84d32b4d99c7738","bytes":30356,"segments":[[0,7],"        ISourceAudibleObservationState, ISourceLiveAnimationObservationState\n",[8,41],[42,133],"                Match = new SourceMatchView(new SourceTouchdownStatsView(\n",[156,212],[213,488]],"sha256":"45ca7c7bd0b02e135a11e71ec35a70cba30c9ad081e4c09ebe36d893334d78b1"},"Assets/Scripts/Gameplay/SimulationState.cs":{"base_sha256":"6eeb221c31128c095e387e7adec5860e62f3154db054250c1e95f914ffb555df","bytes":29651,"segments":[[0,180],[181,220],[221,237],[240,310],[313,390],[391,553],[561,595]],"sha256":"fe81ca24879dbfe39c4800fba0391a7ba5c25f8b335dcffd855234df2dd8a835"},"Assets/Scripts/Gameplay/SourceMatchFlow.cs":{"base_sha256":"4ad130bf50e4f27163ec0e56075540664c0ef79cac814cd94e5a056e3dd31721","bytes":37690,"segments":[[0,384],[393,827]],"sha256":"233044d6092aad84e1ed3c516672b4611d08954f66aa6796fe36ac66093de08c"}}}''')
+ACCEPTED_NOV11_SOURCE_SHA256 = {
+    "Assets/Scripts/Contracts/SourceMatchContracts.cs": "360adf2a42ec5d634841e7f8f42f28cccb2a5c3bba765fafdcaf80c6e0a6df6a",
+    CALLER_SOURCE: "9e747e64685c5e67aeb2d8beaee13b9423190092905e147d12a130adbd267aa4",
+    "Assets/Scripts/Gameplay/GameSnapshot.cs": "ab0dcf8dd9edbebb522eb1e9cedac472b92f4d4ae7a2ee321cf970b285d70aa2",
+}
+ACCEPTED_NOV11_TO_BASE_SEGMENTS = json.loads(r'''{"Assets/Scripts/Contracts/SourceMatchContracts.cs":[[0,6],[33,64],[98,173],[190,737],"        KickoffInstruction, PlaySelectionIntroduction, OriginalGameplay\n",[759,779],[784,788],"            string bank, int playlistId, uint volume, uint pan, uint priorityWord, int randomCalls)\n",[791,792],"            SourceContractGuard.Range((int)kind, 0, 7, nameof(kind));\n",[793,805],[812,816],[818,2601]],"Assets/Scripts/Gameplay/GameSimulation.Source.cs":[[0,18],[31,32],"                || sourceConfiguration.StationLayout != SourceStationLayout.FourStation)\n                throw new NotSupportedException(\"Custom session inventory requires the explicit Portable pre-snap-switch FourStation composition.\");\n",[51,253],[254,267],"                        if (Model.Phase != GamePhase.PlaySelect) break;\n",[268,275],[276,283],"                    if (Model.SourceRules.PlayType == SourcePlayType.Kickoff)\n",[285,289],"                            if (Model.SourceKickoffKind == SourceKickoffKind.Quick)\n                                BeginSourceKick();\n                            else\n                                Model.SourceKickApproach = true;\n",[290,338],[339,399],"                CacheSourceGeometry();\n",[399,774],[775,779],"                    int bits = status >> (team * 2) & 3;\n",[780,782],"                    bool four = sourceConfiguration.StationLayout == SourceStationLayout.FourStation;\n",[782,915],"            SourcePlayType type = (Model.SourceOffensePlay.Flags & SourcePlayFlags.Punt) != 0 ? SourcePlayType.Punt\n                : (Model.SourceOffensePlay.Flags & SourcePlayFlags.FieldGoal) != 0 ? SourcePlayType.FieldGoal\n                : Model.SourceRules.PlayType == SourcePlayType.ExtraPoint ? SourcePlayType.ExtraPoint : SourcePlayType.Normal;\n            if (type != Model.SourceRules.PlayType)\n                SetSourceRules(new SourceRulesState(Model.SourceRules.OffenseSide, Model.SourceRules.InitialOffenseSide,\n                    Model.SourceRules.Down, Model.SourceRules.LineOfScrimmage, Model.SourceRules.FirstDown, type,\n                    Model.SourceRules.NoFirstDown));\n",[917,938],"            if (command.StationInputs == null) return;\n",[939,970],[971,1140],[1158,1165],"            Model.SourceFlags |= SourceGameFlags.BallKicked;\n",[1166,1195],[1198,1199],"            Model.Players[kicker].SourceMode = SourceActorMode.Receiver;\n",[1199,1200],"            Model.SourceBallPitchRate = -45;\n            Model.SourceBallFlags &= ~(SourceBallFlags.VelocityPitch | SourceBallFlags.FieldGoalBounce | SourceBallFlags.HitPost);\n",[1200,1231],"                    portableLibraryOrder: SourceCompleteOriginalEnabled);\n",[1232,1239],"            if (distance < 7f && fromField > toField)\n",[1243,1249],"            quarterback.PendingThrowTurbo = turbo;\n",[1251,1254],"            if (quarterback.AnimationState.Primary.IsUninterruptible && lowerThrow)\n",[1255,1260],[1261,1283],"            int targetId = quarterback.PendingThrowTarget;\n",[1284,1287],"            SourceVector3 wrist = SourceWorldJoint(quarterback, quarterback.Flipped ? 7 : 4);\n",[1300,1327],[1328,1388],[1389,1406],[1408,1451],[1452,1461],"            AdmitSourceKickoffInstructionProducer(actor);\n",[1461,1483],[1485,1639],[1640,1644],"                Model.SourceFumbleX, Model.SourceLastResult) : pending.Input;\n",[1649,1774],[1775,1823],"                Model.SourceClock = SourceClock.Create(decision.PackedTime, firstWakeTick: Model.SourceTick + 1);\n",[1827,1877],[1882,1883],[1889,1899],[1904,2202],[2206,2210],"                    actor.SourceStick, height: root.Y, rawFacing: actor.Facing);\n",[2211,2246],"            SourceAiFrame frame = Model.SourceAiFrame ?? BuildSourceAiFrame();\n            if (actor.SourceMode == SourceActorMode.Kicker)\n                frame = CurrentSourceKickerVariables(frame);\n",[2247,2448],"                        float distance = PlayerSimulation.DistanceSquared(actor.Position, teammate.Position);\n",[2449,2634],[2635,2646],[2647,2684],"                    || kind == SourcePresentationCueKind.DustCallback && !SourceCompleteOriginalEnabled)\n",[2685,2744],[2745,2746],[2747,2956]],"Assets/Scripts/Gameplay/GameSnapshot.cs":[[0,448],"                    actor.SourceHandicap, actor.SourceRawHandicap));\n",[454,493]]}''')
 CSHARP_TOKEN = re.compile(
     r"(?P<space>\s+)|(?P<comment>//[^\n]*|/\*[\s\S]*?\*/)"
     r'|(?P<literal>\$?@"(?:""|[^"])*"|(?:\$)?"(?:\\[\s\S]|[^"\\])*"'
@@ -519,7 +525,8 @@ def require_caller_wiring(flow_bytes, caller_bytes):
     identities = HISTORICAL_SOURCE_VIEW["sources"]
     actual_root = hashlib.sha256((ROOT / CALLER_SOURCE).read_bytes()).hexdigest()
     historical = actual_root == identities[CALLER_SOURCE]["sha256"]
-    static_check(historical or actual_root == identities[CALLER_SOURCE]["base_sha256"],
+    static_check(historical or actual_root in (
+        identities[CALLER_SOURCE]["base_sha256"], ACCEPTED_NOV11_SOURCE_SHA256[CALLER_SOURCE]),
                  "caller.source-generation.admission")
     _, end, body = method_region(flow, "PrepareKickoff", "SourceKickoffInput input")
     static_check(hashlib.sha256(flow[body:end].encode("utf-8")).hexdigest() == LEGACY_KICKOFF_BODY_SHA256,
@@ -559,11 +566,18 @@ def require_caller_wiring(flow_bytes, caller_bytes):
                  "caller.current-input.before-phase-dispatch")
     static_check(len(token_locations(csharp_tokens(setup), CPU_GUARD)) == 1,
                  "caller.cpu.guard-without-half-shortcut")
+    current_pat = actual_root == ACCEPTED_NOV11_SOURCE_SHA256[CALLER_SOURCE]
+    if current_pat:
+        apply = csharp_tokens(method_text(caller, "ApplySourcePat", "SourcePatDecision pat"))
+        static_check(len(token_locations(apply, "AwardSourcePat(pat); return FinishSourcePat(pat, false);")) == 1,
+                     "caller.pat.award-before-finish")
     for name, parameters, call_shape in (
         ("InitializeSource", "", "PrepareSourceKickoff(true, false);"),
         ("ContinueSource", "", "PrepareSourceKickoff(false, Model.SourceHalfKickoff);"),
         ("AdvanceSourcePeriod", "", "PrepareSourceKickoff(false, decision.HalfKickoff);"),
-        ("ApplySourcePat", "SourcePatDecision pat", "PrepareSourceKickoff(false, Model.SourceHalfKickoff);"),
+        (("FinishSourcePat" if current_pat else "ApplySourcePat"),
+         ("SourcePatDecision pat, bool resumeSelection = true" if current_pat else "SourcePatDecision pat"),
+         "PrepareSourceKickoff(false, Model.SourceHalfKickoff);"),
     ):
         static_check(len(token_locations(csharp_tokens(method_text(caller, name, parameters)), call_shape)) == 1,
                      "caller.converges." + name)
@@ -605,8 +619,22 @@ def require_caller_wiring(flow_bytes, caller_bytes):
 
 def historical_base_source(name, raw, field="historical-view.exact-base-source"):
     expected = HISTORICAL_SOURCE_VIEW["sources"][name]["base_sha256"]
-    if hashlib.sha256(raw).hexdigest() == expected:
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual == expected:
         return raw
+    if actual == ACCEPTED_NOV11_SOURCE_SHA256.get(name):
+        lines, pieces = raw.decode("utf-8").splitlines(keepends=True), []
+        for segment in ACCEPTED_NOV11_TO_BASE_SEGMENTS[name]:
+            if isinstance(segment, str):
+                pieces.append(segment)
+            else:
+                static_check(isinstance(segment, list) and len(segment) == 2 and
+                             all(type(value) is int for value in segment) and
+                             0 <= segment[0] < segment[1] <= len(lines), field)
+                pieces.append("".join(lines[segment[0]:segment[1]]))
+        restored = "".join(pieces).encode("utf-8")
+        static_check(hashlib.sha256(restored).hexdigest() == expected, field)
+        return restored
     static_check(name == "Assets/Scripts/Contracts/SourceMatchContracts.cs", field)
     inverse = (
         ("OriginalGameplay, OriginalContact\n", "OriginalGameplay\n"),
@@ -656,9 +684,16 @@ def require_current_caller_binding(caller_bytes):
     selection = csharp_tokens(method_text(caller, "FinishSourcePlaySelection", "TeamId selectingSide"))
     hook = token_locations(selection,
         "Model.AccumulateSourceFourthDownAttemptAtSelectionReturn(sourcePlaybook, Model.SourceOffensePlay);")
-    play_type = token_locations(selection, "SourcePlayType type =")
-    static_check(len(hook) == len(play_type) == 1 and hook[0] < play_type[0],
-                 "attempts.caller.selection-return-before-type")
+    if hashlib.sha256((ROOT / CALLER_SOURCE).read_bytes()).hexdigest() == ACCEPTED_NOV11_SOURCE_SHA256[CALLER_SOURCE]:
+        instructions = token_locations(selection, "AdmitSourceInstructionsAtSelectionReturn(instructionEnteringPlayType);")
+        lineup = token_locations(selection, "LineUpSourceActors();")
+        static_check(len(hook) == len(instructions) == len(lineup) == 1 and
+                     hook[0] < instructions[0] < lineup[0],
+                     "attempts.caller.selection-return-before-instruction-and-lineup")
+    else:
+        play_type = token_locations(selection, "SourcePlayType type =")
+        static_check(len(hook) == len(play_type) == 1 and hook[0] < play_type[0],
+                     "attempts.caller.selection-return-before-type")
     fields = {
         "Assets/Scripts/Gameplay/SimulationState.cs": "touchdown_owner_inverse",
         "Assets/Scripts/Contracts/SourceMatchContracts.cs": "touchdown_contract_inverse",
@@ -671,16 +706,20 @@ def require_current_caller_binding(caller_bytes):
         historical_base_source(name, raw, field)
         bound[name] = hashlib.sha256(raw).hexdigest()
     actual = hashlib.sha256(caller_bytes).hexdigest()
-    static_check(actual == HISTORICAL_SOURCE_VIEW["sources"][CALLER_SOURCE]["base_sha256"],
+    static_check(actual in (HISTORICAL_SOURCE_VIEW["sources"][CALLER_SOURCE]["base_sha256"],
+                           ACCEPTED_NOV11_SOURCE_SHA256[CALLER_SOURCE]),
                  "caller.only-authorized-call-changed-captain-preserved")
     bound[CALLER_SOURCE] = actual
     return {
         "status": "passed-static-only", "compiled": False, "simulation_executed": False,
         "production_file": CALLER_SOURCE, "source_sha256": actual,
-        "source_generation": "complete-original303-current-caller/v1",
+        "source_generation": ("accepted-f3ba-nov11-current-caller/v1"
+                              if actual == ACCEPTED_NOV11_SOURCE_SHA256[CALLER_SOURCE]
+                              else "complete-original303-current-caller/v1"),
         "current_source_sha256": bound,
         "historical_preedit_reference_sha256": CALLER_PREEDIT_SHA256,
         "historical_inverses_applied_to_current_source": False,
+        "historical_source_input_commit": HISTORICAL_SOURCE_VIEW["base_commit"],
         "legacy_one_argument_body_sha256": LEGACY_KICKOFF_BODY_SHA256,
     }
 

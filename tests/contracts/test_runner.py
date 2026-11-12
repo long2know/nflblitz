@@ -259,6 +259,31 @@ class ContractRunnerGuards(unittest.TestCase):
         with self.assertRaises(RUNNER.StaticAssertionFailure):
             RUNNER.historical_base_source(name, actual + b"\n")
 
+    def test_accepted_freeze_projects_exact_historical_code_without_admitting_source_drift(self):
+        for name in RUNNER.ACCEPTED_NOV11_SOURCE_SHA256:
+            actual = (RUNNER.ROOT / name).read_bytes()
+            archived = RUNNER.historical_base_source(name, actual)
+            self.assertNotEqual(actual, archived)
+            self.assertEqual(hashlib.sha256(archived).hexdigest(),
+                             RUNNER.HISTORICAL_SOURCE_VIEW["sources"][name]["base_sha256"])
+            with self.subTest(source=name), self.assertRaises(RUNNER.StaticAssertionFailure):
+                RUNNER.historical_base_source(name, actual + b"\n")
+
+    def test_current_pat_and_selection_callers_require_actual_shared_finishers_and_order(self):
+        flow = (RUNNER.ROOT / RUNNER.FLOW_SOURCE).read_bytes()
+        caller = (RUNNER.ROOT / RUNNER.CALLER_SOURCE).read_bytes()
+        anchor = b"return FinishSourcePat(pat, false);"
+        self.assertEqual(caller.count(anchor), 1)
+        with self.assertRaises(RUNNER.StaticAssertionFailure) as error:
+            RUNNER.require_caller_wiring(flow, caller.replace(anchor, b"return true;", 1))
+        self.assertEqual(error.exception.field, "caller.pat.award-before-finish")
+        hook = b"            Model.AccumulateSourceFourthDownAttemptAtSelectionReturn(sourcePlaybook, Model.SourceOffensePlay);\n"
+        admission = b"            AdmitSourceInstructionsAtSelectionReturn(instructionEnteringPlayType);\n"
+        self.assertEqual(caller.count(hook + admission), 1)
+        with self.assertRaises(RUNNER.StaticAssertionFailure) as error:
+            RUNNER.require_caller_wiring(flow, caller.replace(hook + admission, admission + hook, 1))
+        self.assertEqual(error.exception.field, "attempts.caller.selection-return-before-instruction-and-lineup")
+
     def test_historical_owner_contract_snapshot_mutations_still_fail_original_inverse_guards(self):
         original = RUNNER.historical_source_view()
         for name, field in (
