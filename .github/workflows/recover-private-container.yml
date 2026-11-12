@@ -1,0 +1,77 @@
+name: Recover exact accepted image to explicit private target
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/recover-private-container.yml'
+      - 'tools/source-player/deploy/private_target_recovery.py'
+      - 'tools/source-player/deploy/private_target_recovery_pins.json'
+      - 'tools/source-player/deploy/test_private_target_recovery.py'
+      - 'tools/source-player/deploy/PRIVATE_TARGET_RECOVERY.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: explicit-private-container-recovery
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Preserve all frozen29 checks and exercise explicit-private-target failures
+        run: |
+          python3 -B tools/source-player/deploy/test_registry_transfer.py -v
+          python3 -B tools/source-player/deploy/test_private_target_recovery.py -v
+
+  recover:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      manifest_digest: ${{ steps.recovery.outputs.manifest_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify privacy before game bytes and recover only exact7419
+        id: recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tools/source-player/deploy/private_target_recovery.py recover --work-dir .private-target-recovery
+      - name: Remove runner-local verification and Docker credentials
+        if: always()
+        run: rm -rf -- .private-target-recovery
+
+  independent-cold-pull:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: recover
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Independent private digest pull and complete config-layer-payload verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_PRIVATE_DIGEST: ${{ needs.recover.outputs.manifest_digest }}
+        run: python3 -B tools/source-player/deploy/private_target_recovery.py cold-pull --work-dir .private-target-cold-pull --expected-digest "$EXPECTED_PRIVATE_DIGEST"
+      - name: Remove runner-local verification and Docker credentials
+        if: always()
+        run: rm -rf -- .private-target-cold-pull

@@ -1,0 +1,939 @@
+{
+  "actualCompiledHead": "6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189",
+  "buildInfoSha256": "bbec531e361e01e628b0a82db07acc40ba79bd16c44142cd19129ace437236b3",
+  "coreAotSha256": "fcc6bc23172dcafcb8ad369b8aa4ee825d9420cca3c9e231ac6bb743f1c46ad8",
+  "coreWebcilSha256": "79949ef273ffeda88c9f7ed919f67d3922145aefca0c500224c1d45d9e803a05",
+  "dataManifestSha256": "51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d",
+  "deploymentSha256": "5b1027804c50fe5bdc783f265514ac697d7799e56d587869a8d7bf001068bb1b",
+  "finalQualitySha256": "2e1dd37ab12b538c6cb07262d99f5c19daf850f90d0d4f0522f5d326e738fb40",
+  "frozen17PacketSha256": "c1db465db433fc302410c71e3746572dd5c1c315a1998b253467f6a0b0291c41",
+  "frozenRegistryCodeSha256": "c554c818082878d2c1eb33db9ce1b1f8115f1ade78049f0af4219771c4cb267d",
+  "historicalTransferInputsForFrozenArchiveVerificationOnly": {
+    "archive_sha256": "18ce6b775e44bc327aa4fb14f8a6d7ccf25efdd70ba34cd0793076f8e820dd85",
+    "build_sha256": "bbec531e361e01e628b0a82db07acc40ba79bd16c44142cd19129ace437236b3",
+    "cipher_sha256": "fd47b4ba99ea12ce58d099aa03c7ee324cfff6a83450aaefd077990829265f9f",
+    "data_manifest_sha256": "51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d",
+    "image_id": "sha256:7419b62b728945fa59e90590dfe4e7eeec9a0eed96a9b53daebc225b31fae6cb",
+    "release_tag": "container-transfer-20261112-bd04abcd1403bc17739f9275558bdcd3",
+    "secret_name": "CONTAINER_TRANSFER_BD04ABCD1403BC17739F9275558BDCD3",
+    "source_digest": "4f519b55f331581a5c423e893de9d418251271387470d08639474a02e8e485b8",
+    "source_revision": "072919bee63489cf69088caf1bae385460c91226",
+    "source_tag": "nflblitz-original:q11-072919bee634-bbec531e361e-av306-amd64"
+  },
+  "historicalTransferNoLongerExistsAndMustNotBeDispatched": true,
+  "imageId": "sha256:7419b62b728945fa59e90590dfe4e7eeec9a0eed96a9b53daebc225b31fae6cb",
+  "nativeWasmSha256": "c9ff5d40f9815bbcabc16ed0485f2c538e031ef149b0ea5894d884d0c85c8e95",
+  "requiredRemoteMainFiles": [
+    {
+      "gitBlobSha1": "fbff18a4e0352cf7d6fa66c853d330626a66a209",
+      "path": ".github/workflows/publish-container.yml",
+      "sha256": "b5a3f54f3dc64ff021506be547311dddc918a1957baf8f78e0452bf9cc7dc7e6"
+    },
+    {
+      "gitBlobSha1": "6933b13beb73564eb8bb53ef6020b8f6654f946d",
+      "path": "Assets/Scripts/AssetImport/AuthorizedAssetFiles.cs",
+      "sha256": "bb2e53bf4098c87fbadc8a11d130a67069ef365142d38aa7d63e3ef22c4d8e29"
+    },
+    {
+      "gitBlobSha1": "22446fbe6e9c25714a13ed07305bee4e080449c3",
+      "path": "Assets/Scripts/AssetImport/BindPoseMeshBuilder.cs",
+      "sha256": "1818cab787bd69c1d85b238e61123e7d3c0ec91b4973f4cef7918846f5b07dc1"
+    },
+    {
+      "gitBlobSha1": "ee15522c85a282e8191182367e0f3654f179803b",
+      "path": "Assets/Scripts/AssetImport/GeneratedCInitializer.cs",
+      "sha256": "7e1d5bd8a8b16414dcff893d05f6fa403af3dd3a52feca5f25907085e3aac0a0"
+    },
+    {
+      "gitBlobSha1": "18d60829ad79adc7d7d84b3c93097d2e9e2a6649",
+      "path": "Assets/Scripts/AssetImport/GeneratedPlayerData.cs",
+      "sha256": "723a50fb34f0210c96f88692a9f0bb8ec1ac6151beb5aac89fcbe61386a75a49"
+    },
+    {
+      "gitBlobSha1": "9082ec320b42c378511014726ebbc156694ef24c",
+      "path": "Assets/Scripts/AssetImport/GeneratedPlayerReader.cs",
+      "sha256": "7688c3d4f9bde4687d5b307a3b6dbfcc34e4e084aab4ac673b90c94970f32a65"
+    },
+    {
+      "gitBlobSha1": "1cc41fb776ce1ce9caec3979aaf3feaea7f12fbe",
+      "path": "Assets/Scripts/AssetImport/PlayerImportPlan.cs",
+      "sha256": "3ae2992eb7aad3f9d6d50cd999258e614e7ef76f5522e5229ac4b35622a7ffbb"
+    },
+    {
+      "gitBlobSha1": "9a2169aa98b66bf114b4d5438b4f5cf9545bc811",
+      "path": "Assets/Scripts/AssetImport/SourceActorPoseSampler.cs",
+      "sha256": "a351fa46dbdd665db23e6f9bc8a6c0633a05af73f5a10fa646d88146760c0030"
+    },
+    {
+      "gitBlobSha1": "acbd4e0af52b7ac4869e795e5c61f085df05febd",
+      "path": "Assets/Scripts/AssetImport/SourceAnimationLibrary.cs",
+      "sha256": "bd3881258689ef48190103328ffc789bfac7d732193a7a4f7942c849523a2d10"
+    },
+    {
+      "gitBlobSha1": "900be86de7a5978d827ab054f2a0a391feb9fd2c",
+      "path": "Assets/Scripts/AssetImport/SourceAnimationSampling.cs",
+      "sha256": "00cf9341fc8f54030b634f2cb098207cdc0a5ebeec69e34fb91b342c2596763d"
+    },
+    {
+      "gitBlobSha1": "4eb24f42ae2ddc95d037fe8af5d74d211fad0306",
+      "path": "Assets/Scripts/AssetImport/SourceAudioBankReader.cs",
+      "sha256": "0e521463897c27020f006299006ddff41a2b5dc9e8f5df6fac893171b165859c"
+    },
+    {
+      "gitBlobSha1": "1fb281db9f0a945a029979ceadcbadcdae6e68f6",
+      "path": "Assets/Scripts/AssetImport/SourceAudioFunctionData.cs",
+      "sha256": "1615247320e0d1d12c3721e68bcd412cf1074f29294c965041e11e4bcae00c73"
+    },
+    {
+      "gitBlobSha1": "131e8c8cf6b5bda3be2aac65ef6bfca0ab398727",
+      "path": "Assets/Scripts/AssetImport/SourceAudioMixerProgram.cs",
+      "sha256": "9359bdada00d94f9bd0923b3a55d7f5b2e1c5af2e06aced54bbbb47aaf1d0760"
+    },
+    {
+      "gitBlobSha1": "b036cc7f06d5c8cfcfb6febcad370a036c7edabb",
+      "path": "Assets/Scripts/AssetImport/SourceAudioSparseSlots.cs",
+      "sha256": "2ed8fa2dfc86f66b2e6d9e23ad35b19e4806e7a304089843e6f626c44c5bcfe0"
+    },
+    {
+      "gitBlobSha1": "36ffeb7dc6a74ac95862aaad0bc02c55e130bd23",
+      "path": "Assets/Scripts/AssetImport/SourceC2CallbackData.cs",
+      "sha256": "94ea97cd33333d13ee42dd1372b7628f2809f9b01e7460e804c774f7fbbcd16d"
+    },
+    {
+      "gitBlobSha1": "395dbd86e15a0da8662280649a5d870ea1b69b78",
+      "path": "Assets/Scripts/AssetImport/SourceCinematicLibrary.cs",
+      "sha256": "5ac79da968bb4d5cf9a963795e1532ac5156169421b4cf4b07dac1ba6d738b38"
+    },
+    {
+      "gitBlobSha1": "fe5f51f2a7decd2e467d875d20c4287b1721d09b",
+      "path": "Assets/Scripts/AssetImport/SourceEnvironmentData.cs",
+      "sha256": "1ac1982bb65357a412446d50a8efb7cca877e47bdd72f42c2ac5026375d64e08"
+    },
+    {
+      "gitBlobSha1": "02b29052b9852036d3cfd3e3d1f913a545c750c5",
+      "path": "Assets/Scripts/AssetImport/SourceFireSpfxData.cs",
+      "sha256": "328856295d8c5ae7f0e89338b5a87fc07233e871a97680feb45c4c3ffbef9ae2"
+    },
+    {
+      "gitBlobSha1": "1f8eb2d38c5e725954bcae688bc85584698d4d89",
+      "path": "Assets/Scripts/AssetImport/SourceFreeBallData.cs",
+      "sha256": "d160d3a3629ebb5ad7ba98cf18fa5e11bb97532705cd5a47fe22d3a6ae7df84c"
+    },
+    {
+      "gitBlobSha1": "924ea5a9fc889a4eaa90dca00e8ab5393f017aae",
+      "path": "Assets/Scripts/AssetImport/SourceInterfaceData.DefaultAudibles.cs",
+      "sha256": "3f4a0ba3ac7649730bd02881a5888ce9f82f582f76fe041f5f8148345a9961a3"
+    },
+    {
+      "gitBlobSha1": "11acc14b9d39404c45c7f03a237c0640a445a6e5",
+      "path": "Assets/Scripts/AssetImport/SourceInterfaceData.cs",
+      "sha256": "79e7d41e6e0cc97b94633158f3764150519164da17a2b8c2e7eb5377bd482128"
+    },
+    {
+      "gitBlobSha1": "903d4c812aacbab46337984b71dced6b84680c5f",
+      "path": "Assets/Scripts/AssetImport/SourceInterfaceMovementData.cs",
+      "sha256": "87cdd47d40abdb036f4a21f259be370b90beff622540acfa6766a6aeb09325fc"
+    },
+    {
+      "gitBlobSha1": "6594d9f57fcc84cb1fd695d44f21d3021e9146e6",
+      "path": "Assets/Scripts/AssetImport/SourceNormalCameraData.cs",
+      "sha256": "0fb5ad49aa4ee37b86470921e60c0a4e618873166b6ececd27ec6b03d7d45612"
+    },
+    {
+      "gitBlobSha1": "779db816cd33f3c74615f15643133cef899db052",
+      "path": "Assets/Scripts/AssetImport/SourceOriginalPresentationData.cs",
+      "sha256": "16e09fed6172c2b53470969b4eea34def6a18599b7976ff4aeb8185e405da8a2"
+    },
+    {
+      "gitBlobSha1": "5c24ecaccec470918f5dcec10e3a0dff140c6457",
+      "path": "Assets/Scripts/AssetImport/SourceOriginalSoundBindings.cs",
+      "sha256": "2c8f2ea757efc4e91127d2044cf7aedc70c65533e530225e8c66fc831b7079d9"
+    },
+    {
+      "gitBlobSha1": "e2137c7e1c8bfe92470f5858383dbf178eb389a2",
+      "path": "Assets/Scripts/AssetImport/SourcePlayerPose.cs",
+      "sha256": "3a64fb16a1da91008f29ebd1692631711608add16b963b41e09b2140f6432e3d"
+    },
+    {
+      "gitBlobSha1": "1e8763a53a56da375d3218383a3d559bb6b6e9aa",
+      "path": "Assets/Scripts/AssetImport/SourceTeamGeneratedModels.cs",
+      "sha256": "dcfdcfa1ce9fe4f5e86479d468f84570eb4a16fc7c66bb03a600017460b3fb63"
+    },
+    {
+      "gitBlobSha1": "1e65be7c1514353ca85092fae5fe6a28ed97caeb",
+      "path": "Assets/Scripts/AssetImport/SourceTeamInterfacePackage.cs",
+      "sha256": "233e2e4bdeafa184dce3bf7d3f614df0b29837c1e8c7f69298372aa99220e649"
+    },
+    {
+      "gitBlobSha1": "17970a9e031b086d7c4a35d1bffceda469634baa",
+      "path": "Assets/Scripts/AssetImport/SourceTeamPoppedHeadData.cs",
+      "sha256": "33fd008e00b2ccb640bcf5286b0382af14461e227af06c35817bd5dc1abbee16"
+    },
+    {
+      "gitBlobSha1": "300217eee550eade0cdf0a89cb715eb33ab36832",
+      "path": "Assets/Scripts/AssetImport/SourceTeamPresentationData.cs",
+      "sha256": "27909a8afb3430aa4bcca9faff31a508a20851bc61195d71f46a577cfec654b6"
+    },
+    {
+      "gitBlobSha1": "6e2e0a646bcfd80ed7ebbc146506914ab0ea25c3",
+      "path": "Assets/Scripts/AssetImport/SourceTeamPresentationModel.cs",
+      "sha256": "57292c31ac2fcce784dc824737c1b62a6cf8b6d3dc22658883864f7a0a6977d3"
+    },
+    {
+      "gitBlobSha1": "9859ac84616ee265a82d62cee88a9f84df8b95af",
+      "path": "Assets/Scripts/AssetImport/SourceTeamRosterLibrary.cs",
+      "sha256": "9450e484620077375cfc90160c992c8c4ec37c4eb1ce032187acdae86958155c"
+    },
+    {
+      "gitBlobSha1": "dbe62c9e884115ed1ba61a99087488b1062853d3",
+      "path": "Assets/Scripts/Contracts/GameplayContracts.cs",
+      "sha256": "5193700b9ff030a957b7350741069192482c85ceb7d4af04fe94470d64c3b045"
+    },
+    {
+      "gitBlobSha1": "b8228990feb7af662a9c3e23175f2cae163254a1",
+      "path": "Assets/Scripts/Contracts/SourceAnimationContracts.cs",
+      "sha256": "16a51e0e705b89c5ed999dab23e40997069e220d974c59636d061fefe409f8a4"
+    },
+    {
+      "gitBlobSha1": "375b4a050e9a60e2c171e3f3cbe790581477f718",
+      "path": "Assets/Scripts/Contracts/SourceCameraContracts.cs",
+      "sha256": "f4180292c36c98c7bf885590d10b3b3484e2bc678489b0711df9ada5dd72e641"
+    },
+    {
+      "gitBlobSha1": "62419a66018a94dc6d141ce4aba2dc97916710e9",
+      "path": "Assets/Scripts/Contracts/SourceConfigurationContracts.cs",
+      "sha256": "71cbb7762d0b1a46001fa461338758cfc398d26b044ff3e8f002329077160c37"
+    },
+    {
+      "gitBlobSha1": "736f5f46f61608cff0b9b13e1426adc7b25ff968",
+      "path": "Assets/Scripts/Contracts/SourceContactContracts.cs",
+      "sha256": "69f2c080416174dd8e7674529d47a376ca9292e1f207b2d4520ba6fe31add4b3"
+    },
+    {
+      "gitBlobSha1": "90a9a93976edb30657d1059225406249cb54b2d9",
+      "path": "Assets/Scripts/Contracts/SourceFireSpfxContracts.cs",
+      "sha256": "96f002f9af45db1eb77fad8a6bf70f314ceda913768bb4f7c365bd30a974da6c"
+    },
+    {
+      "gitBlobSha1": "09efec3879a78d0df6c82140d590e828d49bb9fe",
+      "path": "Assets/Scripts/Contracts/SourceInputContracts.cs",
+      "sha256": "dcaff7e84092a0f31676c7b249bcf8271817c7f53ada2f3586e8bb8365aec3b3"
+    },
+    {
+      "gitBlobSha1": "72113efb841a8c5de2f5c75bd9bdb54adf210632",
+      "path": "Assets/Scripts/Contracts/SourceInstructionContracts.cs",
+      "sha256": "3d6c15a2db3213d195cc591ce58239a478550439662f6bf87a44b05913575541"
+    },
+    {
+      "gitBlobSha1": "9182562dae6feaac3d660f821075c62714bac426",
+      "path": "Assets/Scripts/Contracts/SourceInstructionPresentationContracts.cs",
+      "sha256": "52edf6fe6c97beb119469e87761efad71ab86651c4e9fc562add2465641cecaa"
+    },
+    {
+      "gitBlobSha1": "70bb2741aba8d26f422f9316062a35e24079cf6a",
+      "path": "Assets/Scripts/Contracts/SourceKickMeterContracts.cs",
+      "sha256": "98d75a7d80a909316935bb1d73688fefed69959fe80245ca9dfdfad444bf5cda"
+    },
+    {
+      "gitBlobSha1": "1182a5c307f8fec7efea24ab68bacc1664a44a6d",
+      "path": "Assets/Scripts/Contracts/SourceKickoffInstructionChildContracts.cs",
+      "sha256": "28272c7a057b30a01a0d6f23d60be79c9e5a8838541b03dd9df26ad3d64286ce"
+    },
+    {
+      "gitBlobSha1": "4d1522ef5da3af910a58028d0517ccf669a3f47f",
+      "path": "Assets/Scripts/Contracts/SourceMatchContracts.cs",
+      "sha256": "360adf2a42ec5d634841e7f8f42f28cccb2a5c3bba765fafdcaf80c6e0a6df6a"
+    },
+    {
+      "gitBlobSha1": "0e640ccc4c2fd827892986352eafd14418e750b2",
+      "path": "Assets/Scripts/Contracts/SourcePlaySelectionIntroductionContracts.cs",
+      "sha256": "22ba6f95a9f1ee375cf0bd5670099f81682ed89ce267265fe1d672932c0ab2c6"
+    },
+    {
+      "gitBlobSha1": "9b10d7fc985e280a3df0aa225c91407a2ddb4cbd",
+      "path": "Assets/Scripts/Contracts/SourcePortableProcessContracts.cs",
+      "sha256": "80eec44f92debbe1d379cedae59ead55dcd41e4e71126fa3ee1dd186e168aff4"
+    },
+    {
+      "gitBlobSha1": "bb7b1c271b630089fd17a58286c3c336aee41b20",
+      "path": "Assets/Scripts/Contracts/SourcePreGameSoundContracts.cs",
+      "sha256": "d9c0e8db231cdb5ee1563bee634cd40ef53529ca8f1e86c3827d3ff0d1b58cec"
+    },
+    {
+      "gitBlobSha1": "745b079d4ea2bb85f126dad50e1815e99a459e2f",
+      "path": "Assets/Scripts/Contracts/SourcePresentationContracts.cs",
+      "sha256": "789bc89987f32c131b4996f9bd96a3b1e93728d2ac77abca1af9d254df1fad9d"
+    },
+    {
+      "gitBlobSha1": "44ec19b6369e710ac31126e701a9da5ff04a4ace",
+      "path": "Assets/Scripts/Contracts/SourceSavedRecordContracts.cs",
+      "sha256": "4c2501bafa418d6333a0ee8de6e55966f983e6e1661edd662d210947404e9301"
+    },
+    {
+      "gitBlobSha1": "7c794c198e6d71df2e30a86d304c15afb180f7f6",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.Contact.cs",
+      "sha256": "93456de8bc031d1eb565e8bd1e72f8347ca0b33c2bacb869051051b3928249ec"
+    },
+    {
+      "gitBlobSha1": "60d80534a4a50af0a1759e4b7261179721ab9fef",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.FireHandicap.cs",
+      "sha256": "166ce0c1a740d20b9dbb175e434048772f8882baa89027e32a264ad479c110a2"
+    },
+    {
+      "gitBlobSha1": "d9c210751aaa4a6ae2bd42127e4f99a5a8edeced",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.FireSpfx.cs",
+      "sha256": "8d3ea41d67fba242e14426fff5a01a3d772c319e8829e9e7c9915434d11d6479"
+    },
+    {
+      "gitBlobSha1": "40e8d792f6fcabc404b0a4d8d0a5dd8987672dfb",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.Instructions.cs",
+      "sha256": "cca4e5401acf10985ef285b7c870502ca42644031d1950d91aad2953867b3e96"
+    },
+    {
+      "gitBlobSha1": "e32269d592844127bfda1a3f2bb3e1fc8c6b49c0",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
+      "sha256": "e424cdd2b973cab43a1148008e8700cb95256ebdac8e9c63e74c06b7cc075dfd"
+    },
+    {
+      "gitBlobSha1": "6a4cb66cab89a123074bf0fe647322fae2f1e373",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.Source.cs",
+      "sha256": "9e747e64685c5e67aeb2d8beaee13b9423190092905e147d12a130adbd267aa4"
+    },
+    {
+      "gitBlobSha1": "571c13224f2963b9eeb7a9d25f0e8723d84e47ce",
+      "path": "Assets/Scripts/Gameplay/GameSimulation.cs",
+      "sha256": "edc558d318ba89c66728550b36244693dfac1d8c6b07ec248f2e98d4d211bf1a"
+    },
+    {
+      "gitBlobSha1": "d59440f72e27c807beab871ef543963c349f429f",
+      "path": "Assets/Scripts/Gameplay/GameSnapshot.cs",
+      "sha256": "ab0dcf8dd9edbebb522eb1e9cedac472b92f4d4ae7a2ee321cf970b285d70aa2"
+    },
+    {
+      "gitBlobSha1": "a3498a19d2dde023de0574fae9cef51262f096be",
+      "path": "Assets/Scripts/Gameplay/GameplayRules.cs",
+      "sha256": "a727fe7fc3e01d4c2ed783f27359bffa20a033151e43bca701f09a13ef873d46"
+    },
+    {
+      "gitBlobSha1": "c327cb374855bd4e8db6ae6c80a95584d7ac059d",
+      "path": "Assets/Scripts/Gameplay/PlayerSimulation.cs",
+      "sha256": "e3ce36e7f028f023f09ef0288d331ddc202522cf0184ee9e744eb287627739fc"
+    },
+    {
+      "gitBlobSha1": "eefdfe6c41594a45d8e6d2a2c6a44f429b82d6dd",
+      "path": "Assets/Scripts/Gameplay/SimulationState.cs",
+      "sha256": "6eeb221c31128c095e387e7adec5860e62f3154db054250c1e95f914ffb555df"
+    },
+    {
+      "gitBlobSha1": "e8886e1d7571a9a95e8e71e0fa049a869117760e",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.C2.cs",
+      "sha256": "defa8716559a7d9a90245b545acd853951c2f9ba3dd2519c08680ece61d3b79a"
+    },
+    {
+      "gitBlobSha1": "44cc683e26d3f4926797f5e6512a4de348677bd9",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.Contact.cs",
+      "sha256": "944da0dc45732eec699f96882694a65c3adc1266b1feaa6d1fe7e5296852ffde"
+    },
+    {
+      "gitBlobSha1": "b780e896cf94de236c5579e1ff4963831166b410",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.Movement.cs",
+      "sha256": "2f2d888ff89a6a89d9b72d19590115a71cce8ff5c7c7d34b8c313205cf0358ef"
+    },
+    {
+      "gitBlobSha1": "7b0b1d80efd5b9e642429e307a4c32637d2ec49a",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.OriginalSound.cs",
+      "sha256": "eb68dd5619baac142dea37d1c37e3d06b16ce0483388941e9d1082ccff5c1362"
+    },
+    {
+      "gitBlobSha1": "84b3684eca85190ff8f073e1d01ed7f9ff7dc148",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationPrograms.cs",
+      "sha256": "b3e02ce4931692a378ea2426f389f4cafbbef5008f721ca667b4870d1174d63e"
+    },
+    {
+      "gitBlobSha1": "57a223e7b8ed8e35194ca54c0b2ce1be17ac839e",
+      "path": "Assets/Scripts/Gameplay/SourceAnimationState.cs",
+      "sha256": "d8de82480d7a2a555af32ddf6730caecdc378c28b655ee55a7bc602b892cc2b8"
+    },
+    {
+      "gitBlobSha1": "1de8a2ee9c8a9abe37bedb71e91229fc5fed2715",
+      "path": "Assets/Scripts/Gameplay/SourceAnyButtonWait.cs",
+      "sha256": "4ffdbd0d3354c4fa808c3e8b15e7a56815aaa9154317619d41f395c47719aff7"
+    },
+    {
+      "gitBlobSha1": "242050e94d317e732bcf9def0952b7301e348bb6",
+      "path": "Assets/Scripts/Gameplay/SourceBallDriver.cs",
+      "sha256": "8654b981270ce7af9f1d215b82844c108780d3b2c69441e64a3559047fd4aed7"
+    },
+    {
+      "gitBlobSha1": "27acea92623f0049627223133d4154bacee0ddae",
+      "path": "Assets/Scripts/Gameplay/SourceC2Callbacks.cs",
+      "sha256": "8258c1a21e709104f2c591bf96fbd93259d9618ebbb1e804143b5a2bab8aed36"
+    },
+    {
+      "gitBlobSha1": "28d097a2b9d13dda825fdcf11b84126da6cd8115",
+      "path": "Assets/Scripts/Gameplay/SourceCabinetFlowProcess.cs",
+      "sha256": "83abf97a8069afcf58b0cd6e841d51edfdbcfad23023be0bb43fdd769b080b0e"
+    },
+    {
+      "gitBlobSha1": "574fe82dd815934a9f21e7bdc2548a12c5c41924",
+      "path": "Assets/Scripts/Gameplay/SourceCatchGeometry.cs",
+      "sha256": "7508d8951e826a81368953ac386a83529f281097d2822c796d808fb4891f9782"
+    },
+    {
+      "gitBlobSha1": "27f3224d8b7e204a3cc3f369a3dd01babed73b04",
+      "path": "Assets/Scripts/Gameplay/SourceCatchRules.cs",
+      "sha256": "98e72c4d58bc93f72d4f73b1b9f555c22aefb41c7a75f7c4704f4ed8b6687c86"
+    },
+    {
+      "gitBlobSha1": "0393febb4e290b65eed64794de5762d7f0ae839b",
+      "path": "Assets/Scripts/Gameplay/SourceClock.cs",
+      "sha256": "06eaa3fef8c29a907f25789b8e0b702fbcb548d2d9243c8ed5c6e524fc716941"
+    },
+    {
+      "gitBlobSha1": "dc8ac53f1336c86190c8fd90a18887b0c9a238db",
+      "path": "Assets/Scripts/Gameplay/SourceContactDriver.Dispatch.cs",
+      "sha256": "c4c9d9c8b5e617ab81e5bd2ece9f769704c1edafd2f8f3e5f263267342a6644b"
+    },
+    {
+      "gitBlobSha1": "5c8992228bbaa27212588a8c0dfae7c700fc87a8",
+      "path": "Assets/Scripts/Gameplay/SourceContactDriver.cs",
+      "sha256": "5a15e178cc1beb253455e2745317a347324640e3cec63f068d977785a18cc942"
+    },
+    {
+      "gitBlobSha1": "bd4c6c7e6f7c345ab5a655f8758d038ed9ef27de",
+      "path": "Assets/Scripts/Gameplay/SourceDroneAI.cs",
+      "sha256": "1d2de05b0bf065d8ccfa305f7b2dbb061809c2e0bae5fbb70b72f00366a7c2ae"
+    },
+    {
+      "gitBlobSha1": "89b13ef650d547e1c70078d3f512a5d14561038c",
+      "path": "Assets/Scripts/Gameplay/SourceEvasion.cs",
+      "sha256": "ee30bb1296b3493f08d65a0cb5f325574d0fbfe1c75461e23b1f00675799f62d"
+    },
+    {
+      "gitBlobSha1": "a125dd6021b595e5ecf77a5f46cdd4d67ad85616",
+      "path": "Assets/Scripts/Gameplay/SourceEvasionLeap.cs",
+      "sha256": "77323e1c26ba1baeaaed202fee8d4f39a48dc33bb15d1c5c8a71b131fe173282"
+    },
+    {
+      "gitBlobSha1": "0ff12b0477ae551b80e9879b7ff2a1d3205bd312",
+      "path": "Assets/Scripts/Gameplay/SourceInstructionProcess.cs",
+      "sha256": "6520a323420114100467c1347700ec6b6462111053112f5a2ef76a5306881576"
+    },
+    {
+      "gitBlobSha1": "cb820805f585cf305d4e9af58e0f15b1fd0a2663",
+      "path": "Assets/Scripts/Gameplay/SourceKickMeterProcess.cs",
+      "sha256": "fbc1290e73a7a48aa534abaabd58a62d6a41ff3df825eb71087ef06efa39c0cd"
+    },
+    {
+      "gitBlobSha1": "66722623330397f6cbfc841096049221be894641",
+      "path": "Assets/Scripts/Gameplay/SourceKickoffInstructionChildProcess.cs",
+      "sha256": "04e8b649a9153d4dbc46b5f76ec82be0e0e79262214ca31dc0ff953ed3bc6484"
+    },
+    {
+      "gitBlobSha1": "a49d014b62004d610c5e206544d1297ea963f6fa",
+      "path": "Assets/Scripts/Gameplay/SourceMatchFlow.cs",
+      "sha256": "4ad130bf50e4f27163ec0e56075540664c0ef79cac814cd94e5a056e3dd31721"
+    },
+    {
+      "gitBlobSha1": "2af3efec4357e9673ee2f41993045c7fb7b9feda",
+      "path": "Assets/Scripts/Gameplay/SourceMatchRules.cs",
+      "sha256": "863605f099fda2cdd3838a13d599063592520f57f3c6147957e90eb7a34ac3f5"
+    },
+    {
+      "gitBlobSha1": "d24bf7efa571331c36648921a2e4933b6a65ac72",
+      "path": "Assets/Scripts/Gameplay/SourceMovement.cs",
+      "sha256": "9200ab43e661fd8ac8f1c022f9e6bf5e1fd54970c75849393c473c296d7855b6"
+    },
+    {
+      "gitBlobSha1": "9f9736f8b384d8dac38d858126acc0c12b630fae",
+      "path": "Assets/Scripts/Gameplay/SourceMovementIntegration.cs",
+      "sha256": "d519b87906adc3bf73d81784767ac09e3fca075e6149fe75a0a0811d672d770e"
+    },
+    {
+      "gitBlobSha1": "a247271c74e55dcb349039ccbf08f872730e7865",
+      "path": "Assets/Scripts/Gameplay/SourceMovementState.cs",
+      "sha256": "01cdc1f8d8fb3e9545c411653b37bc48c7afcd781f4fca568b92f9510b59740d"
+    },
+    {
+      "gitBlobSha1": "55a0dfdafbcc230adfb28cab0231eedba8fd8d45",
+      "path": "Assets/Scripts/Gameplay/SourcePassDriver.cs",
+      "sha256": "c8bd488d144cdc4426ccdf4d247cd873ce54a994c52bf394f038660c6b46e5bd"
+    },
+    {
+      "gitBlobSha1": "5f79915b59dea1bf2b918d7da2517346e2e1cfcc",
+      "path": "Assets/Scripts/Gameplay/SourcePlaySelectionIntroductionProcess.cs",
+      "sha256": "a6008ab718ebab3658b317659467e68231d4c288240464e9b4bd8ba0f3988bad"
+    },
+    {
+      "gitBlobSha1": "67691c659d78ca483c44874de784da509ab7ddf8",
+      "path": "Assets/Scripts/Gameplay/SourcePlaySelectionTimer.cs",
+      "sha256": "8673e61527054f769a5449badc9c9b5910285139925302a38151c58cd50bcd24"
+    },
+    {
+      "gitBlobSha1": "83055b84578dd3edbe6c0026e9e923de21abd4f3",
+      "path": "Assets/Scripts/Gameplay/SourcePlaybook.cs",
+      "sha256": "8b91191c6e56563bff8696755bc4f5bedcc6acc6167fcb0e0d9df0c3d79b39fc"
+    },
+    {
+      "gitBlobSha1": "d7e6740a9fce278a0b3a2e0cb8571fedd21087bb",
+      "path": "Assets/Scripts/Gameplay/SourcePlayerDriver.cs",
+      "sha256": "58e8f20f64d2c4d08586891675db7ecaec3be8f00d5457cfd788b0ce270aa06c"
+    },
+    {
+      "gitBlobSha1": "cf3b3f648f66f79c86ec51d6ba4defbe8e514d8f",
+      "path": "Assets/Scripts/Gameplay/SourcePortableProcessHost.cs",
+      "sha256": "ce1ecc12562d81c345240decfffa7a0a82f8108abd368e70bb9521e2cfd79ddf"
+    },
+    {
+      "gitBlobSha1": "bfdc86f7693256dc682f553b2f6d487f2d0539d8",
+      "path": "Assets/Scripts/Gameplay/SourcePreGameSoundPrograms.cs",
+      "sha256": "f07643c4598770837894c4e4bc51086bd9aed36bb8890633e21782da9ed8cb76"
+    },
+    {
+      "gitBlobSha1": "0805978a5e0b4076a3aee466c26f6651e5a92f27",
+      "path": "Assets/Scripts/Gameplay/SourcePreGameSoundService.cs",
+      "sha256": "05f439492b40c444fa9aede64e6f1e48d9579def41751bc2fb9d8579b1657467"
+    },
+    {
+      "gitBlobSha1": "b5ebb05177477dbbeec93cb6bfc69b3b8cd253c0",
+      "path": "Assets/Scripts/Gameplay/SourceRandom.cs",
+      "sha256": "fb1b5a6690357933f69a30d842620d1aed9f091537444bc807dc3dee2993d1ce"
+    },
+    {
+      "gitBlobSha1": "e663438afbac807366177c7429615347e75384a7",
+      "path": "Assets/Scripts/Gameplay/SourceSoundVm.cs",
+      "sha256": "f7f9b3e1b4b694358b2234d99fdff3903f4211434979d3fd91eef8bed100d9e9"
+    },
+    {
+      "gitBlobSha1": "4ae888fe9563077c57da99b37892defecf564667",
+      "path": "Assets/Scripts/Gameplay/SourceTimeOfPossession.cs",
+      "sha256": "05bc6be18b9f0821413fb1172353ac9657b66de56a6a79b2b4591c8212a4460d"
+    },
+    {
+      "gitBlobSha1": "309649943cb55b2e26365bac5486d3e873d45311",
+      "path": "Assets/Scripts/Presentation/NormalCameraModel.cs",
+      "sha256": "4df6d0ce1bfa11322aa0e1e640f1e12bc043468e3d1ccd905deed376d411fb88"
+    },
+    {
+      "gitBlobSha1": "4fd47cd6db07997f87384ca671403c2882fa89c4",
+      "path": "Assets/Scripts/Presentation/SourceAudioFunctions.cs",
+      "sha256": "62a9797bf9c136b3df7a2a71e2a9b597d2346d286661b2cb071b4fd8e591fc0e"
+    },
+    {
+      "gitBlobSha1": "d0ee567d2647a5b0eb238b6f1f73d4d843652101",
+      "path": "Assets/Scripts/Presentation/SourceC2SoundFunctions.cs",
+      "sha256": "701c0916a1ea19e6fe40b5c742c9fdb6a764f820f7f60e43c3de843c2b4bd3ab"
+    },
+    {
+      "gitBlobSha1": "752e9bac2be7797eec3eb18b34b9e90e2c66d817",
+      "path": "Assets/Scripts/Presentation/SourceCabinetScreenModel.cs",
+      "sha256": "78dc7b3b686c57a860d6a07ba88f48218b4389a5193d38163d43896873a3a7e0"
+    },
+    {
+      "gitBlobSha1": "f16e7220980f35a5dbdb412c2bf68c36f5e182a9",
+      "path": "Assets/Scripts/Presentation/SourceCinematicModel.cs",
+      "sha256": "8d1225a017a4449a18aedd040a4068dc0321b66a7fc4b4f6c4b03ad470e26c81"
+    },
+    {
+      "gitBlobSha1": "dad646415aa2390bf353a2c6422ce9848ec7f9d3",
+      "path": "Assets/Scripts/Presentation/SourceCinematicPlayback.cs",
+      "sha256": "c01243b6cf9900a344b28aa26b35cd5b2af83b039dea371b90804fac0c95f634"
+    },
+    {
+      "gitBlobSha1": "97bcd6f29f5e125a944c58dd97eaca90cf2ebe97",
+      "path": "Assets/Scripts/Presentation/SourceFireSpfxRenderModel.cs",
+      "sha256": "29444524037edf6546b7baae5aff91549ea177492759a33f8095d229a0da5ca6"
+    },
+    {
+      "gitBlobSha1": "b17abe3f8e75f359fecf1b78d15b3c383b322ceb",
+      "path": "Assets/Scripts/Presentation/SourceFreeBallRenderModel.cs",
+      "sha256": "1024734febd116c12f40ae9001aa66a595d32f03284a4bd2d51b9b61a8462ca9"
+    },
+    {
+      "gitBlobSha1": "b0df4a923e17fa04097866485cd24b78a29cc707",
+      "path": "Assets/Scripts/Presentation/SourceHudComposer.Records.cs",
+      "sha256": "725e13185e5f9899833f820ff31126cab4eeb9d643292fd95fd7971a74301792"
+    },
+    {
+      "gitBlobSha1": "1ba82ececda911b232187dad8674bffa9355846c",
+      "path": "Assets/Scripts/Presentation/SourceHudComposer.cs",
+      "sha256": "904bc602da9e4cec16c4aee3b62c8351350b3ac56d121db459abd0f5bfe00fcf"
+    },
+    {
+      "gitBlobSha1": "c2900f60cf71f0b0d7576ba67cbe87dfd4979ce7",
+      "path": "Assets/Scripts/Presentation/SourceHudModel.cs",
+      "sha256": "09a9f2a39a1b0b085d6791527b75e0f0e7c4cdfbc0e6d36cf06f89d3b10ad278"
+    },
+    {
+      "gitBlobSha1": "af02030b3a2c520eecdc113658229ed250dc7d68",
+      "path": "Assets/Scripts/Presentation/SourceHudViewport.cs",
+      "sha256": "54119d97c2165f1eaaafb979a3688116fc78894ac59713c0de55c2c5d4ee32da"
+    },
+    {
+      "gitBlobSha1": "2ff5c66ab874a5a1fed7db378e13d58d8660e7c6",
+      "path": "Assets/Scripts/Presentation/SourceImpactShaker.cs",
+      "sha256": "b084679a7ca0602e2f85e8a0c65c811623ab84fe85491ebf4cec07878f750141"
+    },
+    {
+      "gitBlobSha1": "a67eba5a0da5a03120769eceb06de02f7a24ce11",
+      "path": "Assets/Scripts/Presentation/SourceInstructionPresentation.cs",
+      "sha256": "5b801c02a987decd8448a2c6883d57671c7cbaec94ada8d4e535da5eb59f7879"
+    },
+    {
+      "gitBlobSha1": "bb6e27aa2054f1ef64acb08ed7bd4210f1509138",
+      "path": "Assets/Scripts/Presentation/SourceInstructionTextProgram.cs",
+      "sha256": "491c2aa32f97a66f2f82e849863a5570fb06710af589a7f9ab86b82860c7b36b"
+    },
+    {
+      "gitBlobSha1": "7caeca4e78fc993a0ad63386ac8c7bcad699b226",
+      "path": "Assets/Scripts/Presentation/SourceKickoffInstructionPresentation.cs",
+      "sha256": "26aa958b1c712ddd46a823f87081d87f136b9026f5682a822b9b737e73523a18"
+    },
+    {
+      "gitBlobSha1": "0136b0009852b874c9de2f5880229696f33085fb",
+      "path": "Assets/Scripts/Presentation/SourceNormalCameraModel.cs",
+      "sha256": "667441538c4befbdb2c12a17e217a5404b5808dcc54423751650c3f7d726a96b"
+    },
+    {
+      "gitBlobSha1": "86053a9c20bc70ec7881478d6fd7b1321acd1cda",
+      "path": "Assets/Scripts/Presentation/SourceOriginalAudioFunctions.cs",
+      "sha256": "a129f65257ce712fd1020949d1a60a2ce91925c8d07ca0afb66b47d80b9c9ead"
+    },
+    {
+      "gitBlobSha1": "b3cd854505819f4c75026657c14fef6189a4149d",
+      "path": "Assets/Scripts/Presentation/SourceRecordScreenModel.cs",
+      "sha256": "441489916446dfd4dc279506a18cf5add3110532453fbee93be55c08bcc44aac"
+    },
+    {
+      "gitBlobSha1": "29b72905dbe5cc689bce8943a288162044370294",
+      "path": "Assets/Scripts/Presentation/SourceWorldPresentationModel.cs",
+      "sha256": "a3d5c7a57ab0b65cbcb644bd6f43b12269001fc597ac9e2627cf888df0dec7eb"
+    },
+    {
+      "gitBlobSha1": "b4a3f359702b7452c5b0e0ac77fb2d1cfcff32f0",
+      "path": "Assets/Scripts/Runtime/FixedStepBridge.cs",
+      "sha256": "ef6fc7ef3f6e4a7f14ab7a09b4ac5615b143c565b2a0a9aa97009391a58e0650"
+    },
+    {
+      "gitBlobSha1": "6c8c97f3cafd31d709bd771d54d1803996ffca83",
+      "path": "Assets/Scripts/Runtime/SourceC2Composition.cs",
+      "sha256": "993547f95ef34a5150b9e02fe551307cdd720830b494cd0d29cdcbf62e7c6214"
+    },
+    {
+      "gitBlobSha1": "0d4d30cc446c261a738288a818188f7abf9e15bd",
+      "path": "Assets/Scripts/Runtime/SourceCabinetInput.cs",
+      "sha256": "d88b0e2819efb139b647f61a54270328622acebc3a0cdf7f32fd1e9cd0691c74"
+    },
+    {
+      "gitBlobSha1": "5e0559d873be49da081dfab8ad2903d58b2eb80a",
+      "path": "Assets/Scripts/Runtime/SourceCabinetInputPlaySelection.cs",
+      "sha256": "61c783c89794cc49ba31e0eb634bdfa6599cb8530c449474e7b2f42fb4de4caa"
+    },
+    {
+      "gitBlobSha1": "be994b55daafa43270a895db6fbc5c7bcb6f1447",
+      "path": "Assets/Scripts/Runtime/SourceContactComposition.cs",
+      "sha256": "e5b225a7592406784a57e0e2b91e73ddfe98d27a2520bb2f6faa56b5f530d269"
+    },
+    {
+      "gitBlobSha1": "0302c84326bcb750e3369253842650bd35d310b4",
+      "path": "Assets/Scripts/Runtime/SourceFireSpfxRuntime.cs",
+      "sha256": "e52c87373c32713dbc68d822acfd2b175128a62bbf71f4edbe34416e05f08930"
+    },
+    {
+      "gitBlobSha1": "ab8de85c4b2ad03e50f9025a6d36910fec015361",
+      "path": "Assets/Scripts/Runtime/SourceFreeBallBinding.cs",
+      "sha256": "087e1ffa94d2f36c16101e92227a0015954b471e754262aa2aeaa513e14bbbb2"
+    },
+    {
+      "gitBlobSha1": "8a3fb7f9640b52533986b1ae3aae4dd82a2964af",
+      "path": "Assets/Scripts/Runtime/SourceInstructionConsumer.cs",
+      "sha256": "78bbfb400423492c3008f91cf521cd0f3004b047828ecd9b8b017033ed098865"
+    },
+    {
+      "gitBlobSha1": "bf0c116de4662500a2a6b8fff643b1046d0d8ecd",
+      "path": "Assets/Scripts/Runtime/SourceInterfacePresentation.cs",
+      "sha256": "451846d87c1d3bb4591f6f49d3eb52807c1b44bd87a47a27368287668154ab33"
+    },
+    {
+      "gitBlobSha1": "4a1eeff1bdb08211d49966dc05683b9e84d2888a",
+      "path": "Assets/Scripts/Runtime/SourceSoundVmTransport.cs",
+      "sha256": "ff5dba80cf99f0ff8192aea4d02a9b0d1eb4ac6b909519e7a803cefd47826e3d"
+    },
+    {
+      "gitBlobSha1": "abde1c58d13ac5e570a449e9e131dab27036dc01",
+      "path": "Assets/Scripts/Storage/SourceCustomPlayCodec.cs",
+      "sha256": "69d95a457fc959bdc08759e3cf0493772c6a3aa55b2d774f7b94b756d3172274"
+    },
+    {
+      "gitBlobSha1": "d084f046938e53eb889d39540b5da0be6c5359c5",
+      "path": "Assets/Scripts/Storage/SourcePlayerRecords.cs",
+      "sha256": "0ea6528ff3065db8b79157a011cda9e3b668450a97c04bba2bb9fd94d86f18cd"
+    },
+    {
+      "gitBlobSha1": "de866fee3080073f524a05f26af23a97a3dd6044",
+      "path": "tools/source-player/Browser.cs",
+      "sha256": "a0eeb38c42470a5fe0604f1a6ca08cecd5c20f9eec4424db15a534459719570a"
+    },
+    {
+      "gitBlobSha1": "b36ea27b44822a78902db3d57671b9e13d86f1eb",
+      "path": "tools/source-player/BrowserRecords.cs",
+      "sha256": "abc5458c3439e2dc6c9f66491eb20875f35232110edeaa89f65e6520117951f7"
+    },
+    {
+      "gitBlobSha1": "846609aa8300c8fe1043b704af802f7969cdf2db",
+      "path": "tools/source-player/Directory.Build.props",
+      "sha256": "376b9319d21fb1b72785cd24c59a6206c627539dc6e08be9de54e18124be3d37"
+    },
+    {
+      "gitBlobSha1": "1b7d7f52497f32ad254408e981ecc30d4c3ea0c2",
+      "path": "tools/source-player/ProductionSources.props",
+      "sha256": "af5de31f75e1c5dd3c958a5afbab40a6bde2ec72ba8ae9985d6102eef242beeb"
+    },
+    {
+      "gitBlobSha1": "a6283af81280163d9cd8c789091e2baa91793346",
+      "path": "tools/source-player/Runtime/DataCatalog.cs",
+      "sha256": "d7f19c90ddcbf14f6fcd6233d7e9c20d8937d997f3db61ca2519da80eadec25d"
+    },
+    {
+      "gitBlobSha1": "fb7c87d5880d8731bfec50b225d8f127d9e9e8eb",
+      "path": "tools/source-player/Runtime/FirePresentation.cs",
+      "sha256": "436232748f52e9cf368410d7a251550f51d0f4bd79e641df598226a228a7ab02"
+    },
+    {
+      "gitBlobSha1": "c9b01b243472c2bc5a5cc926f1c4c6b455acbf6d",
+      "path": "tools/source-player/Runtime/FrameMath.cs",
+      "sha256": "9474ba8a3384307aac73878254206380a661e570003cf36d8d81f95bc048f856"
+    },
+    {
+      "gitBlobSha1": "e527249cdf5e0c0efd5668087187a28f19371494",
+      "path": "tools/source-player/Runtime/KernelBinding.cs",
+      "sha256": "38dff5283d6b2cd994689a93808bdb072686708e82291a69bd0fa8303085bfab"
+    },
+    {
+      "gitBlobSha1": "33939f7d9654cc1c7f96f029f6d31e530255b1e5",
+      "path": "tools/source-player/Runtime/OriginalHudProcess.cs",
+      "sha256": "1627083ae78a14e4cf498823200d374766b7423165d73a28354b2f2569d80545"
+    },
+    {
+      "gitBlobSha1": "eaed7eb7f4c52288868bfc651fbc4b28104a3c7d",
+      "path": "tools/source-player/Runtime/PlayerData.cs",
+      "sha256": "a45c2297aa590dfb930f6e59521bc34b48db8d4d11a343b13d3ee1f229951002"
+    },
+    {
+      "gitBlobSha1": "d3ce380c8e69aca26986daf80dbc04a8d7cc6df3",
+      "path": "tools/source-player/Runtime/PlayerHost.cs",
+      "sha256": "d780a2076b6b11dfd46bf83e5e80f88b363f49254a7e27f734f34df527ade40a"
+    },
+    {
+      "gitBlobSha1": "51f00b314909c0c985f7a456f7905fdff6369dc1",
+      "path": "tools/source-player/Runtime/PortableInstructionResources.cs",
+      "sha256": "8526f9f581c693e24cb8f9037dc3d96dff5c6fd1f8f5fac6472203c547618bfc"
+    },
+    {
+      "gitBlobSha1": "e9a5990a2a0f368268212ceacc41f4e221b7d954",
+      "path": "tools/source-player/Runtime/PreviewCamera.cs",
+      "sha256": "6eecc90359489949ffe3075a9879c3f6f5d746088d273c146dc862dc50cdcb6c"
+    },
+    {
+      "gitBlobSha1": "76accba4325289dc27c8996037610302733913d2",
+      "path": "tools/source-player/Runtime/PreviewOptions.cs",
+      "sha256": "e39b3be3da587017077b485ddfda1479cc029c573ab847ee6959bfb66e9d6472"
+    },
+    {
+      "gitBlobSha1": "c7b1b062233dc3661eb06469fd112672158e9fa2",
+      "path": "tools/source-player/Runtime/RenderAssets.cs",
+      "sha256": "c24fb62a080b9eddead7e4843a73ee4f73d757cc2e52eec93f0e6b1cbfe6f70e"
+    },
+    {
+      "gitBlobSha1": "e63fa156e20623cbb9ffe2f9523fa7054f669de6",
+      "path": "tools/source-player/Runtime/RenderSink.cs",
+      "sha256": "c80e757d7f7008230a3e85bc7fa195d52ab8949c56ed1c746f5e23b60dcb98f9"
+    },
+    {
+      "gitBlobSha1": "8a2a3b3d67a0bc6ced4331e03cb68617d25609ab",
+      "path": "tools/source-player/Runtime/SourceAudioPlayback.cs",
+      "sha256": "f4f74b29d14a49bb4ef6f2de8413ad6836242edfe489ad169f912c3381773a46"
+    },
+    {
+      "gitBlobSha1": "9ac733d65d95d5f3566055e1bec6f5e6103314fa",
+      "path": "tools/source-player/Runtime/SourceCabinetRecordsRuntime.cs",
+      "sha256": "f8e89b52f7247d86d9260d1ab09f4a9de52715d4a09605fe330efbbf90832012"
+    },
+    {
+      "gitBlobSha1": "697dad6f428af8fb04aba77290bc4c2fdf0cc54b",
+      "path": "tools/source-player/Runtime/SourceCabinetSession.cs",
+      "sha256": "bb9115d95d568ce3ed91c4ce462ed81c32d40896c107367de0b409e43c518797"
+    },
+    {
+      "gitBlobSha1": "9627cccfe51354b3dadf1fb62ace432325220b8e",
+      "path": "tools/source-player/Runtime/SourceObservedInputTimeline.cs",
+      "sha256": "9c51857d583754145eda978b8255911615fc1be2f6c55461e18279f09b63ca74"
+    },
+    {
+      "gitBlobSha1": "d03388d4e135067ab9ffa2cbc4e872c0fa4b89cb",
+      "path": "tools/source-player/Runtime/SourcePlayerRecordStore.cs",
+      "sha256": "a0c4b9af01c333783014b331e959001ef81e8b325f058e75c487101aa8b43c1a"
+    },
+    {
+      "gitBlobSha1": "5bb3ff5b7a01e6bdbd3ab11f700b5c7b8de42e10",
+      "path": "tools/source-player/Runtime/SourceRealtimeFrameClock.cs",
+      "sha256": "44e4f2c8c5ce0dc3b90ff0bc438ac0aeb75a7a7487abb05dd220dfa271037cb9"
+    },
+    {
+      "gitBlobSha1": "0823aa277edcfea56886fea3ff3331a570afc4f5",
+      "path": "tools/source-player/Runtime/SourceWorldPresentation.cs",
+      "sha256": "290815e8fe9a40ce79a5304da6499fc810533df136b36cdd54d6b3aa5655e903"
+    },
+    {
+      "gitBlobSha1": "0bf13f6b1822d32f4ee3f3c01fae2ee68bb79244",
+      "path": "tools/source-player/SourcePlayer.AnimationOpcodeChecks.csproj",
+      "sha256": "37ac7a4517dc273e1db5712bcf074f0fec2839c43fb6d2530128eac85df50fd2"
+    },
+    {
+      "gitBlobSha1": "780e081b3cc05203365e10b7f5df11d093c6d6e9",
+      "path": "tools/source-player/SourcePlayer.Browser.csproj",
+      "sha256": "235edcd782974d585534d907b98d5fe733f7b8125e8a1281dd9c8da85cb57dcf"
+    },
+    {
+      "gitBlobSha1": "f0c4e6105db6187006ec1e0292e8c5f7f2a31e40",
+      "path": "tools/source-player/SourcePlayer.Checks.csproj",
+      "sha256": "e3f2d1a86dfa3cc509ab49c496234ad3d7936ac2269c90696279228d60913387"
+    },
+    {
+      "gitBlobSha1": "558d4b54ed692cd4a627588fa1721a9deb2f9e0a",
+      "path": "tools/source-player/SourcePlayer.Core.csproj",
+      "sha256": "8bc045f264c7bb9476ad2f4f398f8fa57c3e49077d3b5d69265f703c6dc33666"
+    },
+    {
+      "gitBlobSha1": "2e0d4816551db90a0d1e1e028df092f33b89f0ae",
+      "path": "tools/source-player/deploy/.dockerignore",
+      "sha256": "2abeeccc20950b1fd12231d0bf2c19cd7e0eeae19e0f9b0bc5f1ee0377ea7bbb"
+    },
+    {
+      "gitBlobSha1": "7048ed33c564c1029b1a72100c224c021bb60f31",
+      "path": "tools/source-player/deploy/Dockerfile",
+      "sha256": "fc0526c6f089726c2ad6d869558e995efcdd92057f221f941ba9db16e1a138b0"
+    },
+    {
+      "gitBlobSha1": "322919b50aa7efe85ae300593deae73853e07bb0",
+      "path": "tools/source-player/deploy/README.md",
+      "sha256": "246f9e090d682dfa9a27ed5873e1daa29a362eaa3c9b344ee322b32dbbddb7ee"
+    },
+    {
+      "gitBlobSha1": "5edf2399e5c45bcc2c7427462a3bdc21ffcc1f4b",
+      "path": "tools/source-player/deploy/REGISTRY_PUBLISHING.md",
+      "sha256": "360984c6eec7ee8597c8a611b4ca1535f515a1a1fe21ebcbeb4eb6d30c8b625f"
+    },
+    {
+      "gitBlobSha1": "5b088acd7da43d4e78a05d588935c7dee4547c00",
+      "path": "tools/source-player/deploy/compose.lan.yaml",
+      "sha256": "41b6fa340e3cb100289fd51358f736467ea1869c39fbcad54863c5a59ef82b3b"
+    },
+    {
+      "gitBlobSha1": "fa3954ca94b56943bd4791698be34bf23bf455f7",
+      "path": "tools/source-player/deploy/compose.yaml",
+      "sha256": "0c67ef2dd020cda4a3d53f6c393d8eb854b4817cbe0d9d62322c5103afcf464f"
+    },
+    {
+      "gitBlobSha1": "0045ea3337b182451448170cf34bd059232e82f6",
+      "path": "tools/source-player/deploy/entrypoint.sh",
+      "sha256": "906a99aa34331a1aaf9a97547784cc3d492652fcaebb230d9bd0bcff31b09c4b"
+    },
+    {
+      "gitBlobSha1": "9f42ff4fc03563dffff851207c023d67320d1e76",
+      "path": "tools/source-player/deploy/healthcheck.sh",
+      "sha256": "0d5d52f8ad6803ce798f8b037124af1f8d42994297ed721a67b94b08d2431f36"
+    },
+    {
+      "gitBlobSha1": "f45c53121088871782ed389507a5d9ae77b1f656",
+      "path": "tools/source-player/deploy/nginx-subpath.conf",
+      "sha256": "4b819a7991ad932f3bf133da4d8f5a18af7af1ce0aff00fea9c0cfbb613bb4b7"
+    },
+    {
+      "gitBlobSha1": "0ce84640d52d3c4192742b6effd6330d3cae822e",
+      "path": "tools/source-player/deploy/nginx.conf",
+      "sha256": "465704cbb27b962b6a04c2624fa72cc0cf6dce74fbc8db355dc82734be08e72a"
+    },
+    {
+      "gitBlobSha1": "efd8393c32964bdeac5980c87f0964b395ecab49",
+      "path": "tools/source-player/deploy/package.py",
+      "sha256": "92c6d857d7ef128ec4a0dcafb7fb26c135a6ffccf4ccc5daa072b0c299f1954e"
+    },
+    {
+      "gitBlobSha1": "c02d0f7b2feda58d2a4750800000e81c25ce8431",
+      "path": "tools/source-player/deploy/registry_transfer.py",
+      "sha256": "c554c818082878d2c1eb33db9ce1b1f8115f1ade78049f0af4219771c4cb267d"
+    },
+    {
+      "gitBlobSha1": "11d79a4684c99b950f06630cbd8a080d50d26f5f",
+      "path": "tools/source-player/deploy/runtime-common.sh",
+      "sha256": "89e09ea6e2d9ffce163dc07bfb3b4f01f244e4465572c62b5e889f4887a55f20"
+    },
+    {
+      "gitBlobSha1": "4eb5313bc162fd37a098bf1707f9467bcfb99a79",
+      "path": "tools/source-player/deploy/subpath.browser.mjs",
+      "sha256": "f67f282395a90c77c305e679f949148a36f989d76f09aa692b0d0282a316e7dd"
+    },
+    {
+      "gitBlobSha1": "d00920439172192ea1cbd5a0a11b5db29a6e0ea0",
+      "path": "tools/source-player/deploy/test_deployment.py",
+      "sha256": "2675d85443cb519e529529e3caaad909be7bb5f0346b17cdd8ddceced30cbdb5"
+    },
+    {
+      "gitBlobSha1": "7e456203f35ac2cf3e573dc94f94bd723554f037",
+      "path": "tools/source-player/deploy/test_registry_transfer.py",
+      "sha256": "c517f7b10ffb08bcd83b72de1237f49f531039ead58611d8e89286d86fe1f1e7"
+    },
+    {
+      "gitBlobSha1": "3fb8f652a6c4f40ffaae50daff9c8622250a19c8",
+      "path": "tools/source-player/wwwroot/audio.js",
+      "sha256": "b3dcddec3be2918f5f43af0a352eb22c0f8d420eecd12b3e2848779fafffe37e"
+    },
+    {
+      "gitBlobSha1": "a4aacc3fae5f71f1fed908efe15c8ca94c3aac12",
+      "path": "tools/source-player/wwwroot/index.html",
+      "sha256": "ad78b95aef826f836dd5ff33897a24915071ffe73c3c28a279709cdd5a7a4533"
+    },
+    {
+      "gitBlobSha1": "1a49b28c77921d00e28277112e5721759ee5df51",
+      "path": "tools/source-player/wwwroot/input.js",
+      "sha256": "bf3dea069b50116215583ee0369c819baa9c1b0517ae4fe67384e992651fcd71"
+    },
+    {
+      "gitBlobSha1": "8d2abc3d54108661cad5ada823c3aa22ee931112",
+      "path": "tools/source-player/wwwroot/main.js",
+      "sha256": "443eaa46341029f0567f1caca184d5d9affc3cd56df389ea89469256679c2ed6"
+    },
+    {
+      "gitBlobSha1": "54ca5335382a73655c5d4f0fa51be94559838a06",
+      "path": "tools/source-player/wwwroot/records.js",
+      "sha256": "e908962d1be954222e6516dece6c451982f4bda933df5de22b857641ff6cf729"
+    },
+    {
+      "gitBlobSha1": "b75d92bd07e6c0490517441b5f6cb06e8454d5a3",
+      "path": "tools/source-player/wwwroot/renderer.js",
+      "sha256": "d960c9f6a8b260a0d644d0ee199c6a479fab44922adc307225ba1ba711c9ffc6"
+    }
+  ],
+  "rootfsDiffIds": [
+    "sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711",
+    "sha256:cfdd095735fdd5446c20bc2ed8519335912cbfea5190f03796c6625be4b4dbc2",
+    "sha256:ad50fc9f4d5b778261c949d9ffaa83a193d841bd9ea3dc7871191523f53d0f60",
+    "sha256:16b7c6f49eb2521c0f616e9e66952eb33f34775e1a9545e69441e98286fa422e",
+    "sha256:be8ef9e29ff8a08a6eac69287fc514047b7ca85d58146a892ddd90167a2fd313",
+    "sha256:cb09ecf501197401f91f8f412df01b82dc9bc01dbe4517014e3acb37bf1579b4",
+    "sha256:3c892ead291ba3249de1788eab3106b0a22a1d5825c576a521461ef892f8330c",
+    "sha256:3cf2e5d33f0c5914483a9e5bf8b5e185d0e8d8e0671e1be49dd82f1310553193",
+    "sha256:3291f7cde985e6899f11759716d63b251c27c7d710e7e347bbe3b343f919744a",
+    "sha256:7ec45bb539d16d69d45d138d5a1aa65001ab708a98976b04f4e790e5696455c4",
+    "sha256:5bc825081c07c1618d7c04e033dcc533c1044752cef892b8c28bab8bea3ac27a",
+    "sha256:5f16809ceec8d7e9c4581e763ecb5f8457e41a3307b77db66d8fd56dccdefb8c"
+  ],
+  "runtimeProofSha256": "9d874108b90f4c806aa769c329e3de688a3629fe5d76f8829acce23082747006",
+  "schema": "fixed-private-target-exact-image-recovery-pins/v1",
+  "sourceDigest": "4f519b55f331581a5c423e893de9d418251271387470d08639474a02e8e485b8",
+  "sourceManifestDigest": "sha256:5cace3ee21a0a7f3ecf08e78661aa84b221a3c4c409b390cf6b50996b99b977c",
+  "sourceRevision": "072919bee63489cf69088caf1bae385460c91226",
+  "sourceTag": "nflblitz-original:q11-072919bee634-bbec531e361e-av306-amd64",
+  "targetSelectionSha256": "67f45a8fbefe9fc659332287ec8e2c07209a65371e18e3e333c1362e7d91e190"
+}
