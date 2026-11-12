@@ -16,6 +16,8 @@ Input preparation copies the exact raw bytes, including every null/default
 SavedOrigin and physical-switch field; it does not project them into an older
 DTO grammar. Before replay, the unchanged approved `reviewed_q11_recording.py`
 helper verifies the full source/harness, manifest, raw and compressed seals.
+The public input preparer resolves this helper relative to its own file, including
+inventory callers that load it dynamically without adding a caller search path.
 
 Select this case only with actual `--c2-presnap-switch-inputs` and explicit
 `--source-compatibility portable`. It uses the real282/289 presnap factory, never

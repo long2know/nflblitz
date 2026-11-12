@@ -3,13 +3,17 @@
 import argparse
 import gzip
 import hashlib
+import importlib.util
 import io
 import json
 import math
 from pathlib import Path
 import sys
 
-import reviewed_q11_recording as reviewed_q11
+_reviewed_spec = importlib.util.spec_from_file_location(
+    "reviewed_q11_recording", Path(__file__).with_name("reviewed_q11_recording.py"))
+reviewed_q11 = importlib.util.module_from_spec(_reviewed_spec)
+_reviewed_spec.loader.exec_module(reviewed_q11)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/movement-callers/fixtures/canonical-public-12000.jsonl.gz"
