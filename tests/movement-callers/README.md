@@ -43,12 +43,16 @@ closure or supply a GitHub run identity to a local execution.
 
 ### Historical binding guard unit inputs
 
-`SourceBoundGenerationGuards` uses
+`SourceBoundGenerationGuards` and the two historical trajectory-binding unit cases use
 `fixtures/source-bound-v5-historical-unit-inventories.json`, containing only the
 closed09af source104 and53ac harness12 path/SHA256 inventories. Both complete
 inventory digests are authenticated against the existing generation seals;
-the production binder and its whitelist are unchanged. Unit fixtures must not
+using this fixture does not broaden the production binder or its whitelist. Unit fixtures must not
 silently become a different epoch when live game source changes.
+The original103 source still comes from its exact archived454 checkout; its
+successor's old `cd556` and current `eb68` OriginalSound files remain distinct.
+Physical single-member corruption rejects both historical trajectory cases.
+These unit checks are not a new replay or historical full-campaign qualification.
 
 The inventory metadata was recovered from a retained source-bound-v5 receipt
 whose SDK restore failed. That receipt is not presented as a successful replay

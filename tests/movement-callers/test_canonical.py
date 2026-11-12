@@ -15,6 +15,20 @@ from unittest.mock import patch
 import canonical
 
 
+def historical_unit_inventories(test):
+    fixture = json.loads((canonical.HERE / "fixtures" /
+        "source-bound-v5-historical-unit-inventories.json").read_bytes())
+    production, harness = fixture["production_sha256"], fixture["harness_sha256"]
+    generation = canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION
+    test.assertEqual(len(production), generation["source_count"])
+    test.assertEqual(canonical.sha(canonical._m1_trajectory_json(production)),
+                     generation["source_manifest_sha256"])
+    test.assertEqual(set(harness), set(canonical.HARNESS))
+    test.assertEqual(canonical.sha(canonical._m1_trajectory_json(harness)),
+                     generation["harness_manifest_sha256"])
+    return production, harness
+
+
 class _ReplayInvocationCaptured(BaseException):
     """Stop a mocked CLI test at the actual process boundary, before any replay."""
 
@@ -706,6 +720,9 @@ class CanonicalObservationGuards(unittest.TestCase):
         harness = {name: (canonical.ROOT / name).read_bytes() for name in canonical.HARNESS}
         added = canonical.ORIGINAL_HUT17_OBSERVER_GENERATION["additive_source_path"]
         self.assertEqual(canonical.sha(production[added]),
+                         "eb68dd5619baac142dea37d1c37e3d06b16ce0483388941e9d1082ccff5c1362")
+        authoring, _ = historical_unit_inventories(self)
+        self.assertEqual(authoring[added],
                          canonical.ORIGINAL_HUT17_OBSERVER_GENERATION["additive_source_sha256"])
         historical_names = [name for name in production if name != added]
         archive = canonical.subprocess.check_output(
@@ -777,17 +794,7 @@ class CanonicalObservationGuards(unittest.TestCase):
 
 class SourceBoundGenerationGuards(unittest.TestCase):
     def historical_inventories(self):
-        fixture = json.loads((canonical.HERE / "fixtures" /
-            "source-bound-v5-historical-unit-inventories.json").read_bytes())
-        production, harness = fixture["production_sha256"], fixture["harness_sha256"]
-        generation = canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION
-        self.assertEqual(len(production), generation["source_count"])
-        self.assertEqual(canonical.sha(canonical._m1_trajectory_json(production)),
-                         generation["source_manifest_sha256"])
-        self.assertEqual(set(harness), set(canonical.HARNESS))
-        self.assertEqual(canonical.sha(canonical._m1_trajectory_json(harness)),
-                         generation["harness_manifest_sha256"])
-        return production, harness
+        return historical_unit_inventories(self)
 
     def binding(self, source_bound, production=None, replay_sha=None):
         historical, harness = self.historical_inventories()
@@ -1211,9 +1218,7 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                                                 dict(expected, replayFileSha256="f" * 64), production, harness)
 
     def test_integrated_inventory_binding_requires_exact104_successor_without_relabelling_v5(self):
-        production={p.relative_to(canonical.ROOT).as_posix():canonical.sha(p.read_bytes())
-                    for p in canonical.production_paths()}
-        harness={name:canonical.sha((canonical.ROOT/name).read_bytes()) for name in canonical.HARNESS}
+        production,harness=historical_unit_inventories(self)
         recipe=canonical.public_replay.current_recipe(canonical.public_replay.PRESNAP_CURRENT_CASE)
         expected=dict(observed=False,profile="original-teams-contact282-c2-m1-presnap-switch",
             sourceData=canonical.PRESNAP_DATA_SHA,factory="REAL SourceC2Composition.CreatePreSnapSwitchSimulation",
@@ -1225,7 +1230,7 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
             canonical._m1_trajectory_binding(capture,"uninstrumented",expected,production,harness)
             self.assertEqual(capture["issues"],[])
             self.assertEqual(capture["attempt"]["productionInventoryCountAndSha256"],
-                dict(count=104,sha256=canonical.REVIEWED_CORE_VENUE_OBSERVER_GENERATION["source_manifest_sha256"]))
+                dict(count=104,sha256=canonical.ORIGINAL_CONTACT35_OBSERVER_GENERATION["source_manifest_sha256"]))
             self.assertEqual(recipe["source_manifest_sha256"],canonical.public_replay.CURRENT_SOURCE_SHA256)
             self.assertNotEqual(recipe["source_manifest_sha256"],
                 canonical.CURRENT_OBSERVER_GENERATION["source_manifest_sha256"])
@@ -1237,9 +1242,7 @@ class CurrentTrajectoryCaptureTests(unittest.TestCase):
                         changed if kind=="production" else production,changed if kind=="harness" else harness)
 
     def test_new_source_driven_recording_binds_its_actual_controller_not_the_historical_policy(self):
-        production = {p.relative_to(canonical.ROOT).as_posix(): canonical.sha(p.read_bytes())
-                      for p in canonical.production_paths()}
-        harness = {name: canonical.sha((canonical.ROOT / name).read_bytes()) for name in canonical.HARNESS}
+        production, harness = historical_unit_inventories(self)
         recipe = canonical.public_replay.open_space_recipe()
         expected = dict(observed=False, profile="original-teams-contact282-c2-m1-presnap-switch",
                         sourceData=canonical.PRESNAP_DATA_SHA,
