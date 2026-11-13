@@ -2,17 +2,25 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { Cdp } from '../../tests/browser/lib.mjs';
 
 const [baseArg, outputArg, profileArg] = process.argv.slice(2);
 const imageSmokeOnly = process.argv[5] === '--image-smoke';
+const startupOnly = process.argv[5] === '--startup-probe';
 const base = new URL(baseArg), output = resolve(outputArg), profile = resolve(profileArg);
+const relativeProfile = relative(process.cwd(), profile), temporaryDirectory = relative(process.cwd(), profile + '/tmp');
 assert(base.protocol === 'http:' && base.hostname === '127.0.0.1' && Number(base.port) > 8097);
 assert.notEqual(process.getuid(), 0, 'Use ordinary UID and the normal Chrome sandbox.');
+assert(relativeProfile && !isAbsolute(relativeProfile) && !relativeProfile.split(/[\\/]/).includes('..'),
+  'Chrome profile must stay inside the current project directory.');
+assert(Buffer.byteLength(temporaryDirectory + '/com.google.Chrome.XXXXXX/SingletonSocket') < 108,
+  'Project-relative Chrome temporary path exceeds the UNIX socket limit.');
 const sha = value => createHash('sha256').update(value).digest('hex');
 const pause = ms => new Promise(ok => setTimeout(ok, ms));
-const evidence = { schema: 'persistent-verified-cache-actual-browser/v1', status: 'running', base: base.href,
+const evidence = { schema: startupOnly ? 'normal-sandbox-chrome-profile-startup-only/v1' :
+  'persistent-verified-cache-actual-browser/v1', status: 'running', base: base.href,
+  chromeTempRelativePath: temporaryDirectory,
   normalSandbox: true, httpCacheDisabled: true, noGameplayOrRecordMutation: true, stages: [], warnings: [], failures: [] };
 let chrome, browser, page, target, closed, epoch = null;
 const requests = new Map();
@@ -79,7 +87,7 @@ try {
     '--disable-sync', '--metrics-recording-only', '--no-pings', '--window-size=1280,900', 'about:blank'];
   evidence.chromeArgs = args;
   chrome = spawn('/opt/google/chrome/chrome', args, { stdio: ['ignore', 'ignore', 'pipe'],
-    env: { ...process.env, HOME: profile, TMPDIR: profile + '/tmp', XDG_RUNTIME_DIR: profile + '/tmp',
+    env: { ...process.env, HOME: profile, TMPDIR: temporaryDirectory, XDG_RUNTIME_DIR: profile + '/tmp',
       XDG_CACHE_HOME: profile + '/cache', XDG_CONFIG_HOME: profile + '/config', XDG_DATA_HOME: profile + '/config' } });
   closed = new Promise(ok => chrome.once('close', ok));
   const endpoint = await new Promise((ok, reject) => {
@@ -134,6 +142,7 @@ try {
   });
   await Promise.all([page.send('Runtime.enable'), page.send('Page.enable'), page.send('Network.enable')]);
   await page.send('Network.setCacheDisabled', { cacheDisabled: true });
+  if (!startupOnly) {
   const cold = await loaded('cold-empty-cache', true);
   assert(cold.assetRequests > 1000 && cold.assetRequests <= 1153);
   assert(cold.assetBodyBytes > 250000000 && cold.assetBodyBytes <= 300324289);
@@ -190,7 +199,8 @@ try {
     changedSamePathBytesActuallyFetched: true, basePrefixIsolated: true });
   epoch = null;
   }
-  evidence.status = 'passed';
+  }
+  evidence.status = startupOnly ? 'startup-probe-passed' : 'passed';
 } catch (error) {
   evidence.status = 'failed'; evidence.error = String(error.stack || error); process.exitCode = 1;
 } finally {
