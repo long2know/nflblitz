@@ -111,6 +111,22 @@ class ConfigurationTests(unittest.TestCase):
             args = (build_sha, build["sourceRootDigest"])
             package.inspect_bundle(copied, *args)
             self.assertEqual(build["factory"], staged["factory"])
+            if (copied / "view-controls.js").is_file():
+                view = copied / "view-controls.js"
+                original_view = view.read_bytes()
+                view.chmod(0o644)
+                try:
+                    view.write_bytes(original_view + b"\n// changed view module\n")
+                    with self.assertRaisesRegex(ValueError, "Emitted module differs from source receipt: view-controls.js"):
+                        package.inspect_bundle(copied, *args)
+                finally:
+                    view.write_bytes(original_view)
+                    view.chmod(0o444)
+                view.unlink()
+                with self.assertRaisesRegex(ValueError, "top-level inventory"):
+                    package.inspect_bundle(copied, *args)
+                view.write_bytes(original_view)
+                view.chmod(0o444)
             for path in [copied, *copied.rglob("*")]:
                 self.assertEqual(0o755 if path.is_dir() else 0o444, stat.S_IMODE(path.stat().st_mode),
                                  "Root-owned COPY must remain readable/traversable by any UID: " + str(path))

@@ -15,6 +15,12 @@
   #status.diagnostic { border-color: #e5b356; }
   #status.failed { border-color: #ff7777; color: #ffd2d2; }
   #start-original-audio { padding: 12px 20px; margin: 8px 0; font: inherit; cursor: pointer; }
+  .view-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .view-controls button { padding: 6px 10px; font: inherit; font-size: .8rem; color: inherit; background: #202a37; border: 1px solid #8397b1; border-radius: 4px; cursor: pointer; }
+  .view-controls button:disabled { opacity: .6; cursor: default; }
+  .view-controls button:focus-visible { outline: 2px solid #bdcedf; outline-offset: 2px; }
+  #game-view-message { font-size: .8rem; max-width: 44ch; }
+  #game-view-message:empty { display: none; }
   .stage { width: min(100%, calc((100vh - 220px) * 4 / 3)); margin: auto; }
   canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: black; outline: 1px solid #4d596b; }
   canvas:focus { outline-color: #bdcedf; }
@@ -23,6 +29,30 @@
   kbd { padding: 1px 5px; background: #283342; border-radius: 3px; }
   details { font-size: .75rem; color: #aebccd; }
   pre { white-space: pre-wrap; }
+  html.game-only, .game-only body { margin: 0; padding: 0; max-width: none; width: 100%; height: 100%; overflow: hidden; background: black; }
+  .game-only body > :not(#game-viewport) { display: none; }
+  .game-only #game-viewport, #game-viewport:fullscreen {
+    position: fixed; inset: 0; width: 100%; height: 100vh; height: 100dvh;
+    display: grid; place-items: center; overflow: hidden; background: black;
+  }
+  .game-only .stage, #game-viewport:fullscreen .stage {
+    width: min(100%, calc(100vh * 4 / 3)); width: min(100%, calc(100dvh * 4 / 3)); margin: 0;
+  }
+  .game-only canvas, #game-viewport:fullscreen canvas { outline: none; }
+  .game-only canvas:focus-visible, #game-viewport:fullscreen canvas:focus-visible { outline: 2px solid #bdcedf; outline-offset: -2px; }
+  .game-only .view-controls, #game-viewport:fullscreen .view-controls {
+    position: absolute; z-index: 2; top: 0; right: 0; max-width: 100%; margin: 0;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 6px max(6px, env(safe-area-inset-left));
+    background: #11151be8;
+  }
+  .game-only #status.ready, .game-only #record-transfers,
+  #game-viewport:fullscreen #status.ready, #game-viewport:fullscreen #record-transfers { display: none; }
+  .game-only #status:not(.ready), #game-viewport:fullscreen #status:not(.ready) {
+    position: absolute; z-index: 3; left: 8px; right: 8px; top: 56px;
+  }
+  .game-only #start-original-audio:not([hidden]), #game-viewport:fullscreen #start-original-audio:not([hidden]) {
+    position: absolute; z-index: 3; top: 120px;
+  }
   @media (max-width: 650px) {
     body { padding: 8px; }
     .stage { width: 100%; }
@@ -36,6 +66,7 @@
   <h1>Portable C# browser preview <span>(not a Unity player build)</span></h1>
   <span>Actual production gameplay · original source artwork · portable raster origin</span>
 </header>
+<section id="game-viewport" aria-label="Game viewport">
 <p id="status">Loading actual production C# gameplay…</p>
 <button id="start-original-audio" type="button" hidden>START ORIGINAL GAME WITH SOUND</button>
 <div id="record-transfers" hidden>
@@ -43,9 +74,15 @@
   <label>Import local records <input id="records-import" type="file" accept=".json,application/json" disabled></label>
   <span id="records-transfer-status" role="status"></span>
 </div>
-<div class="stage">
-<canvas id="game" width="1280" height="800" tabindex="0"></canvas>
+<div class="view-controls" role="group" aria-label="Game view controls">
+  <button id="game-view-toggle" type="button" aria-controls="game-viewport" aria-pressed="false" disabled>Game-only</button>
+  <button id="game-fullscreen" type="button" aria-controls="game-viewport" aria-pressed="false" disabled>Fullscreen</button>
+  <span id="game-view-message" role="status">Game view controls unlock when the game is ready.</span>
 </div>
+<div class="stage">
+<canvas id="game" width="1280" height="800" tabindex="0" aria-label="Game"></canvas>
+</div>
+</section>
 <p class="controls">
   P1 <kbd>WASD</kbd> cabinet stick · <kbd>V</kbd> A: flip / jump / tackle ·
   <kbd>B</kbd> B: select / snap / pass / switch · <kbd>N</kbd> C: page / turbo ·
@@ -84,6 +121,8 @@ separately qualified or unqualified; this is not a native Unity build or bit-exa
   window.addEventListener('error', event => fail(event.error || new Error(event.message ||
     `Required source player resource failed: ${event.target?.src || event.filename || 'unknown resource'}`)), true);
   window.addEventListener('unhandledrejection', event => fail(event.reason));
+  import('./view-controls.js').then(module => module.installViewControls()).catch(error => fail(new Error(
+    `Required game view controls could not start: ${error?.message || error}`)));
   import('./main.js').catch(error => fail(new Error(
     `Required source player module graph (main.js) could not start: ${error?.message || error}`)));
 })();

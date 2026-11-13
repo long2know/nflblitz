@@ -48,10 +48,10 @@ class StaticRefreshTests(unittest.TestCase):
         self.old_bytes = refresh.encoded(self.old)
         self.inventory_bytes = refresh.encoded(self.inventory)
 
-    def run_refresh(self, revision=None):
+    def run_refresh(self, revision=None, **options):
         with mock.patch.object(refresh, "BASE_BUILD_SHA", refresh.sha(self.old_bytes)), \
                 mock.patch.object(refresh, "BASE_INVENTORY_SHA", refresh.sha(self.inventory_bytes)):
-            return refresh.refresh(self.old_bytes, self.inventory_bytes, self.root, revision)
+            return refresh.refresh(self.old_bytes, self.inventory_bytes, self.root, revision, **options)
 
     def test_only_new_static_bytes_change_and_actual_compiler_native_assemblies_are_retained(self):
         value, static, inventory = self.run_refresh("a" * 40)
@@ -70,6 +70,27 @@ class StaticRefreshTests(unittest.TestCase):
         path.write_bytes(path.read_bytes().replace(b"false", b"true"))
         with self.assertRaisesRegex(ValueError, "compiled project"):
             self.run_refresh()
+
+    def test_game_view_opt_in_pins_index_and_new_module_without_changing_legacy_refresh(self):
+        prefix = "tools/source-player/wwwroot/"
+        self.old["sources"].append({"origin": "preview", "path": prefix + "index.html",
+                                    "sha256": refresh.sha(b"old index")})
+        self.old_bytes = refresh.encoded(self.old)
+        (self.root / (prefix + "index.html")).write_bytes(b"new view controls index")
+        (self.root / (prefix + "view-controls.js")).write_bytes(b"new view controls module")
+        with self.assertRaisesRegex(ValueError, "other compiled/browser source"):
+            self.run_refresh()
+        value, static, inventory = self.run_refresh(view_controls=True)
+        self.assertEqual(static["index.html"], b"new view controls index")
+        self.assertEqual(static["view-controls.js"], b"new view controls module")
+        self.assertEqual(value["execution"]["compiledAotReuse"]["changedStaticSources"],
+                         [prefix + name for name in ("main.js", "verified-assets.js", "index.html", "view-controls.js")])
+        pin = next(row for row in inventory["files"] if row["path"] == "view-controls.js")
+        self.assertEqual(pin["sha256"], refresh.sha(static["view-controls.js"]))
+        self.assertEqual(value["execution"]["nativeRuntimeSha256"], refresh.BASE_NATIVE_SHA)
+        (self.root / self.sources[0]["path"]).write_bytes(b"changed C#")
+        with self.assertRaisesRegex(ValueError, "other compiled/browser source"):
+            self.run_refresh(view_controls=True)
 
     def test_physical_any_other_compiled_source_change_is_rejected(self):
         path = self.root / self.sources[0]["path"]

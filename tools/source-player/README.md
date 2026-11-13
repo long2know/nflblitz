@@ -1,5 +1,29 @@
 # Portable C# browser preview (not a Unity player build)
 
+## Browser game view
+
+After actual C# input/render initialization, **Game-only** hides page chrome and fits the
+unchanged 4:3 canvas into the browser viewport, centered with black letterboxing.
+**Exit game view** stays visible and restores the normal page and scroll position.
+**Fullscreen** requests native fullscreen from the button gesture; browser-native
+exit returns to Game-only. Unsupported or denied fullscreen shows a readable
+message without disabling Game-only. Resource/audio startup stays outside game view.
+Interactive pregame may enter before gameplay's qualified Ready flag; its diagnostic
+banner remains visible, and that qualification flag is never changed by the controls.
+Startup/audio unlock and errors remain visible.
+
+There are no new game-key shortcuts. The canvas is refocused after view changes;
+all cabinet bindings and the existing Enter, restart and pause behavior are retained.
+CSS handles window/orientation changes; the existing renderer's per-frame
+`resize()` continues to handle the actual CSS rectangle and device pixel ratio.
+
+Run `node --test view-controls.test.mjs input.test.mjs renderer.test.mjs`.
+`view-controls.browser.mjs --url URL --cdp-port PORT --evidence DIRECTORY`
+exercises the actual served player in a separately launched, sandboxed Chrome.
+Launch Chrome with `--enable-automation` so the test can inspect its sandbox flags.
+Packaging must include `view-controls.js`; static-only reuse opts in with
+`refresh(..., view_controls=True)` and does not rebuild C#, AOT, or data.
+
 ## Original pregame, records and live global-mixer successor
 
 `original-teams-complete-original303-prematch` uses963 authenticated inputs,
