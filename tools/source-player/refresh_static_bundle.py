@@ -25,7 +25,7 @@ def require(value, message):
         raise ValueError(message)
 
 
-def refresh(base_build_bytes, base_inventory_bytes, source_root, source_revision):
+def refresh(base_build_bytes, base_inventory_bytes, source_root, source_revision, *, view_controls=False):
     require(sha(base_build_bytes) == BASE_BUILD_SHA and sha(base_inventory_bytes) == BASE_INVENTORY_SHA,
             "The exact verified7419/bbec base product and complete payload inventory are required.")
     require(source_revision is None or re.fullmatch(r"[0-9a-f]{40}", source_revision),
@@ -45,13 +45,15 @@ def refresh(base_build_bytes, base_inventory_bytes, source_root, source_revision
     current = copy.deepcopy(original)
     updated = {row["path"]: row for row in current["sources"]}
     static_files = {}
-    for name in ("main.js", "verified-assets.js"):
+    static_names = ("main.js", "verified-assets.js") + (("index.html", "view-controls.js") if view_controls else ())
+    static_paths = ["tools/source-player/wwwroot/" + name for name in static_names]
+    for name in static_names:
         path = "tools/source-player/wwwroot/" + name
         raw = (root / path).read_bytes()
         static_files[name] = raw
         updated[path] = {"origin": "preview", "path": path, "sha256": sha(raw)}
     for path, row in old.items():
-        if path == "tools/source-player/wwwroot/main.js":
+        if path in static_paths:
             continue
         candidate = root / path
         require(candidate.is_file() and sha(candidate.read_bytes()) == row["sha256"],
@@ -69,7 +71,7 @@ def refresh(base_build_bytes, base_inventory_bytes, source_root, source_revision
         "originalBuildInfoSha256": BASE_BUILD_SHA, "originalCompiledSourceDigest": BASE_SOURCE_DIGEST,
         "originalCompiledHead": "6ad57cbd7969f3e0fe2473cebe6d076f6d0c7189",
         "staticSourceRevision": source_revision, "staticSourceUncommittedCandidate": source_revision is None,
-        "changedStaticSources": ["tools/source-player/wwwroot/main.js", "tools/source-player/wwwroot/verified-assets.js"],
+        "changedStaticSources": static_paths,
         "projectChange": "None; all C#/compile/trimmer/project bytes identical",
         "applicationObjects": copy.deepcopy(original["execution"]["applicationObjects"]),
         "nativeRuntimeSha256": BASE_NATIVE_SHA,

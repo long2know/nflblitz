@@ -339,7 +339,8 @@ def main(argv=None):
     if before != after:
         parser.error("Production or preview sources changed during publish; no build receipt was emitted.")
     stage_private_inputs(data, manifest, output)
-    shutil.copyfile(HERE / "wwwroot/verified-assets.js", output / "verified-assets.js")
+    for name in ("verified-assets.js", "view-controls.js"):
+        shutil.copyfile(HERE / "wwwroot" / name, output / name)
     framework = output / "_framework"
     assemblies = [p for p in framework.iterdir() if p.name.startswith("SourcePlayer.") and p.suffix == ".wasm"]
     if len(assemblies) != 2 or not any(p.name.startswith("SourcePlayer.Core") for p in assemblies):

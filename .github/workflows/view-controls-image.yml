@@ -1,0 +1,96 @@
+name: Publish closed typed game-view overlay
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/view_controls_image.py'
+      - '.github/scripts/test_view_controls_image.py'
+      - '.github/workflows/view-controls-image.yml'
+      - 'tools/source-player/wwwroot/index.html'
+      - 'tools/source-player/wwwroot/view-controls.js'
+      - 'tools/source-player/view-controls.test.mjs'
+      - 'tools/source-player/view-controls.browser.mjs'
+      - 'tools/source-player/build.py'
+      - 'tools/source-player/deploy/package.py'
+      - 'tools/source-player/deploy/test_deployment.py'
+      - 'tools/source-player/refresh_static_bundle.py'
+      - 'tools/source-player/test_static_bundle_refresh.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: closed-view-controls-public-nflblitz-latest
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Released UI and retained cache controls plus closed publisher negative cases
+        run: |
+          node --test tools/source-player/view-controls.test.mjs tools/source-player/verified-assets.test.mjs
+          python3 -B tools/source-player/test_static_bundle_refresh.py -v
+          python3 -B .github/scripts/test_view_controls_image.py -v
+
+  publish-view-image:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_id: ${{ steps.release.outputs.imageId }}
+      manifest: ${{ steps.release.outputs.manifestDigest }}
+      build: ${{ steps.release.outputs.buildInfoSha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Verify fixed4f6 prior, typed1219 UI candidate, UID1000 cache and actual UI before latest
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B .github/scripts/view_controls_image.py publish --work-dir .view-image-release
+      - name: Remove only owned candidate artifacts
+        if: always()
+        run: rm -rf -- .view-image-release
+
+  independent-anonymous-view-consumer:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: publish-view-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Fresh anonymous UI latest, exact1219 bytes, UID1000 prefix and cache plus actual view controls
+        env:
+          VIEW_EXPECTED_IMAGE_ID: ${{ needs.publish-view-image.outputs.image_id }}
+          VIEW_EXPECTED_MANIFEST: ${{ needs.publish-view-image.outputs.manifest }}
+          VIEW_EXPECTED_BUILD: ${{ needs.publish-view-image.outputs.build }}
+        run: python3 -B .github/scripts/view_controls_image.py anonymous --work-dir .view-anonymous-consumer
+      - name: Remove only owned consumer artifacts
+        if: always()
+        run: rm -rf -- .view-anonymous-consumer

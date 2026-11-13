@@ -92,7 +92,10 @@ def inspect_bundle(root, expected_build_sha, expected_source_digest):
     build = json.loads((root / "build-info.json").read_bytes())
     verified_cache = "verifiedRuntimeResources" in build
     require("verifiedAssetCache" not in build or verified_cache, "Verified cache runtime resource pins are missing.")
-    top_files = TOP_FILES | ({"verified-assets.js"} if verified_cache else set())
+    view_controls = any(entry["path"] == "tools/source-player/wwwroot/view-controls.js"
+                        for entry in build["sources"])
+    top_files = TOP_FILES | ({"verified-assets.js"} if verified_cache else set()) | (
+        {"view-controls.js"} if view_controls else set())
     require({p.name for p in root.iterdir()} - {".stamp"} == top_files | {"data", "_framework"},
             "AppBundle top-level inventory changed; no blank/default or unrelated input may be packaged.")
     require(top_files <= pins.keys(), "Required browser modules/build receipt are missing.")
@@ -172,7 +175,8 @@ def inspect_bundle(root, expected_build_sha, expected_source_digest):
     source_modules = {entry["path"].split("/")[-1]: entry["sha256"] for entry in build["sources"]
                       if entry["path"].startswith("tools/source-player/wwwroot/")}
     for name in ("index.html", "main.js", "input.js", "renderer.js", "audio.js", "records.js") + (
-            ("verified-assets.js",) if verified_cache else ()):
+            ("verified-assets.js",) if verified_cache else ()) + (
+            ("view-controls.js",) if view_controls else ()):
         require(source_modules.get(name) == pins[name]["sha256"], "Emitted module differs from source receipt: " + name)
     return build, records
 
