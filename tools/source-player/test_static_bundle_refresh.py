@@ -1,11 +1,13 @@
 """Focused metadata-only reuse controls; synthetic metadata, no original assets, SDK, Docker or API."""
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import secrets
 import shutil
 import subprocess
+import tarfile
 import unittest
 from unittest import mock
 import refresh_static_bundle as refresh
@@ -139,6 +141,73 @@ class CacheReleaseGuardTests(unittest.TestCase):
                            ("Volumes", {"/unexpected": {}}), ("AttachStdin", True),
                            ("Healthcheck", {"Test": ["NONE"]})):
             self.assertNotEqual(module.canonical_config(saved), module.canonical_config(dict(inspected, **{key: value})))
+
+    def test_buildkit_omitted_onbuild_and_docker28_inspect_null_are_the_same_runtime(self):
+        module = self.release
+        saved = {"User": "101:101", "Entrypoint": ["/opt/nflblitz/deploy/entrypoint.sh"],
+                 "Cmd": ["-g", "daemon off;"]}
+        inspected = dict(saved, OnBuild=None)
+        self.assertEqual(module.canonical_config(saved), module.canonical_config(inspected))
+        self.assertNotEqual(module.canonical_config(saved),
+                            module.canonical_config(dict(inspected, OnBuild=["RUN unexpected"])))
+        ids = ["sha256:" + format(i, "064x") for i in range(14)]
+        config, actual = {"rootfs": {"diff_ids": ids}, "config": saved}, {"RootFS": {"Layers": ids}, "Config": inspected}
+        layers = ["layer-" + str(i) for i in range(14)]
+        module.verify_exported_metadata(config, actual, layers)
+        with self.assertRaisesRegex(ValueError, "changedValueKeys.*User"):
+            module.verify_exported_metadata(dict(config, config=dict(saved, User="0:0")), actual, layers)
+        with self.assertRaisesRegex(ValueError, "all14 rootfs"):
+            module.verify_exported_metadata(dict(config, rootfs={"diff_ids": ids[:-1]}), actual, layers)
+        with self.assertRaisesRegex(ValueError, "exactly all14 layer"):
+            module.verify_exported_metadata(config, actual, layers[:-1])
+
+    @unittest.skipUnless(os.environ.get("GITHUB_ACTIONS") == "true",
+                         "Actual Docker serialization probe is hosted-only; never retry the known local cgroup boundary.")
+    def test_actual_hosted_docker_export_inspect_roundtrip_with_asset_free_fourteen_layers(self):
+        module = self.release
+        root = HERE / (".docker-config-probe-" + secrets.token_hex(8))
+        root.mkdir()
+        self.addCleanup(shutil.rmtree, root)
+        tag = "nflblitz-cache-config-probe:" + root.name.rsplit("-", 1)[1]
+        env = dict(os.environ, DOCKER_CONFIG=str(root / "empty-docker-config"))
+
+        def docker(*args):
+            return subprocess.check_output(["docker", *args], env=env, stderr=subprocess.STDOUT, timeout=120)
+
+        text = ('FROM scratch\nUSER 101:101\nENV BASE_URL=/\nWORKDIR /\n'
+                'LABEL io.nflblitz.probe="asset-free-config-serialization-only"\n'
+                'ENTRYPOINT ["/opt/nflblitz/deploy/entrypoint.sh"]\nCMD ["-g","daemon off;"]\n'
+                'HEALTHCHECK --interval=10s --timeout=2s --start-period=1s --retries=2 '
+                'CMD ["/opt/nflblitz/deploy/healthcheck.sh"]\n')
+        for i in range(14):
+            name = "marker-" + str(i)
+            (root / name).write_text("Asset-free serialization probe " + str(i) + "\n")
+            text += "COPY " + name + " /proof/" + name + "\n"
+        (root / "Dockerfile").write_text(text)
+        created = False
+        try:
+            docker("build", "--network", "none", "--pull=false", "--tag", tag, str(root))
+            created = True
+            actual = json.loads(docker("image", "inspect", tag))[0]
+            with tarfile.open(fileobj=io.BytesIO(docker("image", "save", tag)), mode="r:*") as stream:
+                record = json.load(stream.extractfile("manifest.json"))[0]
+                config = json.load(stream.extractfile(record["Config"]))
+            module.verify_exported_metadata(config, actual, record["Layers"])
+            before_saved = module.canonical_config(config["config"])
+            before_actual = module.canonical_config(actual["Config"])
+            for value, source in ((before_saved, config["config"]), (before_actual, actual["Config"])):
+                if "OnBuild" in source:
+                    value["OnBuild"] = source["OnBuild"]
+            print(json.dumps({"schema": "actual-asset-free-docker-config-roundtrip/v1",
+                              "savedOnBuildPresent": "OnBuild" in config["config"],
+                              "inspectOnBuildPresent": "OnBuild" in actual["Config"],
+                              "inspectOnBuildValue": actual["Config"].get("OnBuild"),
+                              "exactOldGuardWouldReject": before_saved != before_actual,
+                              "newProductionMetadataGuardPassed": True, "actualExportedLayerCount": len(record["Layers"]),
+                              "gameBytes": 0, "registryWrites": 0}, sort_keys=True), flush=True)
+        finally:
+            if created:
+                docker("image", "rm", "--force", tag)
 
     def test_published_manifest_cannot_replace_the_original_compressed_layers(self):
         module = self.release
