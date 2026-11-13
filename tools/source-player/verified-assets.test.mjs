@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { access, mkdir, readFile, rm } from 'node:fs/promises';
+import { isAbsolute, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { createVerifiedAssetLoader, createVerifiedRuntimeResourceLoader } from './wwwroot/verified-assets.js';
 
@@ -7,6 +11,44 @@ const bytes = value => new TextEncoder().encode(value);
 const digest = async value => createHash('sha256').update(value).digest('hex');
 const pin = async (path, value) => ({ path, bytes: bytes(value).length, sha256: await digest(bytes(value)) });
 const baseUrl = 'https://example.test/nflblitz/main.js?fresh=1#ignored';
+const project = fileURLToPath(new URL('../../', import.meta.url));
+const browserCaller = fileURLToPath(new URL('./verified-cache.browser.mjs', import.meta.url));
+
+test('production browser caller rejects a profile outside its project before creating or launching anything', () => {
+  const result = spawnSync(process.execPath, [browserCaller, 'http://127.0.0.1:8920/nflblitz/',
+    resolve(project, '.not-created-startup.json'), resolve(project, '../not-owned-chrome-profile'), '--startup-probe'],
+  { cwd: project, encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Chrome profile must stay inside the current project directory/);
+});
+
+test('actual hosted normal-sandbox Chrome starts both deep production profiles using short project-relative sockets',
+  { skip: process.env.GITHUB_ACTIONS !== 'true', timeout: 150000 }, async () => {
+    for (const [phase, directory] of [['candidate', '.cache-image-release'], ['anonymous', '.cache-anonymous-consumer']]) {
+      const work = resolve(project, directory), profile = resolve(work, 'chrome'), output = resolve(work, 'startup.json');
+      await mkdir(work, { mode: 0o700 });
+      try {
+        const run = spawnSync(process.execPath, [browserCaller, 'http://127.0.0.1:8920/nflblitz/',
+          output, profile, '--startup-probe'], { cwd: project, encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
+        assert.equal(run.status, 0, run.stderr + run.stdout);
+        const receipt = JSON.parse(await readFile(output, 'utf8'));
+        assert.equal(receipt.schema, 'normal-sandbox-chrome-profile-startup-only/v1');
+        assert.equal(receipt.status, 'startup-probe-passed');
+        assert.equal(receipt.normalSandbox, true);
+        assert.equal(receipt.cleanup.chromeExited, true);
+        assert.equal(receipt.cleanup.exclusiveProfileRemoved, true);
+        assert.deepEqual(receipt.stages, []);
+        assert.equal(receipt.chromeArgs.includes('--no-sandbox'), false);
+        assert.equal(receipt.chromeTempRelativePath, relative(project, profile + '/tmp'));
+        assert.equal(isAbsolute(receipt.chromeTempRelativePath), false);
+        assert(Buffer.byteLength(receipt.chromeTempRelativePath + '/com.google.Chrome.XXXXXX/SingletonSocket') < 108);
+        await assert.rejects(access(profile), { code: 'ENOENT' });
+        console.log(JSON.stringify({ schema: 'actual-project-relative-normal-chrome-startup/v1', phase,
+          normalSandbox: true, projectRelativeTmpdir: receipt.chromeTempRelativePath,
+          cleanupPassed: true, originalAssetRequests: 0, startupOnlyNotCacheAcceptance: true }));
+      } finally { await rm(work, { recursive: true, force: true }); }
+    }
+  });
 
 function storage() {
   const entries = new Map(), deleted = [];
