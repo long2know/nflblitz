@@ -1,0 +1,213 @@
+"""Focused metadata-only reuse controls; synthetic metadata, no original assets, SDK, Docker or API."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import secrets
+import shutil
+import subprocess
+import unittest
+from unittest import mock
+import refresh_static_bundle as refresh
+
+HERE = Path(__file__).resolve().parent
+
+
+class StaticRefreshTests(unittest.TestCase):
+    def setUp(self):
+        self.root = HERE / (".static-refresh-tests-" + secrets.token_hex(6))
+        self.root.mkdir(mode=0o700)
+        self.addCleanup(shutil.rmtree, self.root)
+        project = b"<Project><PropertyGroup><PublishTrimmed>false</PublishTrimmed></PropertyGroup></Project>\n"
+        script = self.root / "tools/source-player"
+        (script / "wwwroot").mkdir(parents=True)
+        (script / "SourcePlayer.Browser.csproj").write_bytes(project)
+        (script / "wwwroot/main.js").write_bytes(b"new main loader")
+        (script / "wwwroot/verified-assets.js").write_bytes(b"new verified cache module")
+        self.sources = [
+            {"origin": "production", "path": "Assets/Scripts/Gameplay/Unchanged.cs", "sha256": refresh.sha(b"old C#")},
+            {"origin": "preview", "path": "tools/source-player/SourcePlayer.Browser.csproj", "sha256": refresh.sha(project)},
+            {"origin": "preview", "path": "tools/source-player/wwwroot/main.js", "sha256": refresh.sha(b"old main")},
+        ]
+        compiled = self.root / self.sources[0]["path"]
+        compiled.parent.mkdir(parents=True)
+        compiled.write_bytes(b"old C#")
+        self.old = {"schema": "blitz-source-player-build/v1", "sourceRootDigest": refresh.BASE_SOURCE_DIGEST,
+                    "profile": "original-teams-complete-av306", "sources": self.sources,
+                    "assemblies": [{"path": "actual existing Core", "sha256": "1" * 64}],
+                    "execution": {"nativeRuntimeSha256": refresh.BASE_NATIVE_SHA,
+                                  "applicationObjects": [{"assembly": "SourcePlayer.Core", "sha256": "2" * 64}]}}
+        self.inventory = {"files": [
+            {"path": "main.js", "bytes": 8, "sha256": refresh.sha(b"old main")},
+            {"path": "build-info.json", "bytes": 3, "sha256": "0" * 64},
+            {"path": "_framework/dotnet.native.wasm", "bytes": 4, "sha256": refresh.BASE_NATIVE_SHA},
+            {"path": "data/immutable", "bytes": 7, "sha256": refresh.sha(b"old C#")},
+        ]}
+        self.old_bytes = refresh.encoded(self.old)
+        self.inventory_bytes = refresh.encoded(self.inventory)
+
+    def run_refresh(self, revision=None):
+        with mock.patch.object(refresh, "BASE_BUILD_SHA", refresh.sha(self.old_bytes)), \
+                mock.patch.object(refresh, "BASE_INVENTORY_SHA", refresh.sha(self.inventory_bytes)):
+            return refresh.refresh(self.old_bytes, self.inventory_bytes, self.root, revision)
+
+    def test_only_new_static_bytes_change_and_actual_compiler_native_assemblies_are_retained(self):
+        value, static, inventory = self.run_refresh("a" * 40)
+        self.assertEqual(value["assemblies"], self.old["assemblies"])
+        self.assertEqual(value["execution"]["applicationObjects"], self.old["execution"]["applicationObjects"])
+        self.assertEqual(value["execution"]["nativeRuntimeSha256"], refresh.BASE_NATIVE_SHA)
+        self.assertEqual(value["execution"]["compiledAotReuse"]["originalCompiledSourceDigest"], refresh.BASE_SOURCE_DIGEST)
+        self.assertEqual(value["execution"]["compiledAotReuse"]["staticSourceRevision"], "a" * 40)
+        self.assertNotEqual(value["sourceRootDigest"], refresh.BASE_SOURCE_DIGEST)
+        self.assertEqual(static["verified-assets.js"], b"new verified cache module")
+        self.assertEqual(next(row for row in inventory["files"] if row["path"] == "data/immutable"),
+                         self.inventory["files"][-1])
+
+    def test_physical_compile_project_or_trimmer_change_is_rejected(self):
+        path = self.root / "tools/source-player/SourcePlayer.Browser.csproj"
+        path.write_bytes(path.read_bytes().replace(b"false", b"true"))
+        with self.assertRaisesRegex(ValueError, "compiled project"):
+            self.run_refresh()
+
+    def test_physical_any_other_compiled_source_change_is_rejected(self):
+        path = self.root / self.sources[0]["path"]
+        path.write_bytes(b"changed C#")
+        with self.assertRaisesRegex(ValueError, "other compiled/browser source"):
+            self.run_refresh()
+
+    def test_old_build_or_complete_base_inventory_substitution_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "exact verified7419"):
+            refresh.refresh(self.old_bytes + b" ", self.inventory_bytes, self.root, None)
+
+    def test_missing_compiled_source_or_different_native_generation_is_rejected(self):
+        path = self.root / self.sources[0]["path"]
+        path.unlink()
+        with self.assertRaisesRegex(ValueError, "omit or change"):
+            self.run_refresh()
+        path.write_bytes(b"old C#")
+        self.old["execution"]["nativeRuntimeSha256"] = "0" * 64
+        self.old_bytes = refresh.encoded(self.old)
+        with self.assertRaisesRegex(ValueError, "genuinely compiled"):
+            self.run_refresh()
+
+    def test_uncommitted_candidate_is_explicit_not_a_fabricated_main_revision(self):
+        value, _, _ = self.run_refresh()
+        self.assertTrue(value["execution"]["compiledAotReuse"]["staticSourceUncommittedCandidate"])
+        self.assertIsNone(value["execution"]["compiledAotReuse"]["staticSourceRevision"])
+
+    def test_invalid_source_revision_rejected_before_publication_metadata(self):
+        with self.assertRaisesRegex(ValueError, "actual Git commit"):
+            self.run_refresh("pretend-main")
+
+
+class CacheReleaseGuardTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        path = HERE.parents[1] / ".github/scripts/verified_cache_image.py"
+        spec = importlib.util.spec_from_file_location("cache_release", path)
+        cls.release = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.release)
+
+    def test_foreign_latest_is_rejected_but_missing_base_or_same_candidate_is_allowed(self):
+        module = self.release
+        for value in (None, {"digest": module.base.DIGEST}, {"digest": "sha256:" + "a" * 64}):
+            with mock.patch.object(module, "manifest", return_value=value):
+                self.assertEqual(value, module.latest_guard("sha256:" + "a" * 64))
+        with mock.patch.object(module, "manifest", return_value={"digest": "sha256:" + "f" * 64}), \
+                self.assertRaisesRegex(ValueError, "Foreign latest"):
+            module.latest_guard("sha256:" + "a" * 64)
+
+    def test_new_image_may_not_replace_or_rebuild_the_base_native_layer_graph(self):
+        module = self.release
+        wrong = {"RootFS": {"Layers": ["sha256:" + "0" * 64] * 14}}
+        with self.assertRaisesRegex(ValueError, "two static overlay layers"):
+            module.verify_image(lambda *_: json.dumps([wrong]).encode(),
+                                "synthetic", "sha256:" + "a" * 64, "b" * 64, "c" * 64, HERE, HERE)
+
+    def test_actual_docker_inspect_legacy_defaults_do_not_hide_nondefault_runtime_changes(self):
+        module = self.release
+        saved = {"User": "101:101", "Cmd": ["-g", "daemon off;"], "Labels": {"source": "exact"},
+                 "Healthcheck": {"Test": ["CMD", "/opt/nflblitz/deploy/healthcheck.sh"]}}
+        inspected = dict(saved, AttachStderr=False, AttachStdin=False, AttachStdout=False,
+                         Domainname="", Hostname="", Image="", OpenStdin=False,
+                         StdinOnce=False, Tty=False, Volumes=None)
+        self.assertNotEqual(saved, inspected)
+        self.assertEqual(module.canonical_config(saved), module.canonical_config(inspected))
+        self.assertEqual(module.canonical_config(dict(saved, Image="sha256:" + "a" * 64)),
+                         module.canonical_config(inspected))
+        for key, value in (("User", "0:0"), ("Hostname", "foreign"),
+                           ("Volumes", {"/unexpected": {}}), ("AttachStdin", True),
+                           ("Healthcheck", {"Test": ["NONE"]})):
+            self.assertNotEqual(module.canonical_config(saved), module.canonical_config(dict(inspected, **{key: value})))
+
+    def test_published_manifest_cannot_replace_the_original_compressed_layers(self):
+        module = self.release
+        layers = [{"digest": "sha256:" + format(i, "064x")} for i in range(14)]
+        original = {"layers": layers[:12]}
+        candidate = {"layers": layers}
+        with mock.patch.object(module, "manifest", side_effect=[candidate, original]):
+            self.assertEqual(module.candidate_manifest("latest", "unused"), candidate)
+        candidate = {"layers": [{"digest": "sha256:" + "f" * 64}] + layers[1:]}
+        with mock.patch.object(module, "manifest", side_effect=[candidate, original]), \
+                self.assertRaisesRegex(ValueError, "all12 original compressed layers"):
+            module.candidate_manifest("latest", "unused")
+
+    def test_alias_race_or_permission_error_can_never_reach_the_fallback_writer(self):
+        module = self.release
+        candidate = {"digest": "sha256:" + "a" * 64, "config": "sha256:" + "b" * 64}
+        old = {"digest": module.base.DIGEST}
+        with mock.patch.object(module, "candidate_manifest", return_value=candidate), \
+                mock.patch.object(module.base, "public_package"), \
+                mock.patch.object(module.base, "registry_token", return_value="not-a-secret"), \
+                mock.patch.object(module, "latest_guard", side_effect=[old, None]), \
+                mock.patch.object(module, "alias_put") as put, \
+                self.assertRaisesRegex(ValueError, "Latest changed"):
+            module.promote_candidate(candidate, "not-a-secret", HERE)
+        put.assert_not_called()
+        for status in (401, 403, 409, 412):
+            with self.subTest(status=status), \
+                    mock.patch.object(module, "candidate_manifest", return_value=candidate), \
+                    mock.patch.object(module.base, "public_package"), \
+                    mock.patch.object(module.base, "registry_token", return_value="not-a-secret"), \
+                    mock.patch.object(module, "latest_guard", return_value=old), \
+                    mock.patch.object(module, "alias_put", side_effect=module.HTTPError(
+                        "https://ghcr.io/", status, "denied", {}, None)) as put, \
+                    self.assertRaisesRegex(ValueError, "no permission bypass"):
+                module.promote_candidate(candidate, "not-a-secret", HERE)
+            self.assertEqual(put.call_count, 1)
+
+    def test_transport_fallback_is_the_same_manifest_with_the_original_conditional_guard(self):
+        module = self.release
+        candidate = {"digest": "sha256:" + "a" * 64, "config": "sha256:" + "b" * 64}
+        old = {"digest": module.base.DIGEST}
+        with mock.patch.object(module, "candidate_manifest", return_value=candidate), \
+                mock.patch.object(module.base, "public_package"), \
+                mock.patch.object(module.base, "registry_token", return_value="not-a-secret"), \
+                mock.patch.object(module, "latest_guard", return_value=old), \
+                mock.patch.object(module, "alias_put", side_effect=[module.URLError("transport"), None]) as put:
+            self.assertEqual(module.promote_candidate(candidate, "not-a-secret", HERE),
+                             "identical-new-cache-manifest-curl-fallback")
+        self.assertEqual(put.call_args_list[0].args, put.call_args_list[1].args)
+        self.assertTrue(put.call_args_list[1].kwargs["curl"])
+        self.assertEqual(module.alias_headers(old), {"If-Match": '"' + module.base.DIGEST + '"'})
+        self.assertEqual(module.alias_headers(None), {"If-None-Match": "*"})
+
+    def test_physical_compiled_source_mutation_stops_release_before_image_work(self):
+        module = self.release
+        root = HERE / (".release-source-tests-" + secrets.token_hex(6))
+        root.mkdir()
+        self.addCleanup(shutil.rmtree, root)
+        (root / "Core.cs").write_bytes(b"changed")
+        value = {"sourceRevision": "a" * 40,
+                 "requiredRemoteMainFiles": [{"path": "Core.cs", "sha256": refresh.sha(b"old")}]}
+        with mock.patch.object(module, "ROOT", root), \
+                mock.patch.object(module.base, "pins", return_value=value), \
+                mock.patch.dict(os.environ, {"GITHUB_SHA": "b" * 40}), \
+                mock.patch.object(module.subprocess, "check_output", return_value="b" * 40 + "\n"), \
+                mock.patch.object(module.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), \
+                self.assertRaisesRegex(ValueError, "C#/native/input/records/project/runtime source"):
+            module.source_guard()
+
+
+if __name__ == "__main__":
+    unittest.main()

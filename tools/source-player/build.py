@@ -339,6 +339,7 @@ def main(argv=None):
     if before != after:
         parser.error("Production or preview sources changed during publish; no build receipt was emitted.")
     stage_private_inputs(data, manifest, output)
+    shutil.copyfile(HERE / "wwwroot/verified-assets.js", output / "verified-assets.js")
     framework = output / "_framework"
     assemblies = [p for p in framework.iterdir() if p.name.startswith("SourcePlayer.") and p.suffix == ".wasm"]
     if len(assemblies) != 2 or not any(p.name.startswith("SourcePlayer.Core") for p in assemblies):
@@ -365,6 +366,11 @@ def main(argv=None):
                    "SourceC2Composition.CreatePreSnapSwitchSimulation" if args.profile == PROFILE else
                    "SourceC2Composition.CreateM1Simulation",
         "acceptedSourceHandoffSha256": handoff_hash,
+        "verifiedRuntimeResources": {
+            "schema": "source-verified-runtime-resources/v1",
+            "files": [{"path": "_framework/" + path.name, "bytes": path.stat().st_size, "sha256": sha(path)}
+                      for path in sorted(framework.iterdir()) if path.suffix in (".wasm", ".dat")],
+        },
         "assemblies": [{"path": "_framework/" + p.name, "bytes": p.stat().st_size, "sha256": sha(p)}
                        for p in sorted(assemblies)],
         "runtimeIdentifier": "browser-wasm",

@@ -1,0 +1,95 @@
+name: Publish verified-content browser cache update
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/verified_cache_image.py'
+      - '.github/workflows/verified-asset-cache-image.yml'
+      - 'tools/source-player/wwwroot/main.js'
+      - 'tools/source-player/wwwroot/verified-assets.js'
+      - 'tools/source-player/verified-assets.test.mjs'
+      - 'tools/source-player/verified-cache.browser.mjs'
+      - 'tools/source-player/refresh_static_bundle.py'
+      - 'tools/source-player/test_static_bundle_refresh.py'
+      - 'tools/source-player/build.py'
+      - 'tools/source-player/deploy/package.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verified-cache-public-nflblitz-latest
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Content-pin caching, explicit fallback and unchanged-AOT metadata controls
+        run: |
+          node --test tools/source-player/verified-assets.test.mjs
+          python3 -B tools/source-player/test_static_bundle_refresh.py -v
+
+  publish-cache-image:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_id: ${{ steps.release.outputs.imageId }}
+      manifest: ${{ steps.release.outputs.manifestDigest }}
+      build: ${{ steps.release.outputs.buildInfoSha256 }}
+      source: ${{ steps.release.outputs.sourceDigest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Build only static overlay, verify candidate UID1000 cold-warm cache, then promote
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B .github/scripts/verified_cache_image.py publish --work-dir .cache-image-release
+      - name: Remove only runner-owned candidate artifacts
+        if: always()
+        run: rm -rf -- .cache-image-release
+
+  independent-anonymous-cache-consumer:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: publish-cache-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Anonymous latest cold pull, exact new bytes, normal UID1000 prefix and warm reload
+        env:
+          CACHE_EXPECTED_IMAGE_ID: ${{ needs.publish-cache-image.outputs.image_id }}
+          CACHE_EXPECTED_MANIFEST: ${{ needs.publish-cache-image.outputs.manifest }}
+          CACHE_EXPECTED_BUILD: ${{ needs.publish-cache-image.outputs.build }}
+          CACHE_EXPECTED_SOURCE: ${{ needs.publish-cache-image.outputs.source }}
+        run: python3 -B .github/scripts/verified_cache_image.py anonymous --work-dir .cache-anonymous-consumer
+      - name: Remove only runner-owned consumer artifacts
+        if: always()
+        run: rm -rf -- .cache-anonymous-consumer
