@@ -154,11 +154,23 @@ def canonical_config(value):
     for key, default in {
         "AttachStderr": False, "AttachStdin": False, "AttachStdout": False,
         "Domainname": "", "Hostname": "", "OpenStdin": False,
-        "StdinOnce": False, "Tty": False, "Volumes": None,
+        "StdinOnce": False, "Tty": False, "Volumes": None, "OnBuild": None,
     }.items():
         if result.get(key, default) == default:
             result.pop(key, None)
     return result
+
+
+def verify_exported_metadata(config, inspected, layers):
+    require(config.get("rootfs", {}).get("diff_ids") == inspected["RootFS"]["Layers"],
+            "Actual exported all14 rootfs diff IDs differ from inspect.")
+    require(len(layers) == 14, "Actual exported Docker archive must contain exactly all14 layer records.")
+    saved, actual = canonical_config(config.get("config", {})), canonical_config(inspected["Config"])
+    require(saved == actual, "Actual exported runtime config differs: " + json.dumps({
+        "savedOnlyKeys": sorted(saved.keys() - actual.keys()),
+        "inspectOnlyKeys": sorted(actual.keys() - saved.keys()),
+        "changedValueKeys": sorted(key for key in saved.keys() & actual.keys() if saved[key] != actual[key]),
+    }, sort_keys=True))
 
 
 def verify_image(docker, tag, image_id, build_sha, source_digest, site, inventory_path):
@@ -182,10 +194,7 @@ def verify_image(docker, tag, image_id, build_sha, source_digest, site, inventor
         config = stream.extractfile(records[0]["Config"]).read()
         require("sha256:" + hashlib.sha256(config).hexdigest() == image_id, "Actual original config ID changed.")
         cfg = json.loads(config)
-        require(cfg.get("rootfs", {}).get("diff_ids") == actual["RootFS"]["Layers"] and
-                canonical_config(cfg.get("config", {})) == canonical_config(actual["Config"]) and
-                len(records[0]["Layers"]) == 14,
-                "Actual complete exported config/all14 layer records differ.")
+        verify_exported_metadata(cfg, actual, records[0]["Layers"])
         for path, digest in zip(records[0]["Layers"], cfg["rootfs"]["diff_ids"]):
             with stream.extractfile(path) as layer:
                 require("sha256:" + hashlib.file_digest(layer, "sha256").hexdigest() == digest,
