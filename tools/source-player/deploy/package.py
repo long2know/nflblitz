@@ -87,11 +87,15 @@ def inventory(root):
 def inspect_bundle(root, expected_build_sha, expected_source_digest):
     records = inventory(root)
     pins = {entry["path"]: entry for entry in records}
-    require({p.name for p in root.iterdir()} - {".stamp"} == TOP_FILES | {"data", "_framework"},
-            "AppBundle top-level inventory changed; no blank/default or unrelated input may be packaged.")
-    require(TOP_FILES <= pins.keys(), "Required browser modules/build receipt are missing.")
+    require("build-info.json" in pins, "Required browser modules/build receipt are missing.")
     require(pins["build-info.json"]["sha256"] == expected_build_sha, "build-info.json identity changed.")
     build = json.loads((root / "build-info.json").read_bytes())
+    verified_cache = "verifiedRuntimeResources" in build
+    require("verifiedAssetCache" not in build or verified_cache, "Verified cache runtime resource pins are missing.")
+    top_files = TOP_FILES | ({"verified-assets.js"} if verified_cache else set())
+    require({p.name for p in root.iterdir()} - {".stamp"} == top_files | {"data", "_framework"},
+            "AppBundle top-level inventory changed; no blank/default or unrelated input may be packaged.")
+    require(top_files <= pins.keys(), "Required browser modules/build receipt are missing.")
     require(build["schema"] == "blitz-source-player-build/v1" and
             build["runtimeIdentifier"] == "browser-wasm" and
             build["mainAssembly"] == "SourcePlayer.Browser" and build["nativeUnityBuild"] is False,
@@ -139,6 +143,13 @@ def inspect_bundle(root, expected_build_sha, expected_source_digest):
             "Actual compiled Core and Browser Webcil assemblies are required.")
     for entry in build["assemblies"]:
         require(pins.get(entry["path"]) == entry, "Compiled assembly identity changed: " + entry["path"])
+    if verified_cache:
+        resources = build["verifiedRuntimeResources"]
+        runtime_files = [entry for entry in records
+                         if entry["path"].startswith("_framework/") and Path(entry["path"]).suffix in (".wasm", ".dat")]
+        require(resources.get("schema") == "source-verified-runtime-resources/v1" and
+                resources.get("files") == runtime_files,
+                "Verified runtime cache pins must cover every actual WebAssembly/ICU resource exactly.")
     boot = (root / "_framework/dotnet.boot.js").read_text()
     require("/*json-start*/" in boot, "Actual .NET browser boot resource configuration is missing.")
     config, _ = json.JSONDecoder().raw_decode(boot.split("/*json-start*/", 1)[1])
@@ -160,7 +171,8 @@ def inspect_bundle(root, expected_build_sha, expected_source_digest):
             require(stream.read(4) == b"\0asm", "Not actual WebAssembly: " + name)
     source_modules = {entry["path"].split("/")[-1]: entry["sha256"] for entry in build["sources"]
                       if entry["path"].startswith("tools/source-player/wwwroot/")}
-    for name in ("index.html", "main.js", "input.js", "renderer.js", "audio.js", "records.js"):
+    for name in ("index.html", "main.js", "input.js", "renderer.js", "audio.js", "records.js") + (
+            ("verified-assets.js",) if verified_cache else ()):
         require(source_modules.get(name) == pins[name]["sha256"], "Emitted module differs from source receipt: " + name)
     return build, records
 

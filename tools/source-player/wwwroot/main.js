@@ -1,3 +1,5 @@
+import { createVerifiedAssetLoader, createVerifiedRuntimeResourceLoader } from './verified-assets.js';
+
 const canvas = document.querySelector('#game'), status = document.querySelector('#status');
 const details = document.querySelector('#runtime-details'), start = performance.now();
 const loader = globalThis.sourcePlayerLoader, { fail, progress } = loader;
@@ -23,6 +25,9 @@ const files = new Map(), requests = [];
 
 const digest = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
   .map(byte => byte.toString(16).padStart(2, '0')).join('');
+const verifiedAssets = createVerifiedAssetLoader({
+  baseUrl: import.meta.url, digest, fetchBytes: path => fetchBytes('./' + path),
+});
 
 loader.onFailure(() => {
   failed = true; ready = false;
@@ -88,7 +93,7 @@ async function loadData() {
   if (failed) return;
   const manifestHash = await digest(manifestBytes);
   if (failed) return;
-  if (manifestHash !== build.dataManifestSha256) throw new Error('Served private data manifest does not match this actual build receipt.');
+  if (manifestHash !== build.dataManifestSha256) throw new Error('Served data manifest does not match this actual build receipt.');
   const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
   if (build.execution?.callerProfile !== undefined) {
     const drain = build.execution.callerDrain;
@@ -147,21 +152,19 @@ async function loadData() {
   for (const file of manifest.files) {
     if (!/^[A-Za-z0-9_.\-/]+$/.test(file.path) || file.path.split('/').some(p => !p || p === '.' || p === '..') ||
         seen.has(file.path.toLowerCase()) || file.bytes <= 0 || !/^[0-9a-f]{64}$/.test(file.sha256))
-      throw new Error(`Unsafe/duplicate/unpinned private source file ${file.path}.`);
+      throw new Error(`Unsafe/duplicate/unpinned source file ${file.path}.`);
     seen.add(file.path.toLowerCase());
   }
   let next = 0, done = 0;
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (!failed && next < manifest.files.length) {
       const file = manifest.files[next++];
-      const bytes = await fetchBytes('./data/' + file.path);
+      const bytes = await verifiedAssets.load({ ...file, path: 'data/' + file.path });
       if (failed) return;
-      const hash = await digest(bytes);
-      if (failed) return;
-      if (bytes.length !== file.bytes || hash !== file.sha256)
-        throw new Error(`Actual original asset content pin mismatch: ${file.path}`);
       files.set(file.path, bytes);
-      progress(`Verifying private original source/asset inputs: ${++done}/${manifest.files.length}`);
+      const cache = verifiedAssets.snapshot();
+      progress(`Verified original source/assets: ${++done}/${manifest.files.length} ` +
+        `(${cache.cached} cached, ${cache.downloaded} downloaded)`);
     }
   }));
   if (failed) return;
@@ -338,7 +341,13 @@ async function startPlayer() {
     }
   }
   progress('Loading the genuine .NET10 WebAssembly runtime and C# production gameplay assembly');
-  const runtime = await dotnet.withDiagnosticTracing(false).create();
+  const runtimeBuilder = dotnet.withDiagnosticTracing(false);
+  if (build.verifiedRuntimeResources) {
+    runtimeBuilder.withResourceLoader(createVerifiedRuntimeResourceLoader({
+      baseUrl: import.meta.url, resources: build.verifiedRuntimeResources, load: verifiedAssets.load,
+    }));
+  }
+  const runtime = await runtimeBuilder.create();
   if (failed) return;
   runtime.setModuleImports('source-player-records', await requiredModule('./records.js'));
   if (failed) return;
@@ -399,7 +408,7 @@ async function startPlayer() {
     await api.StartCompleteOriginal(originalData.manifestBytes, location.href);
   } else api.Start(originalData.manifestBytes, location.href);
   if (failed) return;
-  if (files.size !== 0) throw new Error(`The real source loaders left ${files.size} unconsumed private input files.`);
+  if (files.size !== 0) throw new Error(`The real source loaders left ${files.size} unconsumed input files.`);
   const transferStatus = document.querySelector('#records-transfer-status');
   document.querySelector('#records-export')?.addEventListener('click', async () => {
     try {
@@ -463,7 +472,7 @@ Object.defineProperty(globalThis, 'sourcePlayer', { value: Object.freeze({
     audioReceiver: audio?.snapshot() ?? { unlocked: false, contextState: 'not-created', originalBankAdmission: false },
     timings: { loadMilliseconds, frames: summary(timings.map(t => t.totalMilliseconds)),
       webgl: summary(timings.map(t => t.webglMilliseconds)), sourceSamples },
-    resources: requests,
+    resources: requests, verifiedAssetCache: verifiedAssets.snapshot(),
   }),
   sourceStepCosts: () => {
     if (!api || typeof api.SourceStepCosts !== 'function')

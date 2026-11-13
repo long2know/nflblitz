@@ -2366,3 +2366,29 @@ are not supplied by current witnesses or Host epochs. Fresh compiled binding,
 active default-audibles, Unity/native/GPU/DSP, performance, CI and publication
 acceptance remain separate. FullWorld stays STOP, all16 stay OPEN, and the
 whole-game goal remains unfinished.
+
+## Verified persistent asset cache
+
+The loader uses explicit browser CacheStorage, keyed by normalized application
+base and each manifest-listed content SHA256. Every cache hit and download is
+length/hash verified before use. A corrupt entry is discarded and fetched again;
+a changed hash at the same filename cannot reuse the old bytes. The data manifest
+and build receipt are still fetched afresh. Binary .NET/ICU resources use the same
+verified mechanism and must agree with the current boot/resource pins. Fixed-name
+bootstrap JavaScript remains fresh under the existing `no-store` HTTP policy.
+
+Progress reports cached versus downloaded assets. CacheStorage requires a secure
+browser context (HTTPS or localhost); unsupported, denied or quota-failed storage
+emits one explicit warning and continues only through verified network downloads.
+This cache does not use a service worker, change gameplay/input scheduling, or
+modify the local-records IndexedDB database. Clearing this one CacheStorage cache
+only makes the next load cold; it does not erase records.
+
+`node --test tools/source-player/verified-assets.test.mjs` exercises content
+updates, corruption, base/profile safety and explicit fallback. The bounded
+`verified-cache.browser.mjs` caller measures actual cold/warm network bytes with
+normal Chrome sandboxing and HTTP caching disabled. The image workflow validates
+the candidate before replacing `latest` and verifies anonymous latest cold/warm
+behavior independently. `refresh_static_bundle.py` retains the actual original
+CoreAOT/nativeWASM hashes and explicitly records JS-only source provenance; it
+never claims a new C# compilation.
