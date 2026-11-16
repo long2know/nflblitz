@@ -1,0 +1,105 @@
+name: Deliver exact fresh270 public browser image
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/fresh_main_image*'
+      - '.github/scripts/test_fresh_main_image.py'
+      - '.github/workflows/fresh-main-image.yml'
+      - 'tools/source-player/deploy/FRESH_MAIN_IMAGE.md'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Independently approved ciphertext-only container-transfer prerelease
+        required: true
+        type: string
+      secret_name:
+        description: Unique CONTAINER_TRANSFER secret for that exact approved transfer
+        required: true
+        type: string
+      cipher_sha256:
+        description: Trusted SHA256 of encrypted exact1eee5950 archive
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exact-fresh270-public-nflblitz-latest
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Asset-free exact-identity, ordering, race, crypto and retained browser contracts
+        run: |
+          python3 -B .github/scripts/test_fresh_main_image.py -v
+          python3 -B tools/source-player/deploy/test_registry_transfer.py -v
+          node --check .github/scripts/fresh_main_image.browser.mjs
+          node --test tools/source-player/view-controls.test.mjs tools/source-player/verified-assets.test.mjs
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      manifest: ${{ steps.deliver.outputs.manifestDigest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Exact encrypted archive, all1219 bytes, ordinary UID1000 browser acceptance BEFORE latest
+        id: deliver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_TRANSFER_KEY: ${{ secrets[inputs.secret_name] }}
+          TRANSFER_RELEASE_TAG: ${{ inputs.release_tag }}
+          TRANSFER_SECRET_NAME: ${{ inputs.secret_name }}
+          TRANSFER_CIPHER_SHA256: ${{ inputs.cipher_sha256 }}
+        run: python3 -B .github/scripts/fresh_main_image.py publish --work-dir .fp
+      - name: Remove only owned plaintext and Docker credentials
+        if: always()
+        run: rm -rf -- .fp
+
+  independent-anonymous-consumer:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'long2know/nflblitz' && github.ref == 'refs/heads/main'
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Fresh anonymous immutable pull, all bytes and ordinary UID1000 browser/cache/UI/audio
+        env:
+          FRESH_EXPECTED_MANIFEST: ${{ needs.publish.outputs.manifest }}
+          TRANSFER_RELEASE_TAG: ${{ inputs.release_tag }}
+          TRANSFER_SECRET_NAME: ${{ inputs.secret_name }}
+          TRANSFER_CIPHER_SHA256: ${{ inputs.cipher_sha256 }}
+        run: python3 -B .github/scripts/fresh_main_image.py anonymous --work-dir .fc
+      - name: Remove only owned consumer artifacts
+        if: always()
+        run: rm -rf -- .fc

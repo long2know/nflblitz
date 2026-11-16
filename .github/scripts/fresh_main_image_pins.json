@@ -1,0 +1,161 @@
+{
+  "assemblies": [
+    {
+      "bytes": 38677,
+      "path": "_framework/SourcePlayer.Browser.wasm",
+      "sha256": "e8783a22d7fb4db4b6db064b80e7b68baa5e01d8113df74848fae199573bb947"
+    },
+    {
+      "bytes": 2646809,
+      "path": "_framework/SourcePlayer.Core.wasm",
+      "sha256": "8af3bf5e370fb898643698b53936ed6140ce12bd175ca251240dc0d5dbe71383"
+    }
+  ],
+  "execution": {
+    "applicationObjects": [
+      {
+        "assembly": "SourcePlayer.Core",
+        "bytes": 10215361,
+        "sha256": "cb68e4a61c63f2beded56baa95d12a59626bbd4c06579a06d2abf430be03ba75",
+        "symbol": "mono_aot_module_SourcePlayer_Core_info"
+      },
+      {
+        "assembly": "SourcePlayer.Browser",
+        "bytes": 276776,
+        "sha256": "add420eb47868a0c5346e5ddc10788ce438516ce0508c99b0c1617c6e176d692",
+        "symbol": "mono_aot_module_SourcePlayer_Browser_info"
+      }
+    ],
+    "callerDrain": {
+      "audioLeadChanged": false,
+      "elapsedSecondsPerDrain": 0,
+      "freshInputPollingPerDrain": 0,
+      "maximumBridgeIntervalSeconds": 0.1,
+      "maximumHostStepsPerCallback": 6,
+      "scheduling": "MessageChannel",
+      "schema": "bounded-source-caller-drain/v1",
+      "sourceClockRngOrEpochChanged": false
+    },
+    "callerProfile": "aot-rooted-bounded-caller-drain-av306/v1",
+    "debugLevel": 0,
+    "jsonReflectionEnabled": true,
+    "mode": "aot",
+    "moduleRegistrationSha256": "937b8645e984937bab3a02d38fda03432cf1d988bf5e4335da469f2ae9331f29",
+    "nativeRuntimeSha256": "a25db7adec78c1d4d51b2bc0c1d3f266fab12c8990da9613e7b2c6a144fcdfda",
+    "prebuiltRuntimeSha256": "26ad7a0c996c34ffc4672deee5d51f84fbb4af8bea722404dddd0b49a7a549eb",
+    "publishTrimmed": true,
+    "rootedApplicationAssemblies": [
+      "SourcePlayer.Core",
+      "SourcePlayer.Browser"
+    ],
+    "runAOTCompilation": true,
+    "schema": "mono-wasm-aot-rooted-execution/v1",
+    "sourceStepCostDiagnostics": "bounded-readonly/v1",
+    "trimmingExplicitlyAuthorized": true,
+    "wasmBuildNative": true
+  },
+  "helperSources": [
+    {
+      "path": ".github/scripts/fresh_main_image.py",
+      "sha256": "ca4cc9da16230f94d366082372370452663125b1822e25c8ad340a0f40a20ad8"
+    },
+    {
+      "path": ".github/scripts/fresh_main_image.browser.mjs",
+      "sha256": "c0ca4aebb9908cbe9323e1ed57664909412ad8e6d90fbd146683f188ce8c582f"
+    },
+    {
+      "path": ".github/workflows/fresh-main-image.yml",
+      "sha256": "87bdbac22d0719cea32f34a4f837c4c4798f3511e4f0e861cb1b7ad49db8090a"
+    },
+    {
+      "path": ".github/scripts/view_controls_image.py",
+      "sha256": "8ee78b179445c8306f9984c55d12bbd21da3770a731f1dc017fe9bb6b91f6163"
+    },
+    {
+      "path": ".github/scripts/verified_cache_image.py",
+      "sha256": "315978372ae35b32722cab907a0d411b8114562770909c8cd094bc02e9ee61c4"
+    },
+    {
+      "path": ".github/scripts/public_existing_latest.py",
+      "sha256": "1b98919f0c657ed36c1b2466e9fd640f9ee870ed3bbe6e7b3c0c301c877ed773"
+    },
+    {
+      "path": "tools/source-player/deploy/registry_transfer.py",
+      "sha256": "c554c818082878d2c1eb33db9ce1b1f8115f1ade78049f0af4219771c4cb267d"
+    },
+    {
+      "path": "tools/source-player/deploy/private_target_recovery.py",
+      "sha256": "d031a16c6623c0985d2f25cac691cc1b1a358ebf79a036792f149291d9884e49"
+    },
+    {
+      "path": "tools/source-player/deploy/private_target_recovery_pins.json",
+      "sha256": "854eb3003396c46a8ca84ac8bdee7a74dbe7d6897a29ef21cabd05886a31433e"
+    },
+    {
+      "path": "tools/source-player/deploy/package.py",
+      "sha256": "9750b455dfe4476cba9d4a39799b25f81d19e9281e40d48ee98c0953337817af"
+    },
+    {
+      "path": "tools/source-player/deploy/test_deployment.py",
+      "sha256": "0c77e40eb95ad2705b1ce0c279f4106abd08f4ecf39dc0a5dd059ae837d16820"
+    },
+    {
+      "path": "tools/source-player/refresh_static_bundle.py",
+      "sha256": "09c619d9cfc68b06dcbf912614d2973336cce4b4b7025e33da72ba9cd0887da8"
+    },
+    {
+      "path": "tools/source-player/verified-cache.browser.mjs",
+      "sha256": "ad91774bb210968273fcabd41c12b464049d4b336b9f113339dc39879f04fd3e"
+    },
+    {
+      "path": "tools/source-player/view-controls.browser.mjs",
+      "sha256": "9cea7d296faa3f4138fb222ceac76e8bb463fdb5630528765519787e5696bcfd"
+    },
+    {
+      "path": "tests/browser/lib.mjs",
+      "sha256": "9bbfbde8d3969b88b0a450e64590e35d431bade16460bc02f6fb5ef40ab44226"
+    },
+    {
+      "path": "tests/browser/runtime.mjs",
+      "sha256": "19914ca4851d90cf7312341694a2f2c9b758f2d1c74fa709c687b76edc2f8ab7"
+    },
+    {
+      "path": "tools/source-player/build.py",
+      "sha256": "61dd394da19180e1b05c6fde9ce97b95ed7c5d192f3823da7380e8895a110a68"
+    }
+  ],
+  "independentArtifactQuality": {
+    "promotionAuthorizedByReport": false,
+    "remainingMandatoryGate": "Proper GitHub runner ordinary writable UID1000 BASE_URL=/nflblitz without tmpfs; real health, full HTTP and sandboxed C#/WebGL2, original audio, cache and view controls BEFORE latest.",
+    "reportSha256": "f82ce0aa61c9065be9116e0a8972d8874de13c9321709caa29a0f671d0019804",
+    "reviewer": "Quality",
+    "verdict": "CONDITIONAL APPROVE"
+  },
+  "inventoryFileSha256": "93b9a3676c4c645caeaef72f4ffe8c57d8980f3ef0dc61b554612439dd325fcb",
+  "priorConfig": "sha256:00723e5840311c53cf6f21d85e58b773f0a0ab74da3c045af59dca201a87fd97",
+  "priorManifest": "sha256:1e76482f54ea2067b4bf73379aa465dbd9728bbf9517f38afa37d272b17579a5",
+  "rootfsDiffIds": [
+    "sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711",
+    "sha256:cfdd095735fdd5446c20bc2ed8519335912cbfea5190f03796c6625be4b4dbc2",
+    "sha256:ad50fc9f4d5b778261c949d9ffaa83a193d841bd9ea3dc7871191523f53d0f60",
+    "sha256:16b7c6f49eb2521c0f616e9e66952eb33f34775e1a9545e69441e98286fa422e",
+    "sha256:be8ef9e29ff8a08a6eac69287fc514047b7ca85d58146a892ddd90167a2fd313",
+    "sha256:cb09ecf501197401f91f8f412df01b82dc9bc01dbe4517014e3acb37bf1579b4",
+    "sha256:3c892ead291ba3249de1788eab3106b0a22a1d5825c576a521461ef892f8330c",
+    "sha256:29bb719f4721e2ad911274c14c2729a8241255b4595610b98dc76a2ee993b2ce",
+    "sha256:08bcea1dd0f464873458a63d252a771310278c528bebd79cb1147cad7e2fa872",
+    "sha256:655ba29d85c05e2badffe2bc09913bb35af7b793c3fd3198189c7d9ed0160622",
+    "sha256:34185f3defdfe31be9e94b45af3ae58bd452e3da0451506b8b1c2564e455d588",
+    "sha256:5afc20407aae3ce53c5b1f5bd96d9c6b73e339bc001bf333d4228aa0c220ec8a"
+  ],
+  "schema": "closed-fresh270-public-original1153-image/v1",
+  "transfer": {
+    "archive_sha256": "1eee595092abf490bdc74763dd5a0ac2559162fd9b3143ba993a975db1e177e5",
+    "build_sha256": "b898d28e2e31c044038748d924fef398124c53f2d60df90f18f194fde64a3642",
+    "data_manifest_sha256": "51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d",
+    "image_id": "sha256:dd755efb16ad2bb10efd718ceea57c712105eb1dfb8d377d14fc7c1b857297a2",
+    "source_digest": "31952bf216a5dcc122a061449765757d3a3493ae8351363d48f02e4da4926a06",
+    "source_revision": "270c74c90e18b895a564b10b57324dfd08c84bb4",
+    "source_tag": "nflblitz-original:main-270c74c-20261116-amd64"
+  }
+}
