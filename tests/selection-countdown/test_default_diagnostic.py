@@ -135,6 +135,8 @@ REVISION_CASES = (
     "test_host_difference_positive_shapes_survive_persisted_receipt_consumers",
     "test_host_difference_receipts_reject_malformed_explanations_at_both_consumers",
     "test_generator_rejects_malformed_emitted_host_difference_explanations",
+    "test_sdk_directory_aliases_bind_canonical_seals_commands_and_references",
+    "test_tool_file_aliases_and_fixture_root_aliases_still_reject",
 )
 
 
@@ -1021,7 +1023,7 @@ class DefaultDiagnosticTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pe.verify(b"DefaultCabinetChecks.Main", b"portable PDB", {})
 
-    def pipeline(self, fail=None):
+    def pipeline(self, fail=None, sdk_alias=False):
         case = self
         events = []
         parent = self.output / ("pipeline-" + (fail or "success"))
@@ -1042,6 +1044,18 @@ class DefaultDiagnosticTests(unittest.TestCase):
                                                              bytes=1, sha256="0" * 64)
                      for name in ("fixture", "sound", "impact", "normal", "speech", "hud")}
         sources = {"Assets/Fixed" + str(i) + ".cs": b"// synthetic public test source\n" for i in range(94)}
+        sdk = self.output / "sdk"
+        sdk.mkdir()
+        selected_sdk = sdk
+        if sdk_alias:
+            selected_sdk = self.output / "selected-sdk"
+            selected_sdk.symlink_to(sdk, target_is_directory=True)
+        compiler = selected_sdk / "compiler.dll"
+        references = [selected_sdk / (str(i) + ".dll") for i in range(167)]
+        def tools(executable, selected_compiler, selected_references):
+            self.assertEqual(selected_compiler, sdk / "compiler.dll")
+            self.assertEqual(selected_references, [sdk / path.name for path in references])
+            return {}
         def verify(a, b, source_map):
             self.assertTrue(len(source_map) == 97)
             return dict(peSha256=diagnostic.sha(a), pdbSha256=diagnostic.sha(b), documents=97,
@@ -1052,6 +1066,10 @@ class DefaultDiagnosticTests(unittest.TestCase):
             events.append(phase + "-" + label)
             if phase == "compile":
                 self.assertTrue(not any(item.startswith("execute") for item in events))
+                self.assertEqual(command[1], str(sdk / "compiler.dll"))
+                options = Path(command[3][1:]).read_text()
+                for path in references:
+                    self.assertIn(json.dumps("-r:" + str(sdk / path.name)), options)
                 if label == fail:
                     return dict(exit=1, diagnostics={name: dict(bytes=0, path="synthetic", sha256="0" * 64)
                                                      for name in ("stdout", "stderr")})
@@ -1085,20 +1103,18 @@ class DefaultDiagnosticTests(unittest.TestCase):
              patch.object(diagnostic, "native", side_effect=native), \
              patch.object(diagnostic, "pe_module", return_value=types.SimpleNamespace(verify=verify)), \
              patch.object(diagnostic.shutil, "which", return_value=str(self.output / "synthetic-dotnet")), \
-             patch.object(diagnostic, "tool_seals", return_value={}), \
+             patch.object(diagnostic, "tool_seals", side_effect=tools), \
              patch.object(diagnostic, "input_seals", return_value=input_map), \
              patch.object(diagnostic.stat, "S_IMODE", return_value=0o600):
             if fail:
                 with self.assertRaisesRegex(AssertionError, "compiler exit/diagnostics"):
                     with diagnostic.execute_three(args, {label: sources for label in diagnostic.LABELS},
-                            {label: b"synthetic loader" for label in diagnostic.LABELS}, self.output / "compiler.dll",
-                            [self.output / (str(i) + ".dll") for i in range(167)],
+                            {label: b"synthetic loader" for label in diagnostic.LABELS}, compiler, references,
                             b"synthetic driver", b"synthetic client", {}):
                         self.fail("failed compile yielded evidence")
             else:
                 with diagnostic.execute_three(args, {label: sources for label in diagnostic.LABELS},
-                        {label: b"synthetic loader" for label in diagnostic.LABELS}, self.output / "compiler.dll",
-                        [self.output / (str(i) + ".dll") for i in range(167)],
+                        {label: b"synthetic loader" for label in diagnostic.LABELS}, compiler, references,
                         b"synthetic driver", b"synthetic client", {}) as result:
                     self.assertTrue(result["report"]["prospectiveTotal"]["constructors"] == 3)
                     self.assertTrue(len(result["rows"]) == 3)
@@ -1111,6 +1127,29 @@ class DefaultDiagnosticTests(unittest.TestCase):
 
     def test_real_python_pipeline_failure_stops_before_third_compile_or_any_driver(self):
         self.assertTrue(self.pipeline("B") == ["compile-A", "compile-B"])
+
+    def test_sdk_directory_aliases_bind_canonical_seals_commands_and_references(self):
+        self.assertEqual(self.pipeline(sdk_alias=True),
+                         ["compile-A", "compile-B", "compile-C", "execute-A", "execute-B", "execute-C"])
+
+    def test_tool_file_aliases_and_fixture_root_aliases_still_reject(self):
+        original = self.output / "tool.dll"
+        original.write_bytes(b"synthetic tool bytes")
+        alias = self.output / "alias.dll"
+        alias.symlink_to(original)
+        with self.assertRaisesRegex(AssertionError, "canonical file path"):
+            diagnostic.file_seal(alias)
+        hardlink = self.output / "hardlink.dll"
+        hardlink.hardlink_to(original)
+        with self.assertRaisesRegex(AssertionError, "regular nonalias file"):
+            diagnostic.file_seal(hardlink)
+        fixture_root = self.output / "fixtures"
+        fixture_root.mkdir()
+        fixture_alias = self.output / "fixture-alias"
+        fixture_alias.symlink_to(fixture_root, target_is_directory=True)
+        args = types.SimpleNamespace(fixture=fixture_alias / "fixture.json", m1=fixture_root)
+        with self.assertRaisesRegex(AssertionError, "explicit fixture/M1 root"):
+            diagnostic.input_seals(args)
 
     def test_existing_workflow_timeouts_and_commands_are_unchanged(self):
         projection = load("default_diagnostic_budget_projection",

@@ -608,8 +608,11 @@ def execute_three(args, variants, loaders, compiler, references, common_driver, 
     pe = pe_module()
     try:
         require(len(references) == 167 and set(variants) == set(loaders) == set(LABELS), "exact compile graph/refset")
+        # Hosted SDK roots may be directory aliases; seal and invoke the same physical files.
+        compiler = Path(compiler).parent.resolve() / Path(compiler).name
+        references = [path.parent.resolve() / path.name for path in map(Path, references)]
         executable = Path(shutil.which("dotnet") or "").resolve()
-        tools = tool_seals(executable, Path(compiler).absolute(), references)
+        tools = tool_seals(executable, compiler, references)
         inputs = input_seals(args)
         helpers = {name: sha((HERE / name).read_bytes())
                    for name in ("compatibility.py", "default_diagnostic.py", "default_pe.py", "DefaultBudget.cs")}

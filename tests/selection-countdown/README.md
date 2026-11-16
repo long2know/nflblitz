@@ -34,6 +34,12 @@ Canonical relative authority paths and their absolute equivalents are normalized
 before the same strict root, file, symlink and Git-blob checks. Symlink aliases and
 parent-traversal aliases remain rejected; no source-acquisition input is added.
 
+Hosted SDK directory aliases are resolved before sealing and invoking the
+compiler and its reference assemblies. The receipt, compiler command and response
+file therefore identify the same physical SDK files. Tool-file symlinks,
+hardlinks and fixture-root aliases still reject. This changes neither the frozen
+source trees nor their numerical assertions, execution windows or comparisons.
+
 `oracle.py` verifies thirteen fixed Git blobs before extracting unchanged
 `timedown_play_select`, `flash_text_proc`, source suspension/resumption and
 selected caller/choice bodies. The authored C bindings retain logical
