@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import resource
+import shutil
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -152,6 +153,25 @@ mutations = controls_module.mutations
 def require(value, message):
     if not value:
         raise AssertionError(message)
+
+
+def selected_toolchain(env):
+    version = subprocess.check_output(["dotnet", "--version"], env=env, text=True).strip()
+    installed = subprocess.check_output(["dotnet", "--list-sdks"], env=env, text=True)
+    prefixes = [prefix for candidate, prefix in re.findall(
+        r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", installed, re.M) if candidate == version]
+    require(len(prefixes) == 1, "The active dotnet SDK must have exactly one installed location.")
+    prefix = Path(prefixes[0])
+    compiler = prefix / version / "Roslyn/bincore/csc.dll"
+    compiler = compiler.parent.resolve() / compiler.name
+    refs = sorted((prefix.parent / "packs/Microsoft.NETCore.App.Ref").glob("10.0.*/ref/net10.0"))[-1].resolve()
+    diagnostic = load("source_selection_toolchain_preflight", HERE / "default_diagnostic.py")
+    executable = Path(shutil.which("dotnet") or "").resolve()
+    tools = diagnostic.tool_seals(executable, compiler, sorted(refs.glob("*.dll")))
+    receipt = dict(sdkVersion=version, executable=str(executable), compiler=str(compiler),
+                   referenceFiles=len(list(refs.glob("*.dll"))), sealedFiles=len(tools),
+                   toolsAndReferencesSha256=diagnostic.sha(diagnostic.canonical(tools)))
+    return compiler, refs, receipt
 
 
 def argument_parser():
@@ -336,11 +356,7 @@ def main():
     try:
         summary_contract = current_summary_contract(report["sourceHashes"])
         report["summarySourceContract"] = summary_contract
-        sdk = subprocess.check_output(["dotnet", "--list-sdks"], env=env, text=True)
-        version, prefix = max(re.findall(r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", sdk, re.M),
-                              key=lambda p: tuple(map(int, p[0].split("."))))
-        compiler = Path(prefix) / version / "Roslyn/bincore/csc.dll"
-        refs = sorted((Path(prefix).parent / "packs/Microsoft.NETCore.App.Ref").glob("10.0.*/ref/net10.0"))[-1]
+        compiler, refs, report["toolchainPreflight"] = selected_toolchain(env)
         verified_authority(args.authority)
         fixtures, controls = required_inventory()
         random_fixtures, random_controls = required_random_inventory()

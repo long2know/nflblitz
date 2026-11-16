@@ -137,6 +137,9 @@ REVISION_CASES = (
     "test_generator_rejects_malformed_emitted_host_difference_explanations",
     "test_sdk_directory_aliases_bind_canonical_seals_commands_and_references",
     "test_tool_file_aliases_and_fixture_root_aliases_still_reject",
+    "test_selected_sdk_preflight_seals_executable_runtime_and_all_references",
+    "test_complete_tool_seals_still_refuse_file_aliases_and_hardlinks",
+    "test_selected_sdk_preflight_refuses_absent_or_ambiguous_cli_version",
 )
 
 
@@ -1150,6 +1153,84 @@ class DefaultDiagnosticTests(unittest.TestCase):
         args = types.SimpleNamespace(fixture=fixture_alias / "fixture.json", m1=fixture_root)
         with self.assertRaisesRegex(AssertionError, "explicit fixture/M1 root"):
             diagnostic.input_seals(args)
+
+    def sdk_toolchain(self):
+        root = self.output / "toolchain"
+        root.mkdir()
+        executable = root / "dotnet"
+        executable.write_bytes(b"synthetic executable, never invoked")
+        refs = root / "packs/Microsoft.NETCore.App.Ref/10.0.0/ref/net10.0"
+        refs.mkdir(parents=True)
+        for index in range(167):
+            (refs / (str(index) + ".dll")).write_bytes(b"synthetic reference")
+        for version in ("10.0.100", "11.0.100"):
+            sdk = root / "sdk" / version
+            compiler = sdk / "Roslyn/bincore/csc.dll"
+            compiler.parent.mkdir(parents=True)
+            compiler.write_bytes(b"synthetic compiler, never invoked")
+            compiler.with_suffix(".runtimeconfig.json").write_text("{}")
+            compiler.with_suffix(".deps.json").write_text(json.dumps({"targets": {"net10.0": {
+                "compiler": {"runtime": {"csc.dll": {}, "Microsoft.CodeAnalysis.dll": {}},
+                             "resources": {"cs/Microsoft.CodeAnalysis.resources.dll": {}}}}}}))
+            for name in ("Microsoft.CodeAnalysis.dll", "cs/Microsoft.CodeAnalysis.resources.dll"):
+                destination = compiler.parent / name
+                destination.parent.mkdir(exist_ok=True)
+                if version == "11.0.100":
+                    target = sdk / name
+                    target.parent.mkdir(exist_ok=True)
+                    target.write_bytes(b"synthetic newer SDK dependency")
+                    destination.symlink_to(target)
+                else:
+                    destination.write_bytes(b"synthetic selected SDK dependency")
+        runner = load("selected_sdk_test_runner", HERE / "run.py")
+        listing = "".join(version + " [" + str(root / "sdk") + "]\n"
+                          for version in ("10.0.100", "11.0.100"))
+        return root, executable, refs, runner, listing
+
+    def test_selected_sdk_preflight_seals_executable_runtime_and_all_references(self):
+        root, executable, refs, runner, listing = self.sdk_toolchain()
+        def metadata(command, **kwargs):
+            return "10.0.100\n" if command == ["dotnet", "--version"] else listing
+        with patch.object(runner.subprocess, "check_output", side_effect=metadata), \
+             patch.object(runner.shutil, "which", return_value=str(executable)):
+            compiler, references, receipt = runner.selected_toolchain({})
+        self.assertEqual(compiler, root / "sdk/10.0.100/Roslyn/bincore/csc.dll")
+        self.assertEqual(references, refs)
+        tools = diagnostic.tool_seals(executable, compiler, sorted(refs.glob("*.dll")))
+        for path in (executable, compiler.with_suffix(".runtimeconfig.json"),
+                     compiler.with_suffix(".deps.json"), compiler.parent / "Microsoft.CodeAnalysis.dll",
+                     compiler.parent / "cs/Microsoft.CodeAnalysis.resources.dll"):
+            self.assertEqual(tools[str(path)], diagnostic.file_seal(path))
+        self.assertEqual(receipt["sealedFiles"], 173)
+        self.assertEqual(receipt["referenceFiles"], 167)
+        self.assertEqual(receipt["toolsAndReferencesSha256"], diagnostic.sha(diagnostic.canonical(tools)))
+        with self.assertRaisesRegex(AssertionError, "canonical file path"):
+            diagnostic.tool_seals(executable, root / "sdk/11.0.100/Roslyn/bincore/csc.dll",
+                                  sorted(refs.glob("*.dll")))
+
+    def test_complete_tool_seals_still_refuse_file_aliases_and_hardlinks(self):
+        root, executable, refs, _, _ = self.sdk_toolchain()
+        compiler = root / "sdk/10.0.100/Roslyn/bincore/csc.dll"
+        dependency = compiler.parent / "Microsoft.CodeAnalysis.dll"
+        original = self.output / "original-dependency.dll"
+        dependency.rename(original)
+        dependency.symlink_to(original)
+        with self.assertRaisesRegex(AssertionError, "canonical file path"):
+            diagnostic.tool_seals(executable, compiler, sorted(refs.glob("*.dll")))
+        dependency.unlink()
+        dependency.hardlink_to(original)
+        with self.assertRaisesRegex(AssertionError, "regular nonalias file"):
+            diagnostic.tool_seals(executable, compiler, sorted(refs.glob("*.dll")))
+
+    def test_selected_sdk_preflight_refuses_absent_or_ambiguous_cli_version(self):
+        runner = load("selected_sdk_invalid_test_runner", HERE / "run.py")
+        for listing in ("11.0.100 [/unused/sdk]\n",
+                        "10.0.100 [/one/sdk]\n10.0.100 [/two/sdk]\n"):
+            def metadata(command, **kwargs):
+                return "10.0.100\n" if command == ["dotnet", "--version"] else listing
+            with patch.object(runner.subprocess, "check_output", side_effect=metadata):
+                with self.assertRaisesRegex(AssertionError, "exactly one installed location"):
+                    runner.selected_toolchain({})
 
     def test_existing_workflow_timeouts_and_commands_are_unchanged(self):
         projection = load("default_diagnostic_budget_projection",

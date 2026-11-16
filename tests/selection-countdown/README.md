@@ -40,6 +40,15 @@ file therefore identify the same physical SDK files. Tool-file symlinks,
 hardlinks and fixture-root aliases still reject. This changes neither the frozen
 source trees nor their numerical assertions, execution windows or comparisons.
 
+The outer runner selects the active `dotnet --version` SDK, honoring the
+workflow/global.json pin rather than the newest entry in `--list-sdks`.
+Before original-input extraction or compiled controls it runs the complete
+diagnostic tool seal: executable, compiler, runtime configuration/dependency
+manifests, every manifest-named runtime/resource companion and all167 references.
+The early receipt records that complete inventory hash. A newer installed SDK
+does not override the tested pin, and symlinked companion files still fail.
+The private A/B/C execution graph and privacy checks are unchanged.
+
 `oracle.py` verifies thirteen fixed Git blobs before extracting unchanged
 `timedown_play_select`, `flash_text_proc`, source suspension/resumption and
 selected caller/choice bodies. The authored C bindings retain logical
