@@ -29,6 +29,14 @@ def require(value, message):
 
 def mutations():
     return [
+        ("early-QB-float-rounding", MODEL,
+         "distance = (float)(distance + Math.Abs((double)input.Actors[input.Carrier].Position.Z) * .40f);",
+         "distance += Math.Abs(input.Actors[input.Carrier].Position.Z) * .40f;",
+         "original C fabs QB exact rounding"),
+        ("early-ball-float-rounding", MODEL,
+         "distance = (float)(distance + Math.Abs((double)ball.Position.Z) * .40f);",
+         "distance += Math.Abs(ball.Position.Z) * .40f;",
+         "original C fabs ball exact rounding"),
         ("public-ball-instead-of-source-root", MODEL, "x = actor.Position.X; z = actor.Position.Z;",
          "x = ball.Position.X; z = ball.Position.Z;", "normal must track actual actor root"),
         ("inferred-QB-mode", MODEL, "else if (carrierMode == 5)\n", "else if (carrierMode == 4)\n",
@@ -208,7 +216,7 @@ def main():
         baseline = run("baseline", sources, True)
         require(baseline["exit"] == 0, "Actual raw camera producer failed.")
         summary = json.loads(baseline["output"])
-        require(len(summary["cases"]) == (14 if actual != "-" else 13) and summary["assertions"] >= 100,
+        require(len(summary["cases"]) == (15 if actual != "-" else 14) and summary["assertions"] >= 100,
                 "Exact raw camera case inventory changed; no skipped cases.")
         if args.controls:
             def mutation(case):

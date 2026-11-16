@@ -21,6 +21,7 @@ internal static class Program
         try
         {
             Run("raw-target-and-integrator", RawTargets);
+            Run("original-fabs-distance-rounding", OriginalFabsDistance);
             Run("pass-endpoint-and-offscreen-cache", PassTargets);
             Run("gopher-and-resumed-source-wakes", Gopher);
             Run("normal-dispatch-and-impact-return", ImpactReturn);
@@ -136,6 +137,25 @@ internal static class Program
         Near(plan.DistanceTarget, 30f * 7.8f + 71f * .4f, .0001f, "QB raw lateral distancing");
         var hh = model.Prepare(Seed(), Boundary(3, hh: true), 512, 384, NoRandom);
         Near(hh.DistanceTarget, 27f * 7.8f, .0001f, "actual HH team uses original camera parameter dimension");
+    }
+
+    private static void OriginalFabsDistance()
+    {
+        // cambot.c:1800/1805: fabs promotes Z and MODE_QB_DFAC before the final float store.
+        const float originalDistance = 235.7360076904297f;
+        foreach (float z in new[] { 4.34f, -4.34f })
+        {
+            var qb = new SourceNormalCameraModel().Prepare(Seed(),
+                Boundary(1, actorMode: 5, actorZ: z), 512, 384, NoRandom);
+            Near(qb.DistanceTarget, originalDistance, 0f, "original C fabs QB exact rounding");
+            var ball = new SourceNormalCameraModel().Prepare(Seed(),
+                Boundary(1, carrier: -1, type: 0, flight: 1,
+                    ballPosition: new SourceVector3(-50, 20, z),
+                    targetCamera: new SourceVector3(100, 100, 100),
+                    receiverCamera: new SourceVector3(70, 80, 100)), 512, 384, NoRandom);
+            Check(ball.CarrierMode == -2, "original offscreen ball path is actually selected");
+            Near(ball.DistanceTarget, originalDistance, 0f, "original C fabs ball exact rounding");
+        }
     }
 
     private static void PassTargets()

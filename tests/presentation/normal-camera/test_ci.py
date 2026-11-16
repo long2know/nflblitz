@@ -46,15 +46,15 @@ class CameraCiChecks(unittest.TestCase):
     def test_compiled_control_inventory_and_exact_behavioral_failure(self):
         runner = load("actual_raw_camera_runner", HERE / "run.py")
         controls = runner.mutations()
-        self.assertEqual(len(controls), 26)
-        self.assertEqual(len({row[0] for row in controls}), 26)
+        self.assertEqual(len(controls), 28)
+        self.assertEqual(len({row[0] for row in controls}), 28)
         for name, path, before, after, failure in controls:
             self.assertEqual((ROOT / path).read_text().count(before), 1, name)
             self.assertNotEqual(before, after)
             self.assertTrue(failure)
         self.assertEqual(runner.caller_guards(), 7)
         program = (HERE / "Program.cs").read_text()
-        self.assertEqual(len(re.findall(r'Run\("[^"]+", ', program)), 16)
+        self.assertEqual(len(re.findall(r'Run\("[^"]+", ', program)), 17)
         self.assertIn("1440", program)
         self.assertIn("maximumAbsoluteErrorByColumn", program)
 

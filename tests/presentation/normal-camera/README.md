@@ -67,7 +67,7 @@ ticks differed at 0.005 source-unit tolerance. It used inferred targets, EMA and
 actor fitting. This receipt remains historical; it is not a final candidate
 receipt.
 
-The current suite also compiles **26 independent production-source mutants**,
+The current suite also compiles **28 independent production-source mutants**,
 executes every one, and requires its named behavioral failure—not a compiler
 error. Controls cover wrong raw roots/lead endpoints/modes, offscreen predicates,
 missing state/velocity/buffers, EMA, HH, GOPHER/snap, omitted wakes, hidden normal
@@ -85,6 +85,16 @@ production playback assertion: field-goal clock/target retention and the
 post-return zoom clock, respectively. The historical special test now distinguishes
 the original zoom expiry increment from an extra active special wake. Asset-free cases use authored synthetic camera
 parameters; the original-C cases above use authenticated private originals.
+Two precision controls restore premature float rounding independently in the
+QB and offscreen-ball distance paths. The original `fabs` expressions at
+`cambot.c:1800/1805` promote the source float Z and `0.40f` factor to double,
+then store the complete sum as float. Both signs of `4.34f` distinguish this
+from rounding the product early: the declared host-C result is
+`235.7360076904297f`, one ULP above the old managed result. Exact distance-target
+assertions supplement, rather than loosen, the retained trajectory tolerances.
+Frozen deployment/recovery pins remain historical and are not requalified by
+these component checks.
+
 New-match coverage independently proves that a full reset still clears the
 transient, target, dispatch clock, shaker, frame generation and normal state.
 
