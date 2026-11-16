@@ -503,7 +503,7 @@ public sealed class PlayerHost
         input = new SourceCabinetInputBuffer(MatchConfiguration,
             preserveSourceDigitalChanges: Options.GameflowEnabled || data.Catalog.Profile.IsContact282C2M1DefaultAudibles);
         BindSelection();
-        hud = new SourceHudComposer(data.Hud, data.OriginalPresentation);
+        hud = new SourceHudComposer(data.Hud, data.OriginalPresentation, data.RecordChoiceRasters);
         HudProcess = new OriginalHudProcess(data.Hud, Game);
         hudClock.Advance(Game.SourceTick, HudProcess.CommittedHud.ClockWarning);
         BindBridge();

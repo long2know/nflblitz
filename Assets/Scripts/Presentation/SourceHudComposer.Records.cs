@@ -173,11 +173,12 @@ namespace Blitz.Presentation
                         (station.Yes ? "yglw" : "nglw") + side + (station.ChoiceFlashFrame + 1).ToString("D2",
                             System.Globalization.CultureInfo.InvariantCulture);
                     SourceOriginalRaster plate = RecordRaster(plaque + (station.StationId + 1));
-                    SourceOriginalRaster highlight = RecordRaster(symbol);
+                    if (recordChoices == null || !recordChoices.TryGetValue(symbol, out SourceRecordChoiceRaster highlight))
+                        throw new SourceInterfaceException("SOURCE_RECORD_ART_REQUIRED: original choice artwork is missing.");
                     // Apply the plaque's existing transform to both authored anchors;
                     // the grey unselected words remain part of the original plaque.
                     double sx = 128d / plate.Width, sy = 276d / plate.Height;
-                    RecordOriginal("records/station/" + station.StationId + "/choice", symbol, viewport,
+                    OriginalImage("records/station/" + station.StationId + "/choice", symbol, viewport,
                         x + (plate.AnchorX - highlight.AnchorX) * sx,
                         46 + (plate.AnchorY - highlight.AnchorY) * sy,
                         highlight.Width * sx, highlight.Height * sy);

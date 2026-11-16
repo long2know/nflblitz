@@ -14,12 +14,12 @@ static partial class Checks
     {
         int before = assertions;
         var art = data.OriginalPresentation!;
-        string identity = string.Concat(art.RecordChoiceRasters.OrderBy(image => image.Id, StringComparer.Ordinal)
+        string identity = string.Concat(data.RecordChoiceRasters.Values.OrderBy(image => image.Id, StringComparer.Ordinal)
             .Select(image => $"{image.Id}\t{image.Width}\t{image.Height}\t{image.AnchorX}\t{image.AnchorY}\t{DataCatalog.Hash(image.CopyRgba())}\n"));
         Check(DataCatalog.Hash(System.Text.Encoding.ASCII.GetBytes(identity)) ==
             "6d89a40157199602053fe70e1f4bc16b8f1d54ae4c72c8610176c2cda6627eee",
             "All48 decoded choice/flash images, authored anchors and bottom-first RGBA must match the independent WIFF exporter.");
-        var composer = new SourceHudComposer(data.Hud, art);
+        var composer = new SourceHudComposer(data.Hud, art, data.RecordChoiceRasters);
         var viewport = new SourceHudViewport(512, 384, 512, 384, 1);
         SourceHudPrimitive[] Draw(SourceRecordScreenView view) => composer.Records(view, viewport).ToArray();
         SourceHudPrimitive Choice(SourceRecordScreenView view, int station)
@@ -40,7 +40,7 @@ static partial class Checks
                 Check(packet.SourceImageSymbol == symbol && packet.Color == 0xffffffffu,
                     "Every physical station must use its source left/right selected artwork without a guessed tint.");
                 var plate = art.Image("ynplq" + (id + 1));
-                var image = art.Image(symbol);
+                var image = data.RecordChoiceRasters[symbol];
                 Check(packet.Bounds.X == id * 128 + (plate.AnchorX - image.AnchorX) * 128d / plate.Width &&
                     Math.Abs(packet.Bounds.Y - (46 + (plate.AnchorY - image.AnchorY) * 276d / plate.Height)) < 1e-10,
                     "Selected artwork must share the plaque transform and authored anchor, not an independent text position.");

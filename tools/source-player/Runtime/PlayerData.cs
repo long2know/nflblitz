@@ -2,6 +2,10 @@ using Blitz.AssetImport;
 using Blitz.Contracts;
 using Blitz.Gameplay;
 using Blitz.Runtime;
+using Blitz.Presentation;
+using System.Buffers.Binary;
+using System.Collections.ObjectModel;
+using System.Text;
 using System.Text.Json;
 using OriginalPlayer = Blitz.AssetImport.SourcePlayer;
 
@@ -35,6 +39,7 @@ public sealed class PlayerData
     public SourceFreeBallData FreeBall { get; }
     public SourceAudioPlaybackAdmission AudioAdmission { get; }
     public SourceOriginalPresentationData OriginalPresentation { get; }
+    public IReadOnlyDictionary<string, SourceRecordChoiceRaster> RecordChoiceRasters { get; }
     private readonly Dictionary<string, string> headers = new(StringComparer.Ordinal);
 
     public PlayerData(DataCatalog data, Action<string> progress = null,
@@ -176,6 +181,8 @@ public sealed class PlayerData
             progress?.Invoke("Verifying all four actual original shadow materials and source-selected cabinet rasters");
             OriginalPresentation = SourceOriginalPresentationData.Read(data.EntryBytes("originalPresentation"),
                 path => data.Read("original/" + path));
+            if (OriginalPresentation.HasRecordsArt)
+                RecordChoiceRasters = ReadRecordChoices(data.Read("original/source/img2d/ynplaq3.wif"));
         }
         if (data.HasEntry("fire"))
         {
@@ -208,6 +215,48 @@ public sealed class PlayerData
         DataCatalog.Require(loaded.Identity == actual.Identity,
             "The actual designated home prefix/field/stadium is not present in this explicit world package.");
         return World;
+    }
+
+    private static IReadOnlyDictionary<string, SourceRecordChoiceRaster> ReadRecordChoices(byte[] bytes)
+    {
+        // OriginalPresentation has already authenticated this WIFF's original Git blob;
+        // DataCatalog.Read rechecks the same immutable input before this host-only decode.
+        var wanted = new HashSet<string>(StringComparer.Ordinal) { "no_l", "yes_l", "no_r", "yes_r" };
+        foreach (string prefix in new[] { "nglwl", "nglwr", "yglwl", "yglwr" })
+            for (int i = 1; i <= 11; i++) wanted.Add(prefix + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture));
+        var decoded = new Dictionary<string, SourceRecordChoiceRaster>(StringComparer.Ordinal);
+        DataCatalog.Require(bytes.Length >= 8 && Encoding.ASCII.GetString(bytes, 0, 4) == "WIFF" &&
+            BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(4, 4)) == bytes.Length - 8, "Invalid original choice WIFF.");
+        int position = 8;
+        while (position < bytes.Length)
+        {
+            DataCatalog.Require(position <= bytes.Length - 8, "Truncated original choice chunk.");
+            string tag = Encoding.ASCII.GetString(bytes, position, 4);
+            int size = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(position + 4, 4)), start = position + 8;
+            DataCatalog.Require(size >= 0 && size <= bytes.Length - start - (size & 1), "Truncated original choice payload.");
+            if (tag == "IMG ")
+            {
+                DataCatalog.Require(size >= 56, "Truncated original choice image metadata.");
+                string id = Encoding.ASCII.GetString(bytes, start + 8, 16).Split('\0')[0].ToLowerInvariant();
+                if (wanted.Remove(id))
+                {
+                    int width = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(start + 32, 2));
+                    int height = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(start + 34, 2));
+                    DataCatalog.Require(width > 0 && width <= 2048 && height > 0 && height <= 2048 &&
+                        BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(start + 36, 2)) == 32 &&
+                        size == 56 + width * height * 4, "Original choice requires its authored RGBA image: " + id);
+                    var pixels = new byte[width * height * 4];
+                    for (int y = 0; y < height; y++)
+                        Buffer.BlockCopy(bytes, start + 56 + y * width * 4, pixels, (height - 1 - y) * width * 4, width * 4);
+                    decoded.Add(id, new SourceRecordChoiceRaster(id, width, height,
+                        BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(start + 46, 2)),
+                        BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(start + 48, 2)), pixels));
+                }
+            }
+            position = start + size + (size & 1);
+        }
+        DataCatalog.Require(wanted.Count == 0, "Original choice/confirmation images are incomplete.");
+        return new ReadOnlyDictionary<string, SourceRecordChoiceRaster>(decoded);
     }
 
     private static SourceAudioPlaybackAdmission ReadCompleteOriginalAudio(DataCatalog catalog)

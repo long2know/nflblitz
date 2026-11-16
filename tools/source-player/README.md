@@ -29,7 +29,8 @@ Packaging must include `view-controls.js`; static-only reuse opts in with
 The name/PIN YES/NO choice uses the original `no_l/yes_l/no_r/yes_r`
 sprites, not separate font labels. The already pinned `original/source/img2d/ynplaq3.wif`
 contains those four cursors and all 44 `nglw*/yglw*` confirmation frames; the
-runtime decodes that bounded RGBA subset without changing any asset package,
+host decodes that bounded RGBA subset into presentation-only carriers without
+changing AssetImport APIs, the frozen 104-source kernel closure, any asset package,
 manifest, historical raster inventory or source-image pins. Authored anchors
 share the existing player plaque transform. Original `select.c:flash_yes_no`
 advances eleven confirmation frames, three source ticks per frame, before
