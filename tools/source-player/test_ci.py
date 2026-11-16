@@ -65,6 +65,10 @@ HISTORICAL_INPUT_CASES = (
     "all four configured cabinets clear held controls on blur and resume without replaying them",
     "observed capture preserves every complete raw sample and uses measured host time, with legacy fallback unchanged",
 )
+ENTER_ALIAS_INPUT_CASES = (
+    "Enter aliases map only to P1 A without changing positional cabinet bindings",
+    "production Enter key events hold exactly P1 A, preserve overlapping aliases, and never submit Continue",
+)
 PUBLIC_DOTNET = 'SOURCE_PLAYER_DOTNET="$(command -v dotnet)" bash tools/source-player/dotnet.sh'
 COMMANDS = {
     "Select the tested SDK": (SDK_COMMAND,),
@@ -107,11 +111,11 @@ def require(condition, message):
 
 def validate_input_inventory(source):
     names = re.findall(r"^test\('([^'\n]+)',", source, re.M)
-    expected = HISTORICAL_INPUT_CASES + CALLER_DRAIN_INPUT_CASES + FOCUS_AND_PROFILE_INPUT_CASES
+    expected = HISTORICAL_INPUT_CASES + CALLER_DRAIN_INPUT_CASES + FOCUS_AND_PROFILE_INPUT_CASES + ENTER_ALIAS_INPUT_CASES
     require(len(re.findall(r"^test\(", source, re.M)) == len(expected) and
             sorted(names) == sorted(expected),
             "tools/source-player/input.test.mjs: exact historical six plus caller-drain four inventory "
-            "and focus/profile three required")
+            "and focus/profile three plus Enter alias two required")
 
 
 def validate_build_profile_inventory(source):

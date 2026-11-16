@@ -5,6 +5,8 @@ export const CABINET_KEYS = Object.freeze([
   ['KeyT', 'KeyG', 'KeyF', 'KeyH', 'KeyZ', 'KeyX', 'KeyC'],
 ]);
 
+const P1_A_ALIASES = ['Enter', 'NumpadEnter'];
+
 export class ObservedHostClock {
   constructor() { this.seconds = 0; this.last = null; this.running = false; }
   sample(milliseconds, running) {
@@ -109,7 +111,8 @@ export class SourceDebtDrain {
 export function cabinetPacket(keys, pads, stations) {
   const axes = Array(8).fill(0), buttons = Array(4).fill(0);
   for (const station of stations) {
-    const binding = CABINET_KEYS[station], held = i => keys.has(binding[i]);
+    const binding = CABINET_KEYS[station], held = i => keys.has(binding[i]) ||
+      station === 0 && i === 4 && P1_A_ALIASES.some(code => keys.has(code));
     let x = Number(held(3)) - Number(held(2)), y = Number(held(1)) - Number(held(0));
     let mask = Number(held(4)) | (Number(held(5)) << 1) | (Number(held(6)) << 2);
     const pad = pads?.[station];
@@ -139,6 +142,7 @@ export class SourceInput {
     this.observedClock = observedClock;
     this.lifecycleChanged = lifecycleChanged;
     this.configured = new Set(stations.flatMap(id => CABINET_KEYS[id]));
+    if (stations.includes(0)) for (const code of P1_A_ALIASES) this.configured.add(code);
     this.listeners = [];
     this.listen(window, 'keydown', event => this.key(event, true));
     this.listen(window, 'keyup', event => this.key(event, false));
@@ -155,7 +159,7 @@ export class SourceInput {
   }
 
   key(event, down) {
-    if (event.code === 'Escape' || event.code === 'KeyR' || event.code === 'Enter') {
+    if (event.code === 'Escape' || event.code === 'KeyR') {
       event.preventDefault();
       if (!down || event.repeat) return;
       if (event.code === 'Escape') { this.paused = !this.paused; this.focus(); }
@@ -163,7 +167,6 @@ export class SourceInput {
         this.lifecycleChanged?.('restart');
         this.keys.clear(); this.api.Restart(); this.poll();
       }
-      else { this.api.Continue(this.stations[0]); this.poll(); }
       return;
     }
     if (!this.configured.has(event.code)) return;

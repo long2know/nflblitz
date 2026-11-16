@@ -96,7 +96,7 @@ export function installViewControls(document = globalThis.document) {
   };
   const buttonKey = event => {
     // Let native button activation work without sending Enter to the cabinet's window listener.
-    if (event.code === 'Enter' || event.code === 'Space') event.stopPropagation();
+    if (event.code === 'Enter' || event.code === 'NumpadEnter' || event.code === 'Space') event.stopPropagation();
   };
   toggle.addEventListener('click', changeView);
   fullscreen.addEventListener('click', changeFullscreen);

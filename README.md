@@ -244,6 +244,10 @@ profile contracts. No Unity Editor, Unity build or Unity license is required for
 this route. Genuine browser/gameplay and source-fidelity acceptance are still
 required; Unity-specific checks do not replace or gate that acceptance.
 
+Player 1 uses **WASD** and **V or Enter** for original cabinet **A** (including
+menu confirmation), **B** for B, and **N** for C. Numpad Enter is also A;
+other stations and standard gamepad bindings are unchanged.
+
 The November9 result requires the explicit selected-world/AOT/caller profile,
 not the default build. With the installed toolchain and authenticated local
 1114 inputs already prepared, its supported build entrypoint is:
