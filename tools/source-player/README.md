@@ -37,8 +37,8 @@ advances eleven confirmation frames, three source ticks per frame, before
 revealing the unchanged name/guest result. This does not certify other menu
 transitions or whole-screen native pixel parity.
 
-Run `SourcePlayer.Checks.dll DATA --record-choice-art-only` for independent
-decoded-pixel/anchor hashes, left/right stations, actual UP/DOWN/A input and
+Run `SourcePlayer.Checks.dll DATA --record-choice-art-only` for one-shot raw-input
+reuse, independent decoded-pixel/anchor hashes, left/right stations, actual UP/DOWN/A input and
 the 33-source-tick confirmation boundary. `records-choice.browser.mjs --before URL
 --after URL --output DIRECTORY` captures actual before/after WASM/WebGL output
 using trusted input, normal Chrome sandbox and default autoplay.

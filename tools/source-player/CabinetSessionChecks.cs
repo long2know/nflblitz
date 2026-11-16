@@ -10,9 +10,17 @@ using Blitz.Storage;
 
 static partial class Checks
 {
-    private static void VerifyRecordChoiceArt(PlayerData data)
+    private static void VerifyRecordChoiceArt(byte[] manifest, Func<string, byte[]> read)
     {
         int before = assertions;
+        int choiceSourceReads = 0;
+        var data = new PlayerData(new DataCatalog(manifest, path =>
+        {
+            if (path == "original/source/img2d/ynplaq3.wif")
+                Check(++choiceSourceReads == 1, "The browser's one-shot choice WIFF input must never be read twice.");
+            return read(path);
+        }));
+        Check(choiceSourceReads == 1, "Derived choice art must reuse the raw input authenticated by OriginalPresentation.");
         var art = data.OriginalPresentation!;
         string identity = string.Concat(data.RecordChoiceRasters.Values.OrderBy(image => image.Id, StringComparer.Ordinal)
             .Select(image => $"{image.Id}\t{image.Width}\t{image.Height}\t{image.AnchorX}\t{image.AnchorY}\t{DataCatalog.Hash(image.CopyRgba())}\n"));

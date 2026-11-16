@@ -2053,6 +2053,8 @@ static partial class Checks
                 VerifyLoaderContract(manifest, Read, index >= 0 ? args[index + 1] : null);
                 return 0;
             }
+            if (args.Contains("--record-choice-art-only"))
+            { VerifyRecordChoiceArt(manifest, Read); return 0; }
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
             if (args.Contains("--two-station-join-revision-only"))
@@ -2075,8 +2077,6 @@ static partial class Checks
             { VerifyCompleteAv306Admission(data, manifest, Read); return 0; }
             if (args.Contains("--two-station-records-only"))
             { VerifyTwoStationRecords(data, manifest, Read); return 0; }
-            if (args.Contains("--record-choice-art-only"))
-            { VerifyRecordChoiceArt(data); return 0; }
             if (args.Contains("--original-team-selection-output"))
             { VerifyOriginalTeamSelection(data, args[Array.IndexOf(args, "--original-team-selection-output") + 1]); return 0; }
             if (args.Contains("--audio-timing-only"))

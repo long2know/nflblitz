@@ -179,10 +179,19 @@ public sealed class PlayerData
         if (data.Profile.UsesCompleteSourcePrograms)
         {
             progress?.Invoke("Verifying all four actual original shadow materials and source-selected cabinet rasters");
+            byte[] choiceSource = null;
             OriginalPresentation = SourceOriginalPresentationData.Read(data.EntryBytes("originalPresentation"),
-                path => data.Read("original/" + path));
+                path =>
+                {
+                    byte[] bytes = data.Read("original/" + path);
+                    if (path == "source/img2d/ynplaq3.wif") choiceSource = bytes;
+                    return bytes;
+                });
             if (OriginalPresentation.HasRecordsArt)
-                RecordChoiceRasters = ReadRecordChoices(data.Read("original/source/img2d/ynplaq3.wif"));
+            {
+                DataCatalog.Require(choiceSource != null, "Authenticated original choice WIFF is required.");
+                RecordChoiceRasters = ReadRecordChoices(choiceSource);
+            }
         }
         if (data.HasEntry("fire"))
         {
@@ -219,8 +228,8 @@ public sealed class PlayerData
 
     private static IReadOnlyDictionary<string, SourceRecordChoiceRaster> ReadRecordChoices(byte[] bytes)
     {
-        // OriginalPresentation has already authenticated this WIFF's original Git blob;
-        // DataCatalog.Read rechecks the same immutable input before this host-only decode.
+        // The public presentation reader authenticated these captured bytes before
+        // this host-only decode; the browser's destructive input map is not read again.
         var wanted = new HashSet<string>(StringComparer.Ordinal) { "no_l", "yes_l", "no_r", "yes_r" };
         foreach (string prefix in new[] { "nglwl", "nglwr", "yglwl", "yglwr" })
             for (int i = 1; i <= 11; i++) wanted.Add(prefix + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture));
