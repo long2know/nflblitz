@@ -2075,6 +2075,8 @@ static partial class Checks
             { VerifyCompleteAv306Admission(data, manifest, Read); return 0; }
             if (args.Contains("--two-station-records-only"))
             { VerifyTwoStationRecords(data, manifest, Read); return 0; }
+            if (args.Contains("--record-choice-art-only"))
+            { VerifyRecordChoiceArt(data); return 0; }
             if (args.Contains("--original-team-selection-output"))
             { VerifyOriginalTeamSelection(data, args[Array.IndexOf(args, "--original-team-selection-output") + 1]); return 0; }
             if (args.Contains("--audio-timing-only"))

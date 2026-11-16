@@ -21,6 +21,14 @@ namespace Blitz.AssetImport
         public string SourceGitBlob { get; }
         public string Representation { get; }
         public string TextureId { get { return Kind == "shadow" ? "original/" + Id : "hud/original/" + Id; } }
+        internal SourceOriginalRaster(string id, int width, int height, int anchorX, int anchorY, byte[] pixels)
+        {
+            Id = id; Kind = "image"; Slot = -1;
+            Width = width; Height = height; AnchorX = anchorX; AnchorY = anchorY;
+            rgba = pixels; Sha256 = RosterGuard.Sha256(pixels);
+            SourcePath = "img2d/ynplaq3.wif"; SourceGitBlob = "fdcd11153d0140a359e042ab7c83f676dc432855";
+            Representation = "original pinned WIFF IMG RGBA; bottom-first; source name/PIN choice cursor";
+        }
         internal SourceOriginalRaster(RosterObject value, Func<string, byte[]> read, Dictionary<string, byte[]> sources)
         {
             Id = value.Text("id"); Kind = value.Text("kind"); Slot = value.Integer("slot", -1, 3);
@@ -55,6 +63,8 @@ namespace Blitz.AssetImport
         public bool HasPrematchArt { get; }
         private readonly Dictionary<string, SourceOriginalRaster> images;
         public ReadOnlyCollection<SourceOriginalRaster> Rasters { get; }
+        public ReadOnlyCollection<SourceOriginalRaster> RecordChoiceRasters { get; private set; } =
+            Array.AsReadOnly(new SourceOriginalRaster[0]);
         public ReadOnlyCollection<SourceOriginalRaster> Shadows { get; }
         public ReadOnlyCollection<string> TeamWins { get; }
         private static readonly string[] ShadowPaths = {
@@ -139,8 +149,61 @@ namespace Blitz.AssetImport
             }
             string[] wins = root.Strings("teamWins", 31, 31);
             root.Strings("qualifications", 2, 2); root.Done();
-            return new SourceOriginalPresentationData(rasters, wins, records, prematch);
+            var result = new SourceOriginalPresentationData(rasters, wins, records, prematch);
+            if (records) result.ReadRecordChoices(sources["img2d/ynplaq3.wif"]);
+            return result;
         }
+
+        private void ReadRecordChoices(byte[] bytes)
+        {
+            // These images were omitted from the selected raster export, but the
+            // original WIFF is already authenticated in that immutable package.
+            RosterGuard.Require(GitBlob(bytes) == "fdcd11153d0140a359e042ab7c83f676dc432855",
+                "The original record choice WIFF must retain its exact source identity.");
+            var wanted = new HashSet<string>(StringComparer.Ordinal) { "no_l", "yes_l", "no_r", "yes_r" };
+            foreach (string prefix in new[] { "nglwl", "nglwr", "yglwl", "yglwr" })
+                for (int i = 1; i <= 11; i++) wanted.Add(prefix + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture));
+            var decoded = new List<SourceOriginalRaster>();
+            RosterGuard.Require(bytes.Length >= 8 && Encoding.ASCII.GetString(bytes, 0, 4) == "WIFF" &&
+                ReadBigEndian(bytes, 4) == bytes.Length - 8, "Invalid original choice WIFF.");
+            int position = 8;
+            while (position < bytes.Length)
+            {
+                RosterGuard.Require(position <= bytes.Length - 8, "Truncated original choice chunk.");
+                string tag = Encoding.ASCII.GetString(bytes, position, 4);
+                int size = ReadBigEndian(bytes, position + 4), start = position + 8;
+                RosterGuard.Require(size >= 0 && size <= bytes.Length - start - (size & 1),
+                    "Truncated original choice payload.");
+                if (tag == "IMG ")
+                {
+                    RosterGuard.Require(size >= 56, "Truncated original choice image metadata.");
+                    string id = Encoding.ASCII.GetString(bytes, start + 8, 16).Split('\0')[0].ToLowerInvariant();
+                    if (wanted.Remove(id))
+                    {
+                        int width = ReadLittleEndian(bytes, start + 32), height = ReadLittleEndian(bytes, start + 34);
+                        RosterGuard.Require(width > 0 && width <= 2048 && height > 0 && height <= 2048 &&
+                            ReadLittleEndian(bytes, start + 36) == 32 && size == 56 + width * height * 4,
+                            "Original choice requires its authored RGBA image: " + id);
+                        var pixels = new byte[width * height * 4];
+                        for (int y = 0; y < height; y++)
+                            Buffer.BlockCopy(bytes, start + 56 + y * width * 4,
+                                pixels, (height - 1 - y) * width * 4, width * 4);
+                        decoded.Add(new SourceOriginalRaster(id, width, height,
+                            (short)ReadLittleEndian(bytes, start + 46), (short)ReadLittleEndian(bytes, start + 48), pixels));
+                    }
+                }
+                position = start + size + (size & 1);
+            }
+            RosterGuard.Require(wanted.Count == 0, "Original choice/confirmation images are incomplete.");
+            foreach (SourceOriginalRaster image in decoded) images.Add(image.Id, image);
+            RecordChoiceRasters = decoded.AsReadOnly();
+        }
+
+        private static int ReadBigEndian(byte[] bytes, int offset)
+        { return bytes[offset] << 24 | bytes[offset + 1] << 16 | bytes[offset + 2] << 8 | bytes[offset + 3]; }
+
+        private static int ReadLittleEndian(byte[] bytes, int offset)
+        { return bytes[offset] | bytes[offset + 1] << 8; }
 
         internal static byte[] DecodeTga(byte[] bytes, string label)
         {

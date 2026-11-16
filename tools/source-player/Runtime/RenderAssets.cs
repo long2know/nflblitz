@@ -91,7 +91,7 @@ public sealed class RenderAssets
             TextureCount++;
         }
         if (data.OriginalPresentation != null)
-            foreach (SourceOriginalRaster raster in data.OriginalPresentation.Rasters)
+            foreach (SourceOriginalRaster raster in data.OriginalPresentation.Rasters.Concat(data.OriginalPresentation.RecordChoiceRasters))
             {
                 sink.Texture(raster.TextureId, raster.Width, raster.Height, raster.CopyRgba(), 1,
                     raster.Kind == "shadow", true, raster.Sha256, raster.SourcePath + " / " + raster.Representation);

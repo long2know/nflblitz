@@ -108,12 +108,14 @@ namespace Blitz.Presentation
         public int Entered { get; }
         public bool Yes { get; }
         public string Message { get; }
+        public int ChoiceFlashFrame { get; }
 
         public SourceRecordStationScreen(int stationId, string step, string name, string pinMask,
-            int cursor, int entered, bool yes, string message)
+            int cursor, int entered, bool yes, string message, int choiceFlashFrame = -1)
         {
             StationId = stationId; Step = step; Name = name; PinMask = pinMask;
             Cursor = cursor; Entered = entered; Yes = yes; Message = message;
+            ChoiceFlashFrame = choiceFlashFrame;
         }
     }
 

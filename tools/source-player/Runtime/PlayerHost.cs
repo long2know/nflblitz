@@ -1423,7 +1423,7 @@ public sealed class PlayerHost
             };
         }
         bool recordScreen = Session?.Records?.Active == true;
-        var hudDraw = new List<SourceHudPrimitive>(recordScreen ? hud.Records(Session.Records.View(), viewport) :
+        var hudDraw = new List<SourceHudPrimitive>(recordScreen ? hud.Records(Session.Records.View(preGameSounds?.SourceTick), viewport) :
             hud.Compose(HudProcess.CommittedState, viewport, selection,
                 hudClock.RedClock, !Active, Session != null && !Session.Playing ? Session.View() : null));
         foreach (var indicator in indicators)
