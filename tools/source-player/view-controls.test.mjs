@@ -190,13 +190,13 @@ test('a later loader failure restores the diagnostic page, including native full
 test('only focused button activation is isolated; F/R/Escape and cabinet keys are not view shortcuts', () => {
   const f = fixture();
   for (const target of [f.elements['game-view-toggle'], f.elements['game-fullscreen']]) {
-    for (const code of ['Enter', 'Space', 'KeyF', 'KeyR', 'Escape', 'KeyB', 'KeyX']) {
+    for (const code of ['Enter', 'NumpadEnter', 'Space', 'KeyF', 'KeyR', 'Escape', 'KeyB', 'KeyX']) {
       for (const type of ['keydown', 'keyup']) {
         const event = new Event(type, { cancelable: true });
         Object.defineProperty(event, 'code', { value: code });
         target.dispatchEvent(event);
         assert.equal(event.defaultPrevented, false, 'Native button behavior must remain intact.');
-        assert.equal(event.cancelBubble, code === 'Enter' || code === 'Space', `${type} ${code}`);
+        assert.equal(event.cancelBubble, ['Enter', 'NumpadEnter', 'Space'].includes(code), `${type} ${code}`);
       }
     }
   }

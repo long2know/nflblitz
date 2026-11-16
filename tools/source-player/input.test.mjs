@@ -29,6 +29,84 @@ test('all four browser cabinets retain the exact production A/B/C keyboard bindi
   }
 });
 
+test('Enter aliases map only to P1 A without changing positional cabinet bindings', () => {
+  for (const code of ['Enter', 'NumpadEnter']) {
+    assert.deepEqual(cabinetPacket(new Set([code]), [], [0, 1, 2, 3]),
+      { axes: Array(8).fill(0), buttons: [1, 0, 0, 0] });
+    assert.deepEqual(cabinetPacket(new Set([code]), [], [1, 2, 3]),
+      { axes: Array(8).fill(0), buttons: [0, 0, 0, 0] });
+  }
+  assert.deepEqual(CABINET_KEYS[0], ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyV', 'KeyB', 'KeyN']);
+});
+
+test('production Enter key events hold exactly P1 A, preserve overlapping aliases, and never submit Continue', async () => {
+  function exercise(InputType) {
+    const originals = new Map(['window', 'document', 'navigator'].map(name =>
+      [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+    let input;
+    try {
+      const window = new EventTarget(), document = new EventTarget(), canvas = new EventTarget();
+      document.hidden = false; document.hasFocus = () => true; canvas.focus = () => {};
+      for (const [name, value] of Object.entries({ window, document, navigator: { getGamepads: () => [] } }))
+        Object.defineProperty(globalThis, name, { value, configurable: true });
+      const packets = [], faults = [], continuations = [];
+      const api = {
+        Capture: (axes, buttons) => packets.push({ axes: [...axes], buttons: [...buttons] }),
+        Continue: station => continuations.push(station),
+      };
+      input = new InputType(api, canvas, [0, 1, 2, 3], error => faults.push(error), () => {});
+      const key = (code, down = true, repeat = false, prevented = true) => {
+        const event = new Event(down ? 'keydown' : 'keyup', { cancelable: true });
+        Object.defineProperties(event, { code: { value: code }, repeat: { value: repeat } });
+        window.dispatchEvent(event);
+        assert.equal(event.defaultPrevented, prevented, code + ': suppress native activation only for configured controls');
+      };
+      const expectA = held => assert.deepEqual(packets.at(-1),
+        { axes: Array(8).fill(0), buttons: [held ? 1 : 0, 0, 0, 0] },
+        'Enter must reach the production raw P1 A path, without other station actions');
+      for (const alias of ['Enter', 'NumpadEnter']) {
+        key(alias); expectA(true);
+        key(alias, true, true); expectA(true);
+        key(alias, false); expectA(false);
+        for (const first of [alias, 'KeyV']) {
+          const second = first === alias ? 'KeyV' : alias;
+          key(first); key(second); expectA(true);
+          key(first, false); expectA(true);
+          key(second, false); expectA(false);
+        }
+      }
+      key('Enter'); key('NumpadEnter'); key('Enter', false); expectA(true);
+      key('NumpadEnter', false); expectA(false);
+      assert.deepEqual(continuations, [], 'An alias must not also invoke the old menu/Continue command');
+      assert.deepEqual(faults, []);
+      input.close();
+      input = new InputType(api, canvas, [1, 2, 3], error => faults.push(error), () => {});
+      const count = packets.length;
+      key('Enter', true, false, false); key('NumpadEnter', true, false, false);
+      key('Enter', false, false, false); key('NumpadEnter', false, false, false);
+      assert.equal(packets.length, count, 'Unconfigured P1 aliases cannot control the first configured station');
+      assert.deepEqual(continuations, []);
+    } finally {
+      input?.close();
+      for (const [name, descriptor] of originals) {
+        if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+        else delete globalThis[name];
+      }
+    }
+  }
+  exercise(SourceInput);
+  const source = await readFile(new URL('./wwwroot/input.js', import.meta.url), 'utf8');
+  for (const [before, after] of [
+    ["const P1_A_ALIASES = ['Enter', 'NumpadEnter'];", 'const P1_A_ALIASES = [];'],
+    ['station === 0 && i === 4', 'station === 0 && i === 5'],
+  ]) {
+    assert(source.includes(before));
+    const mutant = await import('data:text/javascript,' + encodeURIComponent(source.replace(before, after)));
+    assert.throws(() => exercise(mutant.SourceInput), assert.AssertionError,
+      'Removing event admission or mapping Enter to the wrong real cabinet bit must fail');
+  }
+});
+
 test('standard controller sends actual axes and source buttons without JavaScript gameplay', () => {
   const buttons = Array.from({ length: 16 }, () => ({ pressed: false }));
   buttons[0].pressed = true; buttons[5].pressed = true;
@@ -170,7 +248,7 @@ test('keyboard autorepeat cannot manufacture a new physical press after pause, f
           window.dispatchEvent(event);
           assert.equal(event.defaultPrevented, true);
         };
-        const held = CABINET_KEYS.flatMap(binding => [binding[0], ...binding.slice(4)]);
+        const held = [...CABINET_KEYS.flatMap(binding => [binding[0], ...binding.slice(4)]), 'Enter', 'NumpadEnter'];
         for (const code of held) key(code);
         assert.deepEqual(packets.at(-1), { axes: [0, -1, 0, -1, 0, -1, 0, -1], buttons: [7, 7, 7, 7] });
         for (const code of held) key(code, true, true);

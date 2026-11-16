@@ -227,7 +227,7 @@ Keyboard bindings are physical station bindings, not generic gameplay actions:
 
 | Station | Up / Down / Left / Right | Source A / B / C |
 | --- | --- | --- |
-| P1 | W / S / A / D | V / B / N |
+| P1 | W / S / A / D | V or Enter / B / N |
 | P2 | arrows | Delete / End / PageDown |
 | P3 | I / K / J / L | U / O / P |
 | P4 | T / G / F / H | Z / X / C |
@@ -277,7 +277,7 @@ without deleting any existing user's records:
    defender B switches under source eligibility; receiver B does **not** steal
    control while a teammate quarterback has the ball. C and A/B/C double taps
    retain their source-mode/tick meanings, not invented keyboard actions.
-7. Escape pauses/resumes; R invokes public restart; Enter is public continuation.
+7. Escape pauses/resumes; R invokes public restart; Enter is P1 cabinet A.
    Test real browser blur/visibility transitions, never override focus APIs.
    Held gamepads cannot manufacture neutral; physically release/center them.
    Keyboard autorepeat after a lifecycle clear is now ignored until a real fresh
@@ -860,7 +860,7 @@ Use the existing station keys or corresponding standard gamepads:
 
 | Physical station | Side | Move | A / B / C |
 |---|---|---|---|
-| P1 / 0 | Home | WASD | V / B / N |
+| P1 / 0 | Home | WASD | V or Enter / B / N |
 | P2 / 1 | Home | arrows | Delete / End / PageDown |
 | P3 / 2 | Away | IJKL | U / O / P |
 | P4 / 3 | Away | TFGH | Z / X / C |
@@ -920,7 +920,7 @@ raw sample before another confirmation.
 Join/leave occurs in pregame/new-match choices, not by mutating humans in a
 running match. All four raw physical slots remain distinct; unjoined slots
 cannot control that match. Raw A works for each configured side's final
-confirmation; the existing Enter shortcut addresses P1 when P1 participates.
+confirmation; Enter is an additional raw P1 A binding when P1 is configured.
 
 This is explicitly portable free play: zero-initialized wait scratch and the
 continuation policies are not a native stack/ABI claim. The approved venue
@@ -1883,7 +1883,7 @@ network multiplayer or permission to alter a running simulation.
 
 | Human | Directions | A / B / C |
 | --- | --- | --- |
-| P1 | W / S / A / D | V / B / N |
+| P1 | W / S / A / D | V or Enter / B / N |
 | P2 | Arrow keys | Delete / End / Page Down |
 | P3 | I / K / J / L | U / O / P |
 | P4 | T / G / F / H | Z / X / C |
@@ -1891,7 +1891,7 @@ network multiplayer or permission to alter a running simulation.
 Each station can instead use its corresponding connected standard-mapped
 gamepad. The configured first captain selects that side's play; teammates retain
 their separate live controls. Escape pauses all local cabinets, focus loss clears
-all held inputs, and Enter submits Continue for the first configured station.
+all held inputs, and Enter holds P1 A, just like V.
 Asset-free configuration/buffer and keyboard-focus regressions do not by
 themselves qualify a multi-human browser session or all I1 multiplayer cases.
 
@@ -1992,14 +1992,24 @@ Share reviewed gameplay screenshots only with explicit publication authorization
 
 ## Play
 
-- P1: **WASD** cabinet stick, **V=A**, **B=B**, **N=C**.
+- P1: **WASD** cabinet stick, **V or Enter=A**, **B=B**, **N=C**.
 - A: menu flip, jump/dive/tackle branches as determined by production gameplay.
 - B: menu select, snap/pass, receiver/defender switching or lateral branches.
 - C: menu page / turbo.
-- **Enter** submits the actual station's `SourceAction.Continue` at a result.
+- **Enter** and **Numpad Enter** are additional P1 A keys, including original
+  name/PIN Yes/No confirmation. They follow the same press/release, focus and
+  pause rules as V; releasing one alias while another is held keeps A held.
+  Enter no longer also sends the separate administrative `Continue` command:
+  result screens use the cabinet's normal button gate, avoiding double activation.
 - **Esc** pauses; **R** uses the actual simulation restart.
 - Standard controller: left stick/D-pad, button0=A, button1=B, right-shoulder5=C.
   Unmapped controllers fail rather than guessing.
+
+Input regressions: `node --test tools/source-player/input.test.mjs tools/source-player/view-controls.test.mjs`.
+For an owned current original-menu player, run
+`bash tools/source-player/with-browser-runtime.sh tools/source-player/input.browser.mjs http://127.0.0.1:PORT/ tools/source-player/.runtime/enter-evidence`.
+This uses normal sandbox/default autoplay, trusted key events and read-only C#
+observations; it captures the original Yes/No menu and Enter's actual confirmation.
 
 The original kickoff occurs first. Its in-flight stick suppression is an
 original production rule, not broken keyboard input: movement becomes human
