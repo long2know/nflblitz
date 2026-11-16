@@ -348,6 +348,69 @@ class SourcePlayerCI(unittest.TestCase):
     def test_actual_workflow_covers_public_commands_sdk_and_triggers(self):
         validate_workflow(WORKFLOW.read_text())
 
+    def test_view_workflow_keeps_current_input_and_sealed_historical_publisher_in_separate_checkouts(self):
+        source = (ROOT / ".github/workflows/view-controls-image.yml").read_text()
+        revision = "66e6a07b0b016d988c32f03b901ac7b225046829"
+        historical = ".squad/.scratch/released-game-view-66e6a07"
+        current_tests = ("node --test tools/source-player/input.test.mjs "
+                         "tools/source-player/view-controls.test.mjs tools/source-player/verified-assets.test.mjs")
+        identity = 'test "$(git rev-parse HEAD)" = ' + revision
+
+        def validate(text):
+            job = re.search(r"^  validate:\n(.*?)(?=^  publish-view-image:)", text, re.M | re.S)
+            require(job is not None, "Separate current/historical validation job required")
+            body = job[1]
+            require(not re.search(r"^\s+(?:if|continue-on-error|env|defaults):", body, re.M) and "${{" not in body,
+                    "Validation must not skip failures, accept arbitrary refs or inject secrets")
+            checkouts = re.findall(r"^      - uses: (actions/checkout[^\n]+)\n        with:\n"
+                                   r"((?:          [^\n]+\n)+)", body, re.M)
+            require(len(checkouts) == 2, "Exactly PR-head and historical checkouts required")
+            expected = (
+                {"persist-credentials": "false", "fetch-depth": "0"},
+                {"repository": "long2know/nflblitz", "ref": revision, "path": historical,
+                 "persist-credentials": "false", "fetch-depth": "0"},
+            )
+            for (action, options), wanted in zip(checkouts, expected):
+                pairs = [line.strip().split(": ", 1) for line in options.splitlines()]
+                require(action == CHECKOUT and len(pairs) == len(wanted) and dict(pairs) == wanted,
+                        "PR head must stay current; historical checkout requires exact repository, commit and full history without credentials")
+            require(re.findall(r"^        working-directory: (.+)$", body, re.M) == [".", historical],
+                    "Current alias tests and unchanged historical suite must use distinct source roots")
+            wanted_commands = {
+                "Current PR-head input, UI and retained cache regressions": (
+                    current_tests, "python3 -B tools/source-player/test_static_bundle_refresh.py -v",
+                    "python3 -B tools/source-player/test_ci.py"),
+                "Unchanged historical publisher guards at sealed source": (
+                    identity, "python3 -B .github/scripts/test_view_controls_image.py -v"),
+            }
+            require(step_commands(body) == {name: [shlex.split(command) for command in commands]
+                                           for name, commands in wanted_commands.items()},
+                    "Run actual current alias regressions and unchanged historical suite after exact commit verification")
+
+        validate(source)
+        validate_input_inventory((HERE / "input.test.mjs").read_text())
+        mutations = (
+            (revision, "0" * 40),
+            ("ref: " + revision, "ref: ${{ inputs.ref }}"),
+            ("repository: long2know/nflblitz", "repository: foreign/repository"),
+            ("path: " + historical, "path: ."),
+            ("persist-credentials: false", "persist-credentials: true"),
+            ("fetch-depth: 0", "fetch-depth: 1"),
+            ("working-directory: .\n", "working-directory: " + historical + "\n"),
+            ("working-directory: " + historical, "working-directory: ."),
+            (current_tests, current_tests.replace(" tools/source-player/input.test.mjs", "")),
+            ("node --test tools/source-player/input.test.mjs", "echo node --test tools/source-player/input.test.mjs"),
+            (identity, "true"),
+            ("python3 -B .github/scripts/test_view_controls_image.py -v", "true"),
+            ("python3 -B tools/source-player/test_ci.py", "true"),
+            ("    steps:\n", "    continue-on-error: true\n    steps:\n"),
+        )
+        for before, after in mutations:
+            with self.subTest(mutation=before):
+                self.assertIn(before, source)
+                with self.assertRaises(AssertionError):
+                    validate(source.replace(before, after, 1))
+
     def test_mutating_actual_filters_commands_sdk_or_resource_boundary_turns_guard_red(self):
         original = WORKFLOW.read_text()
         mutations = (

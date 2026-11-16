@@ -6,6 +6,8 @@ on:
       - '.github/scripts/view_controls_image.py'
       - '.github/scripts/test_view_controls_image.py'
       - '.github/workflows/view-controls-image.yml'
+      - 'tools/source-player/input.test.mjs'
+      - 'tools/source-player/test_ci.py'
       - 'tools/source-player/wwwroot/index.html'
       - 'tools/source-player/wwwroot/view-controls.js'
       - 'tools/source-player/view-controls.test.mjs'
@@ -32,13 +34,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: long2know/nflblitz
+          ref: 66e6a07b0b016d988c32f03b901ac7b225046829
+          path: .squad/.scratch/released-game-view-66e6a07
+          persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
-      - name: Released UI and retained cache controls plus closed publisher negative cases
+      - name: Current PR-head input, UI and retained cache regressions
+        working-directory: .
         run: |
-          node --test tools/source-player/view-controls.test.mjs tools/source-player/verified-assets.test.mjs
+          node --test tools/source-player/input.test.mjs tools/source-player/view-controls.test.mjs tools/source-player/verified-assets.test.mjs
           python3 -B tools/source-player/test_static_bundle_refresh.py -v
+          python3 -B tools/source-player/test_ci.py
+      - name: Unchanged historical publisher guards at sealed source
+        working-directory: .squad/.scratch/released-game-view-66e6a07
+        run: |
+          test "$(git rev-parse HEAD)" = 66e6a07b0b016d988c32f03b901ac7b225046829
           python3 -B .github/scripts/test_view_controls_image.py -v
 
   publish-view-image:
