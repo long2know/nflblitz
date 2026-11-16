@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import resource
+import shutil
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -29,6 +30,7 @@ LIFECYCLE_CONTROLS = {
 }
 CONTROL_INVENTORY_SHA256 = "d2334d1977457f6efb67f9a6efecd8a32ec1d1b6e65358c4ad546dd79d87c207"
 REVIEWED_SELECTION_SOURCE_SHA256 = "68a3f5981471116d1f07d0f6caea941003b7bda1afe10c5519a6f4731e8fd631"
+REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256 = "a5273cf8459ea8ee2020275abc0a757b2e1d5f959ce0f15b5898d100b2ad1d58"
 CURRENT_CONTROL_BINDINGS = {
     "suspended-timer-still-runs": (
         ("Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
@@ -152,6 +154,25 @@ mutations = controls_module.mutations
 def require(value, message):
     if not value:
         raise AssertionError(message)
+
+
+def selected_toolchain(env):
+    version = subprocess.check_output(["dotnet", "--version"], env=env, text=True).strip()
+    installed = subprocess.check_output(["dotnet", "--list-sdks"], env=env, text=True)
+    prefixes = [prefix for candidate, prefix in re.findall(
+        r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", installed, re.M) if candidate == version]
+    require(len(prefixes) == 1, "The active dotnet SDK must have exactly one installed location.")
+    prefix = Path(prefixes[0])
+    compiler = prefix / version / "Roslyn/bincore/csc.dll"
+    compiler = compiler.parent.resolve() / compiler.name
+    refs = sorted((prefix.parent / "packs/Microsoft.NETCore.App.Ref").glob("10.0.*/ref/net10.0"))[-1].resolve()
+    diagnostic = load("source_selection_toolchain_preflight", HERE / "default_diagnostic.py")
+    executable = Path(shutil.which("dotnet") or "").resolve()
+    tools = diagnostic.tool_seals(executable, compiler, sorted(refs.glob("*.dll")))
+    receipt = dict(sdkVersion=version, executable=str(executable), compiler=str(compiler),
+                   referenceFiles=len(list(refs.glob("*.dll"))), sealedFiles=len(tools),
+                   toolsAndReferencesSha256=diagnostic.sha(diagnostic.canonical(tools)))
+    return compiler, refs, receipt
 
 
 def argument_parser():
@@ -287,9 +308,12 @@ def capture_sources():
 
 def current_summary_contract(hashes):
     digest = hashlib.sha256(json.dumps(hashes, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    require(len(hashes) == 131 and digest == REVIEWED_SELECTION_SOURCE_SHA256,
+    require(len(hashes) == 131 and digest in (
+                REVIEWED_SELECTION_SOURCE_SHA256, REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256),
             "Selection summary requires the exact reviewed complete production/checks source generation.")
-    return dict(generation="reviewed-public6ad-selection-source/v1",
+    generation = ("reviewed-public6ad-selection-source/v1" if digest == REVIEWED_SELECTION_SOURCE_SHA256 else
+                  "reviewed-normal-camera-fabs-selection-source/v1")
+    return dict(generation=generation,
                 sourceCount=131, sourceSha256=digest, fullAssertions=45116)
 
 
@@ -336,11 +360,7 @@ def main():
     try:
         summary_contract = current_summary_contract(report["sourceHashes"])
         report["summarySourceContract"] = summary_contract
-        sdk = subprocess.check_output(["dotnet", "--list-sdks"], env=env, text=True)
-        version, prefix = max(re.findall(r"^(\d+\.\d+\.\d+)[^\n]*\[([^\]]+)\]$", sdk, re.M),
-                              key=lambda p: tuple(map(int, p[0].split("."))))
-        compiler = Path(prefix) / version / "Roslyn/bincore/csc.dll"
-        refs = sorted((Path(prefix).parent / "packs/Microsoft.NETCore.App.Ref").glob("10.0.*/ref/net10.0"))[-1]
+        compiler, refs, report["toolchainPreflight"] = selected_toolchain(env)
         verified_authority(args.authority)
         fixtures, controls = required_inventory()
         random_fixtures, random_controls = required_random_inventory()

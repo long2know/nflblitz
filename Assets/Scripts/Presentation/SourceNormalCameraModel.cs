@@ -263,10 +263,10 @@ namespace Blitz.Presentation
                     if (carrierMode == 5)
                     {
                         referenceDepth = rotatedZ[input.Carrier];
-                        distance += Math.Abs(input.Actors[input.Carrier].Position.Z) * .40f;
+                        distance = (float)(distance + Math.Abs((double)input.Actors[input.Carrier].Position.Z) * .40f);
                     }
                     else if (carrierMode == -2)
-                    { distance += Math.Abs(ball.Position.Z) * .40f; distanceRate = .0005f; }
+                    { distance = (float)(distance + Math.Abs((double)ball.Position.Z) * .40f); distanceRate = .0005f; }
                     side = 0f;
                 }
                 float ground = distance, offset = 0f;

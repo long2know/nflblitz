@@ -19,6 +19,18 @@ counts reject. All66 executed case identities/order,17 original timer traces,
 33 original random cases and42 compiled named causal controls remain mandatory;
 no native expected row or control cause is retuned.
 
+The additive `reviewed-normal-camera-fabs-selection-source/v1` successor binds
+the exact complete131-file map
+`a5273cf8459ea8ee2020275abc0a757b2e1d5f959ce0f15b5898d100b2ad1d58`.
+Its only production/checks difference from the retained public6ad map is the
+two original-C `fabs(double)` promotion corrections in `SourceNormalCameraModel.cs`.
+It requires the same45116 assertions and every unchanged case/control/comparison;
+admission is not a passing campaign receipt. The predecessor map and identity
+remain accepted unchanged, not relabelled as the successor. Guards authenticate
+the actual predecessor Git sources, distinguish both identities, reject a mutation
+of each of their131 source entries and reject an unrelated real production-file
+edit through the actual CLI before toolchain preflight or input extraction.
+
 The separate Fraction counterfactual is a **frozen component comparison**, not
 qualification of the live whole-game source. Its A tree remains main40
 `e3157c42df9a5f09d534f689339495429e778768`; its B tree is explicitly
@@ -33,6 +45,21 @@ the historical inherited workflow hash is not rebased.
 Canonical relative authority paths and their absolute equivalents are normalized
 before the same strict root, file, symlink and Git-blob checks. Symlink aliases and
 parent-traversal aliases remain rejected; no source-acquisition input is added.
+
+Hosted SDK directory aliases are resolved before sealing and invoking the
+compiler and its reference assemblies. The receipt, compiler command and response
+file therefore identify the same physical SDK files. Tool-file symlinks,
+hardlinks and fixture-root aliases still reject. This changes neither the frozen
+source trees nor their numerical assertions, execution windows or comparisons.
+
+The outer runner selects the active `dotnet --version` SDK, honoring the
+workflow/global.json pin rather than the newest entry in `--list-sdks`.
+Before original-input extraction or compiled controls it runs the complete
+diagnostic tool seal: executable, compiler, runtime configuration/dependency
+manifests, every manifest-named runtime/resource companion and all167 references.
+The early receipt records that complete inventory hash. A newer installed SDK
+does not override the tested pin, and symlinked companion files still fail.
+The private A/B/C execution graph and privacy checks are unchanged.
 
 `oracle.py` verifies thirteen fixed Git blobs before extracting unchanged
 `timedown_play_select`, `flash_text_proc`, source suspension/resumption and
