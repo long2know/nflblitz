@@ -65,7 +65,7 @@
     },
     {
       "path": ".github/workflows/fresh-main-image.yml",
-      "sha256": "87bdbac22d0719cea32f34a4f837c4c4798f3511e4f0e861cb1b7ad49db8090a"
+      "sha256": "df4a23b79cd09cfa35e32e0e0caf4d94519ebb3d535faa06575ae34ffa02a823"
     },
     {
       "path": ".github/scripts/view_controls_image.py",

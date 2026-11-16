@@ -209,6 +209,8 @@ class FreshImageTests(unittest.TestCase):
         text = (ROOT / ".github/workflows/fresh-main-image.yml").read_text()
         self.assertEqual(2, text.count("github.event_name == 'workflow_dispatch'"))
         self.assertEqual(2, text.count("github.ref == 'refs/heads/main'"))
+        self.assertEqual(3, text.count("persist-credentials: false\n          fetch-depth: 0"),
+                         "Every source-identity caller, including asset-free PR validation, needs compiled270 history.")
         anonymous = text.split("  independent-anonymous-consumer:", 1)[1]
         self.assertNotIn("packages: write", anonymous)
         self.assertNotIn("GH_TOKEN:", anonymous)
