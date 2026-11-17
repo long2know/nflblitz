@@ -1,4 +1,4 @@
-"""Asset-free tests for the exact fresh270 release, never a gameplay approval."""
+"""Asset-free tests for the exact merged-menu successor, never a gameplay approval."""
 import copy
 import importlib.util
 import json
@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-spec = importlib.util.spec_from_file_location("fresh270", HERE / "fresh_main_image.py")
+spec = importlib.util.spec_from_file_location("merged_menu", HERE / "fresh_main_image.py")
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
@@ -30,7 +30,7 @@ class FreshImageTests(unittest.TestCase):
                 "factory": "SourceC2Composition.CreateCompleteAv306Simulation",
                 "dataManifestSha256": p["transfer"]["data_manifest_sha256"],
                 "execution": copy.deepcopy(p["execution"]), "assemblies": copy.deepcopy(p["assemblies"]),
-                "verifiedRuntimeResources": {"files": [{}] * 48}}
+                "verifiedRuntimeResources": {"files": [{}] * 178}}
 
     def test_only_three_transport_inputs_can_vary_not_image_source_or_data(self):
         values = self.values()
@@ -65,6 +65,15 @@ class FreshImageTests(unittest.TestCase):
     def test_prepare_requires_real_owner_attestation_before_any_api_or_crypto(self):
         with mock.patch.object(release.frozen, "run") as run, self.assertRaisesRegex(ValueError, "Quality"):
             release.prepare(SimpleNamespace(qa_approved=False))
+        run.assert_not_called()
+
+    def test_new_artifact_cannot_borrow_old_certificate_or_prepare_while_quality_pending(self):
+        candidate = copy.deepcopy(release.pins())
+        candidate["independentArtifactQuality"] = {"reviewer": "Quality", "verdict": "PENDING"}
+        with mock.patch.object(release, "pins", return_value=candidate), \
+                mock.patch.object(release.frozen, "run") as run, \
+                self.assertRaisesRegex(ValueError, "own independent Quality"):
+            release.prepare(SimpleNamespace(qa_approved=True))
         run.assert_not_called()
 
     def test_existing_released_helper_and_browser_bytes_are_pinned_without_old_epoch_source_guard(self):
@@ -194,7 +203,7 @@ class FreshImageTests(unittest.TestCase):
                 mock.patch.object(release.frozen, "run") as run, self.assertRaisesRegex(ValueError, "mounts"):
             release.runtime(docker, ROOT, self.values()["source_tag"], ROOT / "inventory")
         run.assert_not_called()
-        self.assertEqual(["rm", "--force", "fresh270-123-1"], docker.call_args.args[0])
+        self.assertEqual(["rm", "--force", "merged-menu-123-1"], docker.call_args.args[0])
 
     def test_anonymous_cold_pull_has_no_authenticated_fallback(self):
         candidate = {"digest": "sha256:" + "a" * 64}
@@ -210,13 +219,64 @@ class FreshImageTests(unittest.TestCase):
         self.assertEqual(2, text.count("github.event_name == 'workflow_dispatch'"))
         self.assertEqual(2, text.count("github.ref == 'refs/heads/main'"))
         self.assertEqual(3, text.count("persist-credentials: false\n          fetch-depth: 0"),
-                         "Every source-identity caller, including asset-free PR validation, needs compiled270 history.")
+                         "Every source-identity caller, including asset-free PR validation, needs compiled89 history.")
         anonymous = text.split("  independent-anonymous-consumer:", 1)[1]
         self.assertNotIn("packages: write", anonymous)
         self.assertNotIn("GH_TOKEN:", anonymous)
         self.assertNotIn("REGISTRY_TRANSFER_KEY:", anonymous)
         self.assertNotIn("upload-artifact", text)
         self.assertNotIn("--no-sandbox", (HERE / "fresh_main_image.browser.mjs").read_text())
+
+    def choices(self):
+        return {
+            "schema": "original-record-choice-browser/v1", "status": "passed", "errors": [],
+            "actualCommandLine": {"arguments": ["chrome", "--headless=new"]},
+            "input": [{"name": key, "down": True} for key in ("Enter", "NumpadEnter")],
+            "runs": [{"label": label,
+                      "frames": [{"textures": ["hud/original/" + prefix + f"{index:02d}"
+                                              for index in range(1, 12)]}],
+                      "state": {"state": {"records": {"stations": [{"step": result}]}}}}
+                     for label, prefix, result in (("after", "nglwl", "Selected"),
+                                                   ("after-yes", "yglwl", "Name"))]}
+
+    def test_choice_certificate_rejects_missing_frame_input_wrong_result_baseline_or_unsafe_chrome(self):
+        release.validate_choices(self.choices())
+        for mutation in ("frame", "input", "result", "baseline", "sandbox", "autoplay", "errors"):
+            proof = self.choices()
+            if mutation == "frame":
+                proof["runs"][1]["frames"][0]["textures"].pop()
+            elif mutation == "input":
+                proof["input"].pop()
+            elif mutation == "result":
+                proof["runs"][0]["state"]["state"]["records"]["stations"][0]["step"] = "Name"
+            elif mutation == "baseline":
+                proof["runs"][0]["label"] = "before"
+            elif mutation == "sandbox":
+                proof["actualCommandLine"]["arguments"].append("--no-sandbox")
+            elif mutation == "autoplay":
+                proof["actualCommandLine"]["arguments"].append("--autoplay-policy=no-user-gesture-required")
+            else:
+                proof["errors"].append("actual player failure")
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                release.validate_choices(proof)
+
+    def test_old_270_artifact_remains_historical_and_cannot_pass_successor_build_admission(self):
+        historical = json.loads((HERE / "fresh_main_image_pins.json").read_bytes())
+        self.assertNotEqual(historical["transfer"]["image_id"], release.pins()["transfer"]["image_id"])
+        self.assertEqual(historical["transfer"]["image_id"], release.pins()["priorConfig"])
+        for field in ("execution", "assemblies"):
+            build = self.build()
+            build[field] = historical[field]
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                release.validate_build(build)
+
+    def test_real_browser_after_only_keeps_both_choices_and_all_source_frame_assertions(self):
+        caller = (ROOT / "tools/source-player/records-choice.browser.mjs").read_text()
+        self.assertIn("const variants = afterOnly ? [] :", caller)
+        self.assertIn("['after', after, false], ['after-yes', after, true]", caller)
+        self.assertIn("for (let i = 1; i <= 11; i++)", caller)
+        self.assertIn("await tap(answer ? 'NumpadEnter' : 'Enter')", caller)
+        self.assertNotIn("Input.dispatchKeyEvent", (HERE / "fresh_main_image.py").read_text())
 
 
 if __name__ == "__main__":

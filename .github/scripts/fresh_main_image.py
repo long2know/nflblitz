@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deliver only the closed, freshly compiled 270c74c public AV306 image."""
+"""Deliver only the closed merged-menu image with honest compiled89 provenance."""
 import argparse
 import contextlib
 import hashlib
@@ -24,7 +24,7 @@ ui = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ui)
 cache, frozen, require = ui.cache, ui.frozen, ui.require
 IMAGE = "ghcr.io/long2know/nflblitz"
-PINS = HERE / "fresh_main_image_pins.json"
+PINS = HERE / "merged_menu_image_pins.json"
 WORKFLOW = "fresh-main-image.yml"
 
 
@@ -47,7 +47,10 @@ def source_guard(build=None):
             "The actual committed main workflow checkout is required.")
     require(subprocess.run(["git", "merge-base", "--is-ancestor", p["transfer"]["source_revision"], head],
                            cwd=ROOT, capture_output=True).returncode == 0,
-            "Compiled270 source must already be merged into workflow main.")
+            "Compiled89 source must already be merged into workflow main.")
+    require(subprocess.run(["git", "merge-base", "--is-ancestor", p["mergedMain"], head],
+                           cwd=ROOT, capture_output=True).returncode == 0,
+            "Both Enter and original YES/NO PRs must already be merged into workflow main.")
     require(subprocess.run(["git", "diff", "--quiet", "HEAD", "--"], cwd=ROOT).returncode == 0,
             "Uncommitted release-source replacements are forbidden.")
     for row in p["helperSources"]:
@@ -63,7 +66,7 @@ def source_guard(build=None):
             require(frozen.sha(ROOT / name) == row["sha256"] and
                     hashlib.sha256(frozen.run(["git", "show",
                         p["transfer"]["source_revision"] + ":" + name])).hexdigest() == row["sha256"],
-                    "Compiled source differs from270 or actual main: " + name)
+                    "Compiled source differs from89 or actual merged main: " + name)
 
 
 def validate_build(build):
@@ -73,8 +76,8 @@ def validate_build(build):
             build.get("dataManifestSha256") == p["transfer"]["data_manifest_sha256"] and
             build.get("execution") == p["execution"] and build.get("assemblies") == p["assemblies"] and
             "compiledAotReuse" not in build.get("execution", {}) and
-            len(build.get("verifiedRuntimeResources", {}).get("files", [])) == 48,
-            "Only fresh270 rooted-AOT/native/modules and original1153 product are authorized.")
+            len(build.get("verifiedRuntimeResources", {}).get("files", [])) == 178,
+            "Only exact compiled89 rooted-AOT/native/modules and original1153 product are authorized.")
 
 
 def manifest(reference, *, missing=False):
@@ -133,14 +136,14 @@ def verify_image(docker, work, values):
     frozen.inspect_archive(archive, values)
     site, inventory_path = cache.extract_new_site(docker, values["source_tag"], work)
     require(frozen.sha(inventory_path) == p["inventoryFileSha256"],
-            "Exact immutable1219 bundle receipt changed.")
+            "Exact immutable1349 bundle receipt changed.")
     build, rows = cache.package.inspect_bundle(site, values["build_sha256"], values["source_digest"])
     validate_build(build)
     source_guard(build)
     inventory = json.loads(inventory_path.read_bytes())
-    require(len(rows) == 1219 and sum(x["bytes"] for x in rows) == 338205172 and
+    require(len(rows) == 1349 and sum(x["bytes"] for x in rows) == 400151378 and
             rows == inventory["files"] and inventory["sourceBaseCommit"] == values["source_revision"],
-            "Every actual1219 payload and honest compiled270 identity must match.")
+            "Every actual1349 payload and honest compiled89 identity must match.")
     seen = set()
     with tarfile.open(archive) as outer:
         record = json.load(outer.extractfile("manifest.json"))[0]
@@ -161,8 +164,8 @@ def verify_image(docker, work, values):
 
 
 def runtime(docker, work, image, inventory):
-    name = "fresh270-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
-    require(re.fullmatch(r"fresh270-[0-9]+-[0-9]+", name), "Run-owned container name required.")
+    name = "merged-menu-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+    require(re.fullmatch(r"merged-menu-[0-9]+-[0-9]+", name), "Run-owned container name required.")
     created = False
     try:
         docker(["create", "--name", name, "--platform", "linux/amd64", "--pull=never",
@@ -204,12 +207,41 @@ def runtime(docker, work, image, inventory):
         audio = json.loads((work / "audio-browser.json").read_bytes())
         require(view["accepted"] and audio["accepted"] is True and audio["normalSandbox"] is True,
                 "Actual view controls and trusted original audio/WebGL2 must pass.")
+        menu = work / "records-choice"
+        (work / "r").mkdir(mode=0o700)
+        frozen.run(["node", str(ROOT / "tools/source-player/records-choice.browser.mjs"),
+                    "--after-only", "--after", url, "--output", str(menu)],
+                   env=dict(env, CHROME_RUNTIME_ROOT=str(work / "r")))
+        choices = json.loads((menu / "report.json").read_bytes())
+        validate_choices(choices)
         return {"ordinaryUid1000NoTmpfsPrefixHealthFullHttp": True, "kernel": kernel,
                 "cacheBrowserSha256": frozen.sha(browser), "cacheStages": proof["stages"],
-                "view": view, "audio": audio}
+                "view": view, "audio": audio,
+                "recordsChoice": {"reportSha256": frozen.sha(menu / "report.json"),
+                                  "enterAndNumpadEnter": True, "allElevenYesAndNoFrames": True}}
     finally:
         if created:
             docker(["rm", "--force", name])
+
+
+def validate_choices(proof):
+    require(proof.get("schema") == "original-record-choice-browser/v1" and
+            proof.get("status") == "passed" and proof.get("errors") == [] and
+            [run["label"] for run in proof.get("runs", [])] == ["after", "after-yes"],
+            "The exact saved image must pass both real menu choices, not a baseline comparison.")
+    require(not any(re.search(r"no-sandbox|disable.*sandbox|autoplay-policy", arg)
+                    for arg in proof.get("actualCommandLine", {}).get("arguments", [])) and
+            proof.get("actualCommandLine", {}).get("arguments"),
+            "Menu acceptance requires actual normal-sandbox/default-autoplay Chrome.")
+    for run, key, prefix, result in zip(proof["runs"], ("Enter", "NumpadEnter"),
+                                      ("nglwl", "yglwl"), ("Selected", "Name")):
+        require(any(row.get("name") == key and row.get("down") is True
+                    for row in proof.get("input", [])),
+                "Actual keyboard confirmation is missing: " + key)
+        textures = {texture for frame in run["frames"] for texture in frame["textures"]}
+        require(all("hud/original/" + prefix + f"{index:02d}" in textures for index in range(1, 12)) and
+                run["state"]["state"]["records"]["stations"][0]["step"] == result,
+                "All11 authored source frames and unchanged choice result are required.")
 
 
 def promote(candidate, token, work):
@@ -274,6 +306,7 @@ def anonymous(work, docker):
 
 def prepare(args):
     require(args.qa_approved, "Actual independent Quality approval is required; never infer it from selfchecks.")
+    quality_guard()
     main = frozen.run(["gh", "api", "repos/long2know/nflblitz/git/ref/heads/main",
                        "--jq", ".object.sha"]).decode().strip()
     frozen.run(["gh", "api", "repos/long2know/nflblitz/contents/.github/workflows/" +
@@ -290,6 +323,14 @@ def prepare(args):
     print(json.dumps(receipt, indent=2))
 
 
+def quality_guard():
+    approval = pins()["independentArtifactQuality"]
+    require(approval.get("reviewer") == "Quality" and
+            approval.get("verdict") in ("APPROVE", "CONDITIONAL APPROVE") and
+            re.fullmatch(r"[a-f0-9]{64}", approval.get("reportSha256") or ""),
+            "The new exact artifact needs its own independent Quality certificate.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("prepare", "publish", "anonymous"))
@@ -303,6 +344,7 @@ def main():
         prepare(args)
         return
     cache.base.identity.context(os.environ)
+    quality_guard()
     source_guard()
     require(not os.environ.get("DOCKER_AUTH_CONFIG") and not os.environ.get("GITHUB_TOKEN"),
             "Inherited registry credentials are forbidden.")
@@ -332,7 +374,7 @@ def main():
         text = json.dumps(receipt, indent=2, sort_keys=True)
         print(text)
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
-            summary.write("## Exact fresh270 public image " + args.action + "\n\n```json\n" + text + "\n```\n")
+            summary.write("## Exact merged-menu public image " + args.action + "\n\n```json\n" + text + "\n```\n")
         if args.action == "publish":
             with Path(os.environ["GITHUB_OUTPUT"]).open("a") as out:
                 out.write("manifestDigest=" + receipt["manifestDigest"] + "\n")
