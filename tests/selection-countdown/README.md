@@ -31,6 +31,21 @@ the actual predecessor Git sources, distinguish both identities, reject a mutati
 of each of their131 source entries and reject an unrelated real production-file
 edit through the actual CLI before toolchain preflight or input extraction.
 
+The separately authorized `reviewed-records-art-selection-source/v1` successor
+binds only the complete131-file map
+`3b66a5889dcd4d0c0ddd7f8515734045b49cdb0ec77cad7c904d5425a6904790`.
+Against camera predecessor `15b13b671e4e362659a35be53f693814f9909904`,
+only `SourceHudComposer.Records.cs`, `SourceHudComposer.cs` and
+`SourceRecordScreenModel.cs` under `Assets/Scripts/Presentation/` differ:
+original YES/NO cursor/flash projection, derived raster registration and its
+presentation carrier. No selection/gameplay simulation or104-source kernel
+generation is admitted or changed. Both predecessor identities/maps remain
+accepted distinctly; all45116 assertions, original expectations, compiled
+controls, tool/reference seals and frozen component comparisons remain required.
+Guards authenticate all three complete maps from actual Git/current bytes,
+reject byte drift in every entry, missing/extra/renamed entries, partial records
+deltas and a records generation crossed with the old camera.
+
 The separate Fraction counterfactual is a **frozen component comparison**, not
 qualification of the live whole-game source. Its A tree remains main40
 `e3157c42df9a5f09d534f689339495429e778768`; its B tree is explicitly

@@ -80,9 +80,14 @@ namespace Blitz.Presentation
         private const uint AudibleGray = 0xff808080u;
         private readonly SourceInterfaceData data;
         private readonly SourceOriginalPresentationData original;
+        private readonly IReadOnlyDictionary<string, SourceRecordChoiceRaster> recordChoices;
         private readonly List<SourceHudPrimitive> draw = new List<SourceHudPrimitive>();
-        public SourceHudComposer(SourceInterfaceData data, SourceOriginalPresentationData original = null)
-        { this.data = data ?? throw new ArgumentNullException(nameof(data)); this.original = original; }
+        public SourceHudComposer(SourceInterfaceData data, SourceOriginalPresentationData original = null,
+            IReadOnlyDictionary<string, SourceRecordChoiceRaster> recordChoices = null)
+        {
+            this.data = data ?? throw new ArgumentNullException(nameof(data));
+            this.original = original; this.recordChoices = recordChoices;
+        }
 
         public IReadOnlyList<SourceHudPrimitive> Instructions(IEnumerable<SourceInstructionGraphic> graphics,
             SourceInstructionRaster raster, SourceHudViewport viewport)
@@ -213,13 +218,20 @@ namespace Blitz.Presentation
         private void OriginalImage(string element, string symbol, SourceHudViewport viewport,
             double x, double y, double width, double height, bool fit = false)
         {
-            SourceOriginalRaster image = original.Image(symbol);
+            int imageWidth, imageHeight;
+            if (recordChoices != null && recordChoices.TryGetValue(symbol, out SourceRecordChoiceRaster choice))
+            { imageWidth = choice.Width; imageHeight = choice.Height; }
+            else
+            {
+                SourceOriginalRaster image = original.Image(symbol);
+                imageWidth = image.Width; imageHeight = image.Height;
+            }
             SourceHudRect rect = ScreenRect(viewport, x, y, width, height);
             if (fit)
             {
-                double scale = Math.Min(rect.Width / image.Width, rect.Height / image.Height);
-                rect = new SourceHudRect(rect.X + (rect.Width - image.Width * scale) / 2,
-                    rect.Y + (rect.Height - image.Height * scale) / 2, image.Width * scale, image.Height * scale);
+                double scale = Math.Min(rect.Width / imageWidth, rect.Height / imageHeight);
+                rect = new SourceHudRect(rect.X + (rect.Width - imageWidth * scale) / 2,
+                    rect.Y + (rect.Height - imageHeight * scale) / 2, imageWidth * scale, imageHeight * scale);
             }
             draw.Add(new SourceHudPrimitive(element, "original/" + symbol, White, new[] {
                 new SourceHudVertex(rect.X, rect.Y, 0, 1), new SourceHudVertex(rect.Right, rect.Y, 1, 1),

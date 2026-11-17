@@ -108,13 +108,34 @@ namespace Blitz.Presentation
         public int Entered { get; }
         public bool Yes { get; }
         public string Message { get; }
+        public int ChoiceFlashFrame { get; }
 
         public SourceRecordStationScreen(int stationId, string step, string name, string pinMask,
-            int cursor, int entered, bool yes, string message)
+            int cursor, int entered, bool yes, string message, int choiceFlashFrame = -1)
         {
             StationId = stationId; Step = step; Name = name; PinMask = pinMask;
             Cursor = cursor; Entered = entered; Yes = yes; Message = message;
+            ChoiceFlashFrame = choiceFlashFrame;
         }
+    }
+
+    public sealed class SourceRecordChoiceRaster
+    {
+        private readonly byte[] rgba;
+        public string Id { get; }
+        public int Width { get; }
+        public int Height { get; }
+        public int AnchorX { get; }
+        public int AnchorY { get; }
+        public SourceRecordChoiceRaster(string id, int width, int height, int anchorX, int anchorY, byte[] pixels)
+        {
+            if (string.IsNullOrEmpty(id) || width <= 0 || width > 2048 || height <= 0 || height > 2048 ||
+                pixels == null || pixels.Length != width * height * 4)
+                throw new ArgumentException("Derived record artwork requires its exact bounded RGBA geometry.");
+            Id = id; Width = width; Height = height; AnchorX = anchorX; AnchorY = anchorY;
+            rgba = (byte[])pixels.Clone();
+        }
+        public byte[] CopyRgba() { return (byte[])rgba.Clone(); }
     }
 
     // This is a private-to-screen projection. Host diagnostics use the runtime's

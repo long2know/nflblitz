@@ -31,6 +31,7 @@ LIFECYCLE_CONTROLS = {
 CONTROL_INVENTORY_SHA256 = "d2334d1977457f6efb67f9a6efecd8a32ec1d1b6e65358c4ad546dd79d87c207"
 REVIEWED_SELECTION_SOURCE_SHA256 = "68a3f5981471116d1f07d0f6caea941003b7bda1afe10c5519a6f4731e8fd631"
 REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256 = "a5273cf8459ea8ee2020275abc0a757b2e1d5f959ce0f15b5898d100b2ad1d58"
+REVIEWED_RECORDS_ART_SELECTION_SOURCE_SHA256 = "3b66a5889dcd4d0c0ddd7f8515734045b49cdb0ec77cad7c904d5425a6904790"
 CURRENT_CONTROL_BINDINGS = {
     "suspended-timer-still-runs": (
         ("Assets/Scripts/Gameplay/GameSimulation.Possession.cs",
@@ -309,10 +310,14 @@ def capture_sources():
 def current_summary_contract(hashes):
     digest = hashlib.sha256(json.dumps(hashes, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     require(len(hashes) == 131 and digest in (
-                REVIEWED_SELECTION_SOURCE_SHA256, REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256),
+                REVIEWED_SELECTION_SOURCE_SHA256, REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256,
+                REVIEWED_RECORDS_ART_SELECTION_SOURCE_SHA256),
             "Selection summary requires the exact reviewed complete production/checks source generation.")
-    generation = ("reviewed-public6ad-selection-source/v1" if digest == REVIEWED_SELECTION_SOURCE_SHA256 else
-                  "reviewed-normal-camera-fabs-selection-source/v1")
+    generation = {
+        REVIEWED_SELECTION_SOURCE_SHA256: "reviewed-public6ad-selection-source/v1",
+        REVIEWED_CAMERA_FABS_SELECTION_SOURCE_SHA256: "reviewed-normal-camera-fabs-selection-source/v1",
+        REVIEWED_RECORDS_ART_SELECTION_SOURCE_SHA256: "reviewed-records-art-selection-source/v1",
+    }[digest]
     return dict(generation=generation,
                 sourceCount=131, sourceSha256=digest, fullAssertions=45116)
 

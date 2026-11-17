@@ -10,6 +10,110 @@ using Blitz.Storage;
 
 static partial class Checks
 {
+    private static void VerifyRecordChoiceArt(byte[] manifest, Func<string, byte[]> read)
+    {
+        int before = assertions;
+        int choiceSourceReads = 0;
+        var data = new PlayerData(new DataCatalog(manifest, path =>
+        {
+            if (path == "original/source/img2d/ynplaq3.wif")
+                Check(++choiceSourceReads == 1, "The browser's one-shot choice WIFF input must never be read twice.");
+            return read(path);
+        }));
+        Check(choiceSourceReads == 1, "Derived choice art must reuse the raw input authenticated by OriginalPresentation.");
+        var art = data.OriginalPresentation!;
+        string identity = string.Concat(data.RecordChoiceRasters.Values.OrderBy(image => image.Id, StringComparer.Ordinal)
+            .Select(image => $"{image.Id}\t{image.Width}\t{image.Height}\t{image.AnchorX}\t{image.AnchorY}\t{DataCatalog.Hash(image.CopyRgba())}\n"));
+        Check(DataCatalog.Hash(System.Text.Encoding.ASCII.GetBytes(identity)) ==
+            "6d89a40157199602053fe70e1f4bc16b8f1d54ae4c72c8610176c2cda6627eee",
+            "All48 decoded choice/flash images, authored anchors and bottom-first RGBA must match the independent WIFF exporter.");
+        var composer = new SourceHudComposer(data.Hud, art, data.RecordChoiceRasters);
+        var viewport = new SourceHudViewport(512, 384, 512, 384, 1);
+        SourceHudPrimitive[] Draw(SourceRecordScreenView view) => composer.Records(view, viewport).ToArray();
+        SourceHudPrimitive Choice(SourceRecordScreenView view, int station)
+        {
+            var packets = Draw(view);
+            Check(!packets.Any(packet => packet.TextContent is "YES" or "NO"),
+                "The original player choice must never emit substitute YES/NO font glyphs.");
+            return packets.Single(packet => packet.Element == $"records/station/{station}/choice");
+        }
+        for (int id = 0; id < 4; id++)
+            foreach (bool yes in new[] { false, true })
+            {
+                var station = new SourceRecordStationScreen(id, "Choice", null, null, 0, 0, yes, null);
+                var view = new SourceRecordScreenView(SourceRecordScreenKind.Selection, "", null, "", "", "", false,
+                    id, stations: new[] { station });
+                var packet = Choice(view, id);
+                string symbol = (yes ? "yes_" : "no_") + (id < 2 ? "l" : "r");
+                Check(packet.SourceImageSymbol == symbol && packet.Color == 0xffffffffu,
+                    "Every physical station must use its source left/right selected artwork without a guessed tint.");
+                var plate = art.Image("ynplq" + (id + 1));
+                var image = data.RecordChoiceRasters[symbol];
+                Check(packet.Bounds.X == id * 128 + (plate.AnchorX - image.AnchorX) * 128d / plate.Width &&
+                    Math.Abs(packet.Bounds.Y - (46 + (plate.AnchorY - image.AnchorY) * 276d / plate.Height)) < 1e-10,
+                    "Selected artwork must share the plaque transform and authored anchor, not an independent text position.");
+                for (int frame = 0; frame < 11; frame++)
+                {
+                    var flashing = new SourceRecordStationScreen(id, "Choice", null, null, 0, 0, yes, null, frame);
+                    var flashView = new SourceRecordScreenView(SourceRecordScreenKind.Selection, "", null, "", "", "", false,
+                        id, stations: new[] { flashing });
+                    Check(Choice(flashView, id).SourceImageSymbol ==
+                        (yes ? "yglw" : "nglw") + (id < 2 ? "l" : "r") + (frame + 1).ToString("D2"),
+                        "Both answers at every physical station must render their own original confirmation frame.");
+                }
+            }
+        foreach (bool yes in new[] { false, true })
+        {
+            var store = new SourcePlayerRecordStore(new TwoStationRecordsStorage());
+            store.LoadAsync().GetAwaiter().GetResult();
+            var sink = new CompleteAvSink();
+            var host = new PlayerHost(data, sink, options: PreviewOptions.FromUrl("", data.Catalog.Profile.StableId), recordStore: store);
+            void Raw(int button = 0, int y = 0)
+            {
+                var axes = new double[8]; axes[1] = y;
+                host.Capture(axes, new[] { button, 0, 0, 0 });
+            }
+            void Pump(int count)
+            {
+                for (int i = 0; i < count; i++) { Raw(); host.Advance(1d / 57, 512, 384, 512, 384, 1); }
+            }
+            void Tap(int button, int y = 0)
+            {
+                Raw(); Raw(button, y); Raw(); Pump(70);
+            }
+            host.Advance(0, 512, 384, 512, 384, 1);
+            Tap(4); Tap(1);
+            var runtime = host.Session.Records;
+            Check(runtime.View().Stations.First().Step == "Choice", "Public cabinet C/options/A must reach original name entry.");
+            Check(Choice(runtime.View(), 0).SourceImageSymbol == "no_l", "The source defaults to NO.");
+            Tap(0, -1);
+            Check(Choice(runtime.View(), 0).SourceImageSymbol == "yes_l", "UP must select the original YES artwork.");
+            Tap(0, 1);
+            Check(Choice(runtime.View(), 0).SourceImageSymbol == "no_l", "DOWN must restore the original NO artwork.");
+            if (yes) Tap(0, -1);
+            Raw(); Raw(1); Raw();
+            long tick = -1;
+            for (int i = 0; i < 10; i++)
+            {
+                Pump(1);
+                if (runtime.View(host.PreGameSounds.SourceTick).Stations.First().ChoiceFlashFrame >= 0)
+                { tick = host.PreGameSounds.SourceTick; break; }
+            }
+            Check(tick >= 0, "A genuine accepted source button edge must begin confirmation animation.");
+            for (int offset = 0; offset < 33; offset++)
+            {
+                var view = runtime.View(tick + offset);
+                Check(view.Stations.First().Step == "Choice" &&
+                    Choice(view, 0).SourceImageSymbol == (yes ? "yglwl" : "nglwl") + (offset / 3 + 1).ToString("D2"),
+                    "select.c flash_yes_no must retain eleven authored frames for three source ticks each.");
+            }
+            Check(runtime.View(tick + 33).Stations.First().Step == (yes ? "Name" : "Selected") &&
+                !Draw(runtime.View(tick + 33)).Any(packet => packet.Element == "records/station/0/choice"),
+                "Exactly33 source ticks must reveal the existing name/guest state, without changing record selection semantics.");
+        }
+        Console.WriteLine(JsonSerializer.Serialize(new { schema = "original-record-choice-art/v1", assertions = assertions - before }));
+    }
+
     private static void VerifyCabinetParticipation(PlayerData data, byte[] manifest, Func<string, byte[]> read)
     {
         int before = assertions;

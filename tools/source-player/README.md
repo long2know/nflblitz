@@ -26,6 +26,23 @@ Packaging must include `view-controls.js`; static-only reuse opts in with
 
 ## Original pregame, records and live global-mixer successor
 
+The name/PIN YES/NO choice uses the original `no_l/yes_l/no_r/yes_r`
+sprites, not separate font labels. The already pinned `original/source/img2d/ynplaq3.wif`
+contains those four cursors and all 44 `nglw*/yglw*` confirmation frames; the
+host decodes that bounded RGBA subset into presentation-only carriers without
+changing AssetImport APIs, the frozen 104-source kernel closure, any asset package,
+manifest, historical raster inventory or source-image pins. Authored anchors
+share the existing player plaque transform. Original `select.c:flash_yes_no`
+advances eleven confirmation frames, three source ticks per frame, before
+revealing the unchanged name/guest result. This does not certify other menu
+transitions or whole-screen native pixel parity.
+
+Run `SourcePlayer.Checks.dll DATA --record-choice-art-only` for one-shot raw-input
+reuse, independent decoded-pixel/anchor hashes, left/right stations, actual UP/DOWN/A input and
+the 33-source-tick confirmation boundary. `records-choice.browser.mjs --before URL
+--after URL --output DIRECTORY` captures actual before/after WASM/WebGL output
+using trusted input, normal Chrome sandbox and default autoplay.
+
 `original-teams-complete-original303-prematch` uses963 authenticated inputs,
 manifest `309ca9cf4f7f0d3b9f8b43427ab581fda4257d072ea00bfdb4ccc0003c2cba4f`,
 and `SourceC2Composition.CreateCompleteOriginalPrematchSimulation`. It keeps

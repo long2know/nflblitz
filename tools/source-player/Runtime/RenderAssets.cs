@@ -97,6 +97,14 @@ public sealed class RenderAssets
                     raster.Kind == "shadow", true, raster.Sha256, raster.SourcePath + " / " + raster.Representation);
                 TextureCount++;
             }
+        if (data.RecordChoiceRasters != null)
+            foreach (SourceRecordChoiceRaster raster in data.RecordChoiceRasters.Values)
+            {
+                byte[] rgba = raster.CopyRgba();
+                sink.Texture("hud/original/" + raster.Id, raster.Width, raster.Height, rgba, 1, false, true,
+                    DataCatalog.Hash(rgba), "img2d/ynplaq3.wif / original pinned WIFF IMG RGBA; bottom-first; source name/PIN choice cursor");
+                TextureCount++;
+            }
         if (data.Catalog.Profile.UsesRecordPresentation)
         {
             byte[] solid = { 255, 255, 255, 255 };

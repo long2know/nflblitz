@@ -448,14 +448,18 @@ class SelectionCI(unittest.TestCase):
     def test_exact_camera_successor_and_actual_frozen_predecessor_remain_distinct(self):
         current = run.capture_sources()
         predecessor = "675ec6b2756492e258496477db1b2233dc75c1c4"
+        camera_predecessor = "15b13b671e4e362659a35be53f693814f9909904"
         harness_paths = {"Program.cs": "tests/selection-countdown/Program.cs",
                          "RandomChecks.cs": "tests/selection-countdown/RandomChecks.cs",
                          "FullKernelInputs.cs": "tests/parity/FullKernelInputs.cs"}
         historical = {name: subprocess.check_output(
                           ["git", "show", predecessor + ":" + harness_paths.get(name, name)], cwd=ROOT)
                       for name in current}
+        camera_sources = {name: subprocess.check_output(
+                              ["git", "show", camera_predecessor + ":" + harness_paths.get(name, name)], cwd=ROOT)
+                          for name in current}
         contracts = []
-        for sources in (historical, current):
+        for sources in (historical, camera_sources, current):
             hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw in sources.items()}
             contracts.append(run.current_summary_contract(hashes))
         self.assertEqual(contracts, [
@@ -465,41 +469,67 @@ class SelectionCI(unittest.TestCase):
             dict(generation="reviewed-normal-camera-fabs-selection-source/v1", sourceCount=131,
                  sourceSha256="a5273cf8459ea8ee2020275abc0a757b2e1d5f959ce0f15b5898d100b2ad1d58",
                  fullAssertions=45116),
+            dict(generation="reviewed-records-art-selection-source/v1", sourceCount=131,
+                 sourceSha256="3b66a5889dcd4d0c0ddd7f8515734045b49cdb0ec77cad7c904d5425a6904790",
+                 fullAssertions=45116),
         ])
         camera = "Assets/Scripts/Presentation/SourceNormalCameraModel.cs"
-        self.assertEqual([name for name in current if historical[name] != current[name]], [camera])
-        for sources in (historical, current):
+        self.assertEqual([name for name in camera_sources if historical[name] != camera_sources[name]], [camera])
+        records_delta = (
+            "Assets/Scripts/Presentation/SourceHudComposer.Records.cs",
+            "Assets/Scripts/Presentation/SourceHudComposer.cs",
+            "Assets/Scripts/Presentation/SourceRecordScreenModel.cs",
+        )
+        self.assertEqual(tuple(name for name in current if camera_sources[name] != current[name]), records_delta)
+        for generation, sources in enumerate((historical, camera_sources, current)):
             for name in sources:
-                with self.subTest(generation=sources is current, source=name):
+                with self.subTest(generation=generation, source=name):
                     hashes = {n: hashlib.sha256(raw).hexdigest() for n, raw in sources.items()}
                     hashes[name] = hashlib.sha256(sources[name] + b"\n").hexdigest()
                     with self.assertRaisesRegex(AssertionError, "exact reviewed complete"):
                         run.current_summary_contract(hashes)
-        crossed = dict(current)
-        crossed.pop("RandomChecks.cs")
+            for change in ("missing", "extra", "wrong-path"):
+                crossed = dict(sources)
+                if change != "extra":
+                    crossed.pop("RandomChecks.cs")
+                if change != "missing":
+                    crossed["UndeclaredChecks.cs"] = sources["RandomChecks.cs"]
+                with self.subTest(generation=generation, change=change), self.assertRaisesRegex(
+                        AssertionError, "exact reviewed complete"):
+                    run.current_summary_contract({n: hashlib.sha256(raw).hexdigest() for n, raw in crossed.items()})
+        for mask in range(1, 7):
+            crossed = dict(camera_sources)
+            for bit, name in enumerate(records_delta):
+                if mask & (1 << bit):
+                    crossed[name] = current[name]
+            with self.subTest(partialRecordsDelta=mask), self.assertRaisesRegex(AssertionError, "exact reviewed complete"):
+                run.current_summary_contract({n: hashlib.sha256(raw).hexdigest() for n, raw in crossed.items()})
+        crossed = dict(current, **{camera: historical[camera]})
         with self.assertRaisesRegex(AssertionError, "exact reviewed complete"):
             run.current_summary_contract({n: hashlib.sha256(raw).hexdigest() for n, raw in crossed.items()})
 
     def test_unrelated_real_production_edit_is_rejected_before_toolchain_or_inputs(self):
-        path = ROOT / "Assets/Scripts/Gameplay/SourceClock.cs"
-        original = path.read_bytes()
-        output = self.output / "unrelated-source-cli"
-        tokens = RUN_COMMAND.split()[3:]
-        tokens[tokens.index("--output") + 1] = str(output)
-        try:
-            path.write_bytes(original + b"\n")
-            child = subprocess.run(["python3", "-B", str(HERE / "run.py"), *tokens],
-                                   cwd=ROOT, capture_output=True, text=True)
-            self.assertEqual(child.returncode, 1)
-            self.assertIn("exact reviewed complete production/checks source generation", child.stderr)
-            report = json.loads((output / "result.json").read_text())
-            self.assertEqual(report["sourceHashes"][path.relative_to(ROOT).as_posix()],
-                             hashlib.sha256(original + b"\n").hexdigest())
-            self.assertEqual(report["runs"], [])
-            self.assertNotIn("summarySourceContract", report)
-            self.assertNotIn("toolchainPreflight", report)
-        finally:
-            path.write_bytes(original)
+        for name in ("Assets/Scripts/Gameplay/SourceClock.cs",
+                     "Assets/Scripts/Presentation/SourceHudComposer.Records.cs"):
+            path = ROOT / name
+            original = path.read_bytes()
+            output = self.output / ("source-drift-cli-" + path.stem)
+            tokens = RUN_COMMAND.split()[3:]
+            tokens[tokens.index("--output") + 1] = str(output)
+            with self.subTest(source=name):
+                try:
+                    path.write_bytes(original + b"\n")
+                    child = subprocess.run(["python3", "-B", str(HERE / "run.py"), *tokens],
+                                           cwd=ROOT, capture_output=True, text=True)
+                    self.assertEqual(child.returncode, 1)
+                    self.assertIn("exact reviewed complete production/checks source generation", child.stderr)
+                    report = json.loads((output / "result.json").read_text())
+                    self.assertEqual(report["sourceHashes"][name], hashlib.sha256(original + b"\n").hexdigest())
+                    self.assertEqual(report["runs"], [])
+                    self.assertNotIn("summarySourceContract", report)
+                    self.assertNotIn("toolchainPreflight", report)
+                finally:
+                    path.write_bytes(original)
 
     def test_success_requires_exact_full_or_causal_scope_not_a_case_count(self):
         fixtures, timer = run.required_inventory()

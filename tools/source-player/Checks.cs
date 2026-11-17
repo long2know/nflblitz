@@ -2053,6 +2053,8 @@ static partial class Checks
                 VerifyLoaderContract(manifest, Read, index >= 0 ? args[index + 1] : null);
                 return 0;
             }
+            if (args.Contains("--record-choice-art-only"))
+            { VerifyRecordChoiceArt(manifest, Read); return 0; }
             var catalog = new DataCatalog(manifest, Read);
             var data = new PlayerData(catalog);
             if (args.Contains("--two-station-join-revision-only"))

@@ -25,6 +25,7 @@ public sealed class SourceCabinetRecordsRuntime : ISourceRecordCommitBarrier
     {
         internal EntryStep Step;
         internal bool Yes;
+        internal long ChoiceConfirmedTick = -1;
         internal int Cursor, Entered;
         internal readonly char[] Name = new char[6], Pin = new char[4];
         internal SourceRecordIdentity Identity;
@@ -34,6 +35,7 @@ public sealed class SourceCabinetRecordsRuntime : ISourceRecordCommitBarrier
         {
             Array.Fill(Name, '-'); Array.Fill(Pin, '\0');
             Cursor = Entered = 0; Yes = false; Message = null;
+            ChoiceConfirmedTick = -1;
         }
     }
 
@@ -403,6 +405,7 @@ public sealed class SourceCabinetRecordsRuntime : ISourceRecordCommitBarrier
                 bool answer = station.Yes;
                 if (answer) { BeginName(id); station.Yes = answer; }
                 else SelectGuest(id, "NO NAME ENTRY - GUEST");
+                station.ChoiceConfirmedTick = menuWake?.Scan.SourceTick ?? -1;
                 Cue(SourceCabinetRecordSound.YesNoSelect);
             }
         }
@@ -1084,7 +1087,7 @@ public sealed class SourceCabinetRecordsRuntime : ISourceRecordCommitBarrier
         return at;
     }
 
-    public SourceRecordScreenView View()
+    public SourceRecordScreenView View(long? presentationSourceTick = null)
     {
         SourcePlayerRecord record = SelectedRecord(focus);
         var rows = new List<SourceRecordScreenRow>();
@@ -1190,10 +1193,12 @@ public sealed class SourceCabinetRecordsRuntime : ISourceRecordCommitBarrier
         var stationViews = Joined().Select(id =>
         {
             Station value = stations[id];
+            long flashTick = (presentationSourceTick ?? menuSourceTick) - value.ChoiceConfirmedTick;
+            bool flashing = value.ChoiceConfirmedTick >= 0 && flashTick >= 0 && flashTick < 33;
             string display = value.State == SourceRecordSelectionState.Guest ? null : value.Identity?.Name ?? new string(value.Name);
-            return new SourceRecordStationScreen(id, value.Step.ToString(), display,
+            return new SourceRecordStationScreen(id, flashing ? "Choice" : value.Step.ToString(), display,
                 new string('*', value.Step == EntryStep.Pin ? value.Entered : 0).PadRight(4, '-'),
-                value.Cursor, value.Entered, value.Yes, value.Message);
+                value.Cursor, value.Entered, value.Yes, value.Message, flashing ? (int)(flashTick / 3) : -1);
         }).ToArray();
         SourceCustomPlay preview = draft;
         if (screen == SourceRecordScreenKind.Formation && draft != null)

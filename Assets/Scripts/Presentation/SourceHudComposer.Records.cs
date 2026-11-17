@@ -168,10 +168,20 @@ namespace Blitz.Presentation
                 }
                 else if (station.Step == "Choice")
                 {
-                    RecordText("records/station/" + station.StationId + "/yes", "bast18", "YES",
-                        viewport, x + 7, 140, 114, 28, station.Yes ? Yellow : White);
-                    RecordText("records/station/" + station.StationId + "/no", "bast18", "NO",
-                        viewport, x + 7, 191, 114, 28, station.Yes ? White : Yellow);
+                    string side = station.StationId < 2 ? "l" : "r";
+                    string symbol = station.ChoiceFlashFrame < 0 ? (station.Yes ? "yes_" : "no_") + side :
+                        (station.Yes ? "yglw" : "nglw") + side + (station.ChoiceFlashFrame + 1).ToString("D2",
+                            System.Globalization.CultureInfo.InvariantCulture);
+                    SourceOriginalRaster plate = RecordRaster(plaque + (station.StationId + 1));
+                    if (recordChoices == null || !recordChoices.TryGetValue(symbol, out SourceRecordChoiceRaster highlight))
+                        throw new SourceInterfaceException("SOURCE_RECORD_ART_REQUIRED: original choice artwork is missing.");
+                    // Apply the plaque's existing transform to both authored anchors;
+                    // the grey unselected words remain part of the original plaque.
+                    double sx = 128d / plate.Width, sy = 276d / plate.Height;
+                    OriginalImage("records/station/" + station.StationId + "/choice", symbol, viewport,
+                        x + (plate.AnchorX - highlight.AnchorX) * sx,
+                        46 + (plate.AnchorY - highlight.AnchorY) * sy,
+                        highlight.Width * sx, highlight.Height * sy);
                     RecordText("records/station/" + station.StationId + "/help", "bast8t", "UP YES / DOWN NO / A",
                         viewport, x + 4, 278, 120, 21, Yellow);
                 }
