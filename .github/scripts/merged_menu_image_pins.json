@@ -1,0 +1,170 @@
+{
+  "assemblies": [
+    {
+      "bytes": 42773,
+      "path": "_framework/SourcePlayer.Browser.wasm",
+      "sha256": "c1a32fad68e89582a4a112f146eda1ada9f9210dcffcf4ab3cbb46e6acf07a19"
+    },
+    {
+      "bytes": 2671385,
+      "path": "_framework/SourcePlayer.Core.wasm",
+      "sha256": "c946d82e2bb4084b010c7e86103ec917917e5cf8e1daa46a972bcd86775da54b"
+    }
+  ],
+  "execution": {
+    "applicationObjects": [
+      {
+        "assembly": "SourcePlayer.Core",
+        "bytes": 10436073,
+        "sha256": "894d6d35467c1569d25665e2fe925f3684564b4fdfa0f3c9e958b08d4ddccd83",
+        "symbol": "mono_aot_module_SourcePlayer_Core_info"
+      },
+      {
+        "assembly": "SourcePlayer.Browser",
+        "bytes": 421557,
+        "sha256": "618113f9aeb56b3d80c7008f86ede7573c021d5f765498fc5c4e034ca37be6e2",
+        "symbol": "mono_aot_module_SourcePlayer_Browser_info"
+      }
+    ],
+    "callerDrain": {
+      "audioLeadChanged": false,
+      "elapsedSecondsPerDrain": 0,
+      "freshInputPollingPerDrain": 0,
+      "maximumBridgeIntervalSeconds": 0.1,
+      "maximumHostStepsPerCallback": 6,
+      "scheduling": "MessageChannel",
+      "schema": "bounded-source-caller-drain/v1",
+      "sourceClockRngOrEpochChanged": false
+    },
+    "callerProfile": "aot-rooted-bounded-caller-drain-av306/v1",
+    "debugLevel": 0,
+    "jsonReflectionEnabled": true,
+    "mode": "aot",
+    "moduleRegistrationSha256": "478dfe07095bf596af669c1286f47ca6dd9c3be5c0c6729816c2aec87978e375",
+    "nativeRuntimeSha256": "060105150bb8af1fbe317d4839aa9749c6917860516946063db5a65f04a92243",
+    "prebuiltRuntimeSha256": "26ad7a0c996c34ffc4672deee5d51f84fbb4af8bea722404dddd0b49a7a549eb",
+    "publishTrimmed": true,
+    "rootedApplicationAssemblies": [
+      "SourcePlayer.Core",
+      "SourcePlayer.Browser"
+    ],
+    "runAOTCompilation": true,
+    "schema": "mono-wasm-aot-rooted-execution/v1",
+    "sourceStepCostDiagnostics": "bounded-readonly/v1",
+    "trimmingExplicitlyAuthorized": true,
+    "wasmBuildNative": true
+  },
+  "helperSources": [
+    {
+      "path": ".github/scripts/fresh_main_image.py",
+      "sha256": "754b002703faf6527c549a5d3189fa85bd8d462dfdb89523756d6338fc742d89"
+    },
+    {
+      "path": ".github/scripts/fresh_main_image.browser.mjs",
+      "sha256": "c0ca4aebb9908cbe9323e1ed57664909412ad8e6d90fbd146683f188ce8c582f"
+    },
+    {
+      "path": ".github/workflows/fresh-main-image.yml",
+      "sha256": "79ef20cbd4b5db0b289a1c8dc141018f1d94e025fe0ed17437941e8c8c1afd53"
+    },
+    {
+      "path": ".github/scripts/view_controls_image.py",
+      "sha256": "8ee78b179445c8306f9984c55d12bbd21da3770a731f1dc017fe9bb6b91f6163"
+    },
+    {
+      "path": ".github/scripts/verified_cache_image.py",
+      "sha256": "315978372ae35b32722cab907a0d411b8114562770909c8cd094bc02e9ee61c4"
+    },
+    {
+      "path": ".github/scripts/public_existing_latest.py",
+      "sha256": "1b98919f0c657ed36c1b2466e9fd640f9ee870ed3bbe6e7b3c0c301c877ed773"
+    },
+    {
+      "path": "tools/source-player/deploy/registry_transfer.py",
+      "sha256": "c554c818082878d2c1eb33db9ce1b1f8115f1ade78049f0af4219771c4cb267d"
+    },
+    {
+      "path": "tools/source-player/deploy/private_target_recovery.py",
+      "sha256": "d031a16c6623c0985d2f25cac691cc1b1a358ebf79a036792f149291d9884e49"
+    },
+    {
+      "path": "tools/source-player/deploy/private_target_recovery_pins.json",
+      "sha256": "854eb3003396c46a8ca84ac8bdee7a74dbe7d6897a29ef21cabd05886a31433e"
+    },
+    {
+      "path": "tools/source-player/deploy/package.py",
+      "sha256": "9750b455dfe4476cba9d4a39799b25f81d19e9281e40d48ee98c0953337817af"
+    },
+    {
+      "path": "tools/source-player/deploy/test_deployment.py",
+      "sha256": "0c77e40eb95ad2705b1ce0c279f4106abd08f4ecf39dc0a5dd059ae837d16820"
+    },
+    {
+      "path": "tools/source-player/refresh_static_bundle.py",
+      "sha256": "09c619d9cfc68b06dcbf912614d2973336cce4b4b7025e33da72ba9cd0887da8"
+    },
+    {
+      "path": "tools/source-player/verified-cache.browser.mjs",
+      "sha256": "ad91774bb210968273fcabd41c12b464049d4b336b9f113339dc39879f04fd3e"
+    },
+    {
+      "path": "tools/source-player/view-controls.browser.mjs",
+      "sha256": "9cea7d296faa3f4138fb222ceac76e8bb463fdb5630528765519787e5696bcfd"
+    },
+    {
+      "path": "tests/browser/lib.mjs",
+      "sha256": "9bbfbde8d3969b88b0a450e64590e35d431bade16460bc02f6fb5ef40ab44226"
+    },
+    {
+      "path": "tests/browser/runtime.mjs",
+      "sha256": "19914ca4851d90cf7312341694a2f2c9b758f2d1c74fa709c687b76edc2f8ab7"
+    },
+    {
+      "path": "tools/source-player/build.py",
+      "sha256": "61dd394da19180e1b05c6fde9ce97b95ed7c5d192f3823da7380e8895a110a68"
+    },
+    {
+      "path": "tools/source-player/records-choice.browser.mjs",
+      "sha256": "8d8be679e10875d92ce1b1538b6fe6b41757461d77b363fe734d4fff52140586"
+    },
+    {
+      "path": "tests/browser/chrome.mjs",
+      "sha256": "22cf5d3b2b4464c8971f230d97db1f485fea468029da90e448ff54a7df97db47"
+    }
+  ],
+  "independentArtifactQuality": {
+    "promotionAuthorizedByReport": false,
+    "remainingMandatoryGate": "New exact image independent artifact review, then proper runner ordinary UID1000 noTMPFS, full HTTP and sandboxed C#/WebGL2/audio/cache/view plus Enter/NumpadEnter and all11 YES/NO frames before latest; separate anonymous consumer afterward.",
+    "reportSha256": "5300ff18e74205a56d73dbd81cd606e97a213f003f62ac57c7dc73ddbab2b44d",
+    "reviewer": "Quality",
+    "verdict": "CONDITIONAL APPROVE"
+  },
+  "inventoryFileSha256": "ad3a7383b20df9179e6f14c2cc40d7c0a667374314c8a6bea4a0184cbc581af7",
+  "mergedMain": "f567d61d8c228aaeb5055c6b47ed916db8b44961",
+  "priorConfig": "sha256:dd755efb16ad2bb10efd718ceea57c712105eb1dfb8d377d14fc7c1b857297a2",
+  "priorManifest": "sha256:2f14d981336a69e5e10a9b6151b71ce9d1b5f3bfbb90b57b4dad72a0e2406016",
+  "rootfsDiffIds": [
+    "sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711",
+    "sha256:cfdd095735fdd5446c20bc2ed8519335912cbfea5190f03796c6625be4b4dbc2",
+    "sha256:ad50fc9f4d5b778261c949d9ffaa83a193d841bd9ea3dc7871191523f53d0f60",
+    "sha256:16b7c6f49eb2521c0f616e9e66952eb33f34775e1a9545e69441e98286fa422e",
+    "sha256:be8ef9e29ff8a08a6eac69287fc514047b7ca85d58146a892ddd90167a2fd313",
+    "sha256:cb09ecf501197401f91f8f412df01b82dc9bc01dbe4517014e3acb37bf1579b4",
+    "sha256:3c892ead291ba3249de1788eab3106b0a22a1d5825c576a521461ef892f8330c",
+    "sha256:5b3ffab8abecffd4d366601ff6a96d832bf8556442c01ef34e9d97d9d2a8777c",
+    "sha256:6c449a7eab88841a4229cdb58fda948d1620d91e6c22bd270ac0fc93a2e990b2",
+    "sha256:af8ebaa95d949172b943b2cf5e2d0a3ff6e2acca255ee8712ba6e8377a155cb1",
+    "sha256:aff3bfe45d22336bb25f4cc2f1a94dcb9b267a1ff28e6cdf9ad0f6d02d10977a",
+    "sha256:a4805fd39bb5cae24868b9d95039280a717f24631e1494b4b78f00c035e8ceff"
+  ],
+  "schema": "closed-merged-menu-public-original1153-image/v1",
+  "transfer": {
+    "archive_sha256": "d645a1cb638334e239089f1f3e03bc8534dda7ef8dfa6bc8240c60e418f62558",
+    "build_sha256": "f2d64550ecfa2bf5423059243cf8e113872e5548ace39c4bf827e76481b319a2",
+    "data_manifest_sha256": "51e94caffcf5875e024206eb069dfd905ee13e134b09e7f5020ff68349461e5d",
+    "image_id": "sha256:e4cb1963b5259fee5f79b357fbca93a2123407f05e96522a33e9d674ad4fac79",
+    "source_digest": "d91cd359fb5993e7e39bb8e7e79741774fcfa506e465864ee1b47d743ebca1db",
+    "source_revision": "89f9ed0d93cc5aafc75823639b8074c162f6afe7",
+    "source_tag": "nflblitz-original:merged-menu-89f9ed0-20261116-amd64"
+  }
+}

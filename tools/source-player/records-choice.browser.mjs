@@ -11,8 +11,10 @@ const option = name => {
   assert(at >= 0 && process.argv[at + 1], `Explicit ${name} required.`);
   return process.argv[at + 1];
 };
-const before = option('--before'), after = option('--after'), output = option('--output');
-for (const url of [before, after]) assert.equal(new URL(url).hostname, '127.0.0.1');
+const afterOnly = process.argv.includes('--after-only');
+assert(!(afterOnly && process.argv.includes('--before-only')), 'Choose one bounded browser mode.');
+const before = afterOnly ? null : option('--before'), after = option('--after'), output = option('--output');
+for (const url of [before, after].filter(Boolean)) assert.equal(new URL(url).hostname, '127.0.0.1');
 assert.notEqual(process.getuid(), 0, 'Use the normal Chrome sandbox as a non-root user.');
 await mkdir(output, { recursive: true });
 const runtime = await createChromeRuntime();
@@ -82,7 +84,7 @@ try {
       pngSha256: createHash('sha256').update(png).digest('hex') });
     console.log(JSON.stringify({ captured: name }));
   };
-  const variants = [['before', before, false]];
+  const variants = afterOnly ? [] : [['before', before, false]];
   if (!process.argv.includes('--before-only')) variants.push(['after', after, false], ['after-yes', after, true]);
   for (const [label, url, answer] of variants) {
     await cdp.send('Page.navigate', { url });
