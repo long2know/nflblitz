@@ -20,6 +20,11 @@ Older view/cache/private lanes remain unchanged.
 The new saved image requires its own independent Quality certificate. A pending
 certificate prevents transfer preparation and workflow publication, even with an
 owner `--qa-approved` attestation. Source PR57 approval does not certify this image.
+Quality **CONDITIONALLY APPROVED** the exact image/archive and publisher `6489ae3`
+in `review-pr58/report.json`, SHA256
+`5300ff18e74205a56d73dbd81cd606e97a213f003f62ac57c7dc73ddbab2b44d`.
+This is not promotion authority: all ordinary-runner and anonymous-consumer
+checks below remain mandatory.
 Only after independent artifact approval and the focused publisher PR's normal
 merge into main:
 

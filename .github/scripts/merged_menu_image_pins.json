@@ -135,9 +135,9 @@
   "independentArtifactQuality": {
     "promotionAuthorizedByReport": false,
     "remainingMandatoryGate": "New exact image independent artifact review, then proper runner ordinary UID1000 noTMPFS, full HTTP and sandboxed C#/WebGL2/audio/cache/view plus Enter/NumpadEnter and all11 YES/NO frames before latest; separate anonymous consumer afterward.",
-    "reportSha256": null,
+    "reportSha256": "5300ff18e74205a56d73dbd81cd606e97a213f003f62ac57c7dc73ddbab2b44d",
     "reviewer": "Quality",
-    "verdict": "PENDING"
+    "verdict": "CONDITIONAL APPROVE"
   },
   "inventoryFileSha256": "ad3a7383b20df9179e6f14c2cc40d7c0a667374314c8a6bea4a0184cbc581af7",
   "mergedMain": "f567d61d8c228aaeb5055c6b47ed916db8b44961",
